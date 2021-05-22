@@ -1,6 +1,6 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
-"""Decorates which can wrap existing transforms (augmentations) to the DLUP format."""
+# Copyright (c) dlup contributors
+"""Decorates which can wrap existing transforms (augmentations) to the dlup format."""
 import collections.abc
 import functools
 import re

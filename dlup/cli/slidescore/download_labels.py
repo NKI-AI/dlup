@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 import argparse
 import logging
 from pathlib import Path

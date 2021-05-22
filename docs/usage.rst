@@ -1,31 +1,47 @@
-How to use DLUP in your project
+How to use dlup in your project
 ===============================
-There are several ways to include DLUP in your project, of which Git submodules or dockers are likely
-the most convenient for you.
-
-
-As a python package
--------------------
-To use DLUP in a project:
-
-.. code-block:: python
-
-    import dlup
+As dlup is a helper library, it is convenient to include dlup in your project. Recommended is to use a Git submodule or
+a docker container (or both!).
 
 
 As a Git submodule
 ------------------
-If you want to use DLUP in your project, it can be advantageous to freeze the version, and include DLUP
+If you want to use dlup in your project, it can be advantageous to freeze the version, and include dlup
 in your Git repository. For instance, you can use something like:
 
 .. code-block:: console
 
-    $ git submodule add git://github.com/NKI-AI/dlup third_party/dlup
-    $ git commit -m "Added DLUP as submodule to the project."
-    $ git push
+    $ git submodule add git@github.com:NKI-AI/dlup.git third_party/dlup
+    $ git submodule init
+    $ git submodule update
 
-If you want to update the submodule to the latest version, you need to execute :code:`git pull` in the
-submodules directory :code:`third_party/dlup`.
+If you want the latest version, you can now commit:
+
+.. code-block:: console
+
+    $ git commit -a
+
+However, if you would want a specific version, for instance :code:`v0.1.0`, do the following before you commit:
+
+.. code-block:: console
+
+    $ cd third_party/dlup
+    $ git reset --hard v0.1.0
+
+When committed, you can check the status of your submodule
+
+.. code-block:: console
+
+    $ cd third_party/dlup
+    $ git submodule status
+
+If succesful, you should see something like:
+
+.. code-block:: console
+
+    $ e50b81a5fbfcef63eb214d344438ada86a4e5dc0 dlup (v0.1.0)
+
+The module can subsequently be installed. Please visit the :doc:`/installation` page for further details.
 
 
 As a Docker container

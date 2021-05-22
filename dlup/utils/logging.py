@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 import logging
 import pathlib
 import sys
@@ -13,7 +13,7 @@ def setup_logging(
     formatter_str: str = "[%(asctime)s | %(name)s | %(levelname)s] - %(message)s",
 ) -> None:
     """
-    Setup logging for DLUP.
+    Setup logging for dlup.
 
     Parameters
     ----------

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 import itertools
 import warnings
 from collections.abc import Mapping

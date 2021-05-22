@@ -6,23 +6,23 @@ Installation
 
 General
 -------
-DLUP is the Deep Learning Utilities for Pathology toolkit. DLUP contains functions useful for apply deep learning
+Dlup is the Deep Learning Utilities for Pathology toolkit. dlup contains functions useful for apply deep learning
 in computational pathology, such as image normalization, pathology specific augmentations and models. But it also
 contains command line tools to download and upload data from data repositories. For a more general introduction
 head over to the :doc:`/readme` page.
 
-DLUP uses `OpenSlide`_ to read Whole-Slide Images (WSI). We have some specific changes in our `fork of OpenSlide`_ which
+Dlup uses `OpenSlide`_ to read Whole-Slide Images (WSI). We have some specific changes in our `fork of OpenSlide`_ which
 improve the compatibility with other images.
 
 Usage
 #####
-:doc:`/usage` collects some best practices on how to use DLUP in your project.
+:doc:`/usage` collects some best practices on how to use dlup in your project.
 
 
 
 Build from source
 -----------------
-The sources for DLUP can be downloaded from the `Github repo`_.
+The sources for dlup can be downloaded from the `Github repo`_.
 You can clone the public repository and install it as follows
 
 .. code-block:: console

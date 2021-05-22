@@ -1,5 +1,5 @@
-# Docker for DLUP
-A Dockerfile is provided for DLUP which provides you with all the required dependencies.
+# Docker for dlup
+A Dockerfile is provided for dlup which provides you with all the required dependencies.
 
 To build the container, run the following command from the root directory:
 ```

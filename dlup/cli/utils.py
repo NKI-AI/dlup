@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 import datetime
 import logging
 import pathlib
@@ -15,7 +15,7 @@ def build_cli_logger(
     log_directory: PathLike = ".",
 ) -> None:
     """
-    Setup logging for DLUP.
+    Setup logging for dlup.
 
     Parameters
     ----------
@@ -37,4 +37,4 @@ def build_cli_logger(
     levels = ["WARNING", "INFO", "DEBUG"]
     log_level = levels[min(len(levels) - 1, verbosity_level)]
     setup_logging(filename=log_filename if log_to_file else None, log_level=log_level)
-    logging.warning("Beta software. In case you run into issues report at https://github.com/NKI-AI/DLUP/.")
+    logging.warning("Beta software. In case you run into issues report at https://github.com/NKI-AI/dlup/.")

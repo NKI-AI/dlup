@@ -1,4 +1,4 @@
-Welcome to DLUP's documentation!
+Welcome to dlup's documentation!
 ======================================
 
 .. toctree::
@@ -6,9 +6,10 @@ Welcome to DLUP's documentation!
    :caption: Contents:
 
    readme
+   cli
+   transforms
    installation
    usage
-   cli
    contributing
    modules
 

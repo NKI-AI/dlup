@@ -1,7 +1,7 @@
 Command line tools
 ==================
 
-DLUP provides several command-line tools, all starting with :code:`dlup <command>`. The documentation can
+Dlup provides several command-line tools, all starting with :code:`dlup <command>`. The documentation can
 be found using :code:`dlup --help` or similar with the subcommands.
 
 WSI CLI

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 """SlideScore CLI module. Implements downloading of labels and images and uploading of annotations."""
 import argparse
 import logging

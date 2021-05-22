@@ -1,6 +1,6 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
-"""DLUP Command-line interface. This is the file which builds the main parser."""
+# Copyright (c) dlup contributors
+"""Dlup command-line interface. This is the file which builds the main parser."""
 import argparse
 import sys
 
@@ -23,7 +23,7 @@ def main():
     # From https://stackoverflow.com/questions/17073688/how-to-use-argparse-subparsers-correctly
     root_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    root_subparsers = root_parser.add_subparsers(help="Possible DLUP CLI utils to run.")
+    root_subparsers = root_parser.add_subparsers(help="Possible dlup CLI utils to run.")
     root_subparsers.required = True
     root_subparsers.dest = "subcommand"
 

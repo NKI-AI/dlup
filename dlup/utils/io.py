@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 
 # From: https://github.com/directgroup/direct/blob/master/direct/utils/io.py
 

@@ -75,8 +75,8 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "DLUP"
-copyright = "2020, DLUP Contributors"
+project = "dlup"
+copyright = "2020, dlup contributors"
 author = "Jonas Teuwen"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -184,7 +184,7 @@ latex_elements: Dict[str, str] = {
 # (source start file, target name, title, author, documentclass
 # [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "dlup.tex", "DLUP Documentation", "Jonas Teuwen", "manual"),
+    (master_doc, "dlup.tex", "Dlup Documentation", "Jonas Teuwen", "manual"),
 ]
 
 
@@ -192,7 +192,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "dlup", "DLUP Documentation", [author], 1)]
+man_pages = [(master_doc, "dlup", "Dlup Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------
@@ -204,7 +204,7 @@ texinfo_documents = [
     (
         master_doc,
         "dlup",
-        "DLUP Documentation",
+        "Dlup Documentation",
         author,
         "dlup",
         "One line description of project.",
