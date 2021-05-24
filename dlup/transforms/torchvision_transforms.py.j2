@@ -1,0 +1,72 @@
+# coding=utf-8
+# Copyright (c) DLUP Contributors
+import warnings
+from dlup.transforms.helpers import DlupTransform, convert_numpy_to_tensor, _TORCHVISION_AVAILABLE
+
+if _TORCHVISION_AVAILABLE:
+    import torchvision.transforms as transforms
+else:
+    warnings.warn("torchvision is not installed. Wrapped torchvision transforms are not available.")
+
+
+FORBIDDEN_KEYS = ["mask", "points", "bbox", "contour"]
+
+{% for docstring, (torchvision_transform, can_be_applied_to_mask, keys) in zip(docstrings, torchvision_transforms) %}
+class Tv{{ torchvision_transform }}(DlupTransform):
+    {{ docstring }}
+
+    def __init__(self, *args, **kwargs):
+        if not _TORCHVISION_AVAILABLE:  # pragma: no cover
+            raise ModuleNotFoundError("You want to use transforms from `torchvision` which is not installed yet.")
+
+        self.args = args
+        self.kwargs = kwargs
+
+        super().__init__()
+
+    def __call__(self, sample):
+        {% if not can_be_applied_to_mask -%}
+        if any(_ in sample.keys() for _ in FORBIDDEN_KEYS):
+            raise ValueError(
+                "Cannot apply torchvision {{ torchvision_transform }} due to random changes in the image input geometry.")
+        {%  endif -%}
+        sample = convert_numpy_to_tensor(sample)
+        # Points and bbox might need a custom function to implement, or a 'poor mans' version converting to a mask.
+        if any(_ in sample for _ in ["points", "bbox", "contour"]):
+            raise NotImplementedError(
+                "Tv{{ torchvision_transform }} cannot be applied to "
+                "to any `points`, `bbox` or `contour` without explicit implementation."
+            )
+        {% if keys|length > 1 %}
+        for key in {{ keys }}:
+            data = sample[key]
+            self.__check_dimensionality(data, key)
+            sample[key] = transforms.{{ torchvision_transform }}(*self.args, **self.kwargs)(data)
+        {%  else %}
+        data = sample["{{ keys[0] }}"]
+        self.__check_dimensionality(data, "{{ keys[0] }}")
+        sample["{{ keys[0] }}"] = transforms.{{ torchvision_transform }}(*self.args, **self.kwargs)(data)
+        {% endif -%}
+
+        return sample
+
+    @staticmethod
+    def __check_dimensionality(data, key):
+        """
+        Check if input is 2D.
+
+        Parameters
+        ----------
+        data : ArrayLike
+        key : str
+
+        Returns
+        -------
+
+        """
+        if data.ndim != 3:
+            raise ValueError(
+                f"torchvision transforms can only be applied to 2D data. Got {data.shape} for `{key}`."
+            )
+
+{% endfor -%}

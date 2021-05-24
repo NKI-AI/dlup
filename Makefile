@@ -78,6 +78,9 @@ viewdocs:
 uploaddocs: docs # Compile the docs
 	rsync -avh docs/_build/html/ docs@aiforoncology.nl:/var/www/html/dlup --delete
 
+generate-code: ## generate code
+	bash scripts/code_generator.sh
+
 servedocs: docs ## compile the docs watching for changes
 	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
 
