@@ -13,6 +13,13 @@ from numpy.typing import ArrayLike
 from dlup.slide import Slide, _ensure_array
 
 
+from typing import Union, List
+import numpy.typing as npt
+
+# TODO: Create integer and float type shapes.
+SizeLike = Union[List[Union[int, float]], Union[npt.NDArray[int], npt.NDArray[float]]]
+
+
 @dataclass
 class DataclassMapping(Mapping):
     def __iter__(self):
@@ -31,7 +38,7 @@ class DataclassMapping(Mapping):
 @dataclass
 class IteratorInfo(DataclassMapping):
     indices: List[range]
-    tile_size: np.ndarray  # TODO: ArrayLike from numpy.typing
+    tile_size: SizeLike
     level: int
     level_shape: np.ndarray
     resample: Union[bool, int]
@@ -40,8 +47,8 @@ class IteratorInfo(DataclassMapping):
     effective_mpp: Union[float, Tuple[float, float], None]
     requested_mag: Optional[float]
     effective_mag: Optional[float]
-    stride: np.ndarray  # TODO: ArrayLike from numpy.typing
-    overflow: np.ndarray  # TODO: ArrayLike from numpy.typing
+    stride: SizeLike
+    overflow: SizeLike
     region_scale: np.ndarray
     downsample_factor: np.ndarray
 
@@ -50,12 +57,12 @@ class TileIterator:
     def __init__(
         self,
         slide: Slide,
-        tile_size: ArrayLike,
-        tile_overlap: ArrayLike,
-        start_x: int = 0,
-        start_y: int = 0,
-        end_x: Optional[int] = None,
-        end_y: Optional[int] = None,
+        tile_size: SizeLike,
+        tile_overlap: SizeLike,
+        region_left: int = 0,
+        region_top: int = 0,
+        region_width: Optional[int] = None,
+        region_height: Optional[int] = None,
         magnification: Optional[float] = None,
         mpp: Union[float, ArrayLike] = None,
         border_mode: Optional[str] = None,
@@ -66,27 +73,27 @@ class TileIterator:
         self.slide = slide
         self.tile_size = tile_size
         self.tile_overlap = tile_overlap
-        self.start_x = start_x
-        self.start_y = start_y
-        self.end_x = end_x
-        self.end_y = end_y
+        self.region_left = region_left
+        self.region_top = region_top
+        self.region_width = region_width
+        self.region_height = region_height
         self.magnification = magnification
         self.mpp = mpp
         self.border_mode = border_mode
 
         # TODO: This needs checking if it is the correct order.
-        if not end_x:
-            end_x = self.slide.width
-        if not end_y:
-            end_y = self.slide.height
+        if not region_width:
+            region_width = self.slide.width
+        if not region_height:
+            region_height = self.slide.height
 
         self.iter_info = self.__build_iterator_info(
             tile_size,
             tile_overlap,
-            start_x=start_x,
-            start_y=start_y,
-            end_x=end_x,
-            end_y=end_y,
+            start_x=region_left,
+            start_y=region_top,
+            end_x=region_width,
+            end_y=region_height,
             magnification=magnification,
             mpp=mpp,
             border_mode=border_mode,
@@ -124,8 +131,8 @@ class TileIterator:
 
     def __build_iterator_info(
         self,
-        tile_size: ArrayLike,
-        tile_overlap: ArrayLike,
+        tile_size: SizeLike,
+        tile_overlap: SizeLike,
         start_x: int,
         start_y: int,
         end_x: int,
@@ -146,7 +153,7 @@ class TileIterator:
 
         region_size_0 = np.array([end_x - start_x, end_y - start_y])
         if np.any(region_size_0 <= 0):
-            raise ValueError("Size of region must be positive, as defined by start_x, start_y, end_x, end_y.")
+            raise ValueError("Size of region must be positive, as defined by region_left, region_top, region_width, region_height.")
 
         # If mpp or magnitude is given, we need to figure out what the downsampling factor is compared to the level 0.
         effective_mpp = None
@@ -183,7 +190,7 @@ class TileIterator:
             resample = PIL.Image.LANCZOS
 
         # Compute the grid.
-        stride = tile_size - tile_overlap
+        stride = np.asarray(tile_size) - tile_overlap
 
         # Same thing as computing the output shape of a convolution with padding zero and
         # specified stride.
