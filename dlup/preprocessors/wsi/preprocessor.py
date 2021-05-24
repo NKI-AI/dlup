@@ -6,6 +6,7 @@ import pathlib
 from joblib import Parallel, delayed
 
 from dlup.preprocessors.preprocessor import BackgroundMask, BasePreprocessor
+from dlup.preprocessors.iterators import TileIterator
 from dlup.slide import Slide
 from dlup.utils.types import PathLike
 
@@ -56,7 +57,7 @@ class WsiBasePreprocessor(BasePreprocessor):
         # Print properties of the slide we're currently working on
         self.logger.info(slide)
 
-        tile_iterator = self.get_tile_iterator(
+        tile_iterator = TileIterator(
             slide=slide,
             region_left=0,
             region_top=0,
@@ -68,6 +69,7 @@ class WsiBasePreprocessor(BasePreprocessor):
             tile_overlap=self.tile_overlap,
             border_mode=self.border_mode,
         )
+
         num_tiles = tile_iterator.num_tiles
         self.logger.info(f"Will iterate over {num_tiles} tiles in the image.")
 

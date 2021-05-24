@@ -174,57 +174,6 @@ class BasePreprocessor(abc.ABC):
         # TODO: Also add metadata
         write_json(save_dir / (slide_uid + ".json"), slide_metadata)
 
-    @staticmethod
-    def get_tile_iterator(
-        slide: Slide,
-        region_left: int,
-        region_top: int,
-        region_width: int,
-        region_height: int,
-        mpp: Union[float, ArrayLike],
-        magnification: Union[float, ArrayLike],
-        tile_size: Union[float, ArrayLike],
-        tile_overlap: Union[float, ArrayLike],
-        border_mode: str,
-    ) -> TileIterator:
-        """
-        Create the tile iterator and the number of tiles for the processor.
-
-        Parameters
-        ----------
-        slide : dlup.preprocessors.Slide
-            Slide object
-        region_left : int
-        region_top : int
-        region_width : int
-            Width of the region to create tiles for.
-        region_height : int
-            Height of the region to create tiles for.
-        mpp : float
-        magnification : float
-        tile_size : tuple or int
-        tile_overlap : tuple or int
-        border_mode : str
-
-        Returns
-        -------
-        n_tiles and tile_iterator
-        """
-        tile_iterator = TileIterator(
-            slide,
-            tile_size,
-            tile_overlap,
-            region_left=region_left,
-            region_top=region_top,
-            region_width=region_width,
-            region_height=region_height,
-            magnification=magnification,
-            mpp=mpp,
-            border_mode=border_mode,
-        )
-
-        return tile_iterator
-
     @abc.abstractmethod
     def save_tile(self, save_dir: PathLike, tile_tuple) -> None:
         pass
