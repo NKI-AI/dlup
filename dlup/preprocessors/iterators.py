@@ -54,6 +54,30 @@ class IteratorInfo(DataclassMapping):
 
 
 class TileIterator:
+    """
+    Create the tile iterator and the number of tiles for the processor.
+
+    Parameters
+    ----------
+    slide : dlup.preprocessors.Slide
+        Slide object
+    region_left : int
+    region_top : int
+    region_width : int
+        Width of the region to create tiles for.
+    region_height : int
+        Height of the region to create tiles for.
+    mpp : float
+    magnification : float
+    tile_size : tuple or int
+    tile_overlap : tuple or int
+    border_mode : str
+
+    Returns
+    -------
+
+    """
+
     def __init__(
         self,
         slide: Slide,
@@ -67,30 +91,6 @@ class TileIterator:
         mpp: Union[float, ArrayLike] = None,
         border_mode: Optional[str] = None,
     ) -> None:
-        """
-        Create the tile iterator and the number of tiles for the processor.
-
-        Parameters
-        ----------
-        slide : dlup.preprocessors.Slide
-            Slide object
-        region_left : int
-        region_top : int
-        region_width : int
-            Width of the region to create tiles for.
-        region_height : int
-            Height of the region to create tiles for.
-        mpp : float
-        magnification : float
-        tile_size : tuple or int
-        tile_overlap : tuple or int
-        border_mode : str
-
-        Returns
-        -------
-        tile_iterator
-        """
-
         tile_size = _ensure_array(tile_size)
         tile_overlap = _ensure_array(tile_overlap)
 
