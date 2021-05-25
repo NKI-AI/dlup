@@ -49,6 +49,7 @@ setup(
         "scikit-image",
         "tifftools",
         "torch",
+        "torchvision",
         "tqdm",
         "pillow",
         "staintools",
