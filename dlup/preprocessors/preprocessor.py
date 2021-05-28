@@ -27,20 +27,21 @@ class MaskTile:
     bbox: list
 
 
-class BackgroundMask:
-    def __init__(self, slide: Slide, level: int):
+class BackgroundMaskFunc:
+    def __init__(self, slide: Slide, level: int, background_threshold: float):
         self.slide = slide
 
         # Compute the scaling factor between the mask and the current level
         mask_shape = np.asarray(self.tissue_mask.shape)[::-1]
         # This is the scaling between the mask shape # TODO: Why does it return level 0 so often?
         self.scaling = mask_shape / slide.levels[level].shape
+        self.background_threshold = background_threshold
 
     @functools.cached_property
     def tissue_mask(self) -> np.ndarray:
         return get_mask(self.slide)
 
-    def __getitem__(self, region: Region) -> MaskTile:
+    def __call__(self, region: Region) -> MaskTile:
         # Coordinates need to be scaled to the closest level
         coordinates = region.coordinates * self.slide.levels[region.level].downsample * self.scaling
         size = region.size * self.scaling
@@ -49,7 +50,8 @@ class BackgroundMask:
             *np.ceil(size).astype(int).tolist()[::-1],
         ]
         # We check the mask in the region *before* interpolation
-        return MaskTile(mask=crop_to_bbox(self.tissue_mask, bbox=bbox), bbox=bbox)
+        mask_tile = MaskTile(mask=crop_to_bbox(self.tissue_mask, bbox=bbox), bbox=bbox)
+        return mask_tile.mask.mean() >= self.background_threshold
 
 
 class BasePreprocessor(abc.ABC):
@@ -182,16 +184,9 @@ class BasePreprocessor(abc.ABC):
     def process_slide(self, slide: Slide):
         pass
 
-    def process_tile(self, background_mask: np.ndarray, save_dir: PathLike, tile_tuple: ArrayLike):
+    def process_tile(self, save_dir: PathLike, tile_tuple: ArrayLike):
         self.logger.debug(f"Working on tile {tile_tuple.region.idx}...")
         # If tissue mask, then we can check for background
-        if self.filter_background:
-            curr_mask = background_mask[tile_tuple.region]
-            is_foreground = curr_mask.mask.mean() >= self.background_threshold
-            self.logger.debug(f"{tile_tuple.region.idx} is foreground: {is_foreground}")
-            if not is_foreground:
-                self.background_tiles += 1
-                return
 
         self.save_tile(save_dir, tile_tuple)
         self._save_tile_metadata(tile_tuple, save_dir)
