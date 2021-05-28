@@ -5,7 +5,7 @@ import pathlib
 
 from joblib import Parallel, delayed
 
-from dlup.preprocessors.preprocessor import BackgroundMask, BasePreprocessor
+from dlup.preprocessors.preprocessor import BackgroundMaskFunc, BasePreprocessor
 from dlup.preprocessors.iterators import TileIterator
 from dlup.slide import Slide
 from dlup.utils.types import PathLike
@@ -57,6 +57,14 @@ class WsiBasePreprocessor(BasePreprocessor):
         # Print properties of the slide we're currently working on
         self.logger.info(slide)
 
+        if not self.filter_background:
+            background_mask_func = None
+        else:
+
+            # TODO: Mask can also be used for first selecting all the regions in the tissue (labelled or not)
+            # Currently not implemented (should have little effect)
+            background_mask_func = functools.partial(BackgroundMaskFunc, threshold=self.background_threshold)
+
         tile_iterator = TileIterator(
             slide=slide,
             region_left=0,
@@ -68,19 +76,17 @@ class WsiBasePreprocessor(BasePreprocessor):
             tile_size=self.tile_size,
             tile_overlap=self.tile_overlap,
             border_mode=self.border_mode,
+            background_mask_func=background_mask_func,
         )
 
         num_tiles = tile_iterator.num_tiles
         self.logger.info(f"Will iterate over {num_tiles} tiles in the image.")
 
-        # TODO: Mask can also be used for first selecting all the regions in the tissue (labelled or not)
-        # Currently not implemented (should have little effect)
-        background_mask = BackgroundMask(slide=slide, level=tile_iterator.iter_info.level)
-
         # Save a thumbnail of the processed slide
         # TODO: Add grid lines
         # TODO: This requires that we know which tiles were rejected!
-        self.save_thumbnail(slide, save_dir, background_mask.tissue_mask)
+        # TODO: Cannot access tissue mask from the partial!
+        # self.save_thumbnail(slide, save_dir, background_mask_func.tissue_mask)
 
         process_tile_partial = functools.partial(self.process_tile, background_mask, save_dir)
         if self.num_workers > 0:

@@ -4,7 +4,7 @@ import itertools
 import warnings
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Callable
 
 import numpy as np
 import PIL.Image
@@ -90,6 +90,7 @@ class TileIterator:
         magnification: Optional[float] = None,
         mpp: Union[float, ArrayLike] = None,
         border_mode: Optional[str] = None,
+        background_mask_func: Optional[Callable] = None,
     ) -> None:
         tile_size = _ensure_array(tile_size)
         tile_overlap = _ensure_array(tile_overlap)
@@ -123,6 +124,13 @@ class TileIterator:
             border_mode=border_mode,
         )
 
+        # TODO: Mask can also be used for first selecting all the regions in the tissue (labelled or not)
+        # Currently not implemented (should have little effect)
+        if background_mask_func:
+            self.background_mask = background_mask_func(slide=slide, level=self.iter_info.level)
+        else:
+            self.background_mask = None
+
     @property
     def num_tiles(self):
         return sum(1 for _ in self.grid_iterator())
@@ -142,6 +150,9 @@ class TileIterator:
                 target_tile_size=self.tile_size,
                 idx=idx,
             )
+            if self.background_mask and not self.background_mask(region):
+                continue
+
             yield region
 
     def __iter__(self):
