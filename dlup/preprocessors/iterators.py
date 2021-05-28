@@ -177,7 +177,9 @@ class TileIterator:
 
         region_size_0 = np.array([end_x - start_x, end_y - start_y])
         if np.any(region_size_0 <= 0):
-            raise ValueError("Size of region must be positive, as defined by region_left, region_top, region_width, region_height.")
+            raise ValueError(
+                "Size of region must be positive, as defined by region_left, region_top, region_width, region_height."
+            )
 
         # If mpp or magnitude is given, we need to figure out what the downsampling factor is compared to the level 0.
         effective_mpp = None
