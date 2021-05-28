@@ -88,7 +88,7 @@ class WsiBasePreprocessor(BasePreprocessor):
         # TODO: Cannot access tissue mask from the partial!
         # self.save_thumbnail(slide, save_dir, background_mask_func.tissue_mask)
 
-        process_tile_partial = functools.partial(self.process_tile, background_mask, save_dir)
+        process_tile_partial = functools.partial(self.process_tile, save_dir)
         if self.num_workers > 0:
             Parallel(n_jobs=self.num_workers, backend="threading")(
                 delayed(process_tile_partial)(tile_tuple) for tile_tuple in tile_iterator
