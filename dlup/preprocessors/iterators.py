@@ -4,7 +4,7 @@ import itertools
 import warnings
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, Any
 
 import numpy as np
 import PIL.Image
@@ -17,8 +17,8 @@ from typing import Union, List
 import numpy.typing as npt
 
 # TODO: Create integer and float type shapes.
-SizeLike = Union[List[Union[int, float]], Union[npt.NDArray[int], npt.NDArray[float]]]
-
+# SizeLike = Union[List[Union[int, float]], Union[npt.NDArray[int], npt.NDArray[float]]]
+SizeLike = Any
 
 @dataclass
 class DataclassMapping(Mapping):
