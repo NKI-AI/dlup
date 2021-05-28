@@ -63,7 +63,7 @@ class WsiBasePreprocessor(BasePreprocessor):
 
             # TODO: Mask can also be used for first selecting all the regions in the tissue (labelled or not)
             # Currently not implemented (should have little effect)
-            background_mask_func = functools.partial(BackgroundMaskFunc, threshold=self.background_threshold)
+            background_mask_func = functools.partial(BackgroundMaskFunc, background_threshold=self.background_threshold)
 
         tile_iterator = TileIterator(
             slide=slide,
