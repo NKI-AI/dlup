@@ -63,7 +63,9 @@ class WsiBasePreprocessor(BasePreprocessor):
 
             # TODO: Mask can also be used for first selecting all the regions in the tissue (labelled or not)
             # Currently not implemented (should have little effect)
-            background_mask_func = functools.partial(BackgroundMaskFunc, background_threshold=self.background_threshold)
+            background_mask_func = functools.partial(
+                BackgroundMaskFunc, background_threshold=self.background_threshold
+            )
 
         tile_iterator = TileIterator(
             slide=slide,
@@ -80,7 +82,10 @@ class WsiBasePreprocessor(BasePreprocessor):
         )
 
         num_tiles = tile_iterator.num_tiles
-        self.logger.info(f"Will iterate over {num_tiles} tiles in the image.")
+        self.logger.info(
+            f"Will iterate over {num_tiles} tiles in the image, "
+            f"and skip {tile_iterator.background_tiles} background tiles."
+        )
 
         # Save a thumbnail of the processed slide
         # TODO: Add grid lines

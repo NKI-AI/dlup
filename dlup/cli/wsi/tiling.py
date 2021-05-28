@@ -71,6 +71,7 @@ if __name__ == "__main__":
 
     # Debug
     import pathlib
+
     cli_args.input_dir = pathlib.Path("/Users/jonas/Downloads/data/tcga")
     cli_args.output_dir = pathlib.Path("/Users/jonas/Downloads/data/tcga/tiles")
 

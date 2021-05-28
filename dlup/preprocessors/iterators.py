@@ -20,6 +20,7 @@ import numpy.typing as npt
 # SizeLike = Union[List[Union[int, float]], Union[npt.NDArray[int], npt.NDArray[float]]]
 SizeLike = Any
 
+
 @dataclass
 class DataclassMapping(Mapping):
     def __iter__(self):
@@ -112,6 +113,8 @@ class TileIterator:
         if not region_height:
             region_height = self.slide.height
 
+        self.background_tiles = 0
+
         self.iter_info = self.__build_iterator_info(
             tile_size,
             tile_overlap,
@@ -151,6 +154,7 @@ class TileIterator:
                 idx=idx,
             )
             if self.background_mask and not self.background_mask(region):
+                self.background_tiles += 1
                 continue
 
             yield region
