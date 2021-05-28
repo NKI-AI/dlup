@@ -153,7 +153,9 @@ class BasePreprocessor(abc.ABC):
             "quality": self.quality,
             "iterator_info": {k: v for k, v in tile_iterator.iter_info.items() if k != "indices"},
             **{
-                k: v for k, v in tile_iterator.__dict__.items() if k not in ["slide", "iter_info"]
+                k: v
+                for k, v in tile_iterator.__dict__.items()
+                if k not in ["slide", "iter_info", "background_mask_func"]
             },  # TODO: iter_info needs to be added.
             "slide": {
                 k: v
