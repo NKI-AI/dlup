@@ -68,4 +68,19 @@ def main(args: argparse.Namespace) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(parser_kwargs)  # type: ignore
     cli_args = parser.parse_args()
+
+    # Debug
+    import pathlib
+    cli_args.input_dir = pathlib.Path("/Users/jonas/Downloads/data/tcga")
+    cli_args.output_dir = pathlib.Path("/Users/jonas/Downloads/data/tcga/tiles")
+
+    cli_args.tile_size = 1024
+    cli_args.tile_overlap = 0
+    cli_args.mpp = 1.0
+    cli_args.local_rank = 0
+    cli_args.no_log = True
+    cli_args.verbose = True
+    cli_args.extension = ".svs"
+    cli_args.compression = "png"
+
     main(cli_args)
