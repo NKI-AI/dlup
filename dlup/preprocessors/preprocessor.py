@@ -141,7 +141,7 @@ class BasePreprocessor(abc.ABC):
     ):
         filename_no_ext = f"tile_{'_'.join(map(str, tile_tuple.region.idx.tolist()))}"
         tile_metadata = {**tile_tuple.region, "tile_filename": f"{filename_no_ext}{self.extension}"}
-        write_json(save_dir / self.json_dir / filename_no_ext + ".json", tile_metadata)
+        write_json(save_dir / self.json_dir / f"{filename_no_ext}.json", tile_metadata)
 
     def _save_preprocessing_metadata(self, save_dir, slide_uid, tile_iterator, n_tiles):
         # TODO: Need to add a bit more of the iterator info itself
