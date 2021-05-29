@@ -1,94 +1,104 @@
 # coding=utf-8
 # Copyright (c) DLUP Contributors
+"""Whole slide image manipulation objects.
+
+In this module we take care of abstracting the access to whole slide images.
+The main workhorses are the WholeSlideImage and TiledView classes
+which respectively take care of simplyfing the access to pyramidal images in
+a continuous ways and properties validation for dlup algorithms.
+"""
 
 import functools
-import json
-import math
 import pathlib
-import warnings
 from dataclasses import dataclass
-from typing import Dict, NamedTuple, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, Iterable
+from abc import abstractmethod
+from abc import ABC
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
 import PIL.Image  # type: ignore
-import tifftools  # type: ignore
-from numpy.typing import ArrayLike
-from openslide.lowlevel import OpenSlideError  # type: ignore
-from openslide.lowlevel import OpenSlideUnsupportedFormatError
 
 
-class Level(NamedTuple):
-    level: int
-    downsample: float
-    mpp: Union[float, ArrayLike]
-    shape: ArrayLike
+_GenericFloatArray = Union[np.ndarray, Iterable[float]]
+_GenericIntArray = Union[np.ndarray, Iterable[int]]
 
 
-@dataclass
-class TileBox:
-    idx: np.ndarray
-    coords: tuple
-    size: tuple
-    post_crop_bbox: tuple
-    offset: tuple
-    num_tiles: tuple
-    border_mode: str
+class ImageRegionView(ABC):
+    """A generic image object from which you can extract a region.
 
-
-def _ensure_array(obj):
-    if not isinstance(obj, (tuple, list)):
-        obj = (obj, obj)
-    return np.asarray(obj)
-
-
-def near_power_of_two(val1, val2, tolerance=0.02):
-    """Check if two values are different by nearly a power of two.
-
-    Parameters
-    ----------
-    val1 :
-        the first value to check.
-    val2 :
-        the second value to check.
-    tolerance :
-        the maximum difference in the log2 ratio's mantissa. (Default value = 0.02)
-
-    Returns
-    -------
-    type
-        True if the values are nearly a power of two different from each
-        other; false otherwise.
-
+    A unit 'U' is assumed to be consistent across this interface.
+    Could be for instance pixels.
     """
-    # If one or more of the values is zero or they have different signs, then
-    # return False
-    if val1 * val2 <= 0:
-        return False
-    log2ratio = math.log(float(val1) / float(val2)) / math.log(2)
-    # Compare the mantissa of the ratio's log2 value.
-    return abs(log2ratio - round(log2ratio)) < tolerance
+    @property
+    @abstractmethod
+    def width(self):
+        """Returns the width of the image in unit U."""
+        pass
+
+    @property
+    @abstractmethod
+    def height(self):
+        """Returns the height of the image in unit U."""
+        pass
+
+    @abstractmethod
+    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
+        """Returns the region covered by the box.
+
+        box coordinates are defined in U units.
+        """
+        pass
 
 
-class Slide:
+class _WholeSlideImageRegionView(ImageRegionView):
+    """Represents a wsi layer view."""
+
+    def __init__(self, wsi: WholeSlidePyramidalImage, scaling: float):
+        self._wsi = wsi
+        self._scaling = scaling
+        self._width, self._height = np.array(wsi.highest_resolution_dimensions) * scaling
+
+    @property
+    def mpp(self):
+        """Returns the level effective mpp."""
+        return self._scaling * self._wsi.highest_resolution_mpp
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
+
+    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
+        """Returns a region in the level."""
+        return self._wsi.read_region(location, self._scaling, size)
+
+
+class WholeSlidePyramidalImage:
+    """Utility class to simplify whole-slide pyramidal images management.
+
+    This helper class furtherly abstracts openslide access to WSIs
+    by validating some of the properties and giving access
+    to a continuous pyramid.
+    Each horizontal slices of the pyramid can be accessed using a scaling value
+    z as index.
+
+    Example usage:
+
+    ```python
+    from dlup import WholeSlidePyramidalImage
+    wsi = dlup.WholeSlideImage.open('path/to/slide.svs')
+    wsi_level = wsi[0.5]
+    ```
     """
-    Utility class to handle whole-slide images, which relies on OpenSlide.
-    """
 
-    def __init__(self, file_name: pathlib.Path, slide_uid: Optional[str] = None):
-        self.file_name = file_name
-        self.slide_uid = slide_uid
-
-        self.__read_openslide()
-
-        try:
-            magnification = self._openslide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
-            magnification = float(magnification) if magnification else None
-        except KeyError:
-            magnification = None
-        except (ValueError, openslide.lowlevel.OpenSlideError) as exception:
-            raise RuntimeError(f"Could not extract objective power of {self.file_name} with exception: {exception}.")
-        self.magnification = magnification
+    def __init__(self, wsi: openslide.AbstractSlide, identifier: Union[str, None] = None):
+        """Initialize a whole slide image and validate its properties."""
+        self._openslide_wsi = wsi
+        self._identifier = identifier
 
         try:
             mpp_x = float(self._openslide.properties[openslide.PROPERTY_NAME_MPP_X])
@@ -96,233 +106,171 @@ class Slide:
             mpp = np.array([mpp_y, mpp_x])
         except KeyError:
             mpp = None
-        except (ValueError, openslide.lowlevel.OpenSlideError) as exception:
-            raise RuntimeError(f"Could not extract mpp of {self.file_name} with exception: {exception}.")
 
         if mpp is None:
             raise RuntimeError(f"Could not parse mpp of {self.file_name}.")
 
-        # The logic has to be improved here, in case this actually happens
-        if np.abs(mpp[0] - mpp[1]) / mpp.max() > 0.001:
-            warnings.warn(
-                f"{self.file_name}: mpp_x and mpp_y are expected to be equal. " f"Got {mpp[0]} and {mpp[1]}."
-            )
-        self.mpp = float(mpp.max())
+        if not np.isclose(mpp[0], mpp[1]):
+            raise RuntimeError("Cannot deal with slides having anisotropic mpps.")
 
-        self.__compute_available_levels()  # Also sets self.n_channels
+        self._min_native_mpp = float(mpp[0])
 
-    def close(self):
-        self._openslide.close()
+    @classmethod
+    def from_file_path(cls: WholeSlideImage, wsi_file_path: pathlib.Path,
+             identifier: Union[str, None] = None) -> WholeSlidePyramidalImage:
+        wsi = openslide.open_slide(str(wsi_file_path))
+        # As default identifier we use a tuple (folder, filename)
+        identifier = identifier if identifier is not None else \
+            wsi_file_path.parts[-2:]
+        return cls(wsi, identifier)
 
-    def __read_openslide(self):
-        try:
-            slide = openslide.OpenSlide(str(self.file_name))
-        except OpenSlideUnsupportedFormatError as e:
-            raise RuntimeError(f"File not supported by OpenSlide: {e}.")
-        except OpenSlideError as e:
-            raise RuntimeError(f"File cannot be opened via OpenSlide: {e}.")
-        # if libtiff_ctypes:
-        #     try:
-        #         self._tiff_info = tifftools.read_tiff(self.large_image_path)
-        #     except (
-        #         tifftools.TifftoolsException,
-        #         Exception,
-        #     ) as e:  # Check what else you can get rather than have such a broad exception
-        #         self.logger.info(f"Cannot read tiff info: {e}.")
-        #         pass
-        self._openslide = slide
-
-    def get_tile(self, start_coords, tile_size, level):
-        tile = self.__get_openslide_tile(start_coords, tile_size, level=level)
-
-        return tile
-
-    # This has to be cached.
-    def __get_openslide_tile(self, start_coords, tile_size, level: int = 0) -> PIL.Image:
-        # If the mode is exact, it is possible we get float coordinates. To do that properly,
-        # you need to resample on a new grid. We take the option of having a slightly higher resolution.
-        # Start coords needs to be in the level 0 reference frame.
-        try:
-            tile = self._openslide.read_region(tuple(start_coords), level, tile_size)
-        except openslide.lowlevel.OpenSlideError as exc:
-            raise Exception(f"Failed to get OpenSlide region ({exc!r}).")
-
-        return tile
-
-    def __compute_available_levels(self):
-        """Some SVS files (notably some NDPI variants) have levels that cannot be
-        read.  Get a list of levels, check that each is at least potentially
-        readable, and return a list of these sorted highest-resolution first.
+    def read_region(self, location: _GenericFloatArray, scaling: float,
+                    size: _GenericIntArray) -> PIL.Image:
+        """Return a pyramidal region.
 
         Parameters
         ----------
-        path :
-            the path of the SVS file.  After a failure, the file is
-            reopened to reset the error state.
-
-        Returns
-        -------
-        type
-            levels.  A list of valid levels, each of which is a
-            dictionary of level (the internal 0-based level number), width, and
-            height.
-
+        location :
+            Location from the top left (x, y) in pixel coordinates.
+        scaling :
+            scaling value.
+        size :
+            Region size to extract in pixels.
         """
-        levels = []
-        svs_level_dimensions = self._openslide.level_dimensions
-        for svs_level in range(len(svs_level_dimensions)):
-            try:
-                temp_arr = self._openslide.read_region((0, 0), svs_level, (1, 1))
-                downsample_factor = self._openslide.level_downsamples[svs_level]
-                level = Level(
-                    level=svs_level,
-                    downsample=downsample_factor,
-                    mpp=self.mpp * downsample_factor,
-                    shape=svs_level_dimensions[svs_level],
-                )
-                if level.shape[0] > 0 and level.shape[1] > 0:
-                    # add to the list so that we can sort by resolution and
-                    # then by earlier entries
-                    levels.append((level.shape[0] * level.shape[1], -len(levels), level))
-            except OpenSlideError:
-                self.__read_openslide()
-        # sort highest resolution first.
-        levels = [entry[-1] for entry in sorted(levels, reverse=True, key=lambda x: x[:-1])]
-        # Discard levels that are not a power-of-two compared to the highest
-        # resolution level.
-        levels = [
-            entry
-            for entry in levels
-            if near_power_of_two(levels[0].shape[0], entry.shape[0])
-            and near_power_of_two(levels[0].shape[1], entry.shape[1])
-        ]
-        self.n_channels = np.array(temp_arr).shape[-1]
-        self.levels = levels
+        owsi = self._openslide_wsi
+        location = np.array(location)
+        size = np.array(size)
 
-    def shape_at_mpp(self, mpp: Union[float, ArrayLike], exact: bool = False) -> Tuple[np.ndarray, float, float]:
-        scaling = self.mpp / mpp
-        dimensions = np.array(self.shape) * scaling
-        effective_mpp = mpp
+        if (size < 0).any():
+            raise ValueError("Size values must be greater than zero.")
 
-        if exact:
-            dimensions = np.ceil(dimensions).astype(int)
-            scaling = (np.array(self.shape) * dimensions)[0]  # mpp is assumed to be isotropic
-            effective_mpp = self.mpp * scaling
+        if (location < 0).any():
+            raise ValueError("Location values must be greater than zero.")
 
-        return dimensions, scaling, effective_mpp
+        # Compute the scaling value between the closest high-res layer and a target layer.
+        best_level = owsi.get_best_level_for_downsample(scaling)
+        relative_scaling = scaling * np.asarray(owsi.level_downsamples[best_level])
 
-    def shape_at_magnification(self, magnification: float, exact: bool = False) -> Tuple[np.ndarray, float, float]:
-        scaling = magnification / self.magnification
-        dimensions = np.array(self.shape) * scaling
-        effective_magnification = magnification
+        # Openslide doesn't feature float coordinates to extract a region.
+        # We need to extract enough pixels and let PIL do the interpolation.
+        # In the borders, the basis functions of other samples contribute to the final value.
+        # PIL lanczos seems to uses 3 pixels as support.
+        extra_pixels = 3
+        native_location = location * relative_scaling
+        native_size = size * relative_scaling
 
-        if exact:
-            dimensions = np.ceil(dimensions).astype(int)
-            scaling = (np.array(self.shape) * dimensions)[0]  # mpp is assumed to be isotropic
-            effective_magnification = self.magnification * scaling
+        # Compute extra paddings for exact interpolation.
+        native_location_adapted = np.floor(native_location - extra_pixels).astype(int)
+        native_location_adapted = np.where(native_location_adapted < 0, 0, native_location_adapted)
+        native_size_adapted = np.ceil(native_location + native_size - native_location_adapted).astype(int)
+        native_size_adapted += extra_pixels
 
-        return dimensions, scaling, effective_magnification
+        # We extract the region via openslide with the required extra border
+        region = owsi.read_region(
+            tuple(native_location_adapted), best_level, tuple(native_size_adapted))
+
+        # Within this region, there are a bunch of extra pixels, we interpolate to sample
+        # the pixel in the right position to retain the right sample weight.
+        fractional_coordinates = location - native_location_adapted
+        return region.resize(size, resample=PIL.Image.LANCZOS, box=(*fractional_coordinates, *native_size))
+
+    def get_level_view(self, scaling: Union[float, int]) -> _WholeSlideLevelImageView:
+        if scaling < 0:
+            raise ValueError(f'Scaling value should always be greater than 0.')
+        return _WholeSlideImageRegionView(self, scaling)
 
     @property
-    def is_lossy_tiff(self) -> bool:
-        """
-        Checks if input image is actually a lossy tiff file. Useful if you want to save the output
-        as non-jpeg, while the input actually is.
-        """
-        return is_lossy_tiff(self.file_name)
+    def thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image:
+        """Returns an RGB numpy thumbnail for the current slide.
 
-    def get_best_level_for_downsample(self, downsample_factor: float) -> int:
-        return self._openslide.get_best_level_for_downsample(downsample_factor)
-
-    def get_thumbnail(self, size=512) -> PIL.Image:
+        Parameters
+        ----------
+        size :
+            Maximum bounding box for the thumbnail expressed as (width, height).
         """
-        Returns an RGB numpy thumbnail for the current slide.
-        """
-        thumbnail = self._openslide.get_thumbnail([size] * 2)
+        return self._openslide_wsi.get_thumbnail(*size)
 
-        return thumbnail
+    @property
+    def identifier(self) -> str:
+        return self._identifier
 
-    @functools.cached_property
+    @property
     def properties(self) -> dict:
-        """Return additional known metadata about the tile source.  Data returned
-        from this method is not guaranteed to be in any particular format or
-        have specific values.
-
-        Returns
-        -------
-        type
-            a dictionary of data or None.
-
-        """
-        results: Dict[str, Dict] = {"openslide": {}}
-        for key in self._openslide.properties:
-            results["openslide"][key] = self._openslide.properties[key]
-            if key == "openslide.comment":
-                leader = self._openslide.properties[key].split("\n", 1)[0].strip()
-                if "aperio" in leader.lower():
-                    results["aperio_version"] = leader
-        # TODO Mirax
-
-        return results
+        return self._openslide_wsi.properties
 
     @property
-    def patient_uid(self) -> str:
-        return self.file_name.parent.name
+    def vendor(self) -> str:
+        return self._properties['openslide.vendor']
 
     @property
-    def level_dimensions(self) -> dict:
-        return self._openslide.level_dimensions
-
-    @functools.cached_property
-    def shape(self) -> Tuple[int, int]:
-        return self._openslide.dimensions
+    def highest_resolution_dimensions(self) -> Tuple[int, int]:
+        """Returns the highest resolution image size in pixels."""
+        return self._openslide_wsi.dimensions
 
     @property
-    def width(self) -> int:
-        return self.shape[0]
+    def highest_resolution_mpp(self) -> float:
+        """Returns the microns per pixel of the high res image."""
+        return self._min_native_mpp
 
     @property
-    def height(self) -> int:
-        return self.shape[1]
+    def magnification(self) -> int:
+        """Returns the objective power at which the WSI was sampled."""
+        return int(self._openslide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+
+    @property
+    def aspect_ratio(self) -> dict:
+        """Returns width / height."""
+        dims = self.highest_resolution_dimensions
+        return dims[0] / dims[1]
 
     def __repr__(self) -> str:
-        out_str = f"Slide(slide_uid={self.slide_uid}, file_name={self.file_name}, shape={self.shape}"
-        for key in self.properties:
-            if key == "openslide":
-                val = json.dumps(self.properties[key])[:15] + "...}"
-            else:
-                val = self.properties[key]
-
-            out_str += f", {key}={val}"
-        out_str += ")"
-        return out_str
+        props = ('identifier', 'vendor', 'highest_resolution_mpp', 'magnification')
+        props_str = []
+        for key in props:
+            value = getattr(self, key)
+            props_str.append(f'{key}={value}')
+        return f"{self.__class__.__name__}({', '.join(props_str)})"
 
 
-# Inspired by
-# https://github.com/girder/large_image/blob/af518ba2187e60ccd7bc59f7c6d8e0472ef29ee0/utilities/converter/large_image_converter/__init__.py#L414
-# TODO: Cleanup
-def is_lossy_tiff(filename):
-    try:
-        tiffinfo = tifftools.read_tiff(filename)
-    except Exception:
-        return False
+class TiledView():
+    """This class takes care of creating a smart object to access a wsi tiles.
 
-    is_compressed = bool(
-        tifftools.constants.Compression[tiffinfo["ifds"][0]["tags"][tifftools.Tag.Compression.value]["data"][0]].lossy
-    )
-    is_eight_bit = True
-    try:
-        if not all(
-            val == tifftools.constants.SampleFormat.uint
-            for val in tiffinfo["ifds"][0]["tags"][tifftools.Tag.SampleFormat.value]["data"]
-        ):
-            is_eight_bit = False
+    Features, access via slices, indexes, given the tiling properties.
+    """
 
-        if tifftools.Tag.BitsPerSample.value in tiffinfo["ifds"][0]["tags"] and not all(
-            val == 8 for val in tiffinfo["ifds"][0]["tags"][tifftools.Tag.BitsPerSample.value]["data"]
-        ):
-            is_eight_bit = False
-    except:
-        return False
+    def __init__(self, image_view: ImageView,
+                 tile_size: Tuple[int, int],
+                 tile_overlap: Tuple[int, int]):
+        self._image_view = image_view
+        self._tile_size = tile_size
+        self._tile_overlap = tile_overlap
 
-    return is_compressed and is_eight_bit
+        # # Compute the grid.
+        # stride = np.asarray(tile_size) - tile_overlap
+
+        # # Same thing as computing the output shape of a convolution with padding zero and
+        # # specified stride.
+        # num_tiles = (subsampled_region_size - tile_size) / stride + 1
+
+        # if border_mode == "crop":
+        #     num_tiles = np.ceil(num_tiles).astype(int)
+        #     tiled_size = (num_tiles - 1) * stride + tile_size
+        #     overflow = tiled_size - subsampled_region_size
+        # elif border_mode == "skip":
+        #     num_tiles = np.floor(num_tiles).astype(int)
+        #     overflow = np.asarray((0, 0))
+        # else:
+        #     raise ValueError(f"`border_mode` has to be one of `crop` or `skip`. Got {border_mode}.")
+
+        # indices = [range(0, _) for _ in num_tiles]
+
+    def __iter__(self):
+        """Iterate through every tile."""
+        pass
+
+    def __len__(self) -> int:
+        """Returns the total number of tiles."""
+        pass
+
+    def __getitem__(self, i: int) -> PIL.Image:
+        pass
