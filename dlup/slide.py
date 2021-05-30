@@ -11,7 +11,7 @@ a continuous ways and properties validation for dlup algorithms.
 import functools
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, Union, Iterable
+from typing import Dict, Optional, Tuple, Union, Iterable, TypeVar
 from abc import abstractmethod
 from abc import ABC
 
@@ -23,8 +23,11 @@ import PIL.Image  # type: ignore
 _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
 
+_TWholeSlidePyramidalImage = TypeVar('TWholeSlidePyramidalImage',
+                                     bound='WholeSlidePyramidalImage')
 
-class ImageRegionView(ABC):
+
+class RegionView(ABC):
     """A generic image object from which you can extract a region.
 
     A unit 'U' is assumed to be consistent across this interface.
@@ -51,10 +54,10 @@ class ImageRegionView(ABC):
         pass
 
 
-class _WholeSlideImageRegionView(ImageRegionView):
+class _WholeSlideImageRegionView(RegionView):
     """Represents a wsi layer view."""
 
-    def __init__(self, wsi: WholeSlidePyramidalImage, scaling: float):
+    def __init__(self, wsi: _TWholeSlidePyramidalImage, scaling: float):
         self._wsi = wsi
         self._scaling = scaling
         self._width, self._height = np.array(wsi.highest_resolution_dimensions) * scaling
@@ -75,6 +78,10 @@ class _WholeSlideImageRegionView(ImageRegionView):
     def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
         """Returns a region in the level."""
         return self._wsi.read_region(location, self._scaling, size)
+
+
+def _clip2size(a: np.ndarray, size: Tuple[int, int]):
+    return np.clip(a, (0, 0), size)
 
 
 class WholeSlidePyramidalImage:
@@ -101,14 +108,11 @@ class WholeSlidePyramidalImage:
         self._identifier = identifier
 
         try:
-            mpp_x = float(self._openslide.properties[openslide.PROPERTY_NAME_MPP_X])
-            mpp_y = float(self._openslide.properties[openslide.PROPERTY_NAME_MPP_Y])
+            mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
+            mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
             mpp = np.array([mpp_y, mpp_x])
         except KeyError:
-            mpp = None
-
-        if mpp is None:
-            raise RuntimeError(f"Could not parse mpp of {self.file_name}.")
+            raise RuntimeError(f"Could not parse mpp.")
 
         if not np.isclose(mpp[0], mpp[1]):
             raise RuntimeError("Cannot deal with slides having anisotropic mpps.")
@@ -116,8 +120,8 @@ class WholeSlidePyramidalImage:
         self._min_native_mpp = float(mpp[0])
 
     @classmethod
-    def from_file_path(cls: WholeSlideImage, wsi_file_path: pathlib.Path,
-             identifier: Union[str, None] = None) -> WholeSlidePyramidalImage:
+    def from_file_path(cls: _TWholeSlidePyramidalImage , wsi_file_path: pathlib.Path,
+             identifier: Union[str, None] = None) -> _TWholeSlidePyramidalImage:
         wsi = openslide.open_slide(str(wsi_file_path))
         # As default identifier we use a tuple (folder, filename)
         identifier = identifier if identifier is not None else \
@@ -148,22 +152,23 @@ class WholeSlidePyramidalImage:
             raise ValueError("Location values must be greater than zero.")
 
         # Compute the scaling value between the closest high-res layer and a target layer.
-        best_level = owsi.get_best_level_for_downsample(scaling)
+        best_level = owsi.get_best_level_for_downsample(1 / scaling)
         relative_scaling = scaling * np.asarray(owsi.level_downsamples[best_level])
+        best_level_size = owsi.level_dimensions[best_level]
 
         # Openslide doesn't feature float coordinates to extract a region.
         # We need to extract enough pixels and let PIL do the interpolation.
         # In the borders, the basis functions of other samples contribute to the final value.
         # PIL lanczos seems to uses 3 pixels as support.
-        extra_pixels = 3
-        native_location = location * relative_scaling
-        native_size = size * relative_scaling
+        extra_pixels = int(3 / relative_scaling)
+        native_location = location / relative_scaling
+        native_size = size / relative_scaling
 
         # Compute extra paddings for exact interpolation.
         native_location_adapted = np.floor(native_location - extra_pixels).astype(int)
-        native_location_adapted = np.where(native_location_adapted < 0, 0, native_location_adapted)
-        native_size_adapted = np.ceil(native_location + native_size - native_location_adapted).astype(int)
-        native_size_adapted += extra_pixels
+        native_location_adapted = _clip2size(native_location_adapted, best_level_size)
+        native_size_adapted = np.ceil(native_location + native_size + extra_pixels).astype(int)
+        native_size_adapted = _clip2size(native_size_adapted, best_level_size)
 
         # We extract the region via openslide with the required extra border
         region = owsi.read_region(
@@ -171,10 +176,11 @@ class WholeSlidePyramidalImage:
 
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.
-        fractional_coordinates = location - native_location_adapted
-        return region.resize(size, resample=PIL.Image.LANCZOS, box=(*fractional_coordinates, *native_size))
+        fractional_coordinates = native_location - native_location_adapted
+        box = (*fractional_coordinates, *(fractional_coordinates + native_size))
+        return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
 
-    def get_level_view(self, scaling: Union[float, int]) -> _WholeSlideLevelImageView:
+    def get_level_view(self, scaling: Union[float, int]) -> _WholeSlideImageRegionView:
         if scaling < 0:
             raise ValueError(f'Scaling value should always be greater than 0.')
         return _WholeSlideImageRegionView(self, scaling)
@@ -200,7 +206,7 @@ class WholeSlidePyramidalImage:
 
     @property
     def vendor(self) -> str:
-        return self._properties['openslide.vendor']
+        return self.properties['openslide.vendor']
 
     @property
     def highest_resolution_dimensions(self) -> Tuple[int, int]:
@@ -238,10 +244,10 @@ class TiledView():
     Features, access via slices, indexes, given the tiling properties.
     """
 
-    def __init__(self, image_view: ImageView,
+    def __init__(self, region_view: RegionView,
                  tile_size: Tuple[int, int],
                  tile_overlap: Tuple[int, int]):
-        self._image_view = image_view
+        self._region_view = region_view
         self._tile_size = tile_size
         self._tile_overlap = tile_overlap
 
