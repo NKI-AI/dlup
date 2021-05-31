@@ -10,21 +10,18 @@ a continuous ways and properties validation for dlup algorithms.
 
 import functools
 import pathlib
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, Union, Iterable, TypeVar
-from abc import abstractmethod
-from abc import ABC
+from typing import Dict, Iterable, Optional, Tuple, TypeVar, Union
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
 import PIL.Image  # type: ignore
 
-
 _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
 
-_TWholeSlidePyramidalImage = TypeVar('TWholeSlidePyramidalImage',
-                                     bound='WholeSlidePyramidalImage')
+_TWholeSlidePyramidalImage = TypeVar("TWholeSlidePyramidalImage", bound="WholeSlidePyramidalImage")
 
 
 class RegionView(ABC):
@@ -33,6 +30,7 @@ class RegionView(ABC):
     A unit 'U' is assumed to be consistent across this interface.
     Could be for instance pixels.
     """
+
     @property
     @abstractmethod
     def width(self):
@@ -120,16 +118,15 @@ class WholeSlidePyramidalImage:
         self._min_native_mpp = float(mpp[0])
 
     @classmethod
-    def from_file_path(cls: _TWholeSlidePyramidalImage , wsi_file_path: pathlib.Path,
-             identifier: Union[str, None] = None) -> _TWholeSlidePyramidalImage:
+    def from_file_path(
+        cls: _TWholeSlidePyramidalImage, wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
+    ) -> _TWholeSlidePyramidalImage:
         wsi = openslide.open_slide(str(wsi_file_path))
         # As default identifier we use a tuple (folder, filename)
-        identifier = identifier if identifier is not None else \
-            wsi_file_path.parts[-2:]
+        identifier = identifier if identifier is not None else wsi_file_path.parts[-2:]
         return cls(wsi, identifier)
 
-    def read_region(self, location: _GenericFloatArray, scaling: float,
-                    size: _GenericIntArray) -> PIL.Image:
+    def read_region(self, location: _GenericFloatArray, scaling: float, size: _GenericIntArray) -> PIL.Image:
         """Return a pyramidal region.
 
         Parameters
@@ -171,8 +168,7 @@ class WholeSlidePyramidalImage:
         native_size_adapted = _clip2size(native_size_adapted, best_level_size)
 
         # We extract the region via openslide with the required extra border
-        region = owsi.read_region(
-            tuple(native_location_adapted), best_level, tuple(native_size_adapted))
+        region = owsi.read_region(tuple(native_location_adapted), best_level, tuple(native_size_adapted))
 
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.
@@ -182,7 +178,7 @@ class WholeSlidePyramidalImage:
 
     def get_level_view(self, scaling: Union[float, int]) -> _WholeSlideImageRegionView:
         if scaling < 0:
-            raise ValueError(f'Scaling value should always be greater than 0.')
+            raise ValueError(f"Scaling value should always be greater than 0.")
         return _WholeSlideImageRegionView(self, scaling)
 
     @property
@@ -206,7 +202,7 @@ class WholeSlidePyramidalImage:
 
     @property
     def vendor(self) -> str:
-        return self.properties['openslide.vendor']
+        return self.properties["openslide.vendor"]
 
     @property
     def highest_resolution_dimensions(self) -> Tuple[int, int]:
@@ -230,23 +226,21 @@ class WholeSlidePyramidalImage:
         return dims[0] / dims[1]
 
     def __repr__(self) -> str:
-        props = ('identifier', 'vendor', 'highest_resolution_mpp', 'magnification')
+        props = ("identifier", "vendor", "highest_resolution_mpp", "magnification")
         props_str = []
         for key in props:
             value = getattr(self, key)
-            props_str.append(f'{key}={value}')
+            props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
 
 
-class TiledView():
+class TiledView:
     """This class takes care of creating a smart object to access a wsi tiles.
 
     Features, access via slices, indexes, given the tiling properties.
     """
 
-    def __init__(self, region_view: RegionView,
-                 tile_size: Tuple[int, int],
-                 tile_overlap: Tuple[int, int]):
+    def __init__(self, region_view: RegionView, tile_size: Tuple[int, int], tile_overlap: Tuple[int, int]):
         self._region_view = region_view
         self._tile_size = tile_size
         self._tile_overlap = tile_overlap

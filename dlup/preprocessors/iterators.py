@@ -4,17 +4,14 @@ import itertools
 import warnings
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Optional, Tuple, Callable, Any
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 from numpy.typing import ArrayLike
 
 from dlup.slide import Slide, _ensure_array
-
-
-from typing import Union, List
-import numpy.typing as npt
 
 # TODO: Create integer and float type shapes.
 # SizeLike = Union[List[Union[int, float]], Union[npt.NDArray[int], npt.NDArray[float]]]

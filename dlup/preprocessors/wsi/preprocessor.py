@@ -5,8 +5,8 @@ import pathlib
 
 from joblib import Parallel, delayed
 
-from dlup.preprocessors.preprocessor import BackgroundMaskFunc, BasePreprocessor
 from dlup.preprocessors.iterators import TileIterator
+from dlup.preprocessors.preprocessor import BackgroundMaskFunc, BasePreprocessor
 from dlup.slide import Slide
 from dlup.utils.types import PathLike
 
