@@ -54,9 +54,8 @@ python =
     3.9: py39
 
 [testenv]
-deps =
-    pytest
-    pydantic
+extras=
+    dev
 allowlist_externals = sh
 commands=
     sh -c "make test"
