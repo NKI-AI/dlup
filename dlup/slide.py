@@ -157,7 +157,7 @@ class WholeSlidePyramidalImage:
         # We need to extract enough pixels and let PIL do the interpolation.
         # In the borders, the basis functions of other samples contribute to the final value.
         # PIL lanczos seems to uses 3 pixels as support.
-        extra_pixels = int(3 / relative_scaling)
+        extra_pixels = 3 if scaling > 1 else int(3 / relative_scaling)
         native_location = location / relative_scaling
         native_size = size / relative_scaling
 

@@ -120,10 +120,10 @@ class TestWholeSlidePyramidalImage:
             SlideConfig(properties=SlideProperties(level_downsamples=(1.0,))),
         ],
     )
-    @pytest.mark.parametrize("x", [0, 0.1, 7.3])
-    @pytest.mark.parametrize("y", [0, 0.1, 4.2])
-    @pytest.mark.parametrize("size", [(1, 1), (2, 4), (9, 13)])
-    @pytest.mark.parametrize("scaling", [1 / 2, 1 / 5, 1 / 7])
+    @pytest.mark.parametrize('x', [0, 0.1, 7.3])
+    @pytest.mark.parametrize('y', [0, 0.1, 4.2])
+    @pytest.mark.parametrize('size', [(1, 1), (2, 4), (9, 13)])
+    @pytest.mark.parametrize('scaling', [4, 2, 1 / 2, 1 / 5, 1 / 7])
     def test_read_region(self, dlup_wsi, openslide_image, x, y, size, scaling):
         """Test exact interpolation.
 
