@@ -14,7 +14,7 @@ from scipy import interpolate
 
 from dlup.slide import WholeSlidePyramidalImage
 
-_TImage = TypeVar("TImage", bound="Image")
+_TImage = TypeVar("_TImage", bound="Image")
 
 _SAMPLE_IMAGE_SIZE = np.array((256, 256))
 
