@@ -6,6 +6,7 @@ from typing import Dict, Optional, Tuple, TypeVar
 import numpy as np
 import openslide
 import PIL
+
 import pytest
 from PIL.Image import Image
 from pydantic import BaseModel, Field
