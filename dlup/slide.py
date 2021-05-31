@@ -21,7 +21,7 @@ import PIL.Image  # type: ignore
 _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
 
-_TWholeSlidePyramidalImage = TypeVar("TWholeSlidePyramidalImage", bound="WholeSlidePyramidalImage")
+_TWholeSlidePyramidalImage = TypeVar("_TWholeSlidePyramidalImage", bound="WholeSlidePyramidalImage")
 
 
 class RegionView(ABC):
