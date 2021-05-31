@@ -48,8 +48,8 @@ def get_sample_nonuniform_image():
 
 
 class SlideProperties(BaseModel):
-    mppx: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_X)
-    mppy: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_Y)
+    mpp_x: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_X)
+    mpp_y: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_Y)
     mag: Optional[int] = Field(40, alias=openslide.PROPERTY_NAME_OBJECTIVE_POWER)
     vendor: str = Field("dummy", alias=openslide.PROPERTY_NAME_VENDOR)
 
@@ -102,8 +102,8 @@ class TestWholeSlidePyramidalImage:
     @pytest.mark.parametrize(
         "slide_config",
         [
-            SlideConfig(properties=SlideProperties(mppx=1.0, mppy=2.0)),
-            SlideConfig(properties=SlideProperties(mppx=None, mppy=None)),
+            SlideConfig(properties=SlideProperties(mpp_x=1.0, mpp_y=2.0)),
+            SlideConfig(properties=SlideProperties(mpp_x=None, mpp_y=None)),
         ],
     )
     def test_mpp_exceptions(self, openslide_image):
