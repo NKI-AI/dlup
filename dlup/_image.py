@@ -22,6 +22,7 @@ import PIL.Image  # type: ignore
 
 _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
+_GenericNumber = Union[int, float]
 _TSlideImage = TypeVar("TSlideImage", bound="SlideImage")
 
 
@@ -80,7 +81,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.read_region(location, self._scaling, size)
 
 
-def _clip2size(a: np.ndarray, size: Tuple[int, int]):
+def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> np.ndarray:
     return np.clip(a, (0, 0), size)
 
 
@@ -131,6 +132,17 @@ class SlideImage:
     def read_region(self, location: _GenericFloatArray, scaling: float, size: _GenericIntArray) -> PIL.Image:
         """Return a pyramidal region.
 
+        A typical slide is made of several levels at different mpps.
+        In normal cirmustances, it's not possible to retrieve an image of
+        intermediate mpp between these levels. This method takes care of
+        sumbsampling the closest high resolution level to extract a target
+        region via interpolation.
+
+        TODO(lromor): Ideally, all the regions at higher levels could be
+        also downsampled from the highest resolution level at the expenses of
+        an higher computational cost. We could make an optional flag to enable
+        such feature.
+
         Parameters
         ----------
         location :
@@ -152,7 +164,7 @@ class SlideImage:
 
         # Compute the scaling value between the closest high-res layer and a target layer.
         best_level = owsi.get_best_level_for_downsample(1 / scaling)
-        relative_scaling = scaling * np.asarray(owsi.level_downsamples[best_level])
+        relative_scaling = scaling * owsi.level_downsamples[best_level]
         best_level_size = owsi.level_dimensions[best_level]
 
         # Openslide doesn't feature float coordinates to extract a region.
@@ -168,7 +180,7 @@ class SlideImage:
         native_location_adapted = np.floor(native_location - extra_pixels).astype(int)
         native_location_adapted = _clip2size(native_location_adapted, best_level_size)
         native_size_adapted = np.ceil(native_location + native_size + extra_pixels).astype(int)
-        native_size_adapted = _clip2size(native_size_adapted, best_level_size)
+        native_size_adapted = _clip2size(native_size_adapted, best_level_size) - native_location_adapted
 
         # We extract the region via openslide with the required extra border
         region = owsi.read_region(tuple(native_location_adapted), best_level, tuple(native_size_adapted))
