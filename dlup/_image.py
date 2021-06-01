@@ -1,11 +1,12 @@
 # coding=utf-8
 # Copyright (c) DLUP Contributors
-"""Whole slide image manipulation objects.
+"""Whole slide image access objects.
 
 In this module we take care of abstracting the access to whole slide images.
-The main workhorses are the WholeSlideImage and TiledView classes
-which respectively take care of simplyfing the access to pyramidal images in
-a continuous ways and properties validation for dlup algorithms.
+The main workhorse is SlideImage which takes care of simplyfing region extraction
+of discrete-levels pyramidal images in a continuous way, validating relevant
+properties and offering a future aggregated api for possibly multiple different backends
+other than openslide.
 """
 
 import functools
@@ -18,10 +19,10 @@ import numpy as np  # type: ignore
 import openslide  # type: ignore
 import PIL.Image  # type: ignore
 
+
 _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
-
-_TWholeSlidePyramidalImage = TypeVar("_TWholeSlidePyramidalImage", bound="WholeSlidePyramidalImage")
+_TSlideImage = TypeVar("TSlideImage", bound="SlideImage")
 
 
 class RegionView(ABC):
@@ -47,15 +48,16 @@ class RegionView(ABC):
     def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
         """Returns the region covered by the box.
 
-        box coordinates are defined in U units.
+        box coordinates are defined in U units. (0, 0) location
+        starts from the top left.
         """
         pass
 
 
-class _WholeSlideImageRegionView(RegionView):
-    """Represents a wsi layer view."""
+class _SlideImageRegionView(RegionView):
+    """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TWholeSlidePyramidalImage, scaling: float):
+    def __init__(self, wsi: _TSlideImage, scaling: float):
         self._wsi = wsi
         self._scaling = scaling
         self._width, self._height = np.array(wsi.highest_resolution_dimensions) * scaling
@@ -82,12 +84,13 @@ def _clip2size(a: np.ndarray, size: Tuple[int, int]):
     return np.clip(a, (0, 0), size)
 
 
-class WholeSlidePyramidalImage:
+class SlideImage:
     """Utility class to simplify whole-slide pyramidal images management.
 
     This helper class furtherly abstracts openslide access to WSIs
     by validating some of the properties and giving access
-    to a continuous pyramid.
+    to a continuous pyramid. Layer values are interpolated from
+    the closest bottom layer.
     Each horizontal slices of the pyramid can be accessed using a scaling value
     z as index.
 
@@ -96,7 +99,6 @@ class WholeSlidePyramidalImage:
     ```python
     from dlup import WholeSlidePyramidalImage
     wsi = dlup.WholeSlideImage.open('path/to/slide.svs')
-    wsi_level = wsi[0.5]
     ```
     """
 
@@ -110,7 +112,7 @@ class WholeSlidePyramidalImage:
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
             mpp = np.array([mpp_y, mpp_x])
         except KeyError:
-            raise RuntimeError(f"Could not parse mpp.")
+            raise RuntimeError(f"Slide property mpp is not available.")
 
         if not np.isclose(mpp[0], mpp[1]):
             raise RuntimeError("Cannot deal with slides having anisotropic mpps.")
@@ -119,8 +121,8 @@ class WholeSlidePyramidalImage:
 
     @classmethod
     def from_file_path(
-        cls: _TWholeSlidePyramidalImage, wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
-    ) -> _TWholeSlidePyramidalImage:
+        cls: _TSlideImage, wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
+    ) -> _TSlideImage:
         wsi = openslide.open_slide(str(wsi_file_path))
         # As default identifier we use a tuple (folder, filename)
         identifier = identifier if identifier is not None else wsi_file_path.parts[-2:]
@@ -157,6 +159,7 @@ class WholeSlidePyramidalImage:
         # We need to extract enough pixels and let PIL do the interpolation.
         # In the borders, the basis functions of other samples contribute to the final value.
         # PIL lanczos seems to uses 3 pixels as support.
+        # See pillow: https://git.io/JG0QD
         extra_pixels = 3 if scaling > 1 else int(3 / relative_scaling)
         native_location = location / relative_scaling
         native_size = size / relative_scaling
@@ -176,10 +179,9 @@ class WholeSlidePyramidalImage:
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
         return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
 
-    def get_level_view(self, scaling: Union[float, int]) -> _WholeSlideImageRegionView:
-        if scaling < 0:
-            raise ValueError(f"Scaling value should always be greater than 0.")
-        return _WholeSlideImageRegionView(self, scaling)
+    def get_level_view(self, location, scaling: Union[float, int]) -> _SlideImageRegionView:
+        """Return a pyramid region."""
+        return _SlideImageRegionView(self, scaling)
 
     @property
     def thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image:
@@ -194,23 +196,26 @@ class WholeSlidePyramidalImage:
 
     @property
     def identifier(self) -> str:
+        """Returns a user-defined identifier."""
         return self._identifier
 
     @property
     def properties(self) -> dict:
+        """Returns any extra associated properties with the image."""
         return self._openslide_wsi.properties
 
     @property
     def vendor(self) -> str:
+        """Returns the scanner vendor."""
         return self.properties["openslide.vendor"]
 
     @property
-    def highest_resolution_dimensions(self) -> Tuple[int, int]:
+    def base_dimensions(self) -> Tuple[int, int]:
         """Returns the highest resolution image size in pixels."""
         return self._openslide_wsi.dimensions
 
     @property
-    def highest_resolution_mpp(self) -> float:
+    def base_mpp(self) -> float:
         """Returns the microns per pixel of the high res image."""
         return self._min_native_mpp
 
@@ -222,8 +227,8 @@ class WholeSlidePyramidalImage:
     @property
     def aspect_ratio(self) -> dict:
         """Returns width / height."""
-        dims = self.highest_resolution_dimensions
-        return dims[0] / dims[1]
+        width, height = self.base_dimensions
+        return width / height
 
     def __repr__(self) -> str:
         props = ("identifier", "vendor", "highest_resolution_mpp", "magnification")
@@ -234,7 +239,7 @@ class WholeSlidePyramidalImage:
         return f"{self.__class__.__name__}({', '.join(props_str)})"
 
 
-class TiledView:
+class TiledRegionView:
     """This class takes care of creating a smart object to access a wsi tiles.
 
     Features, access via slices, indexes, given the tiling properties.

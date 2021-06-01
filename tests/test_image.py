@@ -12,7 +12,7 @@ from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
 
-from dlup.slide import WholeSlidePyramidalImage
+from dlup import SlideImage
 
 _TImage = TypeVar("_TImage", bound="Image")
 
@@ -63,7 +63,7 @@ class SlideConfig(BaseModel):
     level_downsamples: Tuple[float, ...] = (1.0,)
 
 
-class OpenSlideImage(openslide.ImageSlide):
+class OpenSlideImageMock(openslide.ImageSlide):
     properties = {}
     level_downsamples = (1.0,)
 
@@ -90,12 +90,12 @@ def slide_config():
 @pytest.fixture
 def openslide_image(slide_config):
     """Create mock image."""
-    return OpenSlideImage.from_slide_config(slide_config)
+    return OpenSlideImageMock.from_slide_config(slide_config)
 
 
 @pytest.fixture
 def dlup_wsi(openslide_image):
-    return WholeSlidePyramidalImage(openslide_image)
+    return SlideImage(openslide_image)
 
 
 class TestWholeSlidePyramidalImage:
@@ -109,28 +109,30 @@ class TestWholeSlidePyramidalImage:
     def test_mpp_exceptions(self, openslide_image):
         """Test that we break if the slide has no isotropic resolution."""
         with pytest.raises(RuntimeError):
-            wsi = WholeSlidePyramidalImage(openslide_image)
+            wsi = SlideImage(openslide_image)
 
     def test_aspect_ratio(self, dlup_wsi, openslide_image):
         """Test consistent definition of aspect ratio."""
         assert dlup_wsi.aspect_ratio == openslide_image.image.width / openslide_image.image.height
 
     @pytest.mark.parametrize(
-        "slide_config",
-        [
-            SlideConfig(properties=SlideProperties(level_downsamples=(1.0,))),
-        ],
-    )
-    @pytest.mark.parametrize("x", [0, 0.1, 7.3])
-    @pytest.mark.parametrize("y", [0, 0.1, 4.2])
-    @pytest.mark.parametrize("size", [(1, 1), (2, 4), (9, 13)])
-    @pytest.mark.parametrize("scaling", [4, 2, 1 / 2, 1 / 5, 1 / 7])
+        "slide_config", [SlideConfig(properties=SlideProperties(
+            level_downsamples=(1.0, 4.0))),])
+    @pytest.mark.parametrize('x', [0, 0.1, 0.5, 0.9])
+    @pytest.mark.parametrize('y', [0, 0.03, 0.4])
+    @pytest.mark.parametrize('size', [(1, 1), (4, 4), (9, 13)])
+    @pytest.mark.parametrize('scaling', [4, 2, 1 / 2, 1 / 5, 1 / 7])
     def test_read_region(self, dlup_wsi, openslide_image, x, y, size, scaling):
         """Test exact interpolation.
 
-        We want to be sure that downsampling the whole image and extracting
-        a region commutes with extracting a region and downsampling.
+        We want to be sure that reading a region at some scaling level is equivalent to
+        downsampling the whole image and extracting that region using PIL.
         """
+        # x, y are the normalized coordinates of the base image.
+        x = x * openslide_image.image.width * scaling
+        y = y * openslide_image.image.height * scaling
+        print(x, y)
+
         # Downsample the whole image to a certain size
         # and extract the region.
         image = openslide_image.image
@@ -147,3 +149,11 @@ class TestWholeSlidePyramidalImage:
 
         assert pil_extracted_region.shape == extracted_region.shape
         assert np.allclose(pil_extracted_region, extracted_region)
+
+
+class TestSlideImageRegionView():
+    pass
+
+
+class TestTiledRegionView():
+    pass

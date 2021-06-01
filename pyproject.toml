@@ -54,10 +54,10 @@ python =
     3.9: py39
 
 [testenv]
-extras=
-    dev
+deps = pytest
+extras = dev
 allowlist_externals = sh
 commands=
-    sh -c "make test"
-    sh -c "dlup --help > /dev/null"
+     make test
+     sh -c "dlup --help > /dev/null"
 """

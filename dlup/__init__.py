@@ -1,6 +1,7 @@
 # coding=utf-8
+# Copyright (c) DLUP Contributors
 """Top-level package for DLUP."""
 
-__author__ = """DLUP Contributors"""
-__email__ = "j.teuwen@nki.nl"
-__version__ = "0.1.0"
+from ._image import SlideImage
+
+__all__ = ('SlideImage',)
