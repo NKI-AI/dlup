@@ -129,7 +129,8 @@ class SlideImage:
         identifier = identifier if identifier is not None else wsi_file_path.parts[-2:]
         return cls(wsi, identifier)
 
-    def read_region(self, location: _GenericFloatArray, scaling: float, size: _GenericIntArray) -> PIL.Image:
+    def read_region(self, location: Tuple[_GenericNumber, _GenericNumber], scaling: float,
+                    size: Tuple[int, int]) -> PIL.Image:
         """Return a pyramidal region.
 
         A typical slide is made of several levels at different mpps.
@@ -170,7 +171,7 @@ class SlideImage:
         # Openslide doesn't feature float coordinates to extract a region.
         # We need to extract enough pixels and let PIL do the interpolation.
         # In the borders, the basis functions of other samples contribute to the final value.
-        # PIL lanczos seems to uses 3 pixels as support.
+        # PIL lanczos uses 3 pixels as support.
         # See pillow: https://git.io/JG0QD
         extra_pixels = 3 if scaling > 1 else int(3 / relative_scaling)
         native_location = location / relative_scaling

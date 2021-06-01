@@ -54,7 +54,7 @@ setup(
         "staintools",
     ],
     extras_require={
-        "dev": ["pytest", "sphinx_copybutton", "numpydoc", "myst_parser", "sphinx-book-theme", "pylint", "pydantic"],
+        "dev": ["pytest", "pytest-mock", "sphinx_copybutton", "numpydoc", "myst_parser", "sphinx-book-theme", "pylint", "pydantic"],
     },
     license="Apache Software License 2.0",
     include_package_data=True,
