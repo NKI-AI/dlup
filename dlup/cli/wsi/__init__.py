@@ -70,19 +70,19 @@ class WsiPreprocessingParser(BasePreprocessingParser):
             help="Number of microns per pixel.",
         )
         self.add_argument(
-            "--s-idx-start",
+            "--start-slide-idx",
             type=int,
             default=0,
             help="Which index of all whole slide images in the given source directory to start with. "
-            "Useful in a distributed setting (e.g. Slurm) in conjunction with --s-idx-end.",
+            "Useful in a distributed setting (e.g. Slurm) in conjunction with --end-slide-idx.",
         )
         self.add_argument(
-            "--s-idx-end",
+            "--end-slide-idx",
             type=int,
             default=-1,
             help="Which index of all whole slide images in the given source directory to end with."
             "if -1 or larger than the maximum, will go over all. "
-            "Useful in a distributed setting (e.g. Slurm) in conjunction with --s-idx-start.",
+            "Useful in a distributed setting (e.g. Slurm) in conjunction with --start-slide-idx.",
         )
         self.add_argument(
             "--extension",
