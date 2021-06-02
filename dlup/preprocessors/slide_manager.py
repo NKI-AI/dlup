@@ -19,8 +19,8 @@ class BaseSlideManager(abc.ABC):
         self,
         input_dir: PathLike,
         extension: str,
-        start_idx: int = 0,
-        end_idx: int = -1,
+        start_slide_idx: int = 0,
+        end_slide_idx: int = -1,
         *args,
         **kwargs,
     ):
@@ -30,17 +30,17 @@ class BaseSlideManager(abc.ABC):
         Parameters
         ----------
         root_dir : PathLike
-        start_idx : int
+        start_slide_idx : int
             Indices to create a subset of the entire dataset. Can be used to do multi-node
             processing of several subsets of the entire dataset.
-            start_idx is inclusive
-            end_idx is inclusive
-            start_idx (int) and end_idx(int):
-            i.e. we set filenames = filenames[start_idx:end_idx+1], so that the first three elements of [0,1,2,3,4,5] are accessed
-            with start_idx=0, end_idx=2, and the last three with start_idx=3, end_idx=5.
+            start_slide_idx is inclusive
+            end_slide_idx is inclusive
+            start_slide_idx (int) and end_slide_idx(int):
+            i.e. we set filenames = filenames[start_slid_idx:end_slide_idx+1], so that the first three elements of [0,1,2,3,4,5] are accessed
+            with start_slide_idx=0, end_slide_idx=2, and the last three with start_slide_idx=3, end_slide_idx=5.
 
-        end_idx : int
-            See start_idx
+        end_slide_idx : int
+            See start_slide_idx
         """
         input_dir = pathlib.Path(input_dir)
         self.input_dir = pathlib.Path(input_dir)
@@ -48,8 +48,8 @@ class BaseSlideManager(abc.ABC):
             raise NotADirectoryError(f"Given root directory '{input_dir}' is not a valid directory.")
 
         self.logger = logging.getLogger(type(self).__name__)
-        self.s_idx_start = start_idx
-        self.s_idx_end = end_idx
+        self.start_slide_idx = start_slide_idx
+        self.end_slide_idx = end_slide_idx
         self.extension = extension
         self.file_names = self.init_file_names()
 
@@ -74,8 +74,8 @@ class BaseSlideManager(abc.ABC):
             return []
 
         self.check_given_indices(num_files)
-        self.logger.info(f"Creating Slide Dataset from index {self.s_idx_start} to index {self.s_idx_end}")
-        return file_names[self.s_idx_start : self.s_idx_end + 1]
+        self.logger.info(f"Creating Slide Dataset from index {self.start_slide_idx} to index {self.end_slide_idx}")
+        return file_names[self.start_slide_idx : self.end_slide_idx + 1]
 
     def check_given_indices(self, num_files):
         """
@@ -86,24 +86,26 @@ class BaseSlideManager(abc.ABC):
 
         This function will throw a RuntimeError if something is wrong. If not, the rest of __init__ can continue.
         """
-        if self.s_idx_end == -1:
-            self.s_idx_end = num_files - 1
-        elif self.s_idx_end >= num_files:
+        if self.end_slide_idx == -1:
+            self.end_slide_idx = num_files - 1
+        elif self.end_slide_idx >= num_files:
             self.logger.info(
-                f"The provided slide ending idx {self.s_idx_end} is larger than the full dataset ({num_files})."
+                f"The provided slide ending idx {self.end_slide_idx} is larger than the full dataset ({num_files})."
                 f"The ending index is set to the last file of the full dataset: {num_files - 1}"
             )
-            self.s_idx_end = num_files - 1
+            self.end_slide_idx = num_files - 1
         else:
             pass
 
-        if self.s_idx_end < self.s_idx_start:
+        if self.end_slide_idx < self.start_slide_idx:
             raise RuntimeError(
-                f"Your starting index {self.s_idx_start} should be smaller than the end index {self.s_idx_end}."
+                f"Your starting index {self.start_slide_idx} should be smaller than the end index {self.end_slide_idx}."
             )
 
-        if self.s_idx_start >= num_files:
-            raise RuntimeError(f"The index to start at is {self.s_idx_start} while there are only {num_files} files")
+        if self.start_slide_idx >= num_files:
+            raise RuntimeError(
+                f"The index to start at is {self.start_slide_idx} while there are only {num_files} files"
+            )
 
     def open_slide(self, idx):
         """
