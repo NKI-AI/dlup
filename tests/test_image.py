@@ -60,7 +60,7 @@ class SlideProperties(BaseModel):
 class SlideConfig(BaseModel):
     image: _TImage = get_sample_nonuniform_image()
     properties: SlideProperties = SlideProperties()
-    level_downsamples: Tuple[float, ...] = (1.0,)
+    level_downsamples: Tuple[float, ...] = (1.0, 2.0)
 
 
 class OpenSlideImageMock(openslide.ImageSlide):
@@ -182,11 +182,3 @@ class TestSlideImage:
         # Check that the output correspondin shape and value.
         assert pil_extracted_region.shape == extracted_region.shape
         assert np.allclose(pil_extracted_region, extracted_region)
-
-
-class TestSlideImageRegionView():
-    pass
-
-
-class TestTiledRegionView():
-    pass

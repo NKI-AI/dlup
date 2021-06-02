@@ -20,9 +20,11 @@ import openslide  # type: ignore
 import PIL.Image  # type: ignore
 
 
+_GenericNumber = Union[int, float]
+_GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
 _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
-_GenericNumber = Union[int, float]
+_Box = Tuple[_GenericNumber, _GenericNumber, _GenericNumber, _GenericNumber]
 _TSlideImage = TypeVar("TSlideImage", bound="SlideImage")
 
 
@@ -31,6 +33,9 @@ class RegionView(ABC):
 
     A unit 'U' is assumed to be consistent across this interface.
     Could be for instance pixels.
+
+    TODO(lromor): Add features like cyclic boundary conditions
+    or zero padding, or "hard" walls.
     """
 
     @property
@@ -46,7 +51,7 @@ class RegionView(ABC):
         pass
 
     @abstractmethod
-    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
+    def _read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
         """Returns the region covered by the box.
 
         box coordinates are defined in U units. (0, 0) location
@@ -55,7 +60,7 @@ class RegionView(ABC):
         pass
 
 
-class _SlideImageRegionView(RegionView):
+class SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
     def __init__(self, wsi: _TSlideImage, scaling: float):
@@ -76,7 +81,7 @@ class _SlideImageRegionView(RegionView):
     def height(self):
         return self._height
 
-    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
+    def _read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
         """Returns a region in the level."""
         return self._wsi.read_region(location, self._scaling, size)
 
@@ -192,9 +197,9 @@ class SlideImage:
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
         return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
 
-    def get_level_view(self, location, scaling: Union[float, int]) -> _SlideImageRegionView:
+    def get_level_view(self, scaling: _GenericNumber, box: _Box = None) -> SlideImageRegionView:
         """Return a pyramid region."""
-        return _SlideImageRegionView(self, scaling)
+        return SlideImageRegionView(self, scaling, box)
 
     @property
     def thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image:
@@ -251,44 +256,3 @@ class SlideImage:
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
 
-
-class TiledRegionView:
-    """This class takes care of creating a smart object to access a wsi tiles.
-
-    Features, access via slices, indexes, given the tiling properties.
-    """
-
-    def __init__(self, region_view: RegionView, tile_size: Tuple[int, int], tile_overlap: Tuple[int, int]):
-        self._region_view = region_view
-        self._tile_size = tile_size
-        self._tile_overlap = tile_overlap
-
-        # # Compute the grid.
-        # stride = np.asarray(tile_size) - tile_overlap
-
-        # # Same thing as computing the output shape of a convolution with padding zero and
-        # # specified stride.
-        # num_tiles = (subsampled_region_size - tile_size) / stride + 1
-
-        # if border_mode == "crop":
-        #     num_tiles = np.ceil(num_tiles).astype(int)
-        #     tiled_size = (num_tiles - 1) * stride + tile_size
-        #     overflow = tiled_size - subsampled_region_size
-        # elif border_mode == "skip":
-        #     num_tiles = np.floor(num_tiles).astype(int)
-        #     overflow = np.asarray((0, 0))
-        # else:
-        #     raise ValueError(f"`border_mode` has to be one of `crop` or `skip`. Got {border_mode}.")
-
-        # indices = [range(0, _) for _ in num_tiles]
-
-    def __iter__(self):
-        """Iterate through every tile."""
-        pass
-
-    def __len__(self) -> int:
-        """Returns the total number of tiles."""
-        pass
-
-    def __getitem__(self, i: int) -> PIL.Image:
-        pass
