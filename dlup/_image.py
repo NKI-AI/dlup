@@ -130,9 +130,7 @@ class SlideImage:
         cls: _TSlideImage, wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
     ) -> _TSlideImage:
         wsi = openslide.open_slide(str(wsi_file_path))
-        # As default identifier we use a tuple (folder, filename)
-        identifier = identifier if identifier is not None else wsi_file_path.parts[-2:]
-        return cls(wsi, identifier)
+        return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
     def read_region(self, location: Tuple[_GenericNumber, _GenericNumber], scaling: float,
                     size: Tuple[int, int]) -> PIL.Image:
