@@ -170,7 +170,7 @@ class TestSlideImage:
         mocker.spy(openslide_image, 'read_region')
 
         # Use dlup read_region to extract the same location
-        extracted_region = np.array(dlup_wsi.read_region(out_region_location, scaling, out_region_size))
+        extracted_region = dlup_wsi.read_region(out_region_location, scaling, out_region_size)
 
         # Check that the right layer was indeed requested from our mock function.
         call_args_list = openslide_image.read_region.call_args_list

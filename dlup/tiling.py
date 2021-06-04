@@ -5,6 +5,8 @@ from enum import Enum
 from typing import Dict, Iterable, Optional, Tuple, TypeVar, Union, List
 import numpy as np
 
+from ._region import RegionView
+
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
@@ -103,39 +105,52 @@ def span_tiling_bases(size: _GenericNumberArray, tile_size: _GenericNumberArray,
     return coordinates
 
 
-# class TiledRegionView:
-#     """This class takes care of creating a smart object to access a wsi tiles.
+class TilesGrid:
+    """Facilitates the access to tiles of a region view."""
 
-#     Features, access via slices, indexes, given the tiling properties.
-#     """
+    def __init__(self, region_view: RegionView, tile_size: Tuple[int, int],
+                 tile_overlap: Tuple[int, int], mode: TilingMode = TilingMode.skip):
+        self._region_view = region_view
+        self._tile_size = tile_size
+        self._tile_overlap = tile_overlap
+        basis = span_tiling_bases(
+            region_view.size, tile_size,
+            tile_overlap=tile_overlap, mode=mode)
+        self._coordinates_grid = indexed_ndmesh(basis)
+        self._coordinates = self._coordinates_grid.view(-1, len(region_view.size))
 
-#     def __init__(self, region_view: RegionView, tile_size: Tuple[int, int], tile_overlap: Tuple[int, int]):
-#         self._region_view = region_view
-#         self._tile_size = tile_size
-#         self._tile_overlap = tile_overlap
+    @property
+    def tile_size(self):
+        return self._tile_size
 
-#         # # Compute the grid.
-#         # stride = np.asarray(tile_size) - tile_overlap
+    @property
+    def tile_overlap(self):
+        return self._tile_overlap
 
-#         # # Same thing as computing the output shape of a convolution with padding zero and
-#         # # specified stride.
-#         # num_tiles = (subsampled_region_size - tile_size) / stride + 1
+    @property
+    def coordinates_grid(self):
+        """Grid array containing tiles starting positions"""
+        return self._coordinates_grid
 
-#         # if border_mode == "crop":
-#         #     num_tiles = np.ceil(num_tiles).astype(int)
-#         #     tiled_size = (num_tiles - 1) * stride + tile_size
-#         #     overflow = tiled_size - subsampled_region_size
-#         # elif border_mode == "skip":
-#         #     num_tiles = np.floor(num_tiles).astype(int)
-#         #     overflow = np.asarray((0, 0))
-#         # else:
-#         #     raise ValueError(f"`border_mode` has to be one of `crop` or `skip`. Got {border_mode}.")
+    @property
+    def coordinates(self):
+        """A flattened view of coordinates_grid."""
+        return self._coordinates
 
-#         # indices = [range(0, _) for _ in num_tiles]
+    @property
+    def region_view(self):
+        return self._region_view
 
-#     def __iter__(self):
-#         """Iterate through every tile."""
-#         pass
+    @property
+    def num_tiles(self):
+        return len(self._coordinates)
 
-#     def __getitem__(self, i: int) -> PIL.Image:
-#         pass
+    def iterator(self, sampler, retcoords=True):
+        for i in sampler:
+            coordinate = self.coordinates[i]
+            region = self._region_view.read_region(coordinate, self._tile_size)
+            yield region, tile_size if retcoords else region
+
+    def __iter__(self):
+        """Iterate through every tile."""
+        return self.iterator()

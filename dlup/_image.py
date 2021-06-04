@@ -11,13 +11,13 @@ other than openslide.
 
 import functools
 import pathlib
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Dict, Iterable, Optional, Tuple, TypeVar, Union
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
 import PIL.Image  # type: ignore
+
+from ._region import RegionView
 
 
 _GenericNumber = Union[int, float]
@@ -28,60 +28,25 @@ _Box = Tuple[_GenericNumber, _GenericNumber, _GenericNumber, _GenericNumber]
 _TSlideImage = TypeVar("TSlideImage", bound="SlideImage")
 
 
-class RegionView(ABC):
-    """A generic image object from which you can extract a region.
-
-    A unit 'U' is assumed to be consistent across this interface.
-    Could be for instance pixels.
-
-    TODO(lromor): Add features like cyclic boundary conditions
-    or zero padding, or "hard" walls.
-    """
-
-    @property
-    @abstractmethod
-    def width(self):
-        """Returns the width of the image in unit U."""
-        pass
-
-    @property
-    @abstractmethod
-    def height(self):
-        """Returns the height of the image in unit U."""
-        pass
-
-    @abstractmethod
-    def _read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
-        """Returns the region covered by the box.
-
-        box coordinates are defined in U units. (0, 0) location
-        starts from the top left.
-        """
-        pass
-
-
 class SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: float):
+    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber):
         self._wsi = wsi
         self._scaling = scaling
-        self._width, self._height = np.array(wsi.highest_resolution_dimensions) * scaling
 
     @property
     def mpp(self):
         """Returns the level effective mpp."""
-        return self._scaling * self._wsi.highest_resolution_mpp
+        return self._scaling * self._wsi.mpp
 
     @property
-    def width(self):
-        return self._width
+    def size(self):
+        """Size"""
+        return self._wsi.get_scaled_size(self._scaling)
 
-    @property
-    def height(self):
-        return self._height
-
-    def _read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
+    def read_region(self, location: _GenericFloatArray,
+                    size: _GenericIntArray) -> np.ndarray:
         """Returns a region in the level."""
         return self._wsi.read_region(location, self._scaling, size)
 
@@ -133,7 +98,7 @@ class SlideImage:
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
     def read_region(self, location: Tuple[_GenericNumber, _GenericNumber], scaling: float,
-                    size: Tuple[int, int]) -> PIL.Image:
+                    size: Tuple[int, int]) -> np.ndarray:
         """Return a pyramidal region.
 
         A typical slide is made of several levels at different mpps.
@@ -193,14 +158,18 @@ class SlideImage:
         # the pixel in the right position to retain the right sample weight.
         fractional_coordinates = native_location - native_location_adapted
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
-        return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
+        return np.asarray(region.resize(size, resample=PIL.Image.LANCZOS, box=box))
 
-    def get_level_view(self, scaling: _GenericNumber, box: _Box = None) -> SlideImageRegionView:
+    def get_scaled_size(self, scaling: _GenericNumber):
+        size = np.array(self.base_dimensions) * scaling
+        return size.astype(int)
+
+    def get_scaled_view(self, scaling: _GenericNumber) -> SlideImageRegionView:
         """Return a pyramid region."""
-        return SlideImageRegionView(self, scaling, box)
+        return SlideImageRegionView(self, scaling)
 
     @property
-    def thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image:
+    def thumbnail(self, size: Tuple[int, int] = (512, 512)) -> np.ndarray:
         """Returns an RGB numpy thumbnail for the current slide.
 
         Parameters
@@ -226,12 +195,12 @@ class SlideImage:
         return self.properties["openslide.vendor"]
 
     @property
-    def base_dimensions(self) -> Tuple[int, int]:
+    def size(self) -> Tuple[int, int]:
         """Returns the highest resolution image size in pixels."""
         return self._openslide_wsi.dimensions
 
     @property
-    def base_mpp(self) -> float:
+    def mpp(self) -> float:
         """Returns the microns per pixel of the high res image."""
         return self._min_native_mpp
 
@@ -243,7 +212,7 @@ class SlideImage:
     @property
     def aspect_ratio(self) -> dict:
         """Returns width / height."""
-        width, height = self.base_dimensions
+        width, height = self.size
         return width / height
 
     def __repr__(self) -> str:
