@@ -18,6 +18,7 @@ import openslide  # type: ignore
 import PIL.Image  # type: ignore
 
 from ._region import RegionView
+from .tiling import TilesGrid
 
 
 _GenericNumber = Union[int, float]
@@ -38,7 +39,7 @@ class SlideImageRegionView(RegionView):
     @property
     def mpp(self):
         """Returns the level effective mpp."""
-        return self._scaling * self._wsi.mpp
+        return self._wsi.mpp / self._scaling
 
     @property
     def size(self):
@@ -161,7 +162,7 @@ class SlideImage:
         return np.asarray(region.resize(size, resample=PIL.Image.LANCZOS, box=box))
 
     def get_scaled_size(self, scaling: _GenericNumber):
-        size = np.array(self.base_dimensions) * scaling
+        size = np.array(self.size) * scaling
         return size.astype(int)
 
     def get_scaled_view(self, scaling: _GenericNumber) -> SlideImageRegionView:
@@ -177,7 +178,7 @@ class SlideImage:
         size :
             Maximum bounding box for the thumbnail expressed as (width, height).
         """
-        return self._openslide_wsi.get_thumbnail(*size)
+        return np.array(self._openslide_wsi.get_thumbnail(size))
 
     @property
     def identifier(self) -> str:
@@ -207,7 +208,7 @@ class SlideImage:
     @property
     def magnification(self) -> int:
         """Returns the objective power at which the WSI was sampled."""
-        return int(self._openslide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        return int(self._openslide_wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
 
     @property
     def aspect_ratio(self) -> dict:

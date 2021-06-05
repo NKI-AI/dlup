@@ -131,9 +131,11 @@ class TestSlideImage:
         with pytest.raises(RuntimeError):
             wsi = SlideImage(openslide_image)
 
-    def test_aspect_ratio(self, dlup_wsi, openslide_image):
-        """Test consistent definition of aspect ratio."""
+    def test_properties(self, dlup_wsi, openslide_image):
+        """Test properties."""
         assert dlup_wsi.aspect_ratio == openslide_image.image.width / openslide_image.image.height
+        assert dlup_wsi.mpp == openslide_image.properties[openslide.PROPERTY_NAME_MPP_X]
+        assert dlup_wsi.magnification == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
 
     @pytest.mark.parametrize("slide_config", [SlideConfig(level_downsamples=(1.0, 2.0, 5.2)),])
     @pytest.mark.parametrize('out_region_x', [0, 4.1, 1.5, 3.9])
@@ -172,6 +174,9 @@ class TestSlideImage:
         # Use dlup read_region to extract the same location
         extracted_region = dlup_wsi.read_region(out_region_location, scaling, out_region_size)
 
+        # Is a numpy array
+        assert isinstance(extracted_region, np.ndarray)
+
         # Check that the right layer was indeed requested from our mock function.
         call_args_list = openslide_image.read_region.call_args_list
         assert len(call_args_list) == 1
@@ -182,3 +187,22 @@ class TestSlideImage:
         # Check that the output correspondin shape and value.
         assert pil_extracted_region.shape == extracted_region.shape
         assert np.allclose(pil_extracted_region, extracted_region)
+
+    def test_scaled_size(self, dlup_wsi):
+        size = dlup_wsi.get_scaled_size(0.5)
+        assert (np.array(size) >= 0).all()
+
+    def test_thumbnail(self, dlup_wsi):
+        thumbnail = dlup_wsi.thumbnail
+        assert isinstance(thumbnail, np.ndarray)
+
+
+@pytest.mark.parametrize('scaling', [2, 1, 1 / 3])
+def test_scaled_view(dlup_wsi, scaling):
+    """Check that a scaled view correctly represents a layer."""
+    view = dlup_wsi.get_scaled_view(scaling)
+    assert view.mpp == dlup_wsi.mpp / scaling
+    location = (3.7, 0)
+    size = (10, 15)
+    assert (view.read_region(location, size) == dlup_wsi.read_region(location, scaling, size)).all()
+    assert (dlup_wsi.get_scaled_size(scaling) == view.size).all()
