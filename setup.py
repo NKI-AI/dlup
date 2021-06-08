@@ -52,6 +52,7 @@ setup(
         "tqdm",
         "pillow",
         "staintools",
+        "paquo",
     ],
     extras_require={
         "dev": ["pytest", "sphinx_copybutton", "numpydoc", "myst_parser", "sphinx-book-theme", "pylint"],
