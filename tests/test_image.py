@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 from scipy import interpolate
 
 from dlup import SlideImage
+from dlup import DLUPUnsupportedSlideError
+
 
 _TImage = TypeVar("_TImage", bound="Image")
 
@@ -128,7 +130,7 @@ class TestSlideImage:
     )
     def test_mpp_exceptions(self, openslide_image):
         """Test that we break if the slide has no isotropic resolution."""
-        with pytest.raises(RuntimeError):
+        with pytest.raises(DLUPUnsupportedSlideError):
             wsi = SlideImage(openslide_image)
 
     def test_properties(self, dlup_wsi, openslide_image):

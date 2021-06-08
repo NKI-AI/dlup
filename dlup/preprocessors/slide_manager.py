@@ -5,7 +5,7 @@ import logging
 import pathlib
 from typing import Any, Dict, List, Union
 
-from dlup.slide import Slide
+from dlup import SlideImage
 from dlup.utils.types import PathLike
 
 
@@ -110,7 +110,7 @@ class BaseSlideManager(abc.ABC):
         Opens a specific slide from the file path list, by index
         """
         if len(self.file_names) > idx >= 0:
-            return Slide(
+            return SlideImage(
                 file_name=self.file_names[idx]["path"],
                 slide_uid=self.file_names[idx]["id"],
             )
@@ -119,7 +119,7 @@ class BaseSlideManager(abc.ABC):
     def __iter__(self):
         for f_name in self.file_names:
             try:
-                yield Slide(
+                yield SlideImage(
                     file_name=f_name["path"],
                     slide_uid=f_name["id"],
                 )
@@ -143,3 +143,4 @@ class BaseSlideManager(abc.ABC):
         ----------
         file : pathlib.Path
         """
+        pass

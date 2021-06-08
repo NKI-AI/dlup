@@ -16,9 +16,10 @@ from typing import Dict, Iterable, Optional, Tuple, TypeVar, Union
 import numpy as np  # type: ignore
 import openslide  # type: ignore
 import PIL.Image  # type: ignore
+import PIL
 
+from dlup import DLUPUnsupportedSlideError
 from ._region import RegionView
-from .tiling import TilesGrid
 
 
 _GenericNumber = Union[int, float]
@@ -84,10 +85,10 @@ class SlideImage:
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
             mpp = np.array([mpp_y, mpp_x])
         except KeyError:
-            raise RuntimeError(f"Slide property mpp is not available.")
+            raise DLUPUnsupportedSlideError(f"Slide property mpp is not available.")
 
         if not np.isclose(mpp[0], mpp[1]):
-            raise RuntimeError("Cannot deal with slides having anisotropic mpps.")
+            raise DLUPUnsupportedSlideError("Cannot deal with slides having anisotropic mpps.")
 
         self._min_native_mpp = float(mpp[0])
 
@@ -95,7 +96,11 @@ class SlideImage:
     def from_file_path(
         cls: _TSlideImage, wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
     ) -> _TSlideImage:
-        wsi = openslide.open_slide(str(wsi_file_path))
+        try:
+            wsi = openslide.open_slide(str(wsi_file_path))
+        except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
+            raise DLUPUnsupportedSlideError('Unsupported file.')
+
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
     def read_region(self, location: Tuple[_GenericNumber, _GenericNumber], scaling: float,
@@ -169,8 +174,7 @@ class SlideImage:
         """Return a pyramid region."""
         return SlideImageRegionView(self, scaling)
 
-    @property
-    def thumbnail(self, size: Tuple[int, int] = (512, 512)) -> np.ndarray:
+    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> np.ndarray:
         """Returns an RGB numpy thumbnail for the current slide.
 
         Parameters
@@ -179,6 +183,10 @@ class SlideImage:
             Maximum bounding box for the thumbnail expressed as (width, height).
         """
         return np.array(self._openslide_wsi.get_thumbnail(size))
+
+    @property
+    def thumbnail(self):
+        return self.get_thumbnail()
 
     @property
     def identifier(self) -> str:
@@ -223,4 +231,3 @@ class SlideImage:
             value = getattr(self, key)
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
-

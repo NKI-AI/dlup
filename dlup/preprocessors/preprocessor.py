@@ -14,7 +14,7 @@ from numpy.typing import ArrayLike
 from dlup.preprocessors.background import get_mask
 from dlup.preprocessors.iterators import Region, TileIterator
 from dlup.preprocessors.slide_manager import BaseSlideManager
-from dlup.slide import Slide
+from dlup.slide import SlideImage
 from dlup.utils.bbox import crop_to_bbox
 from dlup.utils.io import read_json, write_json
 from dlup.utils.types import PathLike
@@ -183,7 +183,7 @@ class BasePreprocessor(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def process_slide(self, slide: Slide):
+    def process_slide(self, slide: SlideImage):
         pass
 
     def process_tile(self, save_dir: PathLike, tile_tuple: ArrayLike):
@@ -198,4 +198,3 @@ class BasePreprocessor(abc.ABC):
         for slide_idx, slide in enumerate(slide_manager):
             self.logger.info(f"Processing slide {slide_idx + 1} of {len(slide_manager)}.")
             self.process_slide(slide)
-            slide.close()

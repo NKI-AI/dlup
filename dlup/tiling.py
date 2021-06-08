@@ -32,7 +32,7 @@ def _flattened_array(a: _GenericNumberArray) -> np.ndarray:
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(basis: Iterable[_GenericNumberArray]):
+def indexed_ndmesh(basis: Iterable[_GenericNumberArray], indexing: str = 'ij'):
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     For instance:
@@ -42,7 +42,8 @@ def indexed_ndmesh(basis: Iterable[_GenericNumberArray]):
     assert mesh[0, 1] == (1, 5)
     ```
     """
-    return np.stack(tuple(reversed(np.meshgrid(*reversed(basis), indexing='ij')))).T
+    return np.ascontiguousarray(
+        np.stack(tuple(reversed(np.meshgrid(*reversed(basis), indexing=indexing)))).T)
 
 
 def span_tiling_bases(size: _GenericNumberArray, tile_size: _GenericNumberArray,
@@ -57,14 +58,14 @@ def span_tiling_bases(size: _GenericNumberArray, tile_size: _GenericNumberArray,
     tile_overlap = _flattened_array(tile_overlap)
 
     if not (size.shape == tile_size.shape == tile_overlap.shape):
-        raise ValueError('Size, tile_size and tile_overlap '
+        raise ValueError('size, tile_size and tile_overlap '
                          'should have the same dimensions.')
 
     if (size <= 0).any():
-        raise ValueError('Size should always be greater than zero.')
+        raise ValueError('size should always be greater than zero.')
 
     if (tile_size <= 0).any():
-        raise ValueError('Tile size should always be greater than zero.')
+        raise ValueError('tile size should always be greater than zero.')
 
     # Let's force it to a valid value.
     tile_overlap = np.remainder(tile_overlap, np.minimum(tile_size, size), casting='safe')
@@ -86,18 +87,18 @@ def span_tiling_bases(size: _GenericNumberArray, tile_size: _GenericNumberArray,
 
     # Let's create our indices list
     coordinates = []
-    for n, dstride, dsize in zip(num_tiles, stride, size):
+    for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
 
-        if mode == TilingMode.fit and overflow > 0:
+        if mode == TilingMode.fit:
             if n < 2:
                 coordinates.append(np.array([]))
                 continue
 
             # The location of the last tile
             # should stay fixed at the end
-            tiles_locations[-1] = dsize - tile_size
-            distribute = overflow / (n - 2)
+            tiles_locations[-1] = dsize - dtile_size
+            distribute = doverflow / (n - 2)
             tiles_locations = tiles_locations.astype(float)
             tiles_locations[1:-1] -= distribute
 
@@ -105,19 +106,36 @@ def span_tiling_bases(size: _GenericNumberArray, tile_size: _GenericNumberArray,
     return coordinates
 
 
-class TilesGrid:
+class TiledRegionView:
     """Facilitates the access to tiles of a region view."""
 
     def __init__(self, region_view: RegionView, tile_size: Tuple[int, int],
-                 tile_overlap: Tuple[int, int], mode: TilingMode = TilingMode.skip):
+                 tile_overlap: Tuple[int, int], mode: TilingMode = TilingMode.skip,
+                 crop: bool = True):
+        """Initialize a Tiled Region view.
+
+        TODO(lromor): Crop is a simplification of a bigger problem.
+        We should add to RegionView different modes which define what happens when
+        a region is sampled outside its boundaries. It could return a cropped sample,
+        return an error, or even more complex boundary conditions, or just ignore
+        and try to sample outside the region anyways.
+        """
         self._region_view = region_view
         self._tile_size = tile_size
         self._tile_overlap = tile_overlap
+        self._crop = crop
         basis = span_tiling_bases(
             region_view.size, tile_size,
             tile_overlap=tile_overlap, mode=mode)
-        self._coordinates_grid = indexed_ndmesh(basis)
-        self._coordinates = self._coordinates_grid.view(-1, len(region_view.size))
+
+        # Image coordinates usually start from the top left corner
+        # with +y pointing downwards. For this reason, we set the indexing
+        # to xy.
+        self._coordinates_grid = indexed_ndmesh(basis, indexing='xy')
+
+        # Let's also flatten the coordinates for simplified access.
+        self._coordinates = self._coordinates_grid.view()
+        self._coordinates.shape = (-1, len(region_view.size))
 
     @property
     def tile_size(self):
@@ -129,7 +147,7 @@ class TilesGrid:
 
     @property
     def coordinates_grid(self):
-        """Grid array containing tiles starting positions"""
+        """Grid array containing tiles starting positions."""
         return self._coordinates_grid
 
     @property
@@ -141,16 +159,22 @@ class TilesGrid:
     def region_view(self):
         return self._region_view
 
-    @property
-    def num_tiles(self):
-        return len(self._coordinates)
+    def get_tile(self, i, retcoords=False):
+        coordinate = self.coordinates[i]
+        tile_size = self.tile_size
+        tile = self._region_view.read_region(coordinate, tile_size)
+        return (tile, coordinate) if retcoords else tile
 
-    def iterator(self, sampler, retcoords=True):
-        for i in sampler:
-            coordinate = self.coordinates[i]
-            region = self._region_view.read_region(coordinate, self._tile_size)
-            yield region, tile_size if retcoords else region
+    def __getitem__(self, i):
+        return self.get_tile(i)
+
+    def get_iterator(self, retcoords=False):
+        for i in range(len(self)):
+            yield self.get_tile(i, retcoords)
+
+    def __len__(self):
+        return len(self._coordinates)
 
     def __iter__(self):
         """Iterate through every tile."""
-        return self.iterator()
+        return self.get_iterator()
