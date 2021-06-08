@@ -13,10 +13,8 @@ class SlideImageDataset(Dataset, TiledRegionView):
     def __init__(self, path: pathlib.Path, mpp: float, tile_size: Tuple[int, int],
                  tile_overlap: Tuple[int, int], background_threshold: float = 0.0):
         slide_image = SlideImage.from_file_path(path)
-        #print(slide_image.size)
         scaled_view = slide_image.get_scaled_view(slide_image.mpp / mpp)
-        #print(scaled_view.size)
-        super().__init__(scaled_view, tile_size, tile_overlap, TilingMode.fit)
+        super().__init__(scaled_view, tile_size, tile_overlap, TilingMode.overflow, crop=True)
         # coordinates_background_mask = compute_background_mask(mask, self.coordinates)
         # background_mask =
 

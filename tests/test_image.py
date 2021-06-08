@@ -139,7 +139,7 @@ class TestSlideImage:
         assert dlup_wsi.mpp == openslide_image.properties[openslide.PROPERTY_NAME_MPP_X]
         assert dlup_wsi.magnification == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
 
-    @pytest.mark.parametrize("slide_config", [SlideConfig(level_downsamples=(1.0, 2.0, 5.2)),])
+    @pytest.mark.parametrize("slide_config", [SlideConfig(level_downsamples=(1.0,)),])
     @pytest.mark.parametrize('out_region_x', [0, 4.1, 1.5, 3.9])
     @pytest.mark.parametrize('out_region_y', [0, 0.03, 4.2])
     @pytest.mark.parametrize('out_region_size', [(4, 4), (7, 3), (1, 5)])

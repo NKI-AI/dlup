@@ -137,33 +137,45 @@ class SlideImage:
         if (location < 0).any():
             raise ValueError("Location values must be greater than zero.")
 
-        # Compute the scaling value between the closest high-res layer and a target layer.
-        best_level = owsi.get_best_level_for_downsample(1 / scaling)
-        relative_scaling = scaling * owsi.level_downsamples[best_level]
-        best_level_size = owsi.level_dimensions[best_level]
-
         # Openslide doesn't feature float coordinates to extract a region.
         # We need to extract enough pixels and let PIL do the interpolation.
         # In the borders, the basis functions of other samples contribute to the final value.
         # PIL lanczos uses 3 pixels as support.
         # See pillow: https://git.io/JG0QD
-        extra_pixels = 3 if scaling > 1 else int(3 / relative_scaling)
-        native_location = location / relative_scaling
-        native_size = size / relative_scaling
+        extra_pixels = 3 if scaling > 1 else int(3 / scaling)
 
-        # Compute extra paddings for exact interpolation.
-        native_location_adapted = np.floor(native_location - extra_pixels).astype(int)
-        native_location_adapted = _clip2size(native_location_adapted, best_level_size)
-        native_size_adapted = np.ceil(native_location + native_size + extra_pixels).astype(int)
-        native_size_adapted = _clip2size(native_size_adapted, best_level_size) - native_location_adapted
+        # Compute values projected onto the best layer.
+        bl = owsi.get_best_level_for_downsample(1 / scaling)
+        bl_downsample = owsi.level_downsamples[bl]
+        bl_layer_size = owsi.level_dimensions[bl]
+        bl_scaling = scaling * bl_downsample
+        bl_location = location / bl_scaling
+        bl_size = size / bl_scaling
+
+        # Compute Lowest Level projected values.
+        ll_layer_size = owsi.level_dimensions[0]
+        ll_location = location / scaling
+        ll_size = size / scaling
+
+        # Consider extra paddings for exact interpolation.
+        # Compute the location in the base layer.
+        ll_location_adapted = np.floor(ll_location - extra_pixels).astype(int)
+        ll_location_adapted = _clip2size(ll_location_adapted, ll_layer_size)
+
+        # Compute the region size in the best layer.
+        bl_location_adapted = ll_location_adapted / bl_downsample
+        bl_size_adapted = (ll_location + ll_size + extra_pixels) / bl_downsample
+        bl_size_adapted = np.ceil(bl_size_adapted).astype(int)
+        bl_size_adapted = _clip2size(bl_size_adapted, bl_layer_size) - bl_location_adapted
+        bl_size_adapted = bl_size_adapted.astype(int)
 
         # We extract the region via openslide with the required extra border
-        region = owsi.read_region(tuple(native_location_adapted), best_level, tuple(native_size_adapted))
+        region = owsi.read_region(tuple(ll_location_adapted), bl, tuple(bl_size_adapted))
 
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.
-        fractional_coordinates = native_location - native_location_adapted
-        box = (*fractional_coordinates, *(fractional_coordinates + native_size))
+        fractional_coordinates = bl_location - bl_location_adapted
+        box = (*fractional_coordinates, *(fractional_coordinates + bl_size))
         return np.asarray(region.resize(size, resample=PIL.Image.LANCZOS, box=box))
 
     def get_scaled_size(self, scaling: _GenericNumber):

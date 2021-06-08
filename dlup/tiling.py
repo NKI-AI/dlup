@@ -162,7 +162,21 @@ class TiledRegionView:
     def get_tile(self, i, retcoords=False):
         coordinate = self.coordinates[i]
         tile_size = self.tile_size
-        tile = self._region_view.read_region(coordinate, tile_size)
+        clipped_tile_size = np.clip(
+            coordinate + tile_size, np.zeros_like(self.tile_size), self.region_view.size) - coordinate
+        clipped_tile_size = clipped_tile_size.astype(int)
+        tile = self._region_view.read_region(coordinate, clipped_tile_size)
+
+        if not self._crop:
+            padding = np.zeros((len(tile.shape), 2), dtype=int)
+
+            # This flip is justified as PIL outputs arrays with axes in reversed order
+            # Extracting a box of size (width, height) results in an array
+            # of shape (height, width, channels)
+            padding[:-1, 1] = np.flip(tile_size - clipped_tile_size)
+            values = np.zeros_like(padding)
+            tile = np.pad(tile, padding, 'constant', constant_values=values)
+
         return (tile, coordinate) if retcoords else tile
 
     def __getitem__(self, i):

@@ -22,7 +22,7 @@ def tiling(args: argparse.Namespace, subfolder='tiles'):
 
     # Prepare output directory.
     output_directory_path /= 'tiles'
-    columns = dataset.coordinates_grid.shape[0]
+    columns = dataset.coordinates_grid.shape[1]
 
     for i, (tile, coords) in enumerate(zip(dataset, dataset.coordinates)):
         image = PIL.Image.fromarray(tile)
