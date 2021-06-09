@@ -1,3 +1,6 @@
+# coding=utf-8
+# Copyright (c) DLUP Contributors
+
 import argparse
 import json
 import pathlib
@@ -7,6 +10,7 @@ import PIL
 from dlup import SlideImage
 from dlup import DLUPUnsupportedSlideError
 from dlup.utils.data.dataset import SlideImageDataset
+from dlup.background import foreground_tiles_coordinates_mask, get_mask
 
 
 def tiling(args: argparse.Namespace, subfolder='tiles'):
@@ -24,7 +28,14 @@ def tiling(args: argparse.Namespace, subfolder='tiles'):
     output_directory_path /= 'tiles'
     columns = dataset.coordinates_grid.shape[1]
 
-    for i, (tile, coords) in enumerate(zip(dataset, dataset.coordinates)):
+    # Generate the foreground mask
+    mask = get_mask(dataset.slide_image)
+    boolean_mask = foreground_tiles_coordinates_mask(mask, dataset, 0.1)
+
+    # Iterate through the tiles and save them in the provided location.
+    for i, (tile, coords) in filter(
+            lambda x: boolean_mask[x[0]],
+            enumerate(zip(dataset, dataset.coordinates))):
         image = PIL.Image.fromarray(tile)
         row = i // columns
         column = i % columns

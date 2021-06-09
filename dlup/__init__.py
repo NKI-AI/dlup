@@ -5,6 +5,7 @@
 from ._exceptions import DLUPUnsupportedSlideError
 from ._exceptions import DLUPError
 from ._image import SlideImage
+from ._image import SlideImageTiledRegionView
 from ._region import RegionView
 
 

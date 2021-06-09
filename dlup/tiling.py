@@ -109,6 +109,8 @@ def span_tiling_bases(size: _GenericNumberArray, tile_size: _GenericNumberArray,
 class TiledRegionView:
     """Facilitates the access to tiles of a region view."""
 
+    region_view_cls = RegionView
+
     def __init__(self, region_view: RegionView, tile_size: Tuple[int, int],
                  tile_overlap: Tuple[int, int], mode: TilingMode = TilingMode.skip,
                  crop: bool = True):
@@ -120,6 +122,10 @@ class TiledRegionView:
         return an error, or even more complex boundary conditions, or just ignore
         and try to sample outside the region anyways.
         """
+        if not isinstance(region_view, self.region_view_cls):
+            ValueError('region_view is not and instance of'
+                       f' {region_view_cls.__class__.__name__}')
+
         self._region_view = region_view
         self._tile_size = tile_size
         self._tile_overlap = tile_overlap

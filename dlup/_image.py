@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) DLUP Contributors
+
 """Whole slide image access objects.
 
 In this module we take care of abstracting the access to whole slide images.
@@ -20,6 +21,7 @@ import PIL
 
 from dlup import DLUPUnsupportedSlideError
 from ._region import RegionView
+from dlup.tiling import TiledRegionView
 
 
 _GenericNumber = Union[int, float]
@@ -30,7 +32,7 @@ _Box = Tuple[_GenericNumber, _GenericNumber, _GenericNumber, _GenericNumber]
 _TSlideImage = TypeVar("TSlideImage", bound="SlideImage")
 
 
-class SlideImageRegionView(RegionView):
+class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
     def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber):
@@ -51,6 +53,11 @@ class SlideImageRegionView(RegionView):
                     size: _GenericIntArray) -> np.ndarray:
         """Returns a region in the level."""
         return self._wsi.read_region(location, self._scaling, size)
+
+
+class SlideImageTiledRegionView(TiledRegionView):
+    """Class specialization."""
+    region_view_cls = _SlideImageRegionView
 
 
 def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> np.ndarray:
@@ -176,9 +183,9 @@ class SlideImage:
         size = np.array(self.size) * scaling
         return size.astype(int)
 
-    def get_scaled_view(self, scaling: _GenericNumber) -> SlideImageRegionView:
+    def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
         """Return a pyramid region."""
-        return SlideImageRegionView(self, scaling)
+        return _SlideImageRegionView(self, scaling)
 
     def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> np.ndarray:
         """Returns an RGB numpy thumbnail for the current slide.
