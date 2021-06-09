@@ -66,6 +66,13 @@ class SlideConfig(BaseModel):
 
 
 class OpenSlideImageMock(openslide.ImageSlide):
+    """Mock OpenSlide object also with layers.
+
+    NOTE: read_region works a bit differently than the actual openslide.
+    Openslide *does* project the float base layer values to the best layer
+    and then performs different operations such as adding saturation and translations.
+    https://github.com/openslide/openslide/blob/main/src/openslide.c#L488-L493
+    """
     properties = {}
     level_downsamples = (1.0,)
 
@@ -90,7 +97,8 @@ class OpenSlideImageMock(openslide.ImageSlide):
 
     def read_region(self, location, level, size):
         image = self.get_level_image(level)
-        return openslide.ImageSlide(image).read_region(location, 0, size)
+        location = np.asarray(location) / self.level_downsamples[level]
+        return image.resize(size, resample=PIL.Image.LANCZOS, box=(*location, *(location + size)))
 
     @classmethod
     def from_slide_config(cls, slide_config):
