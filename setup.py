@@ -54,7 +54,12 @@ setup(
         "staintools",
     ],
     extras_require={
-        "dev": ["pytest", "pytest-mock", "sphinx_copybutton", "numpydoc", "myst_parser", "sphinx-book-theme", "pylint", "pydantic"],
+        "dev": [
+            "pytest", "pytest-mock",
+            "sphinx_copybutton", "numpydoc",
+            "myst_parser", "sphinx-book-theme",
+            "pylint", "pydantic"
+        ],
     },
     license="Apache Software License 2.0",
     include_package_data=True,
@@ -62,6 +67,6 @@ setup(
     name="dlup",
     packages=find_packages(include=["dlup", "dlup.*"]),
     url="https://github.com/NKI-AI/dlup",
-    version="0.1",
+    version="0.2",
     zip_safe=False,
 )
