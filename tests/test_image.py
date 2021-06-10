@@ -1,6 +1,5 @@
 # coding=utf-8
 # Copyright (c) DLUP Contributors
-import functools
 from typing import Any, Dict, Optional, Tuple, TypeVar
 
 import numpy as np
@@ -16,7 +15,6 @@ from dlup import DLUPUnsupportedSlideError, SlideImage
 _TImage = TypeVar("_TImage", bound="Image")
 
 
-@functools.cache
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
     """Generate a non-uniform sample image."""
     # Interpolate some simple function
