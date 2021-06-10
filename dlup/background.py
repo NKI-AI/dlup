@@ -192,10 +192,10 @@ def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi, minimal_siz
     size = max_slide * slide.mpp / 10  # Size is 10 mpp
     # Max sure it is at least max_slide and a power of 2.
     # TODO: maybe this power is not needed
-    size = max([next_power_of_2(size), min([minimal_size, max_slide])])
+    size = int(max([next_power_of_2(size), min([minimal_size, max_slide])]))
 
     # TODO: max should be determined by system memory
-    mask = mask_func(slide.get_thumbnail(size=(size,) * 2))
+    mask = mask_func(slide.get_thumbnail(size=(size, size)))
     return mask.astype(np.uint8)
 
 
@@ -205,8 +205,11 @@ def foreground_tiles_coordinates_mask(
     """Generate a numpy bolean mask that can be applied to tiles coordinates."""
     slide_image_region_view = tiled_region_view.region_view
     mask_size = np.array(background_mask.shape[:2][::-1])
+
     background_mask = PIL.Image.fromarray(background_mask)
-    scaling = background_mask.width / slide_image_region_view.size[0]
+
+    # Type of background_mask is Any here.
+    scaling = background_mask.width / slide_image_region_view.size[0]  # type: ignore
     scaled_tile_size = np.array(tiled_region_view.tile_size) * scaling
     scaled_tile_size = scaled_tile_size.astype(int)
     scaled_coordinates = tiled_region_view.coordinates * scaling
@@ -217,13 +220,14 @@ def foreground_tiles_coordinates_mask(
     # Let's clip values outside boundaries.
     max_a = np.tile(mask_size, 2)
     min_a = np.zeros_like(max_a)
-    boxes = np.clip(boxes, min_a, max_a)
+    boxes = np.clip(boxes, min_a, max_a)  # type: ignore
 
     # Fill in the mask with boolean values if the mean number of pixels
     # of tissue surpasses a threshold.
     mask = np.empty(len(boxes), dtype=bool)
     for i, b in enumerate(boxes):
-        mask_tile = np.asarray(background_mask.resize(scaled_tile_size, PIL.Image.BICUBIC, box=b), dtype=float)
+        mask_tile = background_mask.resize(scaled_tile_size, PIL.Image.BICUBIC, box=b)  # type: ignore
+        mask_tile = np.asarray(mask_tile, dtype=float)
         mask[i] = mask_tile.mean() >= threshold
 
     return mask

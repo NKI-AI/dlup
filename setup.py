@@ -6,7 +6,7 @@
 import ast
 from typing import List
 
-from setuptools import find_packages, setup
+from setuptools import find_packages, setup  # type: ignore
 
 with open("dlup/__init__.py") as f:
     for line in f:

@@ -2,14 +2,14 @@
 # Copyright (c) DLUP Contributors
 
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing import Dict, Iterable, Sequence, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
 from ._region import RegionView
 
 _GenericNumber = Union[int, float]
-_GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
+_GenericNumberArray = Union[np.ndarray, Sequence[_GenericNumber]]
 
 
 class TilingMode(str, Enum):
@@ -28,12 +28,12 @@ class TilingMode(str, Enum):
     fit = "fit"
 
 
-def _flattened_array(a: _GenericNumberArray) -> np.ndarray:
+def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarray:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(basis: Iterable[_GenericNumberArray], indexing: str = "ij"):
+def indexed_ndmesh(basis: Sequence[_GenericNumberArray], indexing: str = "ij"):
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     For instance:
@@ -49,7 +49,7 @@ def indexed_ndmesh(basis: Iterable[_GenericNumberArray], indexing: str = "ij"):
 def span_tiling_bases(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
-    tile_overlap: _GenericNumberArray = 0,
+    tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
     mode: TilingMode = TilingMode.skip,
 ) -> List[np.ndarray]:
     """Generate a list of coordinates for each dimension representing a tile location.

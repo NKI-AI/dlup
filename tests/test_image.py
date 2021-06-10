@@ -1,9 +1,9 @@
 # coding=utf-8
 # Copyright (c) DLUP Contributors
-from typing import Any, Dict, Optional, Tuple, TypeVar
+from typing import Any, Dict, Optional, Tuple, Sequence, Type, Union
 
 import numpy as np
-import openslide
+import openslide  # type: ignore
 import PIL
 import pytest
 from PIL.Image import Image
@@ -11,8 +11,6 @@ from pydantic import BaseModel, Field
 from scipy import interpolate
 
 from dlup import DLUPUnsupportedSlideError, SlideImage
-
-_TImage = TypeVar("_TImage", bound="Image")
 
 
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
@@ -41,7 +39,7 @@ def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
     im = im * 255
     im = im.astype("uint8")
     im = PIL.Image.fromarray(im, mode="HSV")
-    return im.convert(mode="RGBA")
+    return im.convert(mode="RGBA")  # type: ignore
 
 
 class SlideProperties(BaseModel):
@@ -59,7 +57,7 @@ class SlideProperties(BaseModel):
 class SlideConfig(BaseModel):
     """Mock slide configuration."""
 
-    image: _TImage = get_sample_nonuniform_image()
+    image: Type[Image] = get_sample_nonuniform_image()
     properties: SlideProperties = SlideProperties()
     level_downsamples: Tuple[float, ...] = (1.0, 2.0)
 
@@ -73,8 +71,8 @@ class OpenSlideImageMock(openslide.ImageSlide):
     https://github.com/openslide/openslide/blob/main/src/openslide.c#L488-L493
     """
 
-    properties = {}
-    level_downsamples = (1.0,)
+    properties: Dict[Any, Any] = {}
+    level_downsamples: Sequence[Union[float, int]] = (1.0,)
 
     def __init__(self, image: PIL.Image, properties: Dict, level_downsamples: Tuple):
         self.properties = properties

@@ -12,12 +12,23 @@ other than openslide.
 
 import functools
 import pathlib
-from typing import Dict, Iterable, Optional, Tuple, TypeVar, Union
 
-import numpy as np  # type: ignore
-import openslide  # type: ignore
+from typing import Any
+from typing import Dict
+from typing import Iterable
+from typing import Optional
+from typing import Sequence
+from typing import Tuple
+from typing import Type
+from typing import TypeVar
+from typing import Union
+
 import PIL
 import PIL.Image  # type: ignore
+import numpy as np  # type: ignore
+import openslide  # type: ignore
+
+from numpy.typing import ArrayLike
 
 from dlup import DLUPUnsupportedSlideError
 from dlup.tiling import TiledRegionView
@@ -29,7 +40,7 @@ _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
 _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
 _Box = Tuple[_GenericNumber, _GenericNumber, _GenericNumber, _GenericNumber]
-_TSlideImage = TypeVar("TSlideImage", bound="SlideImage")
+_TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 
 
 class _SlideImageRegionView(RegionView):
@@ -52,16 +63,18 @@ class _SlideImageRegionView(RegionView):
 
     def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
         """Returns a region in the level."""
-        return self._wsi.read_region(location, self._scaling, size)
+        x, y = location
+        w, h = size
+        return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
 class SlideImageTiledRegionView(TiledRegionView):
     """Class specialization."""
 
-    region_view_cls = _SlideImageRegionView
+    region_view_cls: Type[RegionView] = _SlideImageRegionView
 
 
-def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> np.ndarray:
+def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> Sequence[_GenericNumber]:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
@@ -101,7 +114,7 @@ class SlideImage:
 
     @classmethod
     def from_file_path(
-        cls: _TSlideImage, wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
+        cls: Type[_TSlideImage], wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
     ) -> _TSlideImage:
         try:
             wsi = openslide.open_slide(str(wsi_file_path))
@@ -111,7 +124,10 @@ class SlideImage:
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
     def read_region(
-        self, location: Tuple[_GenericNumber, _GenericNumber], scaling: float, size: Tuple[int, int]
+        self,
+        location: Union[np.ndarray, Tuple[_GenericNumber, _GenericNumber]],
+        scaling: float,
+        size: Union[np.ndarray, Tuple[int, int]],
     ) -> np.ndarray:
         """Return a pyramidal region.
 
@@ -136,8 +152,8 @@ class SlideImage:
             Region size to extract in pixels.
         """
         owsi = self._openslide_wsi
-        location = np.array(location)
-        size = np.array(size)
+        location = np.asarray(location)
+        size = np.asarray(size)
 
         if (size < 0).any():
             raise ValueError("Size values must be greater than zero.")
@@ -205,7 +221,7 @@ class SlideImage:
         return self.get_thumbnail()
 
     @property
-    def identifier(self) -> str:
+    def identifier(self) -> Optional[str]:
         """Returns a user-defined identifier."""
         return self._identifier
 
@@ -235,7 +251,7 @@ class SlideImage:
         return int(self._openslide_wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
 
     @property
-    def aspect_ratio(self) -> dict:
+    def aspect_ratio(self) -> float:
         """Returns width / height."""
         width, height = self.size
         return width / height

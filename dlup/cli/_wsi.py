@@ -4,6 +4,7 @@
 import argparse
 import json
 import pathlib
+from typing import cast, Tuple
 
 import PIL
 
@@ -16,8 +17,8 @@ def tiling(args: argparse.Namespace, subfolder="tiles"):
     """Perform some tiling."""
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
-    tile_size = (args.tile_size,) * 2
-    tile_overlap = (args.tile_overlap,) * 2
+    tile_size = cast(Tuple[int, int], (args.tile_size,) * 2)
+    tile_overlap = cast(Tuple[int, int], (args.tile_overlap,) * 2)
 
     dataset = SlideImageDataset(
         input_file_path, args.mpp, tile_size, tile_overlap, background_threshold=args.background_threshold
@@ -53,7 +54,7 @@ def info(args: argparse.Namespace):
         print(f"{k}\t{v}")
 
 
-def register_parser(parser: argparse.ArgumentParser):
+def register_parser(parser: argparse._SubParsersAction):
     """Register wsi commands to a root parser."""
     wsi_parser = parser.add_parser("wsi", help="WSI parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI subparser")
