@@ -130,7 +130,7 @@ class TiledRegionView:
         and try to sample outside the region anyways.
         """
         if not isinstance(region_view, self.region_view_cls):
-            ValueError("region_view is not and instance of" f" {region_view_cls.__class__.__name__}")
+            ValueError("region_view is not and instance of" f" {self.region_view_cls.__class__.__name__}")
 
         self._region_view = region_view
         self._tile_size = tile_size
