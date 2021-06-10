@@ -6,15 +6,12 @@ from typing import Any, Dict, Optional, Tuple, TypeVar
 import numpy as np
 import openslide
 import PIL
-
 import pytest
 from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
 
-from dlup import SlideImage
-from dlup import DLUPUnsupportedSlideError
-
+from dlup import DLUPUnsupportedSlideError, SlideImage
 
 _TImage = TypeVar("_TImage", bound="Image")
 
@@ -26,7 +23,7 @@ def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
     interp_args = ((0, 1), (0, 1), ((0, 1), (1, 0)))  # x  # y  # z
     f = interpolate.interp2d(*interp_args, kind="linear")
     if not (np.array(size) % 2 == 0).all():
-        raise ValueError('Size should be a tuple of values divisible by two.')
+        raise ValueError("Size should be a tuple of values divisible by two.")
 
     # Sample it
     width, height = size
@@ -73,6 +70,7 @@ class OpenSlideImageMock(openslide.ImageSlide):
     and then performs different operations such as adding saturation and translations.
     https://github.com/openslide/openslide/blob/main/src/openslide.c#L488-L493
     """
+
     properties = {}
     level_downsamples = (1.0,)
 
@@ -134,7 +132,7 @@ class TestSlideImage:
         [
             SlideConfig(properties=SlideProperties(mpp_x=1.0, mpp_y=2.0)),
             SlideConfig(properties=SlideProperties(mpp_x=None, mpp_y=None)),
-        ]
+        ],
     )
     def test_mpp_exceptions(self, openslide_image):
         """Test that we break if the slide has no isotropic resolution."""
@@ -147,13 +145,27 @@ class TestSlideImage:
         assert dlup_wsi.mpp == openslide_image.properties[openslide.PROPERTY_NAME_MPP_X]
         assert dlup_wsi.magnification == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
 
-    @pytest.mark.parametrize("slide_config", [SlideConfig(level_downsamples=(1.0,)),])
-    @pytest.mark.parametrize('out_region_x', [0, 4.1, 1.5, 3.9])
-    @pytest.mark.parametrize('out_region_y', [0, 0.03, 4.2])
-    @pytest.mark.parametrize('out_region_size', [(4, 4), (7, 3), (1, 5)])
-    @pytest.mark.parametrize('scaling', [2, 1, 1 / 3, 1 / 7,])
-    def test_read_region(self, mocker, dlup_wsi, openslide_image,
-                         out_region_x, out_region_y, out_region_size, scaling):
+    @pytest.mark.parametrize(
+        "slide_config",
+        [
+            SlideConfig(level_downsamples=(1.0,)),
+        ],
+    )
+    @pytest.mark.parametrize("out_region_x", [0, 4.1, 1.5, 3.9])
+    @pytest.mark.parametrize("out_region_y", [0, 0.03, 4.2])
+    @pytest.mark.parametrize("out_region_size", [(4, 4), (7, 3), (1, 5)])
+    @pytest.mark.parametrize(
+        "scaling",
+        [
+            2,
+            1,
+            1 / 3,
+            1 / 7,
+        ],
+    )
+    def test_read_region(
+        self, mocker, dlup_wsi, openslide_image, out_region_x, out_region_y, out_region_size, scaling
+    ):
         """Test exact interpolation.
 
         We want to be sure that reading a region at some scaling level is equivalent to
@@ -176,10 +188,12 @@ class TestSlideImage:
         # rectangle corners coordinates.
         box = (*out_region_location, *(out_region_location + out_region_size))
         expected_level_box = np.array(box) / relative_scaling
-        pil_extracted_region = np.array(expected_level_image.resize(out_region_size, resample=PIL.Image.LANCZOS, box=expected_level_box))
+        pil_extracted_region = np.array(
+            expected_level_image.resize(out_region_size, resample=PIL.Image.LANCZOS, box=expected_level_box)
+        )
 
         # Spy on how our mock object was called
-        mocker.spy(openslide_image, 'read_region')
+        mocker.spy(openslide_image, "read_region")
 
         # Use dlup read_region to extract the same location
         extracted_region = dlup_wsi.read_region(out_region_location, scaling, out_region_size)
@@ -190,7 +204,7 @@ class TestSlideImage:
         # Check that the right layer was indeed requested from our mock function.
         call_args_list = openslide_image.read_region.call_args_list
         assert len(call_args_list) == 1
-        call, = call_args_list
+        (call,) = call_args_list
         _, selected_level, _ = call.args
         assert selected_level == expected_level
 
@@ -207,7 +221,7 @@ class TestSlideImage:
         assert isinstance(thumbnail, np.ndarray)
 
 
-@pytest.mark.parametrize('scaling', [2, 1, 1 / 3])
+@pytest.mark.parametrize("scaling", [2, 1, 1 / 3])
 def test_scaled_view(dlup_wsi, scaling):
     """Check that a scaled view correctly represents a layer."""
     view = dlup_wsi.get_scaled_view(scaling)

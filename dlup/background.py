@@ -10,11 +10,11 @@ tailored for histopathology.
 from typing import Callable, List
 
 import numpy as np
+import PIL.Image
 import scipy.ndimage as ndi
 import skimage.filters
 import skimage.morphology
 import skimage.segmentation
-import PIL.Image
 
 from dlup import SlideImage, SlideImageTiledRegionView
 
@@ -163,8 +163,7 @@ def next_power_of_2(x):
     return 1 if x == 0 else 2 ** (x - 1).bit_length()
 
 
-def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi,
-             minimal_size: int = 512) -> np.ndarray:
+def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512) -> np.ndarray:
     """
     Compute a tissue mask for a Slide object.
 
@@ -197,9 +196,9 @@ def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi,
     return mask.astype(np.uint8)
 
 
-def foreground_tiles_coordinates_mask(background_mask: np.ndarray,
-                                      tiled_region_view: SlideImageTiledRegionView,
-                                      threshold: float = 1.0):
+def foreground_tiles_coordinates_mask(
+    background_mask: np.ndarray, tiled_region_view: SlideImageTiledRegionView, threshold: float = 1.0
+):
     """Generate a numpy bolean mask that can be applied to tiles coordinates."""
     slide_image_region_view = tiled_region_view.region_view
     mask_size = np.array(background_mask.shape[:2][::-1])

@@ -55,10 +55,14 @@ setup(
     ],
     extras_require={
         "dev": [
-            "pytest", "pytest-mock",
-            "sphinx_copybutton", "numpydoc",
-            "myst_parser", "sphinx-book-theme",
-            "pylint", "pydantic"
+            "pytest",
+            "pytest-mock",
+            "sphinx_copybutton",
+            "numpydoc",
+            "myst_parser",
+            "sphinx-book-theme",
+            "pylint",
+            "pydantic",
         ],
     },
     license="Apache Software License 2.0",

@@ -16,13 +16,13 @@ from typing import Dict, Iterable, Optional, Tuple, TypeVar, Union
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
-import PIL.Image  # type: ignore
 import PIL
+import PIL.Image  # type: ignore
 
 from dlup import DLUPUnsupportedSlideError
-from ._region import RegionView
 from dlup.tiling import TiledRegionView
 
+from ._region import RegionView
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
@@ -49,14 +49,14 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def read_region(self, location: _GenericFloatArray,
-                    size: _GenericIntArray) -> np.ndarray:
+    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
         """Returns a region in the level."""
         return self._wsi.read_region(location, self._scaling, size)
 
 
 class SlideImageTiledRegionView(TiledRegionView):
     """Class specialization."""
+
     region_view_cls = _SlideImageRegionView
 
 
@@ -106,12 +106,13 @@ class SlideImage:
         try:
             wsi = openslide.open_slide(str(wsi_file_path))
         except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
-            raise DLUPUnsupportedSlideError('Unsupported file.')
+            raise DLUPUnsupportedSlideError("Unsupported file.")
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
-    def read_region(self, location: Tuple[_GenericNumber, _GenericNumber], scaling: float,
-                    size: Tuple[int, int]) -> np.ndarray:
+    def read_region(
+        self, location: Tuple[_GenericNumber, _GenericNumber], scaling: float, size: Tuple[int, int]
+    ) -> np.ndarray:
         """Return a pyramidal region.
 
         A typical slide is made of several levels at different mpps.

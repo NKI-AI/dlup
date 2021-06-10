@@ -5,42 +5,35 @@ from typing import Any, Dict, Optional, Tuple, TypeVar
 
 import numpy as np
 import pytest
-from dlup.tiling import indexed_ndmesh
-from dlup.tiling import span_tiling_bases
-from dlup.tiling import TilingMode
+
+from dlup.tiling import TilingMode, indexed_ndmesh, span_tiling_bases
 
 
-class TestTiling():
-
-    @pytest.mark.parametrize('mode', [TilingMode.skip])
+class TestTiling:
+    @pytest.mark.parametrize("mode", [TilingMode.skip])
     def test_all_zero(self, mode):
         with pytest.raises(ValueError):
-            basis, = span_tiling_bases(0, 0, 0, mode=mode)
+            (basis,) = span_tiling_bases(0, 0, 0, mode=mode)
 
-    @pytest.mark.parametrize('mode', list(TilingMode))
-    @pytest.mark.parametrize('tile_overlap', [0, 1, 2])
+    @pytest.mark.parametrize("mode", list(TilingMode))
+    @pytest.mark.parametrize("tile_overlap", [0, 1, 2])
     def test_tile_bigger_than_size(self, mode, tile_overlap):
         size = 2
         tile_size = 10
-        basis, = span_tiling_bases(size, tile_size, tile_overlap=tile_overlap, mode=mode)
+        (basis,) = span_tiling_bases(size, tile_size, tile_overlap=tile_overlap, mode=mode)
 
-        expected_lengths = {
-            TilingMode.skip: 0,
-            TilingMode.overflow: 1,
-            TilingMode.fit:  0
-        }
+        expected_lengths = {TilingMode.skip: 0, TilingMode.overflow: 1, TilingMode.fit: 0}
 
         assert (basis >= 0).all()
         assert len(basis) == expected_lengths[mode]
 
     @pytest.mark.parametrize(
-        'size, tile_size, tile_overlap',
-        [(10, 3, 0), (3, 1, 2), (17, 3.2, 2), (53.2, 12.2, 15), (1, 2, 3)])
-    @pytest.mark.parametrize('mode', list(TilingMode))
+        "size, tile_size, tile_overlap", [(10, 3, 0), (3, 1, 2), (17, 3.2, 2), (53.2, 12.2, 15), (1, 2, 3)]
+    )
+    @pytest.mark.parametrize("mode", list(TilingMode))
     def test_spanned_basis(self, size, tile_size, tile_overlap, mode):
         """Check the spanned basis behaves as configured for tiles."""
-        basis, = span_tiling_bases(
-            size, tile_size, tile_overlap=tile_overlap, mode=mode)
+        (basis,) = span_tiling_bases(size, tile_size, tile_overlap=tile_overlap, mode=mode)
 
         # Is sorted
         assert np.all(np.diff(basis) >= 0)
@@ -51,8 +44,7 @@ class TestTiling():
         # First coordinate is always zero.
         assert basis[0] == 0
 
-        tile_overlap = \
-            np.remainder(tile_overlap, np.minimum(tile_size, size), casting='safe')
+        tile_overlap = np.remainder(tile_overlap, np.minimum(tile_size, size), casting="safe")
         right = basis + tile_size
         overlap = right - basis
         stride = np.diff(basis)
@@ -79,7 +71,7 @@ class TestTiling():
 
     def test_spanned_basis_multiple_dims(self):
         """Check that multiple dims is the same as a single dim."""
-        basis, = span_tiling_bases(10, 3, 1.2)
+        (basis,) = span_tiling_bases(10, 3, 1.2)
         dbasis, _ = span_tiling_bases((10, 5), (3, 2), (1.2, 1))
         assert (basis == dbasis).all()
 

@@ -6,18 +6,23 @@
 import pathlib
 from typing import Tuple
 
-from dlup.tiling import TilingMode
-from dlup import SlideImageTiledRegionView
-from dlup import SlideImage
-
 from torch.utils.data import Dataset
+
+from dlup import SlideImage, SlideImageTiledRegionView
+from dlup.tiling import TilingMode
 
 
 class SlideImageDataset(Dataset, SlideImageTiledRegionView):
     """Basic Slide Image dataset."""
 
-    def __init__(self, path: pathlib.Path, mpp: float, tile_size: Tuple[int, int],
-                 tile_overlap: Tuple[int, int], background_threshold: float = 0.0):
+    def __init__(
+        self,
+        path: pathlib.Path,
+        mpp: float,
+        tile_size: Tuple[int, int],
+        tile_overlap: Tuple[int, int],
+        background_threshold: float = 0.0,
+    ):
         self._path = path
         self._slide_image = SlideImage.from_file_path(self.path)
         scaled_view = self._slide_image.get_scaled_view(self._slide_image.mpp / mpp)
