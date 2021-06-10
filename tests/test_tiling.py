@@ -12,12 +12,14 @@ from dlup.tiling import TilingMode, indexed_ndmesh, span_tiling_bases
 class TestTiling:
     @pytest.mark.parametrize("mode", [TilingMode.skip])
     def test_all_zero(self, mode):
+        """If all the arguments are zero, an exception should be raised."""
         with pytest.raises(ValueError):
             (basis,) = span_tiling_bases(0, 0, 0, mode=mode)
 
     @pytest.mark.parametrize("mode", list(TilingMode))
     @pytest.mark.parametrize("tile_overlap", [0, 1, 2])
     def test_tile_bigger_than_size(self, mode, tile_overlap):
+        """Check different modes if tile_size is bigger than the size."""
         size = 2
         tile_size = 10
         (basis,) = span_tiling_bases(size, tile_size, tile_overlap=tile_overlap, mode=mode)
@@ -76,6 +78,7 @@ class TestTiling:
         assert (basis == dbasis).all()
 
     def test_indexed_ndmesh(self):
+        """Check ndmesh example access."""
         mesh = indexed_ndmesh(((1, 2, 3), (4, 5, 6)))
         assert (mesh[0, 0] == (1, 4)).all()
         assert (mesh[0, 1] == (1, 5)).all()

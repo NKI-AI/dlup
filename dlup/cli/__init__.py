@@ -23,7 +23,6 @@ def main():
 
     args = root_parser.parse_args()
     args.subcommand(args)
-    return
 
 
 if __name__ == "__main__":

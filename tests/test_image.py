@@ -45,6 +45,8 @@ def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
 
 
 class SlideProperties(BaseModel):
+    """Mock configuration properties."""
+
     mpp_x: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_X)
     mpp_y: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_Y)
     mag: Optional[int] = Field(40, alias=openslide.PROPERTY_NAME_OBJECTIVE_POWER)
@@ -55,6 +57,8 @@ class SlideProperties(BaseModel):
 
 
 class SlideConfig(BaseModel):
+    """Mock slide configuration."""
+
     image: _TImage = get_sample_nonuniform_image()
     properties: SlideProperties = SlideProperties()
     level_downsamples: Tuple[float, ...] = (1.0, 2.0)
@@ -107,12 +111,13 @@ class OpenSlideImageMock(openslide.ImageSlide):
 
 @pytest.fixture
 def slide_config():
+    """Fixture returning a slide."""
     return SlideConfig()
 
 
 @pytest.fixture
 def openslide_image(slide_config):
-    """Create mock image."""
+    """Fixture returning a mock image."""
     return OpenSlideImageMock.from_slide_config(slide_config)
 
 
@@ -211,10 +216,12 @@ class TestSlideImage:
         assert np.allclose(pil_extracted_region, extracted_region)
 
     def test_scaled_size(self, dlup_wsi):
+        """Check the scale is greater than zero."""
         size = dlup_wsi.get_scaled_size(0.5)
         assert (np.array(size) >= 0).all()
 
     def test_thumbnail(self, dlup_wsi):
+        """Check the thumbnail is a numpy array."""
         thumbnail = dlup_wsi.thumbnail
         assert isinstance(thumbnail, np.ndarray)
 

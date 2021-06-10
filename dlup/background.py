@@ -158,7 +158,10 @@ def fesi(image: np.ndarray) -> np.ndarray:
 
 
 def next_power_of_2(x):
-    # https://stackoverflow.com/a/14267557/576363
+    """Returns the smallest greater than x, power of 2 value.
+
+    https://stackoverflow.com/a/14267557/576363
+    """
     x = int(x)
     return 1 if x == 0 else 2 ** (x - 1).bit_length()
 

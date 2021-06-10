@@ -36,6 +36,7 @@ class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
     def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber):
+        """Initialize with a slide image object and the scaling level."""
         self._wsi = wsi
         self._scaling = scaling
 
@@ -61,6 +62,7 @@ class SlideImageTiledRegionView(TiledRegionView):
 
 
 def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> np.ndarray:
+    """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
 
@@ -70,16 +72,14 @@ class SlideImage:
     This helper class furtherly abstracts openslide access to WSIs
     by validating some of the properties and giving access
     to a continuous pyramid. Layer values are interpolated from
-    the closest bottom layer.
+    the closest high resolution layer.
     Each horizontal slices of the pyramid can be accessed using a scaling value
     z as index.
 
     Example usage:
-
-    ```python
-    from dlup import WholeSlidePyramidalImage
-    wsi = dlup.WholeSlideImage.open('path/to/slide.svs')
-    ```
+    .. code-block:: python
+        from dlup import WholeSlidePyramidalImage
+        wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
     def __init__(self, wsi: openslide.AbstractSlide, identifier: Union[str, None] = None):
@@ -92,7 +92,7 @@ class SlideImage:
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
             mpp = np.array([mpp_y, mpp_x])
         except KeyError:
-            raise DLUPUnsupportedSlideError(f"Slide property mpp is not available.")
+            raise DLUPUnsupportedSlideError("Slide property mpp is not available.")
 
         if not np.isclose(mpp[0], mpp[1]):
             raise DLUPUnsupportedSlideError("Cannot deal with slides having anisotropic mpps.")
@@ -181,11 +181,12 @@ class SlideImage:
         return np.asarray(region.resize(size, resample=PIL.Image.LANCZOS, box=box))
 
     def get_scaled_size(self, scaling: _GenericNumber):
+        """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
         return size.astype(int)
 
     def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
-        """Return a pyramid region."""
+        """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
     def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> np.ndarray:
@@ -199,7 +200,8 @@ class SlideImage:
         return np.array(self._openslide_wsi.get_thumbnail(size))
 
     @property
-    def thumbnail(self):
+    def thumbnail(self) -> np.ndarray:
+        """Returns the thumbnail."""
         return self.get_thumbnail()
 
     @property
@@ -239,6 +241,7 @@ class SlideImage:
         return width / height
 
     def __repr__(self) -> str:
+        """Returns the SlideImage representation and some of its properties."""
         props = ("identifier", "vendor", "highest_resolution_mpp", "magnification")
         props_str = []
         for key in props:
