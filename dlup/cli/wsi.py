@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 
 import argparse
 import json
@@ -8,12 +8,12 @@ from typing import cast, Tuple
 
 import PIL
 
-from dlup import DLUPUnsupportedSlideError, SlideImage
+from dlup import SlideImage
 from dlup.background import foreground_tiles_coordinates_mask, get_mask
 from dlup.utils.data.dataset import SlideImageDataset
 
 
-def tiling(args: argparse.Namespace, subfolder="tiles"):
+def tiling(args: argparse.Namespace):
     """Perform some tiling."""
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 
 """Datasets helpers to simplify the generation of a dataset made of tiles from a WSI."""
 

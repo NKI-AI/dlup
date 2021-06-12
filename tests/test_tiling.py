@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 import functools
 from typing import Any, Dict, Optional, Tuple, TypeVar
 

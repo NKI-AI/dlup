@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 from typing import Any, Dict, Optional, Tuple, Sequence, Type, Union
 
 import numpy as np
