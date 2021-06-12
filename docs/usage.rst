@@ -1,6 +1,6 @@
-How to use DLUP in your project
+How to use dlup in your project
 ===============================
-There are several ways to include DLUP in your project, of which Git submodules or dockers are likely
+There are several ways to include dlup in your project, of which Git submodules or dockers are likely
 the most convenient for you.
 
 
@@ -15,7 +15,7 @@ To use DLUP in a project:
 
 As a Git submodule
 ------------------
-If you want to use DLUP in your project, it can be advantageous to freeze the version, and include DLUP
+If you want to use dlup in your project, it can be advantageous to freeze the version, and include dlup
 in your Git repository. For instance, you can use something like:
 
 .. code-block:: console
