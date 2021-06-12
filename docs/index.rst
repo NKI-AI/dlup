@@ -1,4 +1,4 @@
-Welcome to DLUP's documentation!
+Welcome to dlup's documentation!
 ======================================
 
 .. toctree::
