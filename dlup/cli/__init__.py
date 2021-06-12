@@ -1,10 +1,10 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 """DLUP Command-line interface. This is the file which builds the main parser."""
 import argparse
 import sys
 
-from ._wsi import register_parser as register_wsi_subcommand
+from .wsi import register_parser as register_wsi_subcommand
 
 
 def main():

@@ -76,7 +76,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "DLUP"
-copyright = "2020, DLUP Contributors"
+copyright = "2020, dlup contributors"
 author = "Jonas Teuwen"
 
 # The version info for the project you're documenting, acts as replacement for

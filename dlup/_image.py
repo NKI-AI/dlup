@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 
 """Whole slide image access objects.
 
@@ -12,22 +12,12 @@ other than openslide.
 
 import functools
 import pathlib
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
 
-from typing import Any
-from typing import Dict
-from typing import Iterable
-from typing import Optional
-from typing import Sequence
-from typing import Tuple
-from typing import Type
-from typing import TypeVar
-from typing import Union
-
-import PIL
-import PIL.Image  # type: ignore
 import numpy as np  # type: ignore
 import openslide  # type: ignore
-
+import PIL
+import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
 from dlup import DLUPUnsupportedSlideError

@@ -1,8 +1,8 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
 
 from enum import Enum
-from typing import Dict, Iterable, Sequence, List, Optional, Tuple, TypeVar, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 
