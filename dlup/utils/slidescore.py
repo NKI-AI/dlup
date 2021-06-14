@@ -261,19 +261,12 @@ class APIClient:
             for chunk in response.iter_content(chunk_size=4096):
                 f.write(chunk)
         shutil.move(str(temp_write_to), str(write_to))
-<<<<<<< HEAD
 
-=======
->>>>>>> 55684cc4236a118eb80220e30e943aff65097c91
         filenames = None
         if is_zip:
             _zip = zipfile.ZipFile(write_to)
             filenames = _zip.namelist()
         self._write_to_history(save_dir, write_to, filenames)
-<<<<<<< HEAD
-=======
-
->>>>>>> 55684cc4236a118eb80220e30e943aff65097c91
         return write_to
 
     def get_results(self, study_id: int, **kwargs) -> List[SlideScoreResult]:
@@ -498,10 +491,6 @@ class APIClient:
                 file.write(f"{zip_filename} {' '.join(filenames)}\n")
             else:
                 file.write(f"{zip_filename}\n")
-<<<<<<< HEAD
-
-=======
->>>>>>> 55684cc4236a118eb80220e30e943aff65097c91
 
 
 class SlideScoreErrorException(Exception):
