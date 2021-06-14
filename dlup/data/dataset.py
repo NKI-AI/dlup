@@ -30,10 +30,12 @@ class SlideImageDataset(Dataset, SlideImageTiledRegionView):
 
     @property
     def path(self):
+        """Path of whole slide image"""
         return self._path
 
     @property
     def slide_image(self):
+        """SlideImage instance"""
         return self._slide_image
 
     def __getitem__(self, i):
