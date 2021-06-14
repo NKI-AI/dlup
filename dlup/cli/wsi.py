@@ -10,7 +10,7 @@ import PIL
 
 from dlup import SlideImage
 from dlup.background import foreground_tiles_coordinates_mask, get_mask
-from dlup.utils.data.dataset import SlideImageDataset
+from dlup.data.dataset import SlideImageDataset
 
 
 def tiling(args: argparse.Namespace):

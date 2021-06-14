@@ -389,7 +389,7 @@ def register_parser(parser: argparse._SubParsersAction):
         "-u",
         "--user",
         dest="user",
-        help="Email(-like) reference indicating submitted annotations on slidescore. "
+        help="Email(-like) reference indicating submitted annotations on SlideScore. "
         "If not set, will use the one included in the results file.",
         type=str,
         required=False,
