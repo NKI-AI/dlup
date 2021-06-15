@@ -239,13 +239,10 @@ class APIClient:
         filename = self._get_filename(raw)
         self.logger.info(f"Writing to {save_dir / filename} (reporting file size of {filesize})...")
         write_to = save_dir / filename
+        history = self._read_from_history(save_dir)
 
-        is_zip = filename.suffix == ".zip"
-        if is_zip:
-            pass
-
-        if skip_if_exists and write_to.is_file():
-            self.logger.info(f"File {save_dir / filename} exists. Skipping.")
+        if skip_if_exists and str(filename) in history:
+            self.logger.info(f"File {save_dir / filename} already downloaded. Skipping.")
             response.close()
             return write_to
 
@@ -262,11 +259,7 @@ class APIClient:
                 f.write(chunk)
         shutil.move(str(temp_write_to), str(write_to))
 
-        filenames = None
-        if is_zip:
-            _zip = zipfile.ZipFile(write_to)
-            filenames = _zip.namelist()
-        self._write_to_history(save_dir, write_to, filenames)
+        self._write_to_history(save_dir, write_to.name)
         return write_to
 
     def get_results(self, study_id: int, **kwargs) -> List[SlideScoreResult]:
@@ -485,12 +478,17 @@ class APIClient:
         return pathlib.Path(filename[0].strip().strip('"'))
 
     @staticmethod
-    def _write_to_history(zip_filename: pathlib.Path, save_dir: pathlib.Path, filenames: Optional[list]):
+    def _write_to_history(filename: pathlib.Path, save_dir: pathlib.Path, extra_filenames: Optional[list]):
         with open(save_dir / ".download_history.txt", "a") as file:
-            if filenames:
-                file.write(f"{zip_filename} {' '.join(filenames)}\n")
-            else:
-                file.write(f"{zip_filename}\n")
+            file.write(f"{filename}\n")
+
+    @staticmethod
+    def _read_from_history(save_dir: pathlib.Path):
+        with open(save_dir / ".download_history.txt", "r") as file:
+            content = file.readlines()
+
+        content = [_.strip() for _ in content]
+        return content
 
 
 class SlideScoreErrorException(Exception):
@@ -524,7 +522,6 @@ def build_client(slidescore_url: str, api_token: str, disable_certificate_check:
             f"SSLError, possibly because the SSL certificate cannot be read. "
             f"If you know what you are doing you can try --disable-certificate-check. "
             f"Full error: {e}"
-        )  # TODO parse it better.
-    # TODO: This could also be a file or whatever, needs a bit more of an elaborate check.
+        )
 
     return client
