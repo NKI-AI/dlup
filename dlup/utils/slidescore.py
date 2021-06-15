@@ -201,7 +201,7 @@ class APIClient:
         return rjson
 
     def download_slide(
-        self, study_id: int, image: dict, save_dir: pathlib.Path, skip_if_exists: bool = True, extract_zip: bool = True
+        self, study_id: int, image: dict, save_dir: pathlib.Path, skip_if_exists: bool = True
     ) -> pathlib.Path:
         """
         Downloads a WSI from the SlideScore server, needs study_id and image.
@@ -214,10 +214,6 @@ class APIClient:
         image : dict
         save_dir : pathlib.Path
         skip_if_exists : bool
-        extract_zip : bool
-            If set and the files are zipped (what happens with multifile formats), then the zip will be extracted.
-            This will require more disk space. If continuing from a previous download, will also check whether this file
-            has been extracted.
 
         Returns
         -------
@@ -461,7 +457,7 @@ class APIClient:
         raise SlideScoreErrorException(f"Expected response code 200. Got {response.status_code}.")
 
     @staticmethod
-    def _get_filename(s: str) -> pathlib.Path:
+    def _get_filename(s: str) -> str:
         """
         Method to extract the filename from the HTTP header.
 
@@ -475,10 +471,10 @@ class APIClient:
             Filename extracted from HTTP header.
         """
         filename = re.findall(r"filename\*?=([^;]+)", s, flags=re.IGNORECASE)
-        return pathlib.Path(filename[0].strip().strip('"'))
+        return filename[0].strip().strip('"')
 
     @staticmethod
-    def _write_to_history(filename: pathlib.Path, save_dir: pathlib.Path, extra_filenames: Optional[list]):
+    def _write_to_history(save_dir: pathlib.Path, filename: pathlib.Path):
         with open(save_dir / ".download_history.txt", "a") as file:
             file.write(f"{filename}\n")
 

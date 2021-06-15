@@ -266,8 +266,7 @@ def download_wsis(
     logger.info(f"Will write to: {save_dir}")
     # Set up client and directories
     client = build_client(slidescore_url, api_token, disable_certificate_check)
-    if not save_dir.is_dir():
-        save_dir.mkdir()
+    save_dir.mkdir(exist_ok=True)
 
     # Collect image metadata
     images = client.get_images(study_id)
