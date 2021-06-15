@@ -11,8 +11,8 @@ we can extract important metadata (e.g., mpp, magnification, shape) from a colle
 as tiles to disk.
 The following utilities are implemented:
 
-* :code:`dlup wsi tiling`: Tile WSIs to disk.
-* :code:`dlup wsi metadata`: Extract metadata from a folder of WSIs.
+* :code:`dlup wsi tile`: Tile WSIs to disk.
+* :code:`dlup wsi info`: Extract metadata from a WSI.
 
 
 SlideScore CLI
