@@ -484,7 +484,11 @@ class APIClient:
 
     @staticmethod
     def _read_from_history(save_dir: pathlib.Path):
-        with open(save_dir / ".download_history.txt", "r") as file:
+        history_filename = save_dir / ".download_history.txt"
+        if not history_filename.is_file():
+            return []
+
+        with open(history_filename, "r") as file:
             content = file.readlines()
 
         content = [_.strip() for _ in content]
