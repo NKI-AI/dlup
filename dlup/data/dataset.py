@@ -21,12 +21,12 @@ class SlideImageDataset(Dataset, SlideImageTiledRegionView):
         mpp: float,
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
-        background_threshold: float = 0.0,
+        tile_mode: TilingMode = TilingMode.skip,
     ):
         self._path = path
-        self._slide_image = SlideImage.from_file_path(self.path)
+        self._slide_image = SlideImage.from_file_path(path)
         scaled_view = self._slide_image.get_scaled_view(self._slide_image.mpp / mpp)
-        super().__init__(scaled_view, tile_size, tile_overlap, TilingMode.overflow, crop=True)
+        super().__init__(scaled_view, tile_size, tile_overlap, tile_mode, crop=False)
 
     @property
     def path(self):

@@ -8,9 +8,9 @@ from typing import cast, Tuple
 
 import PIL
 
-from dlup import SlideImage
 from dlup.background import foreground_tiles_coordinates_mask, get_mask
-from dlup.data.dataset import SlideImageDataset
+from dlup.tiling import TilingMode
+from dlup import SlideImage, SlideImageTiledRegionView
 
 
 def tiling(args: argparse.Namespace):
@@ -20,20 +20,20 @@ def tiling(args: argparse.Namespace):
     tile_size = cast(Tuple[int, int], (args.tile_size,) * 2)
     tile_overlap = cast(Tuple[int, int], (args.tile_overlap,) * 2)
 
-    dataset = SlideImageDataset(
-        input_file_path, args.mpp, tile_size, tile_overlap, background_threshold=args.background_threshold
-    )
+    image = SlideImage.from_file_path(input_file_path)
+    scaled_view = image.get_scaled_view(image.mpp / args.mpp)
+    tiled_view = SlideImageTiledRegionView(scaled_view, tile_size, tile_overlap, args.mode, crop=args.crop)
 
     # Prepare output directory.
     output_directory_path /= "tiles"
-    columns = dataset.coordinates_grid.shape[1]
+    columns = tiled_view.coordinates_grid.shape[1]
 
     # Generate the foreground mask
-    mask = get_mask(dataset.slide_image)
-    boolean_mask = foreground_tiles_coordinates_mask(mask, dataset, 0.1)
+    mask = get_mask(image)
+    boolean_mask = foreground_tiles_coordinates_mask(mask, tiled_view, args.foreground_threshold)
 
     # Iterate through the tiles and save them in the provided location.
-    for i, (tile, coords) in filter(lambda x: boolean_mask[x[0]], enumerate(zip(dataset, dataset.coordinates))):
+    for i, (tile, coords) in filter(lambda x: boolean_mask[x[0]], enumerate(zip(tiled_view, tiled_view.coordinates))):
         image = PIL.Image.fromarray(tile)
         row = i // columns
         column = i % columns
@@ -67,20 +67,31 @@ def register_parser(parser: argparse._SubParsersAction):
         "--tile-size",
         type=int,
         required=True,
-        help="Size of the requested output (square) tile size. If the tiles are at boundaries, "
-        "the size might be below this format.",
+        help="Size of the generated tiles.",
     )
     tiling_parser.add_argument(
         "--tile-overlap",
         type=int,
         default=0,
-        help="Number of px overlap for tile creation.",
+        help="Number of overlapping pixels between tiles.",
     )
     tiling_parser.add_argument(
-        "--background-threshold",
+        "--mode",
+        type=TilingMode,
+        default=TilingMode.skip,
+        choices=TilingMode.__members__,
+        help="Policy to handle verflowing tiles.",
+    )
+    tiling_parser.add_argument(
+        "--crop",
+        action="store_true",
+        help="If a tile is overflowing, crop it.",
+    )
+    tiling_parser.add_argument(
+        "--foreground-threshold",
         type=float,
-        default=0,
-        help="Foreground threshold to consider a tile valid.",
+        default=0.0,
+        help="Fraction of foreground to consider a tile valid.",
     )
     tiling_parser.add_argument(
         "--mpp",
