@@ -4,13 +4,14 @@
 import argparse
 import json
 import pathlib
-from typing import cast, Tuple
+from typing import Tuple, cast
 
 import PIL
 
+from dlup import SlideImage, SlideImageTiledRegionView
 from dlup.background import foreground_tiles_coordinates_mask, get_mask
 from dlup.tiling import TilingMode
-from dlup import SlideImage, SlideImageTiledRegionView
+from dlup.utils import ArrayEncoder
 
 
 def tiling(args: argparse.Namespace):
@@ -24,6 +25,30 @@ def tiling(args: argparse.Namespace):
     scaled_view = image.get_scaled_view(image.mpp / args.mpp)
     tiled_view = SlideImageTiledRegionView(scaled_view, tile_size, tile_overlap, args.mode, crop=args.crop)
 
+    # Store metadata of this process for reproducibility (and to read in the dataset class)
+    output = {
+        "original": {
+            "input_file_path": str(input_file_path),
+            "aspect_ratio": image.aspect_ratio,
+            "magnification": image.magnification,
+            "mpp": image.mpp,
+            "size": image.size,
+            "vendor": image.vendor,
+        },
+        "output": {
+            "mpp": scaled_view.mpp,
+            "size": scaled_view.size,
+            "coordinates_grid_shape": tiled_view.coordinates_grid.shape,
+        },
+        "settings": {
+            "mode": args.mode,
+            "crop": args.crop,
+            "tile_size": args.tile_size,
+            "tile_overlap": args.tile_overlap,
+            "mask_function": "fesi",
+            "foreground_threshold": args.foreground_threshold,
+        },
+    }
     # Prepare output directory.
     output_directory_path /= "tiles"
     columns = tiled_view.coordinates_grid.shape[1]
@@ -32,14 +57,22 @@ def tiling(args: argparse.Namespace):
     mask = get_mask(image)
     boolean_mask = foreground_tiles_coordinates_mask(mask, tiled_view, args.foreground_threshold)
 
+    added_coords = []
     # Iterate through the tiles and save them in the provided location.
     for i, (tile, coords) in filter(lambda x: boolean_mask[x[0]], enumerate(zip(tiled_view, tiled_view.coordinates))):
-        image = PIL.Image.fromarray(tile)
+        pil_image = PIL.Image.fromarray(tile)
         row = i // columns
         column = i % columns
-        output_tile_path = output_directory_path / str(row)
-        output_tile_path.mkdir(parents=True, exist_ok=True)
-        image.save(output_tile_path / f"{column}.png")
+        added_coords.append((row, column))
+        output_directory_path.mkdir(parents=True, exist_ok=True)
+        pil_image.save(output_directory_path / f"{row}_{column}.png")
+
+    output["output"]["num_tiles"] = i + 1
+    output["output"]["tile_coordinates"] = added_coords
+    output["output"]["background_tiles"] = len(tiled_view.coordinates) - i - 1
+
+    with open(output_directory_path / "tiles.json", "w") as file:
+        json.dump(output, file, indent=2, cls=ArrayEncoder)
 
 
 def info(args: argparse.Namespace):
