@@ -98,7 +98,7 @@ class SlideImage:
             raise DlupUnsupportedSlideError("Slide property mpp is not available.")
 
         if not np.isclose(mpp[0], mpp[1]):
-            raise DlupUnsupportedSlideError("Cannot deal with slides having anisotropic mpps.")
+            raise DlupUnsupportedSlideError(f"Cannot deal with slides having anisotropic mpps. Got {mpp}.")
 
         self._min_native_mpp = float(mpp[0])
 
