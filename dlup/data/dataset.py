@@ -102,7 +102,7 @@ class ConcatDataset(Dataset[T_co]):
 
 class SlideImageDataset(Dataset, SlideImageTiledRegionView):
     """
-    :class:`Dataset` class that represents a whole-slide image as tiles, possible including a sampling mask.
+    :class:`Dataset` class that represents a whole-slide image as tiles, possibly including a sampling mask.
 
     Parameters
     ----------
