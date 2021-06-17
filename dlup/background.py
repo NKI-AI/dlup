@@ -202,7 +202,7 @@ def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi, minimal_siz
 def foreground_tiles_coordinates_mask(
     background_mask: np.ndarray, tiled_region_view: SlideImageTiledRegionView, threshold: float = 1.0
 ):
-    """Generate a numpy bolean mask that can be applied to tiles coordinates."""
+    """Generate a numpy boolean mask that can be applied to tiles coordinates."""
     slide_image_region_view = tiled_region_view.region_view
     mask_size = np.array(background_mask.shape[:2][::-1])
 
