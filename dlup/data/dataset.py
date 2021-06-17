@@ -53,7 +53,7 @@ class ConcatDataset(Dataset[T_co]):
 
     Parameters
     ----------
-    datasets : sequence:
+    datasets : sequence
         List of datasets to be concatenated
 
     Note
@@ -101,7 +101,26 @@ class ConcatDataset(Dataset[T_co]):
 
 
 class SlideImageDataset(Dataset, SlideImageTiledRegionView):
-    """Basic Slide Image dataset."""
+    """
+    :class:`Dataset` class that represents a whole-slide image as tiles, possible including a sampling mask.
+
+    Parameters
+    ----------
+    path :
+        Path to the image.
+    mpp :
+        Requested microns per pixel.
+    tile_size :
+        Tile size in the requested microns per pixel.
+    tile_overlap :
+        Overlap of the extracted tiles.
+    tile_mode :
+        Which tiling mode.
+    mask :
+        Array denoting the sampling mask.
+    foreground_threshold :
+        The percentage of non-zero pixels required in the mask to include a tile.
+    """
 
     def __init__(
         self,
