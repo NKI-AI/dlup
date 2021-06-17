@@ -138,4 +138,8 @@ class SlideImageDataset(Dataset, SlideImageTiledRegionView):
         return SlideImageTiledRegionView.__getitem__(self, index)
 
     def __len__(self):
-        return len(self.foreground_indices) if self.foreground_indices is not None else SlideImageTiledRegionView.__len__(self)
+        return (
+            len(self.foreground_indices)
+            if self.foreground_indices is not None
+            else SlideImageTiledRegionView.__len__(self)
+        )
