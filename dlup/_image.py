@@ -20,7 +20,7 @@ import PIL
 import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
-from dlup import DLUPUnsupportedSlideError
+from dlup import DlupUnsupportedSlideError
 from dlup.tiling import TiledRegionView
 
 from ._region import RegionView
@@ -95,10 +95,10 @@ class SlideImage:
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
             mpp = np.array([mpp_y, mpp_x])
         except KeyError:
-            raise DLUPUnsupportedSlideError("Slide property mpp is not available.")
+            raise DlupUnsupportedSlideError("Slide property mpp is not available.")
 
         if not np.isclose(mpp[0], mpp[1]):
-            raise DLUPUnsupportedSlideError("Cannot deal with slides having anisotropic mpps.")
+            raise DlupUnsupportedSlideError("Cannot deal with slides having anisotropic mpps.")
 
         self._min_native_mpp = float(mpp[0])
 
@@ -109,7 +109,7 @@ class SlideImage:
         try:
             wsi = openslide.open_slide(str(wsi_file_path))
         except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
-            raise DLUPUnsupportedSlideError("Unsupported file.")
+            raise DlupUnsupportedSlideError("Unsupported file.")
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 

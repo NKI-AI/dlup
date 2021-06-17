@@ -29,8 +29,8 @@ and "help wanted" is open to whoever wants to implement it.
 
 Write Documentation
 ###################
-DLUP could always use more documentation, whether as part of the
-official DLUP docs, in docstrings, or even on the web in blog posts,
+Dlup could always use more documentation, whether as part of the
+official dlup docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 Submit Feedback

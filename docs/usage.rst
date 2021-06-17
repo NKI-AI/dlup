@@ -6,7 +6,7 @@ the most convenient for you.
 
 As a python package
 -------------------
-To use DLUP in a project:
+To use dlup in a project:
 
 .. code-block:: python
 
@@ -21,7 +21,7 @@ in your Git repository. For instance, you can use something like:
 .. code-block:: console
 
     $ git submodule add git://github.com/NKI-AI/dlup third_party/dlup
-    $ git commit -m "Added DLUP as submodule to the project."
+    $ git commit -m "Added dlup as submodule to the project."
     $ git push
 
 If you want to update the submodule to the latest version, you need to execute :code:`git pull` in the

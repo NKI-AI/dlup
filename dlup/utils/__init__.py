@@ -2,7 +2,8 @@
 # Copyright (c) dlup contributors
 import json
 import warnings
-
+import subprocess
+import sys
 import numpy as np
 import torch
 
@@ -20,3 +21,4 @@ class ArrayEncoder(json.JSONEncoder):
                 )
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+

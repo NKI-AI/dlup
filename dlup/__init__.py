@@ -1,8 +1,8 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-"""Top-level package for DLUP."""
+"""Top-level package for dlup."""
 
-from ._exceptions import DLUPError, DLUPUnsupportedSlideError
+from ._exceptions import DlupError, DlupUnsupportedSlideError
 from ._image import SlideImage, SlideImageTiledRegionView
 from ._region import RegionView
 

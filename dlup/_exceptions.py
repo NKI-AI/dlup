@@ -1,7 +1,7 @@
 # coding=utf-8
-class DLUPError(Exception):
+class DlupError(Exception):
     pass
 
 
-class DLUPUnsupportedSlideError(DLUPError):
+class DlupUnsupportedSlideError(DlupError):
     pass
