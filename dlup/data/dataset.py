@@ -29,8 +29,8 @@ class Dataset(Generic[T_co], abc.ABC):
     :class:`~torch.utils.data.Sampler` implementations and the default options
     of :class:`~torch.utils.data.DataLoader`.
 
-    Note
-    ----
+    Notes
+    -----
     Taken and adapted from pytorch 1.8.0 torch.utils.data.Dataset under BSD license.
     :class:`~torch.utils.data.DataLoader` by default constructs a index
     sampler that yields integral indices.  To make it work with a map-style
@@ -56,8 +56,8 @@ class ConcatDataset(Dataset[T_co]):
     datasets : sequence
         List of datasets to be concatenated
 
-    Note
-    ----
+    Notes
+    -----
     Taken and adapted from pytorch 1.8.0 torch.utils.data.Dataset under BSD license.
 
     """
