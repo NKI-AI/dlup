@@ -21,4 +21,3 @@ class ArrayEncoder(json.JSONEncoder):
                 )
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
-

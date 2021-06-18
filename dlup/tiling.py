@@ -15,12 +15,10 @@ _GenericNumberArray = Union[np.ndarray, Sequence[_GenericNumber]]
 class TilingMode(str, Enum):
     """Type of tiling.
 
-    Skip will skip the border tiles if they
-    don't fit the region. Overflow counts as last tile
-    even if it's overflowing. Fit will change the
-    overlapping region between tiles to make them fit
-    the region. The grid will then become non-uniform
-    in case of integral values.
+    Skip will skip the border tiles if they don't fit the region.
+    Overflow counts as last tile even if it's overflowing.
+    Fit will change the overlapping region between tiles to make them fit the region.
+    The grid will then become non-uniform in case of integral values.
     """
 
     skip = "skip"
