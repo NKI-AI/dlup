@@ -34,12 +34,11 @@ def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarra
 def indexed_ndmesh(basis: Sequence[_GenericNumberArray], indexing: str = "ij"):
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
-    For instance:
-    ```
-    mesh = indexed_ndmesh(((1, 2, 3), (4, 5, 6)))
-    assert mesh[0, 0] == (1, 4)
-    assert mesh[0, 1] == (1, 5)
-    ```
+    Example
+    -------
+    >>> mesh = indexed_ndmesh(((1, 2, 3), (4, 5, 6)))
+    >>> assert mesh[0, 0] == (1, 4)
+    >>> assert mesh[0, 1] == (1, 5)
     """
     return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(basis), indexing=indexing)))).T)
 
