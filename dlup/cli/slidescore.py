@@ -26,6 +26,7 @@ def parse_api_token(data: Optional[PathLike] = None) -> str:
     """
     Parse the API token from file or from the SLIDESCORE_API_KEY. If file is given, this will overwrite the
     environment variable.
+
     Parameters
     ----------
     data : str or pathlib.Path

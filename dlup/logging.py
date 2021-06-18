@@ -65,6 +65,7 @@ def build_cli_logger(
 ) -> None:
     """
     Setup logging for DLUP.
+
     Parameters
     ----------
     name : str
@@ -75,9 +76,11 @@ def build_cli_logger(
         How verbose the log should be. 0 is least verbose, 2 is most verbose.
     log_directory : PathLike
         Directory to save log file in.
+
     Returns
     -------
-    None
+        None
+
     """
     log_filename = pathlib.Path(log_directory) / pathlib.Path(
         f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{name}.log"

@@ -80,7 +80,9 @@ class SlideImage:
     z as index.
 
     Example usage:
+
     .. code-block:: python
+
         from dlup import WholeSlidePyramidalImage
         wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """

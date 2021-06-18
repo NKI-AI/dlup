@@ -97,9 +97,9 @@ def span_tiling_bases(
             # The location of the last tile
             # should stay fixed at the end
             tiles_locations[-1] = dsize - dtile_size
-            distribute = doverflow / (n - 2)
+            distribute = doverflow / (n - 1)
             tiles_locations = tiles_locations.astype(float)
-            tiles_locations[1:-1] -= distribute
+            tiles_locations[1:-1] -= distribute * (np.arange(n - 2) + 1)
 
         coordinates.append(tiles_locations)
     return coordinates
