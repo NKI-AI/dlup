@@ -63,6 +63,7 @@ setup(
             "sphinx-book-theme",
             "pylint",
             "pydantic",
+            "types-requests",
         ],
     },
     license="Apache Software License 2.0",
