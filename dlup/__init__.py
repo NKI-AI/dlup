@@ -10,5 +10,4 @@ __author__ = """dlup contributors"""
 __email__ = "j.teuwen@nki.nl"
 __version__ = "0.1.0"
 
-
 __all__ = ("SlideImage", "RegionView", "SlideImageTiledRegionView")

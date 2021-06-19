@@ -58,6 +58,8 @@ copybutton_prompt_is_regexp = True
 # Do not add class members in generated docs
 numpydoc_show_class_members = False
 
+# Add class content from main and derived classes
+autoclass_content = "both"
 
 # build the templated autosummary files
 autosummary_generate = True

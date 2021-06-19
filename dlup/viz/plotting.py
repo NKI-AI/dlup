@@ -62,6 +62,7 @@ def plot_2d(
     Examples
     --------
     Can be used in Tensorboard, for instance as follows:
+
     >>> plot_overlay = torch.from_numpy(np.array(plot_2d(image_arr, mask=masks_arr)))
     >>> writer.add_image("train/overlay", plot_overlay, epoch, dataformats="HWC")
 

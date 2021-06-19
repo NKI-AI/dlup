@@ -103,23 +103,6 @@ class ConcatDataset(Dataset[T_co]):
 class SlideImageDataset(Dataset, SlideImageTiledRegionView):
     """
     :class:`Dataset` class that represents a whole-slide image as tiles, possibly including a sampling mask.
-
-    Parameters
-    ----------
-    path :
-        Path to the image.
-    mpp :
-        Requested microns per pixel.
-    tile_size :
-        Tile size in the requested microns per pixel.
-    tile_overlap :
-        Overlap of the extracted tiles.
-    tile_mode :
-        Which tiling mode.
-    mask :
-        Array denoting the sampling mask.
-    foreground_threshold :
-        The percentage of non-zero pixels required in the mask to include a tile.
     """
 
     def __init__(
@@ -132,6 +115,24 @@ class SlideImageDataset(Dataset, SlideImageTiledRegionView):
         mask: Optional[np.ndarray] = None,
         foreground_threshold: float = 0.1,
     ):
+        """
+        Parameters
+        ----------
+        path :
+            Path to the image.
+        mpp :
+            Requested microns per pixel.
+        tile_size :
+            Tile size in the requested microns per pixel.
+        tile_overlap :
+            Overlap of the extracted tiles.
+        tile_mode :
+            Which tiling mode.
+        mask :
+            Array denoting the sampling mask.
+        foreground_threshold :
+            The percentage of non-zero pixels required in the mask to include a tile.
+        """
         self._path = path
         self._slide_image = SlideImage.from_file_path(path)
         scaled_view = self._slide_image.get_scaled_view(self._slide_image.mpp / mpp)
