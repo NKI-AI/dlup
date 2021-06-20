@@ -72,6 +72,6 @@ setup(
     name="dlup",
     packages=find_packages(include=["dlup", "dlup.*"]),
     url="https://github.com/NKI-AI/dlup",
-    version="0.2",
+    version=version,
     zip_safe=False,
 )
