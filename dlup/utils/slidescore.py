@@ -236,6 +236,7 @@ class APIClient:
 
         if skip_if_exists and write_to.is_file():
             self.logger.info(f"File {save_dir / filename} exists. Skipping.")
+            response.close()
             return write_to
 
         temp_write_to = write_to.with_suffix(write_to.suffix + ".partial")

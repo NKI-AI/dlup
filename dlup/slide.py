@@ -75,7 +75,7 @@ class Slide:
     Utility class to handle whole-slide images, which relies on OpenSlide.
     """
 
-    def __init__(self, file_name: pathlib.Path, slide_uid: Optional[str] = None):
+    def __init__(self, file_name: pathlib.Path, slide_uid: str):
         self.file_name = file_name
         self.slide_uid = slide_uid
 
