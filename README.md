@@ -11,6 +11,6 @@ Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more deta
 
 ## Features
 - command-line utilities
-  * To handle whole slide images (information, tiling).
-  * To download and upload data to [SlideScore](https://slidescore.com).
+  * To process whole slide images (metadata, tiling).
+  * For downloading from and uploading to [SlideScore](https://slidescore.com).
 - Dataset classes to handle whole-slide images in a tile-by-tile manner
