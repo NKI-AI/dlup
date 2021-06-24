@@ -36,9 +36,13 @@ def indexed_ndmesh(basis: Sequence[_GenericNumberArray], indexing: str = "ij"):
 
     Example
     -------
-    >>> mesh = indexed_ndmesh(((1, 2, 3), (4, 5, 6)))
-    >>> assert mesh[0, 0] == (1, 4)
-    >>> assert mesh[0, 1] == (1, 5)
+
+    .. code-block:: python
+
+        import dlup
+        mesh = dlup.tiling.indexed_ndmesh(((1, 2, 3), (4, 5, 6)))
+        assert mesh[0, 0] == (1, 4)
+        assert mesh[0, 1] == (1, 5)
     """
     return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(basis), indexing=indexing)))).T)
 

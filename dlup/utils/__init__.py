@@ -17,7 +17,7 @@ class ArrayEncoder(json.JSONEncoder):
             if obj.size > 10e4:
                 warnings.warn(
                     "Trying to JSON serialize a very large array of size {obj.size}. "
-                    "Reconsider doing this differently"
+                    "Consider doing this differently"
                 )
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)

@@ -83,7 +83,7 @@ class SlideImage:
 
     .. code-block:: python
 
-        from dlup import WholeSlidePyramidalImage
+        import dlup
         wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
@@ -128,6 +128,10 @@ class SlideImage:
         intermediate mpp between these levels. This method takes care of
         sumbsampling the closest high resolution level to extract a target
         region via interpolation.
+
+        Once the best layer is selected, a native resolution region
+        is extracted, with enough padding to include the samples necessary to downsample
+        the final region (considering LANCZOS interpolation method basis functions).
 
         TODO(lromor): Ideally, all the regions at higher levels could be
         also downsampled from the highest resolution level at the expenses of

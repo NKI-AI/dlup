@@ -86,7 +86,7 @@ SlideImage represents a single whole slide image.
 
 .. code-block:: python
 
-    from dlup import WholeSlidePyramidalImage
+    import dlup
     wsi = dlup.SlideImage.from_file_path("checkerboard.svs")
 
 

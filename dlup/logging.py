@@ -71,7 +71,7 @@ def build_cli_logger(
     name : str
         Human readable identifier for the current log.
     log_to_file : bool
-        Whether to save log as a file on top of having it on stdout.
+        Whether to save log as a file additionally to having it on stdout.
     verbosity_level: int
         How verbose the log should be. 0 is least verbose, 2 is most verbose.
     log_directory : PathLike

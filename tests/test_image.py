@@ -185,8 +185,7 @@ class TestSlideImage:
         expected_level_image = openslide_image.get_level_image(expected_level)
         relative_scaling = scaling * openslide_image.level_downsamples[expected_level]
 
-        # Notice that PIL box uses upper left and lower right
-        # rectangle corners coordinates.
+        # Notice that PIL box uses upper left and lower right rectangle coordinates.
         box = (*out_region_location, *(out_region_location + out_region_size))
         expected_level_box = np.array(box) / relative_scaling
         pil_extracted_region = np.array(

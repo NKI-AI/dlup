@@ -202,7 +202,27 @@ def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi, minimal_siz
 def foreground_tiles_coordinates_mask(
     background_mask: np.ndarray, tiled_region_view: SlideImageTiledRegionView, threshold: float = 1.0
 ):
-    """Generate a numpy boolean mask that can be applied to tiles coordinates."""
+    """Generate a numpy boolean mask that can be applied to tiles coordinates.
+
+    A tiled region view contains the tiles coordinates as a flattened grid.
+    This function returns an array of boolean values being True if
+    the tile is considered foreground and False otherwise.
+
+
+    Parameters
+    ----------
+    background_mask :
+        Binary mask representing of the background generated with get_mask().
+    tiled_region_view :
+        Target tiled_region_view we want to generate the mask for.
+    threshold :
+        Threshold of amount of foreground required to classify a tile as foreground.
+
+    Returns
+    -------
+    np.ndarray:
+        Boolean array of the same shape as the tiled_region_view.coordinates.
+    """
     slide_image_region_view = tiled_region_view.region_view
     mask_size = np.array(background_mask.shape[:2][::-1])
 
