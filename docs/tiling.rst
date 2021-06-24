@@ -36,6 +36,6 @@ Fit
 ***
 
 Adapts the overlap as uniformly as possible such that the tiles will fit in the image canvas.
-The striding of the tiles is might not be uniform.
+The striding of the tiles might not be uniform.
 
 .. figure:: img/fit.png
