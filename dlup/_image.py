@@ -7,7 +7,7 @@ In this module we take care of abstracting the access to whole slide images.
 The main workhorse is SlideImage which takes care of simplyfing region extraction
 of discrete-levels pyramidal images in a continuous way, validating relevant
 properties and offering a future aggregated api for possibly multiple different backends
-other than openslide.
+other than OpenSlide.
 """
 
 import functools
@@ -133,19 +133,26 @@ class SlideImage:
         is extracted, with enough padding to include the samples necessary to downsample
         the final region (considering LANCZOS interpolation method basis functions).
 
-        TODO(lromor): Ideally, all the regions at higher levels could be
-        also downsampled from the highest resolution level at the expenses of
-        an higher computational cost. We could make an optional flag to enable
-        such feature.
-
         Parameters
         ----------
         location :
-            Location from the top left (x, y) in pixel coordinates.
+            Location from the top left (x, y) in pixel coordinates given at the requested scaling.
         scaling :
-            scaling value.
+            The scaling to be applied compared to level 0.
         size :
-            Region size to extract in pixels.
+            Region size of the resulting region.
+
+        Returns
+        -------
+        np.ndarray
+            The extract region.
+
+        Example
+        -------
+        The locations are defined at the requested scaling (with respect to level 0), so if we want to extract at
+        location ``(location_x, location_y)`` of a scaling 0.5 (with respect to level 0), and have resulting tile size of
+         ``(tile_size, tile_size)`` with a scaling factor of 0.5, we can use:
+        >>>  wsi.read_region(location=(coordinate_x, coordinate_y), scaling=0.5, size=(tile_size, tile_size))
         """
         owsi = self._openslide_wsi
         location = np.asarray(location)
