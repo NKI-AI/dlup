@@ -122,7 +122,7 @@ def openslide_image(slide_config):
 @pytest.fixture
 def dlup_wsi(openslide_image):
     """Generate sample SlideImage object to test."""
-    return SlideImage(openslide_image)
+    return SlideImage(openslide_image, identifier="mock")
 
 
 class TestSlideImage:
@@ -140,11 +140,15 @@ class TestSlideImage:
         with pytest.raises(DlupUnsupportedSlideError):
             wsi = SlideImage(openslide_image)
 
-    def test_properties(self, dlup_wsi, openslide_image):
+    def test_properties(self, openslide_image):
         """Test properties."""
+        dlup_wsi = SlideImage(openslide_image, identifier="mock")
         assert dlup_wsi.aspect_ratio == openslide_image.image.width / openslide_image.image.height
         assert dlup_wsi.mpp == openslide_image.properties[openslide.PROPERTY_NAME_MPP_X]
         assert dlup_wsi.magnification == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
+        assert isinstance(repr(dlup_wsi), str)
+        assert dlup_wsi.identifier == "mock"
+        assert isinstance(dlup_wsi.thumbnail, np.ndarray)
 
     @pytest.mark.parametrize(
         "slide_config",

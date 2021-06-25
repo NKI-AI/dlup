@@ -261,7 +261,7 @@ class SlideImage:
 
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
-        props = ("identifier", "vendor", "highest_resolution_mpp", "magnification")
+        props = ("identifier", "vendor", "mpp", "magnification")
         props_str = []
         for key in props:
             value = getattr(self, key)
