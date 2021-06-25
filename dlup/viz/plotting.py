@@ -62,6 +62,7 @@ def plot_2d(
     Examples
     --------
     Can be used in Tensorboard, for instance as follows:
+
     >>> plot_overlay = torch.from_numpy(np.array(plot_2d(image_arr, mask=masks_arr)))
     >>> writer.add_image("train/overlay", plot_overlay, epoch, dataformats="HWC")
 
@@ -74,7 +75,7 @@ def plot_2d(
     height = image.shape[0]
     figsize = width / float(dpi), height / float(dpi)
 
-    fig, ax = plt.subplots(1, figsize=figsize)
+    fig, axis = plt.subplots(1, figsize=figsize)
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
 
     cmap = None
@@ -87,11 +88,11 @@ def plot_2d(
     if image.ndim == 2:
         cmap = "gray"
 
-    ax.imshow(image, cmap=cmap, aspect="equal", extent=(0, width, height, 0))
-    ax.set_adjustable("datalim")
+    axis.imshow(image, cmap=cmap, aspect="equal", extent=(0, width, height, 0))
+    axis.set_adjustable("datalim")
 
     if mask is not None:
-        add_2d_contours(mask, ax, linewidth, mask_color)
+        add_2d_contours(mask, axis, linewidth, mask_color)
 
     if bboxes is not None:
         for bbox in bboxes:
@@ -100,24 +101,24 @@ def plot_2d(
                 bbox_color = bbox[1]
             else:
                 bbox_color = None
-            add_2d_bbox(bbox, ax, linewidth, bbox_color)
+            add_2d_bbox(bbox, axis, linewidth, bbox_color)
 
     if contours is not None:
         for contour in contours:
             # TODO: Custom color
-            ax.plot(*contour[:, [1, 0]].T, color=mask_color, linewidth=linewidth)
+            axis.plot(*contour[:, [1, 0]].T, color=mask_color, linewidth=linewidth)
 
     if overlay is not None:
         add_2d_overlay(
             overlay,
-            ax,
+            axis,
             threshold=overlay_threshold,
             cmap=overlay_cmap,
             alpha=overlay_alpha,
         )
 
     if points is not None:
-        ax.plot(points[:, 1], points[:, 0], points_color + ".", markersize=2, alpha=1)
+        axis.plot(points[:, 1], points[:, 0], points_color + ".", markersize=2, alpha=1)
 
     fig.gca().set_axis_off()
     fig.gca().xaxis.set_major_locator(NullLocator())
@@ -134,7 +135,7 @@ def plot_2d(
     return pil_image
 
 
-def add_2d_bbox(bbox, ax, linewidth=0.5, color="b"):
+def add_2d_bbox(bbox, axis, linewidth=0.5, color="b"):
     """Add bounding box to the image.
 
     Parameters
@@ -155,10 +156,10 @@ def add_2d_bbox(bbox, ax, linewidth=0.5, color="b"):
         edgecolor=color,
         linewidth=linewidth,
     )
-    ax.add_patch(rect)
+    axis.add_patch(rect)
 
 
-def add_2d_contours(mask, axes, linewidth=0.5, color="r"):
+def add_2d_contours(mask, axis, linewidth=0.5, color="r"):
     """Plot the contours around the `1`'s in the mask
 
     Parameters
@@ -175,16 +176,16 @@ def add_2d_contours(mask, axes, linewidth=0.5, color="r"):
     contours = skimage.measure.find_contours(mask, 0.5)
 
     for contour in contours:
-        axes.plot(*contour[:, [1, 0]].T, color=color, linewidth=linewidth)
+        axis.plot(*contour[:, [1, 0]].T, color=color, linewidth=linewidth)
 
 
-def add_2d_overlay(overlay, ax, threshold=0.1, cmap="jet", alpha=0.1):
+def add_2d_overlay(overlay, axis, threshold=0.1, cmap="jet", alpha=0.1):
     """Adds an overlay of the probability map and predicted regions
 
     Parameters
     ----------
     overlay : ndarray
-    ax : axis object
+    axis : axis object
        matplotlib axis object
     threshold : float
     cmap : str
@@ -195,4 +196,4 @@ def add_2d_overlay(overlay, ax, threshold=0.1, cmap="jet", alpha=0.1):
     if threshold:
         overlay = ma.masked_where(overlay < threshold, overlay)
 
-    ax.imshow(overlay, cmap=cmap, alpha=alpha)
+    axis.imshow(overlay, cmap=cmap, alpha=alpha)

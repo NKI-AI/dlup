@@ -15,8 +15,8 @@ You can also give an explicit caption, e.g.
 :license: BSD.
 """
 
-from docutils import nodes, utils
-from sphinx.util.nodes import split_explicit_title
+from docutils import nodes, utils  # type: ignore
+from sphinx.util.nodes import split_explicit_title  # type: ignore
 
 
 def doi_role(typ, rawtext, text, lineno, inliner, options={}, content=[]):

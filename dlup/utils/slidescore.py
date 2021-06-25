@@ -1,5 +1,7 @@
 # coding=utf-8
-# Copyright (c) DLUP Contributors
+# Copyright (c) dlup contributors
+"""Main module containing the SlideScore API wrapper."""
+
 import io
 import json
 import logging
@@ -8,6 +10,7 @@ import re
 import shutil
 import sys
 import urllib.parse
+import zipfile
 from typing import Dict, List, Optional, Tuple, Union
 
 import requests
@@ -198,7 +201,7 @@ class APIClient:
         return rjson
 
     def download_slide(
-        self, study_id: int, image: dict, save_dir: pathlib.Path, skip_if_exists: bool = True, verbose: bool = True
+        self, study_id: int, image: dict, save_dir: pathlib.Path, skip_if_exists: bool = True
     ) -> pathlib.Path:
         """
         Downloads a WSI from the SlideScore server, needs study_id and image.
@@ -211,7 +214,6 @@ class APIClient:
         image : dict
         save_dir : pathlib.Path
         skip_if_exists : bool
-        verbose : bool
 
         Returns
         -------
@@ -233,14 +235,15 @@ class APIClient:
         filename = self._get_filename(raw)
         self.logger.info(f"Writing to {save_dir / filename} (reporting file size of {filesize})...")
         write_to = save_dir / filename
+        history = self._read_from_history(save_dir)
 
-        if skip_if_exists and write_to.is_file():
-            self.logger.info(f"File {save_dir / filename} exists. Skipping.")
+        if skip_if_exists and str(filename) in history:
+            self.logger.info(f"File {save_dir / filename} already downloaded. Skipping.")
             response.close()
             return write_to
 
         temp_write_to = write_to.with_suffix(write_to.suffix + ".partial")
-        # TODO: If the partial file exists, can we continue the stream?
+
         with tqdm.wrapattr(
             open(temp_write_to, "wb"),
             "write",
@@ -251,6 +254,8 @@ class APIClient:
             for chunk in response.iter_content(chunk_size=4096):
                 f.write(chunk)
         shutil.move(str(temp_write_to), str(write_to))
+
+        self._write_to_history(save_dir, write_to.name)
         return write_to
 
     def get_results(self, study_id: int, **kwargs) -> List[SlideScoreResult]:
@@ -468,6 +473,23 @@ class APIClient:
         filename = re.findall(r"filename\*?=([^;]+)", s, flags=re.IGNORECASE)
         return filename[0].strip().strip('"')
 
+    @staticmethod
+    def _write_to_history(save_dir: pathlib.Path, filename: Union[str, pathlib.Path]):
+        with open(save_dir / ".download_history.txt", "a") as file:
+            file.write(f"{filename}\n")
+
+    @staticmethod
+    def _read_from_history(save_dir: pathlib.Path):
+        history_filename = save_dir / ".download_history.txt"
+        if not history_filename.is_file():
+            return []
+
+        with open(history_filename, "r") as file:
+            content = file.readlines()
+
+        content = [_.strip() for _ in content]
+        return content
+
 
 class SlideScoreErrorException(Exception):
     """Class to hold a SlideScore exception."""
@@ -500,7 +522,6 @@ def build_client(slidescore_url: str, api_token: str, disable_certificate_check:
             f"SSLError, possibly because the SSL certificate cannot be read. "
             f"If you know what you are doing you can try --disable-certificate-check. "
             f"Full error: {e}"
-        )  # TODO parse it better.
-    # TODO: This could also be a file or whatever, needs a bit more of an elaborate check.
+        )
 
     return client

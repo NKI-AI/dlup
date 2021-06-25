@@ -58,6 +58,8 @@ copybutton_prompt_is_regexp = True
 # Do not add class members in generated docs
 numpydoc_show_class_members = False
 
+# Add class content from main and derived classes
+autoclass_content = "both"
 
 # build the templated autosummary files
 autosummary_generate = True
@@ -76,7 +78,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "DLUP"
-copyright = "2020, DLUP Contributors"
+copyright = "2020, dlup contributors"
 author = "Jonas Teuwen"
 
 # The version info for the project you're documenting, acts as replacement for
