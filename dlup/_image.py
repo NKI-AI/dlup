@@ -172,7 +172,7 @@ class SlideImage:
         native_location = location / native_scaling
         native_size = size / native_scaling
 
-        # Openslide doesn't feature float coordinates to extract a region.
+        # OpenSlide doesn't feature float coordinates to extract a region.
         # We need to extract enough pixels and let PIL do the interpolation.
         # In the borders, the basis functions of other samples contribute to the final value.
         # PIL lanczos uses 3 pixels as support.
