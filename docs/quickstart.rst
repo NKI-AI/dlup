@@ -2,7 +2,7 @@
    :language: bash
 
 Quick Start
-==========
+===========
 If the :doc:`/installation` went smoothly, you should be able to run :bash:`dlup --help` and see:
 
 .. code-block:: console
