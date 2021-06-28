@@ -97,10 +97,10 @@ class SlideImage:
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
             mpp = np.array([mpp_y, mpp_x])
         except KeyError:
-            raise DlupUnsupportedSlideError("Slide property mpp is not available.")
+            raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
 
         if not np.isclose(mpp[0], mpp[1]):
-            raise DlupUnsupportedSlideError(f"Cannot deal with slides having anisotropic mpps. Got {mpp}.")
+            raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
 
         self._min_native_mpp = float(mpp[0])
 
