@@ -52,6 +52,7 @@ setup(
         "tqdm",
         "pillow",
         "staintools",
+        "paquo",
     ],
     extras_require={
         "dev": [
