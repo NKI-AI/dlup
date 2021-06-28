@@ -78,6 +78,8 @@ class OpenSlideImageMock(openslide.ImageSlide):
         self.properties = properties
         self.image = image
         self.level_downsamples = sorted(level_downsamples)
+        base_size = np.array((self.image.width, self.image.height))
+        self._level_dimensions = tuple([tuple((base_size / d).astype(int)) for d in self.level_downsamples])
         super().__init__(image)
 
     def get_best_level_for_downsample(self, downsample):
@@ -85,16 +87,19 @@ class OpenSlideImageMock(openslide.ImageSlide):
         level = 0 if downsample < 1 else np.where(level_downsamples <= downsample)[0][-1]
         return level
 
+    @property
+    def level_dimensions(self):
+        return self._level_dimensions
+
     def get_level_image(self, level):
         return self.image.resize(self.level_dimensions[level])
 
-    @property
-    def level_dimensions(self):
-        base_size = np.array((self.image.width, self.image.height))
-        return tuple([tuple((base_size / d).astype(int)) for d in self.level_downsamples])
-
     def read_region(self, location, level, size):
-        image = self.get_level_image(level)
+        image = np.array(self.get_level_image(level))
+
+        # Add a single pixel padding
+        image = np.pad(image, [(0, 1), (0, 1), (0, 0)])
+        image = PIL.Image.fromarray(image)
         location = np.asarray(location) / self.level_downsamples[level]
         return image.resize(size, resample=PIL.Image.LANCZOS, box=(*location, *(location + size)))
 
@@ -153,7 +158,7 @@ class TestSlideImage:
     @pytest.mark.parametrize(
         "slide_config",
         [
-            SlideConfig(level_downsamples=(1.0,)),
+            SlideConfig(level_downsamples=(1.0, 2.0)),
         ],
     )
     @pytest.mark.parametrize("out_region_x", [0, 4.1, 1.5, 3.9])
@@ -215,6 +220,34 @@ class TestSlideImage:
         # Check that the output correspondin shape and value.
         assert pil_extracted_region.shape == extracted_region.shape
         assert np.allclose(pil_extracted_region, extracted_region)
+
+    @pytest.mark.parametrize("shift_x", list(np.linspace(0, 2, 10)))
+    def test_border_region(self, shift_x):
+        """Test border region."""
+        image_size = (128, 128)
+        scaling = 1 / 5
+        out_region_size = (7, 7)
+        out_region_size = np.array(out_region_size)
+
+        # Example image
+        image = get_sample_nonuniform_image().resize(image_size)
+
+        # Create a slide
+        openslide_image = OpenSlideImageMock(
+            image, {openslide.PROPERTY_NAME_MPP_X: 1.0, openslide.PROPERTY_NAME_MPP_Y: 1.0}, (1.0, 4.3)
+        )
+
+        wsi = SlideImage(openslide_image, identifier="mock")
+        ssize = np.array(wsi.get_scaled_size(scaling))
+
+        out_region_location = ssize - out_region_size - 1 + shift_x
+
+        if (out_region_location + out_region_size > ssize).any():
+            with pytest.raises(ValueError):
+                extracted_region = wsi.read_region(out_region_location, scaling, out_region_size)
+            return
+
+        extracted_region = wsi.read_region(out_region_location, scaling, out_region_size)
 
     def test_scaled_size(self, dlup_wsi):
         """Check the scale is greater than zero."""
