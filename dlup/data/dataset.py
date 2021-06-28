@@ -9,7 +9,7 @@ import abc
 import bisect
 import pathlib
 import numpy as np
-from typing import Generic, Iterable, List, Tuple, TypeVar, Optional
+from typing import Generic, Iterable, List, Tuple, TypeVar, Optional, Callable
 
 from dlup import SlideImage, SlideImageTiledRegionView
 from dlup.background import foreground_tiles_coordinates_mask
@@ -100,9 +100,63 @@ class ConcatDataset(Dataset[T_co]):
         return self.datasets[dataset_idx][sample_idx]
 
 
-class SlideImageDataset(Dataset, SlideImageTiledRegionView):
+class BaseSlideImageDataset(Dataset, SlideImageTiledRegionView):
+    """
+    Basic :class:`Dataset` class that represents a whole-slide image as tiles.
+    """
+
+    def __init__(
+        self,
+        path: pathlib.Path,
+        mpp: float,
+        tile_size: Tuple[int, int],
+        tile_overlap: Tuple[int, int],
+        tile_mode: TilingMode = TilingMode.skip,
+    ):
+        """
+        Parameters
+        ----------
+        path :
+            Path to the image.
+        mpp :
+            Requested microns per pixel.
+        tile_size :
+            Tile size in the requested microns per pixel.
+        tile_overlap :
+            Overlap of the extracted tiles.
+        tile_mode :
+            Which tiling mode.
+        """
+        self._path = path
+        self._slide_image = SlideImage.from_file_path(path)
+        scaled_view = self._slide_image.get_scaled_view(self._slide_image.mpp / mpp)
+        super().__init__(scaled_view, tile_size, tile_overlap, tile_mode, crop=False)
+
+    @property
+    def path(self):
+        """Path of whole slide image"""
+        return self._path
+
+    @property
+    def slide_image(self):
+        """SlideImage instance"""
+        return self._slide_image
+
+    def __getitem__(self, index):
+        return SlideImageTiledRegionView.__getitem__(self, index)
+
+    def __len__(self):
+        return SlideImageTiledRegionView.__len__(self)
+
+
+class SlideImageDataset(BaseSlideImageDataset):
     """
     :class:`Dataset` class that represents a whole-slide image as tiles, possibly including a sampling mask.
+    The function outputs a dictionary:
+
+    >>> {"image": array, "location": location}
+    with the selected tile in the `image` key, and the location of the tile in the selected mpp in the `location` key.
+
     """
 
     def __init__(
@@ -114,6 +168,7 @@ class SlideImageDataset(Dataset, SlideImageTiledRegionView):
         tile_mode: TilingMode = TilingMode.skip,
         mask: Optional[np.ndarray] = None,
         foreground_threshold: float = 0.1,
+        transform: Optional[Callable] = None,
     ):
         """
         Parameters
@@ -132,30 +187,28 @@ class SlideImageDataset(Dataset, SlideImageTiledRegionView):
             Array denoting the sampling mask.
         foreground_threshold :
             The percentage of non-zero pixels required in the mask to include a tile.
+        transform :
+            Callable which should be applied after obtaining the sample, e.g. for augmentations.
         """
-        self._path = path
-        self._slide_image = SlideImage.from_file_path(path)
-        scaled_view = self._slide_image.get_scaled_view(self._slide_image.mpp / mpp)
-        super().__init__(scaled_view, tile_size, tile_overlap, tile_mode, crop=False)
-
+        super().__init__(path, mpp=mpp, tile_size=tile_size, tile_overlap=tile_overlap, tile_mode=tile_mode)
+        self.transform = transform
         self.foreground_indices = None
         if mask is not None:
             boolean_mask = foreground_tiles_coordinates_mask(mask, self, foreground_threshold)
             self.foreground_indices = np.argwhere(boolean_mask).flatten()
 
-    @property
-    def path(self):
-        """Path of whole slide image"""
-        return self._path
+    def __getitem__(self, index):
+        coordinates = self.coordinates[index]
+        # If a mask is given, we index the foreground indices set
+        if self.foreground_indices:
+            index = self.foreground_indices[index]
 
-    @property
-    def slide_image(self):
-        """SlideImage instance"""
-        return self._slide_image
+        tile = SlideImageTiledRegionView.__getitem__(self, index)
 
-    def __getitem__(self, i):
-        index = self.foreground_indices[i] if self.foreground_indices is not None else i
-        return SlideImageTiledRegionView.__getitem__(self, index)
+        sample = {"image": tile, "coordinates": coordinates, "path": self.path}
+        if self.transform:
+            sample = self.transform(sample)
+        return sample
 
     def __len__(self):
         return (
