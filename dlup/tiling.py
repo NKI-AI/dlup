@@ -31,7 +31,10 @@ def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarra
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(basis: Sequence[_GenericNumberArray], indexing: str = "ij"):
+_TLazyIndexedNDMesh = TypeVar("_TLazyIndexedNDMesh", bound="_LazyIndexedNDMesh")
+
+
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij", lazy=False) -> Union[_TLazyIndexedNDMesh, np.ndarray]:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Example
@@ -44,7 +47,79 @@ def indexed_ndmesh(basis: Sequence[_GenericNumberArray], indexing: str = "ij"):
         assert mesh[0, 0] == (1, 4)
         assert mesh[0, 1] == (1, 5)
     """
-    return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(basis), indexing=indexing)))).T)
+    lazy_mesh = _LazyIndexedNDMesh(bases, indexing=indexing)
+    return lazy_mesh if lazy else np.asarray(lazy_mesh)
+
+
+class _LazyIndexedNDMesh():
+    """Lazily generate an ndmesh.
+
+    https://numpy.org/doc/stable/user/basics.dispatch.html
+    """
+
+    def __init__(self, bases: Sequence[_GenericNumberArray], indexing='ij'):
+        self._bases = bases
+        self._indexing = indexing
+
+    @property
+    def shape(self) -> Tuple[int, ...]:
+        return tuple(len(x) for x in self._bases) + (len(self._bases),)
+
+    @staticmethod
+    def _render_indexes(indexes, target_length):
+        indexes = list(indexes)
+        ellipsis_idx = None
+        for i, index in enumerate(indexes):
+            if isinstance(index, int) or isinstance(index, slice):
+                continue
+            elif isinstance(index, type(Ellipsis)):
+                if ellipsis_idx is not None:
+                    raise IndexError("an index can only have a single ellipsis ('...')")
+                ellipsis_idx = i
+            else:
+                raise IndexError("only integers, slices (`:`), ellipsis (`...`),"
+                                 "and integer arrays are valid indices")
+
+        ellipsis = ellipsis_idx is not None
+        if len(indexes) - ellipsis > target_length:
+            raise IndexError(f"too many indices for array: array is {target_length}-dimensional, "
+                             f"but {len(indexes) - ellipsis} were indexed")
+
+        if ellipsis:
+            del indexes[ellipsis_idx]
+            num_slices = target_length - len(indexes)
+            return tuple(indexes[:ellipsis_idx] + [slice(None, None, None)] * num_slices + indexes[ellipsis_idx:])
+        return indexes
+
+    def __getitem__(self, indexes) -> Union[np.ndarray, _TLazyIndexedNDMesh]:
+        """Try to support numpy indexing.
+
+        Slices will return a lazy numpy array copy.
+        Returns a numpy array containing the values
+        in that index of the grid.
+        """
+        indexes = self.__class__._render_indexes(indexes, len(self.shape))
+
+        if not isinstance(indexes, tuple):
+            indexes = (indexes,)
+
+        bases = [basis[index] for index, basis in zip(indexes, self._bases)]
+
+        if len(indexes) > len(bases):
+            bases = bases[indexes[-1]]
+
+        if np.isscalar(bases):
+            return bases
+
+        return self.__class__(tuple(map(lambda x: np.atleast_1d(x), bases)))
+
+    def __array__(self) -> np.ndarray:
+        """Renders the grid into a numpy array.
+
+        This will transform the lazy object in an eager one by returning
+        a standard np.ndarray.
+        """
+        return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(self._bases), indexing=self._indexing)))).T)
 
 
 def span_tiling_bases(
