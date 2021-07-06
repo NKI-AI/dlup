@@ -51,7 +51,6 @@ setup(
         "torch",
         "tqdm",
         "pillow",
-        "staintools",
     ],
     extras_require={
         "dev": [
