@@ -198,12 +198,11 @@ class SlideImageDataset(BaseSlideImageDataset):
             self.foreground_indices = np.argwhere(boolean_mask).flatten()
 
     def __getitem__(self, index):
-        coordinates = self.coordinates[index]
         # If a mask is given, we index the foreground indices set
         if self.foreground_indices:
             index = self.foreground_indices[index]
 
-        tile = SlideImageTiledRegionView.__getitem__(self, index)
+        tile, coordinates = SlideImageTiledRegionView.__getitem__(self, index)
 
         sample = {"image": tile, "coordinates": coordinates, "path": self.path}
         if self.transform:
