@@ -268,4 +268,4 @@ def test_scaled_view(dlup_wsi, scaling):
     location = (3.7, 0)
     size = (10, 15)
     assert (view.read_region(location, size) == dlup_wsi.read_region(location, scaling, size)).all()
-    assert (dlup_wsi.get_scaled_size(scaling) == view.size).all()
+    assert dlup_wsi.get_scaled_size(scaling) == view.size

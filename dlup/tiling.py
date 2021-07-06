@@ -7,6 +7,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Uni
 import numpy as np
 
 from ._region import RegionView
+import functools
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Sequence[_GenericNumber]]
@@ -31,10 +32,7 @@ def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarra
     return np.asarray(a).flatten()
 
 
-_TLazyIndexedNDMesh = TypeVar("_TLazyIndexedNDMesh", bound="_LazyIndexedNDMesh")
-
-
-def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij", lazy=False) -> Union[_TLazyIndexedNDMesh, np.ndarray]:
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.ndarray:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Example
@@ -47,79 +45,7 @@ def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij", lazy=Fal
         assert mesh[0, 0] == (1, 4)
         assert mesh[0, 1] == (1, 5)
     """
-    lazy_mesh = _LazyIndexedNDMesh(bases, indexing=indexing)
-    return lazy_mesh if lazy else np.asarray(lazy_mesh)
-
-
-class _LazyIndexedNDMesh():
-    """Lazily generate an ndmesh.
-
-    https://numpy.org/doc/stable/user/basics.dispatch.html
-    """
-
-    def __init__(self, bases: Sequence[_GenericNumberArray], indexing='ij'):
-        self._bases = bases
-        self._indexing = indexing
-
-    @property
-    def shape(self) -> Tuple[int, ...]:
-        return tuple(len(x) for x in self._bases) + (len(self._bases),)
-
-    @staticmethod
-    def _render_indexes(indexes, target_length):
-        indexes = list(indexes)
-        ellipsis_idx = None
-        for i, index in enumerate(indexes):
-            if isinstance(index, int) or isinstance(index, slice):
-                continue
-            elif isinstance(index, type(Ellipsis)):
-                if ellipsis_idx is not None:
-                    raise IndexError("an index can only have a single ellipsis ('...')")
-                ellipsis_idx = i
-            else:
-                raise IndexError("only integers, slices (`:`), ellipsis (`...`),"
-                                 "and integer arrays are valid indices")
-
-        ellipsis = ellipsis_idx is not None
-        if len(indexes) - ellipsis > target_length:
-            raise IndexError(f"too many indices for array: array is {target_length}-dimensional, "
-                             f"but {len(indexes) - ellipsis} were indexed")
-
-        if ellipsis:
-            del indexes[ellipsis_idx]
-            num_slices = target_length - len(indexes)
-            return tuple(indexes[:ellipsis_idx] + [slice(None, None, None)] * num_slices + indexes[ellipsis_idx:])
-        return indexes
-
-    def __getitem__(self, indexes) -> Union[np.ndarray, _TLazyIndexedNDMesh]:
-        """Try to support numpy indexing.
-
-        Slices will return a lazy numpy array copy.
-        Returns a numpy array containing the values
-        in that index of the grid.
-        """
-        indexes = self.__class__._render_indexes(indexes, len(self.shape))
-
-        if not isinstance(indexes, tuple):
-            indexes = (indexes,)
-
-        bases = [basis[index] for index, basis in zip(indexes, self._bases)]
-
-        if len(indexes) > len(bases):
-            bases = bases[indexes[-1]]
-
-        if np.isscalar(bases):
-            return bases
-
-        return self.__class__(tuple(map(lambda x: np.atleast_1d(x), bases)))
-
-    def __array__(self) -> np.ndarray:
-        """Renders the grid into a numpy array.
-
-        This will transform the lazy object in an eager one by returning
-        a standard np.ndarray.
-        """
-        return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(self._bases), indexing=self._indexing)))).T)
+    return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(bases), indexing=indexing)))).T)
 
 
 def span_tiling_bases(
@@ -191,7 +117,7 @@ class TiledRegionView:
 
     def __init__(
         self,
-        region_view: RegionView,
+        region_view: region_view_cls,
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         mode: TilingMode = TilingMode.skip,
@@ -211,17 +137,10 @@ class TiledRegionView:
         self._region_view = region_view
         self._tile_size = tile_size
         self._tile_overlap = tile_overlap
+        self._mode = mode
         self._crop = crop
-        basis = span_tiling_bases(region_view.size, tile_size, tile_overlap=tile_overlap, mode=mode)
-
-        # Image coordinates usually start from the top left corner
-        # with +y pointing downwards. For this reason, we set the indexing
-        # to xy.
-        self._coordinates_grid = indexed_ndmesh(basis, indexing="xy")
-
-        # Let's also flatten the coordinates for simplified access.
-        self._coordinates = self._coordinates_grid.view()
-        self._coordinates.shape = (-1, len(region_view.size))
+        self._tiling_bases = span_tiling_bases(region_view.size, tile_size, tile_overlap=tile_overlap, mode=mode)
+        self._size = tuple(len(x) for x in self._tiling_bases)
 
     @property
     def tile_size(self):
@@ -232,21 +151,15 @@ class TiledRegionView:
         return self._tile_overlap
 
     @property
-    def coordinates_grid(self):
-        """Grid array containing tiles starting positions."""
-        return self._coordinates_grid
+    def mode(self):
+        return self._mode
 
-    @property
-    def coordinates(self):
-        """A flattened view of coordinates_grid."""
-        return self._coordinates
+    def get_coordinate(self, i):
+        index = np.unravel_index(i, self._size)
+        return np.array(list(c[i] for c, i in zip(self._tiling_bases, index)))
 
-    @property
-    def region_view(self):
-        return self._region_view
-
-    def get_tile(self, i, retcoords=False):
-        coordinate = self.coordinates[i]
+    def get_tile(self, i):
+        coordinate = self.get_coordinate(i)
         tile_size = self.tile_size
         clipped_tile_size = (
             np.clip(coordinate + tile_size, np.zeros_like(self.tile_size), self.region_view.size) - coordinate
@@ -260,22 +173,40 @@ class TiledRegionView:
             # This flip is justified as PIL outputs arrays with axes in reversed order
             # Extracting a box of size (width, height) results in an array
             # of shape (height, width, channels)
-            padding[:-1, 1] = np.flip(tile_size - clipped_tile_size)
+            padding[:-1, 1] = tile_size - clipped_tile_size
             values = np.zeros_like(padding)
             tile = np.pad(tile, padding, "constant", constant_values=values)
 
-        return (tile, coordinate) if retcoords else tile
+        return tile
+
+    def coordinates(self):
+        for i in range(len(self)):
+            yield self.get_coordinate(i)
+
+    def tiles(self):
+        for i in range(len(self)):
+            yield self.get_tile(i)
+
+    def generate_coordinates_grid(self, indexing='ij'):
+        """Grid array containing tiles starting positions.
+
+        Image coordinates usually start from the top left corner
+        with +y pointing downwards. In such case, you should set the indexing
+        to 'xy'.
+        """
+        return indexed_ndmesh(self._tiling_bases, indexing=indexing)
+
+    @property
+    def region_view(self):
+        return self._region_view
 
     def __getitem__(self, i):
-        return self.get_tile(i)
-
-    def get_iterator(self, retcoords=False):
-        for i in range(len(self)):
-            yield self.get_tile(i, retcoords)
+        return self.get_tile(i), self.get_coordinate(i)
 
     def __len__(self):
-        return len(self._coordinates)
+        return functools.reduce(
+            lambda value, element: value * len(element), self._tiling_bases, 1)
 
     def __iter__(self):
         """Iterate through every tile."""
-        return self.get_iterator()
+        return zip(self.tiles(), self.coordinates())

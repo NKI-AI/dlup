@@ -24,7 +24,7 @@ class RegionView(ABC):
 
     @property
     @abstractmethod
-    def size(self):
+    def size(self) -> Tuple[int, ...]:
         """Returns size of the region in U units."""
         pass
 

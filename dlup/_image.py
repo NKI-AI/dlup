@@ -42,12 +42,12 @@ class _SlideImageRegionView(RegionView):
         self._scaling = scaling
 
     @property
-    def mpp(self):
+    def mpp(self) -> float:
         """Returns the level effective mpp."""
         return self._wsi.mpp / self._scaling
 
     @property
-    def size(self):
+    def size(self) -> Tuple[int, ...]:
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
@@ -221,10 +221,10 @@ class SlideImage:
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
         return np.asarray(region.resize(size, resample=PIL.Image.LANCZOS, box=box))
 
-    def get_scaled_size(self, scaling: _GenericNumber):
+    def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
-        return size.astype(int)
+        return tuple(size.astype(int))
 
     def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""

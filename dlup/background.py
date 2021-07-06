@@ -238,7 +238,10 @@ def foreground_tiles_coordinates_mask(
     scaling = background_mask.width / slide_image_region_view.size[0]  # type: ignore
     scaled_tile_size = np.array(tiled_region_view.tile_size) * scaling
     scaled_tile_size = scaled_tile_size.astype(int)
-    scaled_coordinates = tiled_region_view.coordinates * scaling
+
+    coordinates = tiled_region_view.generate_coordinates_grid().view()
+    coordinates.shape = (-1, len(slide_image_region_view.size))
+    scaled_coordinates = coordinates * scaling
 
     # Generate an array of boxes.
     boxes = np.hstack([scaled_coordinates, scaled_coordinates + scaled_tile_size])
