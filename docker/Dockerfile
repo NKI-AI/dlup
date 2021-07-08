@@ -1,10 +1,10 @@
 ARG CUDA="10.2"
 ARG CUDNN="8"
 
-FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu18.04
+FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu20.04
 ARG CUDA
 ARG CUDNN
-ARG PYTORCH="1.8"
+ARG PYTORCH="1.9"
 ARG PYTHON="3.8"
 ARG UNAME="dlup"
 
