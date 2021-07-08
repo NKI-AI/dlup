@@ -1,4 +1,4 @@
-ARG CUDA="11.1.1"
+ARG CUDA="10.2"
 ARG CUDNN="8"
 
 FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu18.04
