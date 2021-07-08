@@ -1,4 +1,4 @@
-ARG CUDA="10.2"
+ARG CUDA="11.2"
 ARG CUDNN="8"
 
 FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu20.04
