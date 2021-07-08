@@ -60,12 +60,7 @@ RUN python -m pip install openslide-python opencv-python numpy==1.20 tifftools -
 
 USER root
 RUN mkdir /$UNAME
-
 USER $UNAME
-
-RUN jupyter notebook --generate-config
-ENV CONFIG_PATH "/users/$UNAME/.jupyter/jupyter_notebook_config.py"
-COPY "docker/jupyter_notebook_config.py" ${CONFIG_PATH}
 
 # Copy files into the docker
 COPY [".", "/$UNAME"]
