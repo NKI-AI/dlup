@@ -52,7 +52,7 @@ ENV PATH "/users/$UNAME/miniconda3/bin:$PATH:$CUDA_ROOT"
 RUN conda update -n base conda -yq
 RUN conda install python=${PYTHON}
 RUN conda install pyyaml mkl mkl-include setuptools cmake cffi typing boost
-RUN conda install cudatoolkit=${CUDA} torchvision -c pytorch
+RUN conda install cudatoolkit=${CUDA} torchvision -c pytorch -c nvidia
 RUN if [ "nightly$PYTORCH" = "nightly" ] ; then echo "Installing pytorch nightly" && \
     conda install pytorch -c pytorch-nightly; else conda install pytorch=${PYTORCH} -c pytorch ; fi
 RUN conda install tqdm jupyter matplotlib scikit-image pandas joblib -yq
