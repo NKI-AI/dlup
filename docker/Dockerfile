@@ -5,7 +5,7 @@ FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu20.04
 ARG CUDA
 ARG CUDNN
 ARG PYTORCH="1.9"
-ARG PYTHON="3.9"
+ARG PYTHON="3.8"
 ARG UNAME="dlup"
 
 ENV DEBIAN_FRONTEND="noninteractive"
