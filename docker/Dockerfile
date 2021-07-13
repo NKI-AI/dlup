@@ -1,14 +1,13 @@
 ARG CUDA="11.1"
 ARG CUDNN="8"
 
-FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu20.04
+FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu18.04
 ARG CUDA
 ARG CUDNN
 ARG PYTORCH="1.9"
 ARG PYTHON="3.8"
 ARG UNAME="dlup"
 
-ENV DEBIAN_FRONTEND="noninteractive"
 ENV CUDA_PATH /usr/local/cuda
 ENV CUDA_ROOT /usr/local/cuda/bin
 ENV LD_LIBRARY_PATH /usr/local/nvidia/lib64
