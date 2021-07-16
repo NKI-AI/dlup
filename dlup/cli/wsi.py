@@ -1,8 +1,11 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+import functools
+from pathos.multiprocessing import ProcessingPool as Pool
 
 import argparse
 import json
+import multiprocessing
 import pathlib
 from typing import Tuple, cast
 
@@ -57,22 +60,115 @@ def tiling(args: argparse.Namespace):
     mask = get_mask(image)
     boolean_mask = foreground_tiles_coordinates_mask(mask, tiled_view, args.foreground_threshold)
 
-    added_coords = []
-    # Iterate through the tiles and save them in the provided location.
-    for i, (tile, coords) in filter(lambda x: boolean_mask[x[0]], enumerate(zip(tiled_view, tiled_view.coordinates))):
-        pil_image = PIL.Image.fromarray(tile)
-        row = i // columns
-        column = i % columns
-        added_coords.append((row, column))
-        output_directory_path.mkdir(parents=True, exist_ok=True)
-        pil_image.save(output_directory_path / f"{row}_{column}.png")
+    output_directory_path.mkdir(parents=True, exist_ok=True)
+    if args.multiprocessing or args.multiprocessing_function:
+        # Save individual tiles by initiating a multiprocessing class to utilize 100% of the CPU
+        tile_saver = MultiprocessTileSaving(tiled_view, boolean_mask, columns, output_directory_path,
+                                            args.multiprocessing_tile_threshold, args.multiprocessing_n_processes)
+        tile_saver.multisave(args.multiprocessing_function)
+        added_coords = tile_saver.added_coords
+    else:
+        added_coords = []
+        # Iterate through the tiles and save them in the provided location.
+        for i, (tile, coords) in filter(lambda x: boolean_mask[x[0]],
+                                        enumerate(zip(tiled_view, tiled_view.coordinates))):
+            pil_image = PIL.Image.fromarray(tile)
+            row = i // columns
+            column = i % columns
+            added_coords.append((row, column))
+            output_directory_path.mkdir(parents=True, exist_ok=True)
+            pil_image.save(output_directory_path / f"{row}_{column}.png")
 
-    output["output"]["num_tiles"] = i + 1
+    output["output"]["num_tiles"] = len(tiled_view)
     output["output"]["tile_coordinates"] = added_coords
-    output["output"]["background_tiles"] = len(tiled_view.coordinates) - i - 1
+    output["output"]["background_tiles"] = len(tiled_view.coordinates) - output["output"]["num_tiles"]
 
     with open(output_directory_path / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)
+
+
+class MultiprocessTileSaving:
+    def __init__(self, tiled_view, boolean_mask, columns, output_directory_path, multiprocessing_tile_threshold,
+                 multiprocessing_n_processes):
+        self.tiled_view = tiled_view
+        self.boolean_mask = boolean_mask
+        self.columns = columns
+        self.output_directory_path = output_directory_path
+        self.added_coords = []
+        self.multiprocessing_n_processes = multiprocessing_n_processes
+        self.multiprocessing_tile_threshold = multiprocessing_tile_threshold
+
+    def multisave(self, multiprocessing_function):
+        """
+        Choose the best fitting multiprocessing operation
+        Pool -> more smaller io processes
+        Process -> fewer bigger io processes
+        """
+        if not multiprocessing_function:
+            multisave_funct = self.multisave_pool
+            if len(self.tiled_view) < self.multiprocessing_tile_threshold:
+                multisave_funct = self.multisave_process
+        else:
+            if multiprocessing_function == 'pool':
+                multisave_funct = self.multisave_pool
+            elif multiprocessing_function == 'process':
+                multisave_funct = self.multisave_process
+            else:
+                raise ValueError(f"multisave_variant: {multiprocessing_function} is not recognised")
+        multisave_funct()
+
+    def multisave_pool(self):
+        self.added_coords = Pool().map(
+            functools.partial(self.pool_index, columns=self.columns, dir_path=self.output_directory_path),
+            range(len(self.tiled_view)), self.tiled_view, self.boolean_mask)
+
+    def multisave_process(self,):
+        processes = []
+        for i in range(len(self.tiled_view)):
+            p = multiprocessing.Process(target=self.process_index, args=(i, ))
+            processes.append(p)
+
+        i = 0
+        while i < len(processes):
+            if len(multiprocessing.active_children()) <= self.multiprocessing_n_processes:
+                processes[i].start()
+                i += 1
+
+        for p in processes:
+            p.join()
+
+    @staticmethod
+    def save_tile(tile, tile_name):
+        pil_image = PIL.Image.fromarray(tile)
+        pil_image.save(tile_name)
+
+    @staticmethod
+    def get_tile_path(dir_path, row, column):
+        return dir_path / f"{row}_{column}.png"
+
+    def get_row(self, i):
+        return i // self.columns
+
+    def get_column(self, i):
+        return i % self.columns
+
+    def process_index(self, i):
+        if self.boolean_mask[i]:
+            tile = self.tiled_view[i]
+            row = self.get_row(i)
+            column = self.get_column(i)
+            self.save_tile(tile, self.get_tile_path(self.output_directory_path, row, column))
+            self.added_coords.append((row, column))
+
+    @staticmethod
+    def pool_index(i, tile, is_mask, columns, dir_path):
+        if is_mask:
+            row = i // columns
+            column = i % columns
+            pil_image = PIL.Image.fromarray(tile)
+            tile_name = dir_path / f"{row}_{column}.png"
+            pil_image.save(tile_name)
+            return row, column
 
 
 def info(args: argparse.Namespace):
@@ -142,6 +238,29 @@ def register_parser(parser: argparse._SubParsersAction):
         type=pathlib.Path,
         help="Directory to save output too.",
     )
+    tiling_parser.add_argument(
+        "--multiprocessing",
+        action="store_true",
+        help="Use multiprocessing for tiling",
+    )
+    tiling_parser.add_argument(
+        "--multiprocessing-function",
+        type=str,
+        choices=["pool", "process"],
+        help="The multiprocessing function to use (ignoring the tile threshold)",
+    )
+    tiling_parser.add_argument(
+        "--multiprocessing-tile-threshold",
+        type=int,
+        default=40000,
+        help="The number of tiles used to decide whether to use the process multiprocessing function over pooling",
+    )
+    tiling_parser.add_argument(
+        "--multiprocessing-n-processes",
+        type=int,
+        default=1000,
+        help="The maximum number of parallel running processes when using the process multiprocessing",
+    )
     tiling_parser.set_defaults(subcommand=tiling)
 
     # Get generic slide infos.
@@ -156,4 +275,5 @@ def register_parser(parser: argparse._SubParsersAction):
         action="store_true",
         help="Print available properties in json format.",
     )
+
     tiling_parser.set_defaults(subcommand=info)

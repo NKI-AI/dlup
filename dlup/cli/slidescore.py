@@ -344,7 +344,7 @@ def register_parser(parser: argparse._SubParsersAction):
     # Download slides to a subfolder
     download_wsi_parser = slidescore_subparsers.add_parser("download-wsis", help="Download WSIs from SlideScore.")
     download_wsi_parser.add_argument(
-        "output_dir",
+        "output_path",
         type=pathlib.Path,
         help="Directory to save output too.",
     )

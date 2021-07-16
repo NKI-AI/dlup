@@ -1,0 +1,3 @@
+[submodule "openslide"]
+	path = openslide
+	url = https://github.com/NKI-AI/openslide.git
