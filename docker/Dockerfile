@@ -7,61 +7,90 @@ ARG CUDNN
 ARG PYTORCH="1.9"
 ARG PYTHON="3.8"
 ARG UNAME="dlup"
+ARG BUILD_WORKERS="4"
+# Enough for most GPUs
+ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6"
 
 ENV CUDA_PATH /usr/local/cuda
 ENV CUDA_ROOT /usr/local/cuda/bin
 ENV LD_LIBRARY_PATH /usr/local/nvidia/lib64
 
 RUN apt-get -qq update
-# libsm6 and libxext6 are needed for cv2
-RUN apt-get update && apt-get install -y libxext6 libsm6 libxrender1 build-essential sudo \
-    autoconf automake libtool pkg-config libtiff-dev libopenjp2-7-dev libglib2.0-dev libcairo2-dev \
-    libxml++2.6-dev libsqlite3-dev libgdk-pixbuf2.0-dev \
-    libgl1-mesa-glx git wget rsync tmux nano dcmtk fftw3-dev liblapacke-dev libpng-dev libopenblas-dev jq
-RUN  rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libxrender1 build-essential sudo \
+    autoconf automake libtool pkg-config libtiff-dev libopenjp2-7-dev libglib2.0-dev \
+    libxml++2.6-dev libsqlite3-dev libgdk-pixbuf2.0-dev libgl1-mesa-glx git wget rsync \
+    fftw3-dev liblapacke-dev libpng-dev libopenblas-dev libxext-dev jq sudo \
+    libfreetype6 libfreetype6-dev \
+    # Purge pixman and cairo to be sure
+    && apt-get remove libpixman-1-dev libcairo2-dev \
+    && apt-get purge libpixman-1-dev libcairo2-dev \
+    && apt-get autoremove && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
+# Install pixman 0.40, as Ubuntu repository holds a version with a bug which can cause difficulties reading thumbnails
+RUN cd /tmp \
+    && wget https://www.cairographics.org/releases/pixman-0.40.0.tar.gz \
+    && tar xvf pixman-0.40.0.tar.gz && rm pixman-0.40.0.tar.gz && cd pixman-0.40.0 \
+    && ./configure && make -j$BUILD_WORKERS && make install \
+    && cd /tmp && rm -rf pixman-0.40.0
 
-# Standard openslide cannot read 3dhistech data.
-WORKDIR /tmp
-RUN git clone https://github.com/NKI-AI/openslide.git
-WORKDIR /tmp/openslide
-RUN autoreconf -i
-RUN ./configure
-RUN make
-RUN sudo make install
-RUN ldconfig
+# Install cairo 1.16
+RUN cd /tmp \
+    && wget https://www.cairographics.org/releases/cairo-1.16.0.tar.xz \
+    && tar xvf cairo-1.16.0.tar.xz && rm cairo-1.16.0.tar.xz && cd cairo-1.16.0 \
+    && ./configure && make -j$BUILD_WORKERS && make install \
+    && cd /tmp && rm -rf cairo-1.16.0
 
+# Install OpenSlide for NKI-AI repository.
+RUN git clone https://github.com/NKI-AI/openslide.git /tmp/openslide \
+    && cd /tmp/openslide \
+    && autoreconf -i \
+    && ./configure && make -j$BUILD_WORKERS && make install && ldconfig \
+    && cd /tmp && rm -rf openslide
 
 # Make a user
 # Rename /home to /users to prevent issues with singularity
-RUN mkdir /users
-RUN echo $UNAME
-RUN adduser --disabled-password --gecos '' --home /users/$UNAME $UNAME
-RUN adduser $UNAME sudo
-RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+RUN mkdir /users && echo $UNAME \
+    && adduser --disabled-password --gecos '' --home /users/$UNAME $UNAME \
+    && adduser $UNAME sudo \
+    && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
+
+RUN mkdir /$UNAME
 USER $UNAME
 
-WORKDIR /tmp
-
-RUN wget -q https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-RUN bash Miniconda3-latest-Linux-x86_64.sh -b
+RUN cd /tmp && wget -q https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+    && bash Miniconda3-latest-Linux-x86_64.sh -b \
+    && rm Miniconda3-latest-Linux-x86_64.sh
 ENV PATH "/users/$UNAME/miniconda3/bin:$PATH:$CUDA_ROOT"
 
 # Setup python packages
-RUN conda update -n base conda -yq
-RUN conda install python=${PYTHON}
-RUN conda install pyyaml mkl mkl-include setuptools cmake cffi typing boost
-RUN conda install cudatoolkit=${CUDA} torchvision -c pytorch -c nvidia
-RUN if [ "nightly$PYTORCH" = "nightly" ] ; then echo "Installing pytorch nightly" && \
-    conda install pytorch -c pytorch-nightly; else conda install pytorch=${PYTORCH} -c pytorch ; fi
-RUN conda install tqdm jupyter matplotlib scikit-image pandas joblib -yq
-RUN python -m pip install openslide-python opencv-python numpy==1.20 tifftools -q
+# TODO: Build pytorch
+RUN conda update -n base conda -yq \
+    && conda install python=${PYTHON} \
+    && conda install astunparse ninja setuptools cmake future requests dataclasses \
+    && conda install pyyaml mkl mkl-include setuptools cmake cffi typing boost \
+#    && conda install cudatoolkit=${CUDA} torchvision -c pytorch -c nvidia \
+    && conda install tqdm jupyter matplotlib scikit-image pandas joblib -yq \
+    && conda install typing_extensions \
+    && conda clean -ya \
+    && python -m pip install numpy==1.20 tifftools -q \
+    # Install openslide-python from NKI-AI
+    && python -m pip install git+https://github.com/NKI-AI/openslide-python.git
 
-USER root
-RUN mkdir /$UNAME
+# Build pytorch
+ENV CMAKE_PREFIX_PATH "$(dirname $(which conda))/../"
+RUN git clone --branch v1.9.0 --depth 1 --recursive https://github.com/pytorch/pytorch/ /tmp/pytorch \
+    && cd /tmp/pytorch \
+    && python setup.py install \
+    && cd /tmp && rm -rf /tmp/pytorch
 
-USER $UNAME
+# Build torchvision
+RUN git clone --branch v0.10.0 --depth 1 --recursive https://github.com/pytorch/vision/ /tmp/vision \
+    && cd /tmp/vision \
+    && python setup.py install \
+    && cd /tmp && rm -rf /tmp/vision
 
+# Install jupyter config to be able to run in the docker environment
 RUN jupyter notebook --generate-config
 ENV CONFIG_PATH "/users/$UNAME/.jupyter/jupyter_notebook_config.py"
 COPY "docker/jupyter_notebook_config.py" ${CONFIG_PATH}
