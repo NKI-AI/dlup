@@ -59,12 +59,16 @@ in your Git repository. You can do this by running:
 If you want to update the submodule to the latest version, you need to execute :code:`git pull` in the
 submodules directory :code:`third_party/dlup`.
 
-
-
-
+.. warning::
+    `Pixman`_ version 0.40 or higher is required for dlup to work correctly.
+    See `this GitHub issue`_ for details. This version is automatically compiled in
+    the `dlup Dockerfile`_.
 
 
 .. _Singularity: https://sylabs.io/singularity/
 .. _OpenSlide: https://openslide.org
 .. _fork of OpenSlide: https://github.com/NKI-AI/OpenSlide
 .. _Github repo: https://github.com/NKI-AI/dlup
+.. _this GitHub issue: https://github.com/NKI-AI/dlup/issues/20
+.. _dlup Dockerfile: https://github.com/NKI-AI/dlup/blob/main/docker/Dockerfile
+.. _Pixman: http://www.pixman.org/
