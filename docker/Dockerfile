@@ -4,7 +4,8 @@ ARG CUDNN="8"
 FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu18.04
 ARG CUDA
 ARG CUDNN
-ARG PYTORCH="1.9"
+ARG PYTORCH="1.9.0"
+ARG TORCHVISION="0.10.0"
 ARG PYTHON="3.8"
 ARG UNAME="dlup"
 ARG BUILD_WORKERS="4"
@@ -64,12 +65,10 @@ RUN cd /tmp && wget -q https://repo.continuum.io/miniconda/Miniconda3-latest-Lin
 ENV PATH "/users/$UNAME/miniconda3/bin:$PATH:$CUDA_ROOT"
 
 # Setup python packages
-# TODO: Build pytorch
 RUN conda update -n base conda -yq \
     && conda install python=${PYTHON} \
     && conda install astunparse ninja setuptools cmake future requests dataclasses \
     && conda install pyyaml mkl mkl-include setuptools cmake cffi typing boost \
-#    && conda install cudatoolkit=${CUDA} torchvision -c pytorch -c nvidia \
     && conda install tqdm jupyter matplotlib scikit-image pandas joblib -yq \
     && conda install typing_extensions \
     && conda clean -ya \
@@ -79,15 +78,15 @@ RUN conda update -n base conda -yq \
 
 # Build pytorch
 ENV CMAKE_PREFIX_PATH "$(dirname $(which conda))/../"
-RUN git clone --branch v1.9.0 --depth 1 --recursive https://github.com/pytorch/pytorch/ /tmp/pytorch \
+RUN git clone --branch v$PYTORCH --depth 1 --recursive https://github.com/pytorch/pytorch/ /tmp/pytorch \
     && cd /tmp/pytorch \
-    && python setup.py install \
+    && TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST python setup.py install \
     && cd /tmp && rm -rf /tmp/pytorch
 
 # Build torchvision
-RUN git clone --branch v0.10.0 --depth 1 --recursive https://github.com/pytorch/vision/ /tmp/vision \
+RUN git clone --branch v$TORCHVISION --depth 1 --recursive https://github.com/pytorch/vision/ /tmp/vision \
     && cd /tmp/vision \
-    && python setup.py install \
+    && TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST python setup.py install \
     && cd /tmp && rm -rf /tmp/vision
 
 # Install jupyter config to be able to run in the docker environment
