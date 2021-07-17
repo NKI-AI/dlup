@@ -197,17 +197,28 @@ class SlideImageDataset(BaseSlideImageDataset):
             boolean_mask = foreground_tiles_coordinates_mask(mask, self, foreground_threshold)
             self.foreground_indices = np.argwhere(boolean_mask).flatten()
 
+        self.tiled_view = SlideImageTiledRegionView
+
     def __getitem__(self, index):
         # If a mask is given, we index the foreground indices set
-        if self.foreground_indices:
+        if self.foreground_indices is not None:
             index = self.foreground_indices[index]
 
-        tile, coordinates = SlideImageTiledRegionView.__getitem__(self, index)
+        grid_index = np.unravel_index(index, self.region_view.size)
 
-        sample = {"image": tile, "coordinates": coordinates, "path": self.path}
+        tile, coordinates = self.tiled_view.__getitem__(self, index)
+        sample = {"image": tile, "coordinates": coordinates, "grid_index": grid_index, "path": self.path}
+
         if self.transform:
             sample = self.transform(sample)
         return sample
+
+    def __iter__(self):
+        raise NotImplementedError(
+            "__iter__ is not implemented for the SlideImageDataset class. "
+            "It would lead to unexpected behavior as a subclass of BaseSlideImageDataset. "
+            "It does make sense to implement these so one can iterate over the dataset."
+        )
 
     def __len__(self):
         return (

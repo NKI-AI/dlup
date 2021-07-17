@@ -12,6 +12,7 @@ from dlup import SlideImage, SlideImageTiledRegionView
 from dlup.background import foreground_tiles_coordinates_mask, get_mask
 from dlup.tiling import TilingMode
 from dlup.utils import ArrayEncoder
+from dlup.data.dataset import SlideImageDataset
 
 
 def tiling(args: argparse.Namespace):
@@ -22,8 +23,19 @@ def tiling(args: argparse.Namespace):
     tile_overlap = cast(Tuple[int, int], (args.tile_overlap,) * 2)
 
     image = SlideImage.from_file_path(input_file_path)
-    scaled_view = image.get_scaled_view(image.mpp / args.mpp)
-    tiled_view = SlideImageTiledRegionView(scaled_view, tile_size, tile_overlap, args.mode, crop=args.crop)
+    mask = get_mask(image)
+
+    dataset = SlideImageDataset(
+        input_file_path,
+        mask=mask,
+        mpp=args.mpp,
+        tile_size=tile_size,
+        tile_overlap=tile_overlap,
+        tile_mode=args.mode,
+        foreground_threshold=args.foreground_threshold,
+        transform=None,
+    )
+    num_tiles = len(dataset)
 
     # Store metadata of this process for reproducibility (and to read in the dataset class)
     output = {
@@ -36,9 +48,8 @@ def tiling(args: argparse.Namespace):
             "vendor": image.vendor,
         },
         "output": {
-            "mpp": scaled_view.mpp,
-            "size": scaled_view.size,
-            "coordinates_grid_shape": tiled_view.coordinates_grid.shape,
+            "mpp": dataset.region_view.mpp,
+            "size": dataset.region_view.size,
         },
         "settings": {
             "mode": args.mode,
@@ -51,25 +62,24 @@ def tiling(args: argparse.Namespace):
     }
     # Prepare output directory.
     output_directory_path /= "tiles"
-    columns = tiled_view.coordinates_grid.shape[1]
-
-    # Generate the foreground mask
-    mask = get_mask(image)
-    boolean_mask = foreground_tiles_coordinates_mask(mask, tiled_view, args.foreground_threshold)
 
     added_coords = []
     # Iterate through the tiles and save them in the provided location.
-    for i, (tile, coords) in filter(lambda x: boolean_mask[x[0]], enumerate(zip(tiled_view, tiled_view.coordinates))):
+    for idx in range(num_tiles):
+        tile_dict = dataset[idx]
+        tile = tile_dict["image"]
+        grid_index = tile_dict["grid_index"]
+        coordinates = tile_dict["coordinates"]
         pil_image = PIL.Image.fromarray(tile)
-        row = i // columns
-        column = i % columns
-        added_coords.append((row, column))
+
+        added_coords.append(coordinates)
         output_directory_path.mkdir(parents=True, exist_ok=True)
-        pil_image.save(output_directory_path / f"{row}_{column}.png")
+        pil_image.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
 
     output["output"]["num_tiles"] = i + 1
     output["output"]["tile_coordinates"] = added_coords
-    output["output"]["background_tiles"] = len(tiled_view.coordinates) - i - 1
+    # TODO: Find a way to access before and after masking indices
+    # output["output"]["background_tiles"] = len(tiled_view.coordinates) - i - 1
 
     with open(output_directory_path / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)

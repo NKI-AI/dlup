@@ -187,7 +187,7 @@ class TiledRegionView:
         for i in range(len(self)):
             yield self.get_tile(i)
 
-    def generate_coordinates_grid(self, indexing='ij'):
+    def generate_coordinates_grid(self, indexing="ij"):
         """Grid array containing tiles starting positions.
 
         Image coordinates usually start from the top left corner
@@ -204,8 +204,7 @@ class TiledRegionView:
         return self.get_tile(i), self.get_coordinate(i)
 
     def __len__(self):
-        return functools.reduce(
-            lambda value, element: value * len(element), self._tiling_bases, 1)
+        return functools.reduce(lambda value, element: value * len(element), self._tiling_bases, 1)
 
     def __iter__(self):
         """Iterate through every tile."""
