@@ -5,6 +5,17 @@
 Installation and Usage
 ======================
 
+Setup environment
+-----------------
+Creating a Miniconda or virtual environment is recommended. The dlup installation script will
+install all other required packages.
+
+.. warning::
+    `Pixman`_ version 0.40 or higher is required for dlup to work correctly.
+    See `this GitHub issue`_ for details. This version is automatically compiled in
+    the `dlup Dockerfile`_.
+
+
 Build from Source
 -----------------
 The sources for dlup can be downloaded from the `Github repo`_.
@@ -58,11 +69,6 @@ in your Git repository. You can do this by running:
 
 If you want to update the submodule to the latest version, you need to execute :code:`git pull` in the
 submodules directory :code:`third_party/dlup`.
-
-.. warning::
-    `Pixman`_ version 0.40 or higher is required for dlup to work correctly.
-    See `this GitHub issue`_ for details. This version is automatically compiled in
-    the `dlup Dockerfile`_.
 
 
 .. _Singularity: https://sylabs.io/singularity/
