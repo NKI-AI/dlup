@@ -5,6 +5,23 @@
 Installation and Usage
 ======================
 
+Setup environment
+-----------------
+Creating a Miniconda or virtual environment is recommended. The dlup installation script will
+install all other required packages.
+
+.. warning::
+    Our `fork of OpenSlide`_ needs to be installed as it provides fixes for some image types, and
+    reduces the memory requirements to open a large collection of files.
+    Similarly, the fork of `openslide-python`_ is required.
+
+.. warning::
+    `Pixman`_ version 0.40 or higher is required for dlup to work correctly.
+    See `this GitHub issue`_ for details. This version is automatically compiled in
+    the `dlup Dockerfile`_.
+
+
+
 Build from Source
 -----------------
 The sources for dlup can be downloaded from the `Github repo`_.
@@ -27,8 +44,6 @@ environment. If you want to use a specific version of dlup (v0.1.0 in the exampl
     pip install -e .
 
 Replace any occurrences of :code:`v0.1.0` in the example with the version you want to install.
-
-Also install our `fork of OpenSlide`_ if you want broader support for different image types.
 
 
 Build Docker
@@ -60,11 +75,11 @@ If you want to update the submodule to the latest version, you need to execute :
 submodules directory :code:`third_party/dlup`.
 
 
-
-
-
-
 .. _Singularity: https://sylabs.io/singularity/
 .. _OpenSlide: https://openslide.org
 .. _fork of OpenSlide: https://github.com/NKI-AI/OpenSlide
+.. _openslide-python: https://github.com/NKI-AI/openslide-python
 .. _Github repo: https://github.com/NKI-AI/dlup
+.. _this GitHub issue: https://github.com/NKI-AI/dlup/issues/20
+.. _dlup Dockerfile: https://github.com/NKI-AI/dlup/blob/main/docker/Dockerfile
+.. _Pixman: http://www.pixman.org/
