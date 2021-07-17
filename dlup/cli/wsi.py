@@ -76,7 +76,7 @@ def tiling(args: argparse.Namespace):
         output_directory_path.mkdir(parents=True, exist_ok=True)
         pil_image.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
 
-    output["output"]["num_tiles"] = i + 1
+    output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_coordinates"] = added_coords
     # TODO: Find a way to access before and after masking indices
     # output["output"]["background_tiles"] = len(tiled_view.coordinates) - i - 1
