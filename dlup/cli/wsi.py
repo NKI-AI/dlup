@@ -135,7 +135,7 @@ def register_parser(parser: argparse._SubParsersAction):
     tiling_parser.add_argument(
         "slide_file_path",
         type=pathlib.Path,
-        help="Input directory.",
+        help="Input slide image.",
     )
     tiling_parser.add_argument(
         "output_directory_path",
