@@ -131,7 +131,7 @@ class BaseSlideImageDataset(Dataset, SlideImageTiledRegionView):
             Which tiling mode.
         """
         self._path = path
-        self._slide_image = SlideImage.from_file_path(path)
+        self._slide_image = SlideImage.from_file_path(path, disable_cache=True)
         scaled_view = self._slide_image.get_scaled_view(self._slide_image.mpp / mpp)
         super().__init__(scaled_view, tile_size, tile_overlap, tile_mode, crop=False)
 
@@ -237,6 +237,7 @@ class SlideImageDataset(BaseSlideImageDataset):
 
 class TiledSlideImageDataset(Dataset):
     """Dataset class to handle pretiled WSIs."""
+
     def __init__(self, path: pathlib.Path, transform: Optional[Callable] = None):
         """
         Parameters

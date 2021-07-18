@@ -104,10 +104,13 @@ class SlideImage:
 
     @classmethod
     def from_file_path(
-        cls: Type[_TSlideImage], wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
+        cls: Type[_TSlideImage],
+        wsi_file_path: pathlib.Path,
+        identifier: Union[str, None] = None,
+        disable_cache: bool = False,
     ) -> _TSlideImage:
         try:
-            wsi = openslide.open_slide(str(wsi_file_path))
+            wsi = openslide.open_slide(str(wsi_file_path), cache_size=0 if disable_cache else None)
         except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
             raise DlupUnsupportedSlideError("Unsupported file.")
 
