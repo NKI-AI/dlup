@@ -236,7 +236,17 @@ class SlideImageDataset(BaseSlideImageDataset):
 
 
 class TiledSlideImageDataset(Dataset):
+    """Dataset class to handle pretiled WSIs."""
     def __init__(self, path: pathlib.Path, transform: Optional[Callable] = None):
+        """
+        Parameters
+        ----------
+        path :
+            Path to the folder containing the tiles and tiles.json.
+        transform :
+            Callable which should be applied after obtaining the sample, e.g. for augmentations.
+
+        """
         self.path = pathlib.Path(path)
         self.transform = transform
         with open(self.path / "tiles.json") as json_file:
