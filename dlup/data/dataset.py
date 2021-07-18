@@ -7,10 +7,12 @@ Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 
 import abc
 import bisect
+import json
 import pathlib
 from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 import numpy as np
+import PIL
 
 from dlup import SlideImage, SlideImageTiledRegionView
 from dlup.background import foreground_tiles_coordinates_mask
@@ -231,3 +233,38 @@ class SlideImageDataset(BaseSlideImageDataset):
             if self.foreground_indices is not None
             else SlideImageTiledRegionView.__len__(self)
         )
+
+
+class TiledSlideImageDataset(Dataset):
+    def __init__(self, path: pathlib.Path, transform: Optional[Callable] = None):
+        self.path = pathlib.Path(path)
+        self.transform = transform
+        with open(self.path / "tiles.json") as json_file:
+            tiles_data = json.load(json_file)
+
+        self.original_path = pathlib.Path(tiles_data["original"]["input_file_path"])
+        self.mpp = tiles_data["output"]["mpp"]
+        self.size = tiles_data["output"]["size"]
+        self._num_tiles = tiles_data["output"]["num_tiles"]
+        self._tile_indices = tiles_data["output"]["tile_indices"]
+
+    def __getitem__(self, index):
+        grid_index = self._tile_indices[index]
+        path_to_tile = self.path / "tiles" / f"{'_'.join(map(str, grid_index))}.png"
+        # TODO(jt): Figure out why the mode is RGB
+        tile = PIL.Image.open(path_to_tile).convert("RGB")
+
+        # TODO(jt): do something about the coordinates
+        # Perhaps, they can be inferred in the same way as the original image
+        # So do not directly compute from the current grid_index
+        sample = {"image": tile, "grid_index": grid_index, "path": self.original_path}
+
+        if self.transform:
+            sample = self.transform(sample)
+        return sample
+
+    def __iter__(self):
+        pass
+
+    def __len__(self):
+        return self._num_tiles

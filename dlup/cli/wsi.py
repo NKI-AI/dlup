@@ -6,6 +6,7 @@ import json
 import pathlib
 from typing import Tuple, cast
 
+import numpy as np
 import PIL
 
 from dlup import SlideImage
@@ -63,29 +64,27 @@ def tiling(args: argparse.Namespace):
             "crop": args.crop,
             "tile_size": args.tile_size,
             "tile_overlap": args.tile_overlap,
-            "mask_function": "fesi",
+            "mask_function": "improved_fesi",
             "foreground_threshold": args.foreground_threshold,
         },
     }
     # Prepare output directory.
     output_directory_path /= "tiles"
 
-    added_coords = []
+    indices = []
     # Iterate through the tiles and save them in the provided location.
     for idx in range(num_tiles):
         tile_dict = dataset[idx]
         tile = PIL.Image.fromarray(tile_dict["image"])
         grid_index = tile_dict["grid_index"]
-        coordinates = tile_dict["coordinates"]
 
-        added_coords.append(coordinates)
+        indices.append(grid_index)
         output_directory_path.mkdir(parents=True, exist_ok=True)
         tile.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
 
     output["output"]["num_tiles"] = num_tiles
-    output["output"]["tile_coordinates"] = added_coords
-    # TODO: Find a way to access before and after masking indices
-    # output["output"]["background_tiles"] = len(tiled_view.coordinates) - num_tiles - 1
+    output["output"]["tile_indices"] = indices
+    output["output"]["background_tiles"] = np.prod(dataset.grid_size) - num_tiles
 
     with open(output_directory_path.parent / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)
