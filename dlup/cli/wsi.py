@@ -87,7 +87,7 @@ def tiling(args: argparse.Namespace):
     # TODO: Find a way to access before and after masking indices
     # output["output"]["background_tiles"] = len(tiled_view.coordinates) - num_tiles - 1
 
-    with open(output_directory_path / "tiles.json", "w") as file:
+    with open(output_directory_path.parent / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)
 
 
