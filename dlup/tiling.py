@@ -1,13 +1,13 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 
+import functools
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 
 from ._region import RegionView
-import functools
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Sequence[_GenericNumber]]

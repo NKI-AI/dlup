@@ -8,8 +8,9 @@ Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 import abc
 import bisect
 import pathlib
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
+
 import numpy as np
-from typing import Generic, Iterable, List, Tuple, TypeVar, Optional, Callable
 
 from dlup import SlideImage, SlideImageTiledRegionView
 from dlup.background import foreground_tiles_coordinates_mask
@@ -142,6 +143,11 @@ class BaseSlideImageDataset(Dataset, SlideImageTiledRegionView):
         """SlideImage instance"""
         return self._slide_image
 
+    @property
+    def grid_size(self):
+        """Size of tiling grid"""
+        return self._size
+
     def __getitem__(self, index):
         return SlideImageTiledRegionView.__getitem__(self, index)
 
@@ -204,8 +210,7 @@ class SlideImageDataset(BaseSlideImageDataset):
         if self.foreground_indices is not None:
             index = self.foreground_indices[index]
 
-        grid_index = np.unravel_index(index, self.region_view.size)
-
+        grid_index = np.unravel_index(index, self._size, order="C")
         tile, coordinates = self.tiled_view.__getitem__(self, index)
         sample = {"image": tile, "coordinates": coordinates, "grid_index": grid_index, "path": self.path}
 

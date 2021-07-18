@@ -1,6 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-from typing import Any, Dict, Optional, Tuple, Sequence, Type, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
 import openslide  # type: ignore

@@ -8,15 +8,16 @@ from typing import Tuple, cast
 
 import PIL
 
-from dlup import SlideImage, SlideImageTiledRegionView
-from dlup.background import foreground_tiles_coordinates_mask, get_mask
+from dlup import SlideImage
+from dlup.background import get_mask
+from dlup.data.dataset import SlideImageDataset
 from dlup.tiling import TilingMode
 from dlup.utils import ArrayEncoder
-from dlup.data.dataset import SlideImageDataset
+from dlup.viz.plotting import plot_2d
 
 
 def tiling(args: argparse.Namespace):
-    """Perform some tiling."""
+    """Perform the WSI tiling."""
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
     tile_size = cast(Tuple[int, int], (args.tile_size,) * 2)
@@ -24,7 +25,13 @@ def tiling(args: argparse.Namespace):
 
     image = SlideImage.from_file_path(input_file_path)
     mask = get_mask(image)
+    thumbnail = image.get_thumbnail(mask.shape[::-1])
 
+    plot_2d(mask).save(output_directory_path / "mask.png")
+    plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
+    plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
+
+    # TODO: Maybe give the SlideImageDataset an image as input?
     dataset = SlideImageDataset(
         input_file_path,
         mask=mask,
@@ -67,19 +74,18 @@ def tiling(args: argparse.Namespace):
     # Iterate through the tiles and save them in the provided location.
     for idx in range(num_tiles):
         tile_dict = dataset[idx]
-        tile = tile_dict["image"]
+        tile = PIL.Image.fromarray(tile_dict["image"])
         grid_index = tile_dict["grid_index"]
         coordinates = tile_dict["coordinates"]
-        pil_image = PIL.Image.fromarray(tile)
 
         added_coords.append(coordinates)
         output_directory_path.mkdir(parents=True, exist_ok=True)
-        pil_image.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
+        tile.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_coordinates"] = added_coords
     # TODO: Find a way to access before and after masking indices
-    # output["output"]["background_tiles"] = len(tiled_view.coordinates) - i - 1
+    # output["output"]["background_tiles"] = len(tiled_view.coordinates) - num_tiles - 1
 
     with open(output_directory_path / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)

@@ -201,7 +201,7 @@ def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi, minimal_siz
     size = int(max([next_power_of_2(size), min([minimal_size, max_slide])]))
 
     # TODO: max should be determined by system memory
-    mask = mask_func(slide.get_thumbnail(size=(size, size)))
+    mask = mask_func(np.asarray(slide.get_thumbnail(size=(size, size))))
     return mask.astype(np.uint8)
 
 

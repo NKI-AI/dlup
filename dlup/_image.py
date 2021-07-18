@@ -79,12 +79,10 @@ class SlideImage:
     Each horizontal slices of the pyramid can be accessed using a scaling value
     z as index.
 
-    Example usage:
-
-    .. code-block:: python
-
-        import dlup
-        wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
+    Example
+    -------
+    >>> import dlup
+    >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
     def __init__(self, wsi: openslide.AbstractSlide, identifier: Union[str, None] = None):

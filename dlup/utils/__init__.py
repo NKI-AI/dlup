@@ -2,8 +2,7 @@
 # Copyright (c) dlup contributors
 import json
 import warnings
-import subprocess
-import sys
+
 import numpy as np
 import torch
 
@@ -20,4 +19,8 @@ class ArrayEncoder(json.JSONEncoder):
                     "Consider doing this differently"
                 )
             return obj.tolist()
+
+        if isinstance(obj, (np.int32, np.int64)):
+            return int(obj)
+
         return json.JSONEncoder.default(self, obj)
