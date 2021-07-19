@@ -79,8 +79,8 @@ class SlideImage:
     Each horizontal slices of the pyramid can be accessed using a scaling value
     z as index.
 
-    Example
-    -------
+    Examples
+    --------
     >>> import dlup
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
@@ -215,6 +215,8 @@ class SlideImage:
 
         # We extract the region via openslide with the required extra border
         region = owsi.read_region(tuple(level_zero_location_adapted), native_level, tuple(native_size_adapted))
+
+        # Wiat a minute, isn't this rgba?
 
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.

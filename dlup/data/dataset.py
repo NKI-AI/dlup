@@ -162,9 +162,12 @@ class SlideImageDataset(BaseSlideImageDataset):
     :class:`Dataset` class that represents a whole-slide image as tiles, possibly including a sampling mask.
     The function outputs a dictionary:
 
-    >>> {"image": array, "location": location}
-    with the selected tile in the `image` key, and the location of the tile in the selected mpp in the `location` key.
-
+    >>> {"image": array, "coordinates": coordinates, "grid_index": grid_index, "path": path}
+    
+        - :code:`image`: selected tile.
+        - :code:`coordinates`: coordinates in selected mpp.
+        - :code:`grid_index`: index in the tiling grid.
+        - :code:`path`: path of the file.
     """
 
     def __init__(
@@ -236,7 +239,13 @@ class SlideImageDataset(BaseSlideImageDataset):
 
 
 class TiledSlideImageDataset(Dataset):
-    """Dataset class to handle pretiled WSIs."""
+    """Dataset class to handle a pretiled WSIs. If you want to combine multiple WSIs, use :class:`ConcatDataset`.
+
+    Examples
+    --------
+    >>> ds = ConcatDataset([_ for _ in self.path.glob("*.svs")]_
+
+    """
 
     def __init__(self, path: pathlib.Path, transform: Optional[Callable] = None):
         """
