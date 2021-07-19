@@ -8,6 +8,7 @@ from typing import Tuple, cast
 
 import numpy as np
 import PIL
+from joblib import Parallel, delayed
 
 from dlup import SlideImage
 from dlup.background import get_mask
@@ -19,6 +20,14 @@ from dlup.viz.plotting import plot_2d
 
 def tiling(args: argparse.Namespace):
     """Perform the WSI tiling."""
+
+    def _save_tile(idx, dataset, output_directory_path):
+        tile_dict = dataset[idx]
+        tile = PIL.Image.fromarray(tile_dict["image"])
+        grid_index = tile_dict["grid_index"]
+        indices[idx] = grid_index
+        tile.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
+
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
     tile_size = cast(Tuple[int, int], (args.tile_size,) * 2)
@@ -28,6 +37,7 @@ def tiling(args: argparse.Namespace):
     mask = get_mask(image)
     thumbnail = image.get_thumbnail(mask.shape[::-1])
 
+    output_directory_path.mkdir(parents=True, exist_ok=True)
     plot_2d(mask).save(output_directory_path / "mask.png")
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
@@ -70,17 +80,13 @@ def tiling(args: argparse.Namespace):
     }
     # Prepare output directory.
     output_directory_path /= "tiles"
+    output_directory_path.mkdir(parents=True, exist_ok=True)
 
-    indices = []
     # Iterate through the tiles and save them in the provided location.
-    for idx in range(num_tiles):
-        tile_dict = dataset[idx]
-        tile = PIL.Image.fromarray(tile_dict["image"])
-        grid_index = tile_dict["grid_index"]
-
-        indices.append(grid_index)
-        output_directory_path.mkdir(parents=True, exist_ok=True)
-        tile.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
+    indices = [None for _ in range(num_tiles)]
+    Parallel(n_jobs=args.n_jobs, require="sharedmem")(
+        delayed(_save_tile)(idx, dataset, output_directory_path) for idx in range(num_tiles)
+    )
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
@@ -146,6 +152,12 @@ def register_parser(parser: argparse._SubParsersAction):
         type=float,
         required=True,
         help="Microns per pixel.",
+    )
+    tiling_parser.add_argument(
+        "--n_jobs",
+        type=int,
+        default=1,
+        help="Number of parallel jobs to run. 1/None -> no parallelization. -1 -> use all CPU cores",
     )
     tiling_parser.add_argument(
         "slide_file_path",
