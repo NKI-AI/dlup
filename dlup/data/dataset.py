@@ -163,7 +163,8 @@ class SlideImageDataset(BaseSlideImageDataset):
     The function outputs a dictionary:
 
     >>> {"image": array, "coordinates": coordinates, "grid_index": grid_index, "path": path}
-    
+
+    Keys:
         - :code:`image`: selected tile.
         - :code:`coordinates`: coordinates in selected mpp.
         - :code:`grid_index`: index in the tiling grid.
