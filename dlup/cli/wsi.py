@@ -26,7 +26,9 @@ def tiling(args: argparse.Namespace):
 
     image = SlideImage.from_file_path(input_file_path)
     mask = get_mask(image)
-    thumbnail = image.get_thumbnail(mask.shape[::-1])
+
+    thumbnail_size = cast(Tuple[int, int], mask.shape[::-1])
+    thumbnail = image.get_thumbnail(thumbnail_size)
 
     plot_2d(mask).save(output_directory_path / "mask.png")
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
