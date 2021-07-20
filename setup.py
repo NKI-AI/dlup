@@ -42,7 +42,7 @@ setup(
     },
     install_requires=[
         "matplotlib",
-        "joblib",
+        "joblib>=1.0.1",
         "numpy",
         "openslide-python",
         "requests",
