@@ -20,7 +20,6 @@ from dlup.viz.plotting import plot_2d
 
 def tiling(args: argparse.Namespace):
     """Perform the WSI tiling."""
-
     def _save_tile(idx, dataset, output_directory_path):
         tile_dict = dataset[idx]
         tile = PIL.Image.fromarray(tile_dict["image"])
@@ -84,9 +83,15 @@ def tiling(args: argparse.Namespace):
 
     # Iterate through the tiles and save them in the provided location.
     indices = [None for _ in range(num_tiles)]
-    Parallel(n_jobs=args.n_jobs, require="sharedmem")(
-        delayed(_save_tile)(idx, dataset, output_directory_path) for idx in range(num_tiles)
-    )
+    if not args.num_workers or (type(args.num_workers) == int and args.num_workers == 1):
+        for idx in range(num_tiles):
+            _save_tile(idx, dataset, output_directory_path)
+    elif type(args.num_workers) == int:
+        Parallel(n_jobs=args.num_workers, require="sharedmem")(
+            delayed(_save_tile)(idx, dataset, output_directory_path) for idx in range(num_tiles)
+        )
+    else:
+        raise ValueError(f"Number of workers {args.num_workers} is not an integer. Set to 1 for no parallelization")
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
@@ -154,10 +159,10 @@ def register_parser(parser: argparse._SubParsersAction):
         help="Microns per pixel.",
     )
     tiling_parser.add_argument(
-        "--n_jobs",
+        "--num-workers",
         type=int,
         default=1,
-        help="Number of parallel jobs to run. 1/None -> no parallelization. -1 -> use all CPU cores",
+        help="Number of parallel workers to run. 1/None -> no parallelization. -1 -> use all CPU cores",
     )
     tiling_parser.add_argument(
         "slide_file_path",
