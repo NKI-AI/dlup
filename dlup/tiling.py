@@ -3,7 +3,7 @@
 
 import functools
 from enum import Enum
-from typing import List, Sequence, Tuple, Union
+from typing import List, Sequence, Tuple, Type, TypeVar, Union, Generic
 
 import numpy as np
 
@@ -110,14 +110,15 @@ def span_tiling_bases(
     return coordinates
 
 
-class TiledRegionView:
-    """Facilitates the access to tiles of a region view."""
+_TRegionView = TypeVar("_TRegionView", bound=RegionView)
 
-    region_view_cls = RegionView
+
+class TiledRegionView(Generic[_TRegionView]):
+    """Facilitates the access to tiles of a region view."""
 
     def __init__(
         self,
-        region_view: region_view_cls,
+        region_view: _TRegionView,
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         mode: TilingMode = TilingMode.skip,
@@ -131,9 +132,6 @@ class TiledRegionView:
         return an error, or even more complex boundary conditions, or just ignore
         and try to sample outside the region anyways.
         """
-        if not isinstance(region_view, self.region_view_cls):
-            ValueError("region_view is not and instance of" f" {self.region_view_cls.__class__.__name__}")
-
         self._region_view = region_view
         self._tile_size = tile_size
         self._tile_overlap = tile_overlap

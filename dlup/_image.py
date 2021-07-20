@@ -58,10 +58,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-class SlideImageTiledRegionView(TiledRegionView):
-    """Class specialization."""
-
-    region_view_cls: Type[RegionView] = _SlideImageRegionView
+SlideImageTiledRegionView = TiledRegionView[_SlideImageRegionView]
 
 
 def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> Sequence[_GenericNumber]:
