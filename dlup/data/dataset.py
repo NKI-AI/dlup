@@ -15,7 +15,7 @@ from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
 import numpy as np
 import PIL
 
-from dlup import SlideImage
+from dlup import SlideImage, BoundaryMode
 from dlup.background import foreground_tiles_coordinates_mask
 from dlup.tiling import TilingMode, Grid
 
@@ -143,8 +143,8 @@ class BaseSlideImageDataset(Dataset):
         self._mpp = mpp
         self._crop = crop
 
-    @functools.lru_cache(32)
     @staticmethod
+    @functools.lru_cache(32)
     def get_slide_image(path: pathlib.Path):
         return SlideImage.from_file_path(path)
 
@@ -155,7 +155,9 @@ class BaseSlideImageDataset(Dataset):
     @property
     def region_view(self):
         slide_image = self.slide_image
-        return slide_image.get_scaled_view(slide_image.mpp / self._mpp)
+        region_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
+        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zeros
+        return region_view
 
     @property
     def path(self):
@@ -181,8 +183,7 @@ class BaseSlideImageDataset(Dataset):
 
     def __getitem__(self, index):
         coordinates = self._grid[index]
-
-        return self.region_view.read_region(coordinates, self._tile_size, crop=self._crop), coordinates
+        return self.region_view.read_region(coordinates, self._tile_size), coordinates
 
     def __len__(self):
         return len(self.grid)
@@ -251,8 +252,8 @@ class SlideImageDataset(BaseSlideImageDataset):
         if self.foreground_indices is not None:
             index = self.foreground_indices[index]
 
-        grid_index = np.unravel_index(index, self._size, order="C")
-        tile, coordinates = self[index]
+        grid_index = np.unravel_index(index, self.grid.size, order="C")
+        tile, coordinates = super().__getitem__(index)
         sample = {"image": tile, "coordinates": coordinates, "grid_index": grid_index, "path": self.path}
 
         if self.transform:
