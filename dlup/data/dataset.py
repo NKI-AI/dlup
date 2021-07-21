@@ -16,7 +16,7 @@ import PIL
 
 from dlup import SlideImage, SlideImageTiledRegionView
 from dlup.background import foreground_tiles_coordinates_mask
-from dlup.tiling import TilingMode
+from dlup.tiling import span_tiling_bases, TilingMode, Lattice
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -103,7 +103,7 @@ class ConcatDataset(Dataset[T_co]):
         return self.datasets[dataset_idx][sample_idx]
 
 
-class BaseSlideImageDataset(Dataset, SlideImageTiledRegionView):
+class BaseSlideImageDataset(Dataset):
     """
     Basic :class:`Dataset` class that represents a whole-slide image as tiles.
     """
@@ -115,6 +115,7 @@ class BaseSlideImageDataset(Dataset, SlideImageTiledRegionView):
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.skip,
+        crop: bool = True
     ):
         """
         Parameters
@@ -130,10 +131,22 @@ class BaseSlideImageDataset(Dataset, SlideImageTiledRegionView):
         tile_mode :
             Which tiling mode.
         """
+        slide_image = SlideImage.from_file_path(path)
+        slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
+        tiling_bases = span_tiling_bases(
+            slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
+        self._lattice = Lattice(tiling_bases)
+        self._tile_size = tile_size
+
+        # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
-        self._slide_image = SlideImage.from_file_path(path, disable_cache=True)
-        scaled_view = self._slide_image.get_scaled_view(self._slide_image.mpp / mpp)
-        super().__init__(scaled_view, tile_size, tile_overlap, tile_mode, crop=False)
+        self._mpp = mpp
+        self._crop = crop
+
+    @functools.lru_cache(max_size=32)
+    @staticmethod
+    def get_slide_image(self, path: pathlib.Path):
+        return SlideImage.from_file_path(path)
 
     @property
     def path(self):
@@ -141,20 +154,18 @@ class BaseSlideImageDataset(Dataset, SlideImageTiledRegionView):
         return self._path
 
     @property
-    def slide_image(self):
-        """SlideImage instance"""
-        return self._slide_image
-
-    @property
-    def grid_size(self):
+    def lattice(self):
         """Size of tiling grid"""
-        return self._size
+        return self._lattice
 
     def __getitem__(self, index):
-        return SlideImageTiledRegionView.__getitem__(self, index)
+        coordinates = self._lattice[index]
+        slide_image = self.__class__.get_slide_image(self.path)
+        scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
+        return scaled_view.read_region(coordinates, self._tile_size, crop=self._crop), coordinates
 
     def __len__(self):
-        return SlideImageTiledRegionView.__len__(self)
+        return len(self.lattice)
 
 
 class SlideImageDataset(BaseSlideImageDataset):

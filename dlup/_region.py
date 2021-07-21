@@ -28,6 +28,29 @@ class RegionView(ABC):
         """Returns size of the region in U units."""
         pass
 
+    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray, crop=True) -> np.ndarray:
+        """Returns the requested region as a numpy array."""
+        location = np.asarray(location)
+        size = np.asarray(size)
+
+        clipped_region_size = (
+            np.clip(location + size, np.zeros_like(size), self.size) - location
+        )
+        clipped_region_size = clipped_region_size.astype(int)
+        region = self._read_region_impl(location, clipped_region_size)
+
+        if not crop:
+            padding = np.zeros((len(region.shape), 2), dtype=int)
+
+            # This flip is justified as PIL outputs arrays with axes in reversed order
+            # Extracting a box of size (width, height) results in an array
+            # of shape (height, width, channels)
+            padding[:-1, 1] = size - clipped_region_size
+            values = np.zeros_like(padding)
+            region = np.pad(region, padding, "constant", constant_values=values)
+
+        return region
+
     @abstractmethod
-    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
+    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
         pass

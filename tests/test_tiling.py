@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple, TypeVar
 import numpy as np
 import pytest
 
-from dlup.tiling import TilingMode, indexed_ndmesh, span_tiling_bases
+from dlup.tiling import TilingMode, indexed_ndmesh, tiling_lattice_basis_vectors
 
 
 class TestTiling:
@@ -14,7 +14,7 @@ class TestTiling:
     def test_all_zero(self, mode):
         """If all the arguments are zero, an exception should be raised."""
         with pytest.raises(ValueError):
-            (basis,) = span_tiling_bases(0, 0, 0, mode=mode)
+            (basis,) = tiling_lattice_basis_vectors(0, 0, 0, mode=mode)
 
     @pytest.mark.parametrize("mode", list(TilingMode))
     @pytest.mark.parametrize("tile_overlap", [0, 1, 2])
@@ -22,7 +22,7 @@ class TestTiling:
         """Check different modes if tile_size is bigger than the size."""
         size = 2
         tile_size = 10
-        (basis,) = span_tiling_bases(size, tile_size, tile_overlap=tile_overlap, mode=mode)
+        (basis,) = tiling_lattice_basis_vectors(size, tile_size, tile_overlap=tile_overlap, mode=mode)
 
         expected_lengths = {TilingMode.skip: 0, TilingMode.overflow: 1, TilingMode.fit: 0}
 
@@ -35,7 +35,7 @@ class TestTiling:
     @pytest.mark.parametrize("mode", list(TilingMode))
     def test_spanned_basis(self, size, tile_size, tile_overlap, mode):
         """Check the spanned basis behaves as configured for tiles."""
-        (basis,) = span_tiling_bases(size, tile_size, tile_overlap=tile_overlap, mode=mode)
+        (basis,) = tiling_lattice_basis_vectors(size, tile_size, tile_overlap=tile_overlap, mode=mode)
 
         # Is sorted
         assert np.all(np.diff(basis) >= 0)
@@ -73,8 +73,8 @@ class TestTiling:
 
     def test_spanned_basis_multiple_dims(self):
         """Check that multiple dims is the same as a single dim."""
-        (basis,) = span_tiling_bases(10, 3, 1.2)
-        dbasis, _ = span_tiling_bases((10, 5), (3, 2), (1.2, 1))
+        (basis,) = tiling_lattice_basis_vectors(10, 3, 1.2)
+        dbasis, _ = tiling_lattice_basis_vectors((10, 5), (3, 2), (1.2, 1))
         assert (basis == dbasis).all()
 
     def test_indexed_ndmesh(self):

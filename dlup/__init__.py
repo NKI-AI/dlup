@@ -3,7 +3,7 @@
 """Top-level package for dlup."""
 
 from ._exceptions import DlupError, DlupUnsupportedSlideError
-from ._image import SlideImage, SlideImageTiledRegionView
+from ._image import SlideImage
 from ._region import RegionView
 
 __author__ = """dlup contributors"""

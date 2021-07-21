@@ -48,7 +48,7 @@ def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.nd
     return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(bases), indexing=indexing)))).T)
 
 
-def span_tiling_bases(
+def tiling_lattice_basis_vectors(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
     tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
@@ -110,100 +110,35 @@ def span_tiling_bases(
     return coordinates
 
 
-_TRegionView = TypeVar("_TRegionView", bound=RegionView)
-
-
-class TiledRegionView(Generic[_TRegionView]):
+class Lattice():
     """Facilitates the access to tiles of a region view."""
 
-    def __init__(
-        self,
-        region_view: _TRegionView,
-        tile_size: Tuple[int, int],
-        tile_overlap: Tuple[int, int],
-        mode: TilingMode = TilingMode.skip,
-        crop: bool = True,
-    ):
-        """Initialize a Tiled Region view.
-
-        TODO(lromor): Crop is a simplification of a bigger problem.
-        We should add to RegionView different modes which define what happens when
-        a region is sampled outside its boundaries. It could return a cropped sample,
-        return an error, or even more complex boundary conditions, or just ignore
-        and try to sample outside the region anyways.
-        """
-        self._region_view = region_view
-        self._tile_size = tile_size
-        self._tile_overlap = tile_overlap
-        self._mode = mode
-        self._crop = crop
-        self._tiling_bases = span_tiling_bases(region_view.size, tile_size, tile_overlap=tile_overlap, mode=mode)
-        self._size = tuple(len(x) for x in self._tiling_bases)
+    def __init__(self, basis_vectors: List[np.ndarray]):
+        self._basis_vectors = basis_vectors
+        self._size = tuple(len(x) for x in self._basis_vectors)
 
     @property
-    def tile_size(self):
-        return self._tile_size
+    def size(self):
+        return self._size
 
     @property
-    def tile_overlap(self):
-        return self._tile_overlap
-
-    @property
-    def mode(self):
-        return self._mode
+    def basis_vectors(self):
+        return self._basis_vectors
 
     def get_coordinate(self, i):
         index = np.unravel_index(i, self._size)
         return np.array(list(c[i] for c, i in zip(self._tiling_bases, index)))
 
-    def get_tile(self, i):
-        coordinate = self.get_coordinate(i)
-        tile_size = self.tile_size
-        clipped_tile_size = (
-            np.clip(coordinate + tile_size, np.zeros_like(self.tile_size), self.region_view.size) - coordinate
-        )
-        clipped_tile_size = clipped_tile_size.astype(int)
-        tile = self._region_view.read_region(coordinate, clipped_tile_size)
-
-        if not self._crop:
-            padding = np.zeros((len(tile.shape), 2), dtype=int)
-
-            # This flip is justified as PIL outputs arrays with axes in reversed order
-            # Extracting a box of size (width, height) results in an array
-            # of shape (height, width, channels)
-            padding[:-1, 1] = tile_size - clipped_tile_size
-            values = np.zeros_like(padding)
-            tile = np.pad(tile, padding, "constant", constant_values=values)
-
-        return tile
-
     def coordinates(self):
         for i in range(len(self)):
             yield self.get_coordinate(i)
 
-    def tiles(self):
-        for i in range(len(self)):
-            yield self.get_tile(i)
-
-    def generate_coordinates_grid(self, indexing="ij"):
-        """Grid array containing tiles starting positions.
-
-        Image coordinates usually start from the top left corner
-        with +y pointing downwards. In such case, you should set the indexing
-        to 'xy'.
-        """
-        return indexed_ndmesh(self._tiling_bases, indexing=indexing)
-
-    @property
-    def region_view(self):
-        return self._region_view
-
     def __getitem__(self, i):
-        return self.get_tile(i), self.get_coordinate(i)
+        return self.get_coordinate(i)
 
     def __len__(self):
-        return functools.reduce(lambda value, element: value * len(element), self._tiling_bases, 1)
+        return functools.reduce(lambda value, size: value * size, self.size, 1)
 
     def __iter__(self):
         """Iterate through every tile."""
-        return zip(self.tiles(), self.coordinates())
+        return self.coordinates()

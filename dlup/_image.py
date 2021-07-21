@@ -21,7 +21,6 @@ import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
 from dlup import DlupUnsupportedSlideError
-from dlup.tiling import TiledRegionView
 
 from ._region import RegionView
 
@@ -51,14 +50,11 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
-        """Returns a region in the level."""
+    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
+        """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
         return self._wsi.read_region((x, y), self._scaling, (w, h))
-
-
-SlideImageTiledRegionView = TiledRegionView[_SlideImageRegionView]
 
 
 def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> Sequence[_GenericNumber]:
@@ -98,6 +94,21 @@ class SlideImage:
             raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
 
         self._min_native_mpp = float(mpp[0])
+
+    def __enter__(self):
+        return self._openslide_wsi
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
+    def close(self):
+        """Close underlying handle."""
+        self._openslide_wsi.close()
+
+    def __del__(self):
+        """When garbage collected or explicitly deleted, close the slide."""
+        self.close()
 
     @classmethod
     def from_file_path(
