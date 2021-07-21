@@ -58,7 +58,7 @@ def tiling(args: argparse.Namespace):
             "vendor": image.vendor,
         },
         "output": {
-            "mpp": dataset.region_view.mpp,
+            "mpp": dataset.mpp,
             "size": dataset.region_view.size,
         },
         "settings": {
@@ -86,7 +86,7 @@ def tiling(args: argparse.Namespace):
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
-    output["output"]["background_tiles"] = np.prod(dataset.grid_size) - num_tiles
+    output["output"]["background_tiles"] = len(dataset.grid) - num_tiles
 
     with open(output_directory_path.parent / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)

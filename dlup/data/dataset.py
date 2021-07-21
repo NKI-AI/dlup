@@ -8,15 +8,17 @@ Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 import abc
 import bisect
 import json
+import functools
 import pathlib
 from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 import numpy as np
 import PIL
 
-from dlup import SlideImage, SlideImageTiledRegionView
+from dlup import SlideImage
 from dlup.background import foreground_tiles_coordinates_mask
-from dlup.tiling import span_tiling_bases, TilingMode, Lattice
+from dlup.tiling import TilingMode, Grid
+
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -115,7 +117,7 @@ class BaseSlideImageDataset(Dataset):
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.skip,
-        crop: bool = True
+        crop: bool = True,
     ):
         """
         Parameters
@@ -133,9 +135,7 @@ class BaseSlideImageDataset(Dataset):
         """
         slide_image = SlideImage.from_file_path(path)
         slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
-        tiling_bases = span_tiling_bases(
-            slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
-        self._lattice = Lattice(tiling_bases)
+        self._grid = Grid.create(slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
         self._tile_size = tile_size
 
         # We need to reuse the pah in order to re-open the image if necessary.
@@ -143,10 +143,19 @@ class BaseSlideImageDataset(Dataset):
         self._mpp = mpp
         self._crop = crop
 
-    @functools.lru_cache(max_size=32)
+    @functools.lru_cache(32)
     @staticmethod
-    def get_slide_image(self, path: pathlib.Path):
+    def get_slide_image(path: pathlib.Path):
         return SlideImage.from_file_path(path)
+
+    @property
+    def slide_image(self):
+        return self.__class__.get_slide_image(self.path)
+
+    @property
+    def region_view(self):
+        slide_image = self.slide_image
+        return slide_image.get_scaled_view(slide_image.mpp / self._mpp)
 
     @property
     def path(self):
@@ -154,18 +163,29 @@ class BaseSlideImageDataset(Dataset):
         return self._path
 
     @property
-    def lattice(self):
+    def tile_size(self):
+        return self._tile_size
+
+    @property
+    def mpp(self):
+        return self._mpp
+
+    @property
+    def crop(self):
+        return self._crop
+
+    @property
+    def grid(self):
         """Size of tiling grid"""
-        return self._lattice
+        return self._grid
 
     def __getitem__(self, index):
-        coordinates = self._lattice[index]
-        slide_image = self.__class__.get_slide_image(self.path)
-        scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
-        return scaled_view.read_region(coordinates, self._tile_size, crop=self._crop), coordinates
+        coordinates = self._grid[index]
+
+        return self.region_view.read_region(coordinates, self._tile_size, crop=self._crop), coordinates
 
     def __len__(self):
-        return len(self.lattice)
+        return len(self.grid)
 
 
 class SlideImageDataset(BaseSlideImageDataset):
@@ -216,11 +236,15 @@ class SlideImageDataset(BaseSlideImageDataset):
         super().__init__(path, mpp=mpp, tile_size=tile_size, tile_overlap=tile_overlap, tile_mode=tile_mode)
         self.transform = transform
         self.foreground_indices = None
-        if mask is not None:
-            boolean_mask = foreground_tiles_coordinates_mask(mask, self, foreground_threshold)
-            self.foreground_indices = np.argwhere(boolean_mask).flatten()
 
-        self.tiled_view = SlideImageTiledRegionView
+        slide_image = self.slide_image
+        scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
+
+        if mask is not None:
+            boolean_mask = foreground_tiles_coordinates_mask(
+                mask, scaled_view, self.grid, self.tile_size, foreground_threshold
+            )
+            self.foreground_indices = np.argwhere(boolean_mask).flatten()
 
     def __getitem__(self, index):
         # If a mask is given, we index the foreground indices set
@@ -228,26 +252,15 @@ class SlideImageDataset(BaseSlideImageDataset):
             index = self.foreground_indices[index]
 
         grid_index = np.unravel_index(index, self._size, order="C")
-        tile, coordinates = self.tiled_view.__getitem__(self, index)
+        tile, coordinates = self[index]
         sample = {"image": tile, "coordinates": coordinates, "grid_index": grid_index, "path": self.path}
 
         if self.transform:
             sample = self.transform(sample)
         return sample
 
-    def __iter__(self):
-        raise NotImplementedError(
-            "__iter__ is not implemented for the SlideImageDataset class. "
-            "It would lead to unexpected behavior as a subclass of BaseSlideImageDataset. "
-            "It does make sense to implement these so one can iterate over the dataset."
-        )
-
     def __len__(self):
-        return (
-            len(self.foreground_indices)
-            if self.foreground_indices is not None
-            else SlideImageTiledRegionView.__len__(self)
-        )
+        return len(self.foreground_indices) if self.foreground_indices is not None else len(self.grid)
 
 
 class TiledSlideImageDataset(Dataset):

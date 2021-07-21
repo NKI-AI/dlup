@@ -22,7 +22,7 @@ from numpy.typing import ArrayLike
 
 from dlup import DlupUnsupportedSlideError
 
-from ._region import RegionView
+from ._region import RegionView, BoundaryMode
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
@@ -35,8 +35,10 @@ _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber):
+    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber, boundary_mode: BoundaryMode = None):
         """Initialize with a slide image object and the scaling level."""
+        # Always call the parent init
+        super().__init__(boundary_mode=boundary_mode)
         self._wsi = wsi
         self._scaling = scaling
 

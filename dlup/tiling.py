@@ -48,7 +48,7 @@ def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.nd
     return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(bases), indexing=indexing)))).T)
 
 
-def tiling_lattice_basis_vectors(
+def tiles_grid_coordinates(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
     tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
@@ -110,35 +110,44 @@ def tiling_lattice_basis_vectors(
     return coordinates
 
 
-class Lattice():
-    """Facilitates the access to tiles of a region view."""
+class Grid:
+    """Facilitates the access to the coordinates of Lattice points."""
 
-    def __init__(self, basis_vectors: List[np.ndarray]):
-        self._basis_vectors = basis_vectors
-        self._size = tuple(len(x) for x in self._basis_vectors)
+    def __init__(self, coordinates: List[np.ndarray]):
+        """Initialize a lattice given a set of basis vectors."""
+        self._coordinates = coordinates
+        self._size = tuple(len(x) for x in self._coordinates)
+
+    @classmethod
+    def create(
+        cls,
+        size: _GenericNumberArray,
+        tile_size: _GenericNumberArray,
+        tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
+        mode: TilingMode = TilingMode.skip,
+    ):
+        """Main method to create a Lattice object."""
+        return cls(tiles_grid_coordinates(size, tile_size, tile_overlap, mode))
 
     @property
     def size(self):
+        """Return the size of the generated lattice."""
         return self._size
 
     @property
-    def basis_vectors(self):
-        return self._basis_vectors
-
-    def get_coordinate(self, i):
-        index = np.unravel_index(i, self._size)
-        return np.array(list(c[i] for c, i in zip(self._tiling_bases, index)))
-
     def coordinates(self):
-        for i in range(len(self)):
-            yield self.get_coordinate(i)
+        """Returns the coordinates vectors generating the grid."""
+        return self._coordinates
 
     def __getitem__(self, i):
-        return self.get_coordinate(i)
+        index = np.unravel_index(i, self._size)
+        return np.array(list(c[i] for c, i in zip(self.coordinates, index)))
 
     def __len__(self):
+        """Return the total number of points in the lattice."""
         return functools.reduce(lambda value, size: value * size, self.size, 1)
 
     def __iter__(self):
         """Iterate through every tile."""
-        return self.coordinates()
+        for i in range(len(self)):
+            yield self[i]
