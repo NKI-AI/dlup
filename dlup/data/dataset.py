@@ -7,18 +7,17 @@ Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 
 import abc
 import bisect
-import json
 import functools
+import json
 import pathlib
 from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 import numpy as np
 import PIL
 
-from dlup import SlideImage, BoundaryMode
+from dlup import BoundaryMode, SlideImage
 from dlup.background import foreground_tiles_coordinates_mask
-from dlup.tiling import TilingMode, Grid
-
+from dlup.tiling import Grid, TilingMode
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")

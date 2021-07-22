@@ -22,7 +22,7 @@ from numpy.typing import ArrayLike
 
 from dlup import DlupUnsupportedSlideError
 
-from ._region import RegionView, BoundaryMode
+from ._region import BoundaryMode, RegionView
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
@@ -114,9 +114,7 @@ class SlideImage:
 
     @classmethod
     def from_file_path(
-        cls: Type[_TSlideImage],
-        wsi_file_path: pathlib.Path,
-        identifier: Union[str, None] = None
+        cls: Type[_TSlideImage], wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
     ) -> _TSlideImage:
         try:
             wsi = openslide.open_slide(str(wsi_file_path))

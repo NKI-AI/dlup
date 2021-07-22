@@ -4,7 +4,7 @@
 
 from ._exceptions import DlupError, DlupUnsupportedSlideError
 from ._image import SlideImage
-from ._region import RegionView, BoundaryMode
+from ._region import BoundaryMode, RegionView
 
 __author__ = """dlup contributors"""
 __email__ = "j.teuwen@nki.nl"

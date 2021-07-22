@@ -13,7 +13,7 @@ Currently implemented:
 Check their respective documentations for references.
 """
 
-from typing import Callable, List, Union, Iterable
+from typing import Callable, Iterable, List, Union
 
 import numpy as np
 import PIL.Image
@@ -25,7 +25,6 @@ import skimage.segmentation
 import dlup
 import dlup.tiling
 from dlup.tiling import indexed_ndmesh
-
 
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
 
