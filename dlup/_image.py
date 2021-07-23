@@ -109,8 +109,8 @@ class SlideImage:
         self._openslide_wsi.close()
 
     def __del__(self):
-        """When garbage collected or explicitly deleted, close the slide."""
-        self.close()
+        """When garbage collected or explicitly deleted, the slide is closed automatically, so self.close()
+        is not required."""
 
     @classmethod
     def from_file_path(
