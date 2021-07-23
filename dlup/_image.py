@@ -74,6 +74,11 @@ class SlideImage:
     Each horizontal slices of the pyramid can be accessed using a scaling value
     z as index.
 
+    Lifetime
+    --------
+    SlideImage is currently initialized and holds an openslide image object.
+    The openslide wsi instance is automatically closed when gargbage collected.
+
     Examples
     --------
     >>> import dlup
@@ -97,20 +102,16 @@ class SlideImage:
 
         self._min_native_mpp = float(mpp[0])
 
+    def close(self):
+        """Close the underlying openslide image."""
+        self._openslide_wsi.close()
+
     def __enter__(self):
-        return self._openslide_wsi
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         return False
-
-    def close(self):
-        """Close underlying handle."""
-        self._openslide_wsi.close()
-
-    def __del__(self):
-        """When garbage collected or explicitly deleted, the slide is closed automatically, so self.close()
-        is not required."""
 
     @classmethod
     def from_file_path(
