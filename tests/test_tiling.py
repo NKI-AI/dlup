@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from dlup.tiling import TilingMode, indexed_ndmesh, tiles_grid_coordinates
+from dlup.tiling import Grid
 
 
 class TestTiling:
@@ -88,3 +89,14 @@ class TestTiling:
         assert (mesh[0, 0, 0] == (1, 4, 7)).all()
         assert (mesh[0, 1, 0] == (1, 5, 7)).all()
         assert (mesh[2, 1, 1] == (3, 5, 8)).all()
+
+    def test_grid(self):
+        """Test Grid basic api."""
+        grid = Grid([np.array((0, 1)), np.array((2, 3, 4))])
+
+        assert grid.size == (2, 3)
+        assert len(grid) == 6
+        # First row, first column
+        assert (grid[0] == (0, 2)).all()
+        # First row, second column
+        assert (grid[1] == (0, 3)).all()

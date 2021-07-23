@@ -132,15 +132,15 @@ class BaseSlideImageDataset(Dataset):
         tile_mode :
             Which tiling mode.
         """
-        slide_image = SlideImage.from_file_path(path)
-        slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
-        self._grid = Grid.create(slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
-        self._tile_size = tile_size
-
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
         self._mpp = mpp
         self._crop = crop
+
+        slide_image = self.slide_image
+        slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
+        self._grid = Grid.create(slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
+        self._tile_size = tile_size
 
     @staticmethod
     @functools.lru_cache(32)

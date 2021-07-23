@@ -4,6 +4,7 @@
 import functools
 from enum import Enum
 from typing import Generic, List, Sequence, Tuple, Type, TypeVar, Union
+from typing import Iterator
 
 import numpy as np
 
@@ -130,24 +131,24 @@ class Grid:
         return cls(tiles_grid_coordinates(size, tile_size, tile_overlap, mode))
 
     @property
-    def size(self):
+    def size(self) -> Tuple[int, ...]:
         """Return the size of the generated lattice."""
         return self._size
 
     @property
-    def coordinates(self):
+    def coordinates(self) -> List[np.ndarray]:
         """Returns the coordinates vectors generating the grid."""
         return self._coordinates
 
-    def __getitem__(self, i):
+    def __getitem__(self, i) -> np.ndarray:
         index = np.unravel_index(i, self._size)
         return np.array(list(c[i] for c, i in zip(self.coordinates, index)))
 
-    def __len__(self):
-        """Return the total number of points in the lattice."""
+    def __len__(self) -> int:
+        """Return the total number of points in the grid."""
         return functools.reduce(lambda value, size: value * size, self.size, 1)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[np.ndarray]:
         """Iterate through every tile."""
         for i in range(len(self)):
             yield self[i]
