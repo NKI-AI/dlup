@@ -4,7 +4,7 @@
 """Whole slide image access objects.
 
 In this module we take care of abstracting the access to whole slide images.
-The main workhorse is SlideImage which takes care of simplyfing region extraction
+The main workhorse is SlideImage which takes care of simplifying region extraction
 of discrete-levels pyramidal images in a continuous way, validating relevant
 properties and offering a future aggregated api for possibly multiple different backends
 other than OpenSlide.
@@ -120,7 +120,7 @@ class SlideImage:
         try:
             wsi = openslide.open_slide(str(wsi_file_path))
         except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
-            raise DlupUnsupportedSlideError("Unsupported file.")
+            raise DlupUnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
