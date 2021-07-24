@@ -3,8 +3,7 @@
 
 import functools
 from enum import Enum
-from typing import Generic, List, Sequence, Tuple, Type, TypeVar, Union
-from typing import Iterator
+from typing import Generic, List, Sequence, Tuple, Type, TypeVar, Union, Iterator
 
 import numpy as np
 
