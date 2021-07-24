@@ -155,7 +155,7 @@ class BaseSlideImageDataset(Dataset):
     def region_view(self):
         slide_image = self.slide_image
         region_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
-        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zeros
+        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
         return region_view
 
     @property
