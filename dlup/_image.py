@@ -21,9 +21,8 @@ import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
 from dlup import DlupUnsupportedSlideError
-from dlup.tiling import TiledRegionView
 
-from ._region import RegionView
+from ._region import BoundaryMode, RegionView
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
@@ -36,8 +35,10 @@ _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber):
+    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber, boundary_mode: BoundaryMode = None):
         """Initialize with a slide image object and the scaling level."""
+        # Always call the parent init
+        super().__init__(boundary_mode=boundary_mode)
         self._wsi = wsi
         self._scaling = scaling
 
@@ -51,14 +52,11 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
-        """Returns a region in the level."""
+    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
+        """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
         return self._wsi.read_region((x, y), self._scaling, (w, h))
-
-
-SlideImageTiledRegionView = TiledRegionView[_SlideImageRegionView]
 
 
 def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> Sequence[_GenericNumber]:
@@ -75,6 +73,11 @@ class SlideImage:
     the closest high resolution layer.
     Each horizontal slices of the pyramid can be accessed using a scaling value
     z as index.
+
+    Lifetime
+    --------
+    SlideImage is currently initialized and holds an openslide image object.
+    The openslide wsi instance is automatically closed when gargbage collected.
 
     Examples
     --------
@@ -99,15 +102,23 @@ class SlideImage:
 
         self._min_native_mpp = float(mpp[0])
 
+    def close(self):
+        """Close the underlying openslide image."""
+        self._openslide_wsi.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     @classmethod
     def from_file_path(
-        cls: Type[_TSlideImage],
-        wsi_file_path: pathlib.Path,
-        identifier: Union[str, None] = None,
-        disable_cache: bool = False,
+        cls: Type[_TSlideImage], wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
     ) -> _TSlideImage:
         try:
-            wsi = openslide.open_slide(str(wsi_file_path), cache_size=0 if disable_cache else None)
+            wsi = openslide.open_slide(str(wsi_file_path))
         except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
             raise DlupUnsupportedSlideError("Unsupported file.")
 
