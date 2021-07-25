@@ -12,7 +12,6 @@ from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
 
-
 from dlup import DlupUnsupportedSlideError, SlideImage
 
 

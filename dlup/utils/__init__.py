@@ -4,7 +4,6 @@ import json
 import warnings
 
 import numpy as np
-import torch
 
 from dlup.utils.imports import _PYTORCH_AVAILABLE
 
