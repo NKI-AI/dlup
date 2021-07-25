@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import torch
 
-from dlup.utils import _PYTORCH_AVAILABLE
+from dlup.utils.imports import _PYTORCH_AVAILABLE
 
 if _PYTORCH_AVAILABLE:
     import torch
