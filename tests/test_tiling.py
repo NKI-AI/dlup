@@ -6,8 +6,7 @@ from typing import Any, Dict, Optional, Tuple, TypeVar
 import numpy as np
 import pytest
 
-from dlup.tiling import TilingMode, indexed_ndmesh, tiles_grid_coordinates
-from dlup.tiling import Grid
+from dlup.tiling import Grid, TilingMode, indexed_ndmesh, tiles_grid_coordinates
 
 
 class TestTiling:

@@ -47,7 +47,6 @@ setup(
         "requests",
         "scikit-image",
         "tifftools",
-        "torch",
         "tqdm",
         "pillow",
         "openslide-python @ git+https://git@github.com/NKI-AI/openslide-python.git#egg=openslide-python",
