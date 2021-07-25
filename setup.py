@@ -44,14 +44,13 @@ setup(
         "matplotlib",
         "joblib",
         "numpy",
-        "openslide-python",
         "requests",
         "scikit-image",
         "tifftools",
         "torch",
         "tqdm",
         "pillow",
-        "staintools",
+        "openslide-python @ git+https://git@github.com/NKI-AI/openslide-python.git#egg=openslide-python",
     ],
     extras_require={
         "dev": [

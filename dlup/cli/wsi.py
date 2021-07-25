@@ -6,24 +6,46 @@ import json
 import pathlib
 from typing import Tuple, cast
 
+import numpy as np
 import PIL
 
-from dlup import SlideImage, SlideImageTiledRegionView
-from dlup.background import foreground_tiles_coordinates_mask, get_mask
+from dlup import SlideImage
+from dlup.background import get_mask
+from dlup.data.dataset import SlideImageDataset
 from dlup.tiling import TilingMode
 from dlup.utils import ArrayEncoder
+from dlup.viz.plotting import plot_2d
 
 
 def tiling(args: argparse.Namespace):
-    """Perform some tiling."""
+    """Perform the WSI tiling."""
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
     tile_size = cast(Tuple[int, int], (args.tile_size,) * 2)
     tile_overlap = cast(Tuple[int, int], (args.tile_overlap,) * 2)
 
     image = SlideImage.from_file_path(input_file_path)
-    scaled_view = image.get_scaled_view(image.mpp / args.mpp)
-    tiled_view = SlideImageTiledRegionView(scaled_view, tile_size, tile_overlap, args.mode, crop=args.crop)
+    mask = get_mask(image)
+
+    thumbnail_size = cast(Tuple[int, int], mask.shape[::-1])
+    thumbnail = image.get_thumbnail(thumbnail_size)
+
+    plot_2d(mask).save(output_directory_path / "mask.png")
+    plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
+    plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
+
+    # TODO: Maybe give the SlideImageDataset an image as input?
+    dataset = SlideImageDataset(
+        input_file_path,
+        mask=mask,
+        mpp=args.mpp,
+        tile_size=tile_size,
+        tile_overlap=tile_overlap,
+        tile_mode=args.mode,
+        foreground_threshold=args.foreground_threshold,
+        transform=None,
+    )
+    num_tiles = len(dataset)
 
     # Store metadata of this process for reproducibility (and to read in the dataset class)
     output = {
@@ -36,42 +58,37 @@ def tiling(args: argparse.Namespace):
             "vendor": image.vendor,
         },
         "output": {
-            "mpp": scaled_view.mpp,
-            "size": scaled_view.size,
-            "coordinates_grid_shape": tiled_view.coordinates_grid.shape,
+            "mpp": dataset.mpp,
+            "size": dataset.region_view.size,
         },
         "settings": {
             "mode": args.mode,
             "crop": args.crop,
             "tile_size": args.tile_size,
             "tile_overlap": args.tile_overlap,
-            "mask_function": "fesi",
+            "mask_function": "improved_fesi",
             "foreground_threshold": args.foreground_threshold,
         },
     }
     # Prepare output directory.
     output_directory_path /= "tiles"
-    columns = tiled_view.coordinates_grid.shape[1]
 
-    # Generate the foreground mask
-    mask = get_mask(image)
-    boolean_mask = foreground_tiles_coordinates_mask(mask, tiled_view, args.foreground_threshold)
-
-    added_coords = []
+    indices = []
     # Iterate through the tiles and save them in the provided location.
-    for i, (tile, coords) in filter(lambda x: boolean_mask[x[0]], enumerate(zip(tiled_view, tiled_view.coordinates))):
-        pil_image = PIL.Image.fromarray(tile)
-        row = i // columns
-        column = i % columns
-        added_coords.append((row, column))
+    for idx in range(num_tiles):
+        tile_dict = dataset[idx]
+        tile = PIL.Image.fromarray(tile_dict["image"])
+        grid_index = tile_dict["grid_index"]
+
+        indices.append(grid_index)
         output_directory_path.mkdir(parents=True, exist_ok=True)
-        pil_image.save(output_directory_path / f"{row}_{column}.png")
+        tile.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
 
-    output["output"]["num_tiles"] = i + 1
-    output["output"]["tile_coordinates"] = added_coords
-    output["output"]["background_tiles"] = len(tiled_view.coordinates) - i - 1
+    output["output"]["num_tiles"] = num_tiles
+    output["output"]["tile_indices"] = indices
+    output["output"]["background_tiles"] = len(dataset.grid) - num_tiles
 
-    with open(output_directory_path / "tiles.json", "w") as file:
+    with open(output_directory_path.parent / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)
 
 

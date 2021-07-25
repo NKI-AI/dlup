@@ -1,8 +1,9 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 
+import functools
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Generic, List, Sequence, Tuple, Type, TypeVar, Union, Iterator
 
 import numpy as np
 
@@ -31,7 +32,7 @@ def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarra
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(basis: Sequence[_GenericNumberArray], indexing: str = "ij"):
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.ndarray:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Example
@@ -44,10 +45,10 @@ def indexed_ndmesh(basis: Sequence[_GenericNumberArray], indexing: str = "ij"):
         assert mesh[0, 0] == (1, 4)
         assert mesh[0, 1] == (1, 5)
     """
-    return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(basis), indexing=indexing)))).T)
+    return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(bases), indexing=indexing)))).T)
 
 
-def span_tiling_bases(
+def tiles_grid_coordinates(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
     tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
@@ -109,98 +110,44 @@ def span_tiling_bases(
     return coordinates
 
 
-class TiledRegionView:
-    """Facilitates the access to tiles of a region view."""
+class Grid:
+    """Facilitates the access to the coordinates of Lattice points."""
 
-    region_view_cls = RegionView
+    def __init__(self, coordinates: List[np.ndarray]):
+        """Initialize a lattice given a set of basis vectors."""
+        self._coordinates = coordinates
+        self._size = tuple(len(x) for x in self._coordinates)
 
-    def __init__(
-        self,
-        region_view: RegionView,
-        tile_size: Tuple[int, int],
-        tile_overlap: Tuple[int, int],
+    @classmethod
+    def create(
+        cls,
+        size: _GenericNumberArray,
+        tile_size: _GenericNumberArray,
+        tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
         mode: TilingMode = TilingMode.skip,
-        crop: bool = True,
     ):
-        """Initialize a Tiled Region view.
-
-        TODO(lromor): Crop is a simplification of a bigger problem.
-        We should add to RegionView different modes which define what happens when
-        a region is sampled outside its boundaries. It could return a cropped sample,
-        return an error, or even more complex boundary conditions, or just ignore
-        and try to sample outside the region anyways.
-        """
-        if not isinstance(region_view, self.region_view_cls):
-            ValueError("region_view is not and instance of" f" {self.region_view_cls.__class__.__name__}")
-
-        self._region_view = region_view
-        self._tile_size = tile_size
-        self._tile_overlap = tile_overlap
-        self._crop = crop
-        basis = span_tiling_bases(region_view.size, tile_size, tile_overlap=tile_overlap, mode=mode)
-
-        # Image coordinates usually start from the top left corner
-        # with +y pointing downwards. For this reason, we set the indexing
-        # to xy.
-        self._coordinates_grid = indexed_ndmesh(basis, indexing="xy")
-
-        # Let's also flatten the coordinates for simplified access.
-        self._coordinates = self._coordinates_grid.view()
-        self._coordinates.shape = (-1, len(region_view.size))
+        """Main method to create a Lattice object."""
+        return cls(tiles_grid_coordinates(size, tile_size, tile_overlap, mode))
 
     @property
-    def tile_size(self):
-        return self._tile_size
+    def size(self) -> Tuple[int, ...]:
+        """Return the size of the generated lattice."""
+        return self._size
 
     @property
-    def tile_overlap(self):
-        return self._tile_overlap
-
-    @property
-    def coordinates_grid(self):
-        """Grid array containing tiles starting positions."""
-        return self._coordinates_grid
-
-    @property
-    def coordinates(self):
-        """A flattened view of coordinates_grid."""
+    def coordinates(self) -> List[np.ndarray]:
+        """Returns the coordinates vectors generating the grid."""
         return self._coordinates
 
-    @property
-    def region_view(self):
-        return self._region_view
+    def __getitem__(self, i) -> np.ndarray:
+        index = np.unravel_index(i, self._size)
+        return np.array(list(c[i] for c, i in zip(self.coordinates, index)))
 
-    def get_tile(self, i, retcoords=False):
-        coordinate = self.coordinates[i]
-        tile_size = self.tile_size
-        clipped_tile_size = (
-            np.clip(coordinate + tile_size, np.zeros_like(self.tile_size), self.region_view.size) - coordinate
-        )
-        clipped_tile_size = clipped_tile_size.astype(int)
-        tile = self._region_view.read_region(coordinate, clipped_tile_size)
+    def __len__(self) -> int:
+        """Return the total number of points in the grid."""
+        return functools.reduce(lambda value, size: value * size, self.size, 1)
 
-        if not self._crop:
-            padding = np.zeros((len(tile.shape), 2), dtype=int)
-
-            # This flip is justified as PIL outputs arrays with axes in reversed order
-            # Extracting a box of size (width, height) results in an array
-            # of shape (height, width, channels)
-            padding[:-1, 1] = np.flip(tile_size - clipped_tile_size)
-            values = np.zeros_like(padding)
-            tile = np.pad(tile, padding, "constant", constant_values=values)
-
-        return (tile, coordinate) if retcoords else tile
-
-    def __getitem__(self, i):
-        return self.get_tile(i)
-
-    def get_iterator(self, retcoords=False):
-        for i in range(len(self)):
-            yield self.get_tile(i, retcoords)
-
-    def __len__(self):
-        return len(self._coordinates)
-
-    def __iter__(self):
+    def __iter__(self) -> Iterator[np.ndarray]:
         """Iterate through every tile."""
-        return self.get_iterator()
+        for i in range(len(self)):
+            yield self[i]

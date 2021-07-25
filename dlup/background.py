@@ -13,7 +13,7 @@ Currently implemented:
 Check their respective documentations for references.
 """
 
-from typing import Callable, List
+from typing import Callable, Iterable, List, Union
 
 import numpy as np
 import PIL.Image
@@ -22,7 +22,11 @@ import skimage.filters
 import skimage.morphology
 import skimage.segmentation
 
-from dlup import SlideImage, SlideImageTiledRegionView
+import dlup
+import dlup.tiling
+from dlup.tiling import indexed_ndmesh
+
+_GenericIntArray = Union[np.ndarray, Iterable[int]]
 
 
 def _is_close(_seeds, _start) -> bool:
@@ -172,7 +176,7 @@ def next_power_of_2(x):
     return 1 if x == 0 else 2 ** (x - 1).bit_length()
 
 
-def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512) -> np.ndarray:
+def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512) -> np.ndarray:
     """
     Compute a tissue mask for a Slide object.
 
@@ -201,12 +205,16 @@ def get_mask(slide: SlideImage, mask_func: Callable = improved_fesi, minimal_siz
     size = int(max([next_power_of_2(size), min([minimal_size, max_slide])]))
 
     # TODO: max should be determined by system memory
-    mask = mask_func(slide.get_thumbnail(size=(size, size)))
+    mask = mask_func(np.asarray(slide.get_thumbnail(size=(size, size))))
     return mask.astype(np.uint8)
 
 
 def foreground_tiles_coordinates_mask(
-    background_mask: np.ndarray, tiled_region_view: SlideImageTiledRegionView, threshold: float = 1.0
+    background_mask: np.ndarray,
+    region_view: dlup.RegionView,
+    grid: dlup.tiling.Grid,
+    tile_size: _GenericIntArray,
+    threshold: float = 1.0,
 ):
     """Generate a numpy boolean mask that can be applied to tiles coordinates.
 
@@ -219,8 +227,12 @@ def foreground_tiles_coordinates_mask(
     ----------
     background_mask :
         Binary mask representing of the background generated with get_mask().
-    tiled_region_view :
-        Target tiled_region_view we want to generate the mask for.
+    region_view :
+        Target region_view we want to generate the mask for.
+    grid :
+        Grid of coordinates used to define tiles top-left corner.
+    tile_size :
+        Size of the tiles.
     threshold :
         Threshold of amount of foreground required to classify a tile as foreground.
 
@@ -229,16 +241,18 @@ def foreground_tiles_coordinates_mask(
     np.ndarray:
         Boolean array of the same shape as the tiled_region_view.coordinates.
     """
-    slide_image_region_view = tiled_region_view.region_view
     mask_size = np.array(background_mask.shape[:2][::-1])
 
     background_mask = PIL.Image.fromarray(background_mask)
 
     # Type of background_mask is Any here.
-    scaling = background_mask.width / slide_image_region_view.size[0]  # type: ignore
-    scaled_tile_size = np.array(tiled_region_view.tile_size) * scaling
+    scaling = background_mask.width / region_view.size[0]  # type: ignore
+    scaled_tile_size = np.array(tile_size) * scaling
     scaled_tile_size = scaled_tile_size.astype(int)
-    scaled_coordinates = tiled_region_view.coordinates * scaling
+
+    coordinates = indexed_ndmesh(grid.coordinates).view()
+    coordinates.shape = (-1, len(region_view.size))
+    scaled_coordinates = coordinates * scaling
 
     # Generate an array of boxes.
     boxes = np.hstack([scaled_coordinates, scaled_coordinates + scaled_tile_size])

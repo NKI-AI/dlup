@@ -4,7 +4,7 @@
 """Whole slide image access objects.
 
 In this module we take care of abstracting the access to whole slide images.
-The main workhorse is SlideImage which takes care of simplyfing region extraction
+The main workhorse is SlideImage which takes care of simplifying region extraction
 of discrete-levels pyramidal images in a continuous way, validating relevant
 properties and offering a future aggregated api for possibly multiple different backends
 other than OpenSlide.
@@ -21,9 +21,8 @@ import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
 from dlup import DlupUnsupportedSlideError
-from dlup.tiling import TiledRegionView
 
-from ._region import RegionView
+from ._region import BoundaryMode, RegionView
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
@@ -36,32 +35,28 @@ _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber):
+    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber, boundary_mode: BoundaryMode = None):
         """Initialize with a slide image object and the scaling level."""
+        # Always call the parent init
+        super().__init__(boundary_mode=boundary_mode)
         self._wsi = wsi
         self._scaling = scaling
 
     @property
-    def mpp(self):
+    def mpp(self) -> float:
         """Returns the level effective mpp."""
         return self._wsi.mpp / self._scaling
 
     @property
-    def size(self):
+    def size(self) -> Tuple[int, ...]:
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
-        """Returns a region in the level."""
+    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
+        """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
         return self._wsi.read_region((x, y), self._scaling, (w, h))
-
-
-class SlideImageTiledRegionView(TiledRegionView):
-    """Class specialization."""
-
-    region_view_cls: Type[RegionView] = _SlideImageRegionView
 
 
 def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> Sequence[_GenericNumber]:
@@ -79,12 +74,15 @@ class SlideImage:
     Each horizontal slices of the pyramid can be accessed using a scaling value
     z as index.
 
-    Example usage:
+    Lifetime
+    --------
+    SlideImage is currently initialized and holds an openslide image object.
+    The openslide wsi instance is automatically closed when gargbage collected.
 
-    .. code-block:: python
-
-        import dlup
-        wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
+    Examples
+    --------
+    >>> import dlup
+    >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
     def __init__(self, wsi: openslide.AbstractSlide, identifier: Union[str, None] = None):
@@ -97,12 +95,23 @@ class SlideImage:
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
             mpp = np.array([mpp_y, mpp_x])
         except KeyError:
-            raise DlupUnsupportedSlideError("Slide property mpp is not available.")
+            raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
 
         if not np.isclose(mpp[0], mpp[1]):
-            raise DlupUnsupportedSlideError(f"Cannot deal with slides having anisotropic mpps. Got {mpp}.")
+            raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
 
         self._min_native_mpp = float(mpp[0])
+
+    def close(self):
+        """Close the underlying openslide image."""
+        self._openslide_wsi.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     @classmethod
     def from_file_path(
@@ -111,7 +120,7 @@ class SlideImage:
         try:
             wsi = openslide.open_slide(str(wsi_file_path))
         except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
-            raise DlupUnsupportedSlideError("Unsupported file.")
+            raise DlupUnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
@@ -215,16 +224,18 @@ class SlideImage:
         # We extract the region via openslide with the required extra border
         region = owsi.read_region(tuple(level_zero_location_adapted), native_level, tuple(native_size_adapted))
 
+        # Wiat a minute, isn't this rgba?
+
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.
         fractional_coordinates = native_location - native_location_adapted
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
         return np.asarray(region.resize(size, resample=PIL.Image.LANCZOS, box=box))
 
-    def get_scaled_size(self, scaling: _GenericNumber):
+    def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
-        return size.astype(int)
+        return tuple(size.astype(int))
 
     def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""
