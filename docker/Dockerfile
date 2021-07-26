@@ -41,7 +41,7 @@ RUN git clone https://github.com/NKI-AI/openslide.git /tmp/openslide \
 RUN mkdir /users && echo $UNAME \
     && adduser --disabled-password --gecos '' --home /users/$UNAME $UNAME \
     && adduser $UNAME sudo \
-    && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
+    && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 RUN mkdir /$UNAME
 USER $UNAME
