@@ -4,12 +4,16 @@ import json
 import warnings
 
 import numpy as np
-import torch
+
+from dlup.utils.imports import _PYTORCH_AVAILABLE
+
+if _PYTORCH_AVAILABLE:
+    import torch
 
 
 class ArrayEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, torch.Tensor):
+        if _PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):
             obj = obj.numpy()
 
         if isinstance(obj, np.ndarray):

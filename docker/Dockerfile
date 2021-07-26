@@ -1,20 +1,7 @@
-ARG CUDA="11.1"
-ARG CUDNN="8"
-
-FROM nvidia/cuda:${CUDA}-cudnn${CUDNN}-devel-ubuntu18.04
-ARG CUDA
-ARG CUDNN
-ARG PYTORCH="1.9.0"
-ARG TORCHVISION="0.10.0"
+FROM ubuntu:18.04
 ARG PYTHON="3.8"
 ARG UNAME="dlup"
 ARG BUILD_WORKERS="4"
-# Enough for most GPUs
-ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6"
-
-ENV CUDA_PATH /usr/local/cuda
-ENV CUDA_ROOT /usr/local/cuda/bin
-ENV LD_LIBRARY_PATH /usr/local/nvidia/lib64
 
 RUN apt-get -qq update
 RUN apt-get update && apt-get install -y libxrender1 build-essential sudo \
@@ -75,19 +62,6 @@ RUN conda update -n base conda -yq \
     && python -m pip install numpy==1.20 tifftools -q \
     # Install openslide-python from NKI-AI
     && python -m pip install git+https://github.com/NKI-AI/openslide-python.git
-
-# Build pytorch
-ENV CMAKE_PREFIX_PATH "$(dirname $(which conda))/../"
-RUN git clone --branch v$PYTORCH --depth 1 --recursive https://github.com/pytorch/pytorch/ /tmp/pytorch \
-    && cd /tmp/pytorch \
-    && TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST python setup.py install \
-    && cd /tmp && rm -rf /tmp/pytorch
-
-# Build torchvision
-RUN git clone --branch v$TORCHVISION --depth 1 --recursive https://github.com/pytorch/vision/ /tmp/vision \
-    && cd /tmp/vision \
-    && TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST python setup.py install \
-    && cd /tmp && rm -rf /tmp/vision
 
 # Install jupyter config to be able to run in the docker environment
 RUN jupyter notebook --generate-config

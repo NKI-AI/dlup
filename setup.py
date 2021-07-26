@@ -47,7 +47,6 @@ setup(
         "requests",
         "scikit-image",
         "tifftools",
-        "torch",
         "tqdm",
         "pillow",
         "openslide-python",

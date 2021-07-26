@@ -2,15 +2,15 @@
 # Copyright (c) dlup contributors
 
 """Utilities to simplify the mocking of SlideImages."""
+from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
 import openslide  # type: ignore
 import PIL
+import pytest
 from PIL.Image import Image
 from pydantic import BaseModel, Field
-import pytest
 from scipy import interpolate
-from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
 from dlup import DlupUnsupportedSlideError, SlideImage
 
