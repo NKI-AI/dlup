@@ -8,12 +8,12 @@ import numpy as np
 from dlup.utils.imports import _PYTORCH_AVAILABLE
 
 if _PYTORCH_AVAILABLE:
-    import torch
+    import torch  # pylint: disable=import-error
 
 
 class ArrayEncoder(json.JSONEncoder):
     def default(self, obj):
-        if _PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):  # type: ignore; # pylint: disable=import-error
+        if _PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):  # type: ignore
             obj = obj.numpy()
 
         if isinstance(obj, np.ndarray):
