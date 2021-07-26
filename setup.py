@@ -49,7 +49,7 @@ setup(
         "tifftools",
         "tqdm",
         "pillow",
-        "openslide-python @ git+https://git@github.com/NKI-AI/openslide-python.git#egg=openslide-python",
+        "openslide-python",
     ],
     extras_require={
         "dev": [
