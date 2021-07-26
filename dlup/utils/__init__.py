@@ -13,7 +13,7 @@ if _PYTORCH_AVAILABLE:
 
 class ArrayEncoder(json.JSONEncoder):
     def default(self, obj):
-        if _PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):
+        if _PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):  # type: ignore
             obj = obj.numpy()
 
         if isinstance(obj, np.ndarray):
