@@ -6,7 +6,7 @@ import json
 import pathlib
 from typing import Tuple, cast
 
-import numpy as np
+from joblib import Parallel, delayed
 import PIL
 
 from dlup import SlideImage
@@ -19,6 +19,13 @@ from dlup.viz.plotting import plot_2d
 
 def tiling(args: argparse.Namespace):
     """Perform the WSI tiling."""
+    def _save_tile(idx, dataset, output_directory_path):
+        tile_dict = dataset[idx]
+        tile = PIL.Image.fromarray(tile_dict["image"])
+        grid_index = tile_dict["grid_index"]
+        indices[idx] = grid_index
+        tile.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
+
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
     tile_size = cast(Tuple[int, int], (args.tile_size,) * 2)
@@ -29,6 +36,10 @@ def tiling(args: argparse.Namespace):
 
     thumbnail_size = cast(Tuple[int, int], mask.shape[::-1])
     thumbnail = image.get_thumbnail(thumbnail_size)
+
+    # Prepare output directory.
+    output_directory_path /= "tiles"
+    output_directory_path.mkdir(parents=True, exist_ok=True)
 
     plot_2d(mask).save(output_directory_path / "mask.png")
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
@@ -70,19 +81,18 @@ def tiling(args: argparse.Namespace):
             "foreground_threshold": args.foreground_threshold,
         },
     }
-    # Prepare output directory.
-    output_directory_path /= "tiles"
 
-    indices = []
     # Iterate through the tiles and save them in the provided location.
-    for idx in range(num_tiles):
-        tile_dict = dataset[idx]
-        tile = PIL.Image.fromarray(tile_dict["image"])
-        grid_index = tile_dict["grid_index"]
-
-        indices.append(grid_index)
-        output_directory_path.mkdir(parents=True, exist_ok=True)
-        tile.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
+    indices = [None for _ in range(num_tiles)]
+    if not args.num_workers or (type(args.num_workers) == int and args.num_workers == 1):
+        for idx in range(num_tiles):
+            _save_tile(idx, dataset, output_directory_path)
+    elif type(args.num_workers) == int:
+        Parallel(n_jobs=args.num_workers, require="sharedmem")(
+            delayed(_save_tile)(idx, dataset, output_directory_path) for idx in range(num_tiles)
+        )
+    else:
+        raise ValueError(f"Number of workers {args.num_workers} is not an integer. Set to 1 for no parallelization")
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
@@ -148,6 +158,12 @@ def register_parser(parser: argparse._SubParsersAction):
         type=float,
         required=True,
         help="Microns per pixel.",
+    )
+    tiling_parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=1,
+        help="Number of parallel workers to run. 1/None -> no parallelization. -1 -> use all CPU cores",
     )
     tiling_parser.add_argument(
         "slide_file_path",
