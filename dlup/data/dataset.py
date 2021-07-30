@@ -11,7 +11,6 @@ import functools
 import itertools
 import json
 import pathlib
-from abc import ABC, abstractmethod
 from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar, cast
 
 import numpy as np
@@ -23,6 +22,18 @@ from dlup.tiling import Grid, TilingMode
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
+
+
+def cumsum(sequence) -> List:
+    """
+    Compute the running cumulative sum of a sequence of objects with a length as a list.
+    """
+    ret, _sum = [], 0
+    for elem in sequence:
+        length = len(elem)
+        ret.append(length + _sum)
+        _sum += length
+    return ret
 
 
 class Dataset(Generic[T_co], abc.ABC):
@@ -97,16 +108,7 @@ class ConcatDataset(Dataset[T_co]):
         return self.datasets[dataset_idx][sample_idx]
 
 
-def cumsum(sequence):
-    r, s = [], 0
-    for e in sequence:
-        l = len(e)
-        r.append(l + s)
-        s += l
-    return r
-
-
-class AbstractSlideImageDataset(Dataset, ABC):
+class AbstractSlideImageDataset(Dataset, abc.ABC):
     """
     Basic :class:`Dataset` class that represents a whole-slide image as tiles.
     """
@@ -159,11 +161,11 @@ class AbstractSlideImageDataset(Dataset, ABC):
     def crop(self):
         return self._crop
 
-    @abstractmethod
+    @abc.abstractmethod
     def __getitem__(self, index):
         """Abstract method. Should return tile, coordinates"""
 
-    @abstractmethod
+    @abc.abstractmethod
     def __len__(self):
         """Abstract method. Should return number of tiles."""
 
