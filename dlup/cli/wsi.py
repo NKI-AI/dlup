@@ -6,8 +6,8 @@ import json
 import pathlib
 from typing import Tuple, cast
 
-from joblib import Parallel, delayed
 import PIL
+from joblib import Parallel, delayed  # type: ignore
 
 from dlup import SlideImage
 from dlup.background import get_mask
