@@ -10,6 +10,7 @@ import bisect
 import functools
 import json
 import pathlib
+from abc import ABC, abstractmethod
 from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 import numpy as np
@@ -104,7 +105,7 @@ class ConcatDataset(Dataset[T_co]):
         return self.datasets[dataset_idx][sample_idx]
 
 
-class BaseSlideImageDataset(Dataset):
+class AbstractSlideImageDataset(Dataset, ABC):
     """
     Basic :class:`Dataset` class that represents a whole-slide image as tiles.
     """
@@ -113,9 +114,6 @@ class BaseSlideImageDataset(Dataset):
         self,
         path: pathlib.Path,
         mpp: float,
-        tile_size: Tuple[int, int],
-        tile_overlap: Tuple[int, int],
-        tile_mode: TilingMode = TilingMode.skip,
         crop: bool = True,
     ):
         """
@@ -125,22 +123,11 @@ class BaseSlideImageDataset(Dataset):
             Path to the image.
         mpp :
             Requested microns per pixel.
-        tile_size :
-            Tile size in the requested microns per pixel.
-        tile_overlap :
-            Overlap of the extracted tiles.
-        tile_mode :
-            Which tiling mode.
         """
-        # We need to reuse the pah in order to re-open the image if necessary.
+        # We need to reuse the path in order to re-open the image if necessary.
         self._path = path
         self._mpp = mpp
         self._crop = crop
-
-        slide_image = self.slide_image
-        slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
-        self._grid = Grid.from_tiling((0, 0), slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
-        self._tile_size = tile_size
 
     @staticmethod
     @functools.lru_cache(32)
@@ -164,10 +151,6 @@ class BaseSlideImageDataset(Dataset):
         return self._path
 
     @property
-    def tile_size(self):
-        return self._tile_size
-
-    @property
     def mpp(self):
         return self._mpp
 
@@ -175,20 +158,16 @@ class BaseSlideImageDataset(Dataset):
     def crop(self):
         return self._crop
 
-    @property
-    def grid(self):
-        """Size of tiling grid"""
-        return self._grid
-
+    @abstractmethod
     def __getitem__(self, index):
-        coordinates = self._grid[index]
-        return self.region_view.read_region(coordinates, self._tile_size), coordinates
+        """Abstract method. Should return tile, coordinates"""
 
+    @abstractmethod
     def __len__(self):
-        return len(self.grid)
+        """Abstract method. Should return number of tiles."""
 
 
-class SlideImageDataset(BaseSlideImageDataset):
+class SlideImageDataset(AbstractSlideImageDataset):
     """
     :class:`Dataset` class that represents a whole-slide image as tiles, possibly including a sampling mask.
     The function outputs a dictionary:
@@ -233,12 +212,16 @@ class SlideImageDataset(BaseSlideImageDataset):
         transform :
             Callable which should be applied after obtaining the sample, e.g. for augmentations.
         """
-        super().__init__(path, mpp=mpp, tile_size=tile_size, tile_overlap=tile_overlap, tile_mode=tile_mode)
+        super().__init__(path, mpp=mpp)
         self.transform = transform
         self.foreground_indices = None
+        self._tile_size = tile_size
 
         slide_image = self.slide_image
         scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
+
+        slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
+        self._grid = Grid.create(slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
 
         if mask is not None:
             boolean_mask = foreground_tiles_coordinates_mask(
@@ -246,13 +229,24 @@ class SlideImageDataset(BaseSlideImageDataset):
             )
             self.foreground_indices = np.argwhere(boolean_mask).flatten()
 
+    @property
+    def tile_size(self):
+        """Tile size (read only)"""
+        return self._tile_size
+
+    @property
+    def grid(self):
+        """Tiling grid (read only)"""
+        return self._grid
+
     def __getitem__(self, index):
         # If a mask is given, we index the foreground indices set
         if self.foreground_indices is not None:
             index = self.foreground_indices[index]
 
+        coordinates = self._grid[index]
+        tile = self.region_view.read_region(coordinates, self._tile_size)
         grid_index = np.unravel_index(index, self.grid.size, order="C")
-        tile, coordinates = super().__getitem__(index)
         sample = {"image": tile, "coordinates": coordinates, "grid_index": grid_index, "path": self.path}
 
         if self.transform:
