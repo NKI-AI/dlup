@@ -8,10 +8,11 @@ Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 import abc
 import bisect
 import functools
+import itertools
 import json
 import pathlib
 from abc import ABC, abstractmethod
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar, cast
 
 import numpy as np
 import PIL
@@ -70,15 +71,6 @@ class ConcatDataset(Dataset[T_co]):
     datasets: List[Dataset[T_co]]
     cumulative_sizes: List[int]
 
-    @staticmethod
-    def cumsum(sequence):
-        r, s = [], 0
-        for e in sequence:
-            l = len(e)
-            r.append(l + s)
-            s += l
-        return r
-
     def __init__(self, datasets: Iterable[Dataset]) -> None:
         super(ConcatDataset, self).__init__()
         # Cannot verify that datasets is Sized
@@ -87,7 +79,7 @@ class ConcatDataset(Dataset[T_co]):
         for d in self.datasets:
             if not hasattr(d, "__getitem__"):
                 raise ValueError("ConcatDataset requires datasets to be indexable.")
-        self.cumulative_sizes = self.cumsum(self.datasets)
+        self.cumulative_sizes = cumsum(self.datasets)
 
     def __len__(self):
         return self.cumulative_sizes[-1]
@@ -103,6 +95,15 @@ class ConcatDataset(Dataset[T_co]):
         else:
             sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
         return self.datasets[dataset_idx][sample_idx]
+
+
+def cumsum(sequence):
+    r, s = [], 0
+    for e in sequence:
+        l = len(e)
+        r.append(l + s)
+        s += l
+    return r
 
 
 class AbstractSlideImageDataset(Dataset, ABC):
@@ -244,7 +245,7 @@ class SlideImageDataset(AbstractSlideImageDataset):
         if self.foreground_indices is not None:
             index = self.foreground_indices[index]
 
-        coordinates = self._grid[index]
+        coordinates = self.get_global_coordinates(index)
         tile = self.region_view.read_region(coordinates, self._tile_size)
         grid_index = np.unravel_index(index, self.grid.size, order="C")
         sample = {"image": tile, "coordinates": coordinates, "grid_index": grid_index, "path": self.path}
@@ -255,6 +256,9 @@ class SlideImageDataset(AbstractSlideImageDataset):
 
     def __len__(self):
         return len(self.foreground_indices) if self.foreground_indices is not None else len(self.grid)
+
+    def get_global_coordinates(self, index):
+        return self._grid[index]
 
 
 class TiledSlideImageDataset(Dataset):
@@ -307,3 +311,55 @@ class TiledSlideImageDataset(Dataset):
 
     def __len__(self):
         return self._num_tiles
+
+
+class ROIDataset(SlideImageDataset):
+    def __init__(
+        self,
+        path: pathlib.Path,
+        mpp: float,
+        tile_size: Tuple[int, int],
+        tile_overlap: Tuple[int, int],
+        rois: Optional[list] = None,
+        tile_mode: TilingMode = TilingMode.skip,
+        mask: Optional[np.ndarray] = None,
+        foreground_threshold: float = 0.1,
+        transform: Optional[Callable] = None,
+    ):
+        super().__init__(path, mpp, tile_size, tile_overlap, tile_mode, mask, foreground_threshold, transform)
+        self.scaling = self.slide_image.mpp / self.mpp
+        if rois is not None and len(rois) > 0:
+            self.rois_scaled = [[int(np.floor(r[0] * self.scaling)),
+                                 int(np.floor(r[1] * self.scaling)),
+                                 int(np.floor(r[2] * self.scaling)),
+                                 int(np.floor(r[3] * self.scaling))
+                                 ] for r in rois]  # [y1, x1, h, w]
+            self.index_map = [r_indx for r_indx, r in enumerate(self.rois_scaled)]
+            self._grid = list(itertools.chain.from_iterable(Grid.create(size=r[2:4],
+                                                                   tile_size=self.tile_size,
+                                                                   tile_overlap=tile_overlap,
+                                                                   mode=tile_mode) for r in self.rois_scaled))
+            self.cumulative_sizes = cumsum(self._grid)
+
+    def get_global_coordinates(self, index):
+        group_idx, sample_idx = get_cumulative_indexes(index, self.cumulative_sizes)
+        coordinates = [self._grid[sample_idx][0] + self.rois_scaled[group_idx][0],
+                       self._grid[sample_idx][1] + self.rois_scaled[group_idx][1]]
+        return coordinates
+
+
+def get_cumulative_indexes(idx, cumulative_sizes):
+    if idx < 0:
+        if -idx > len(cumulative_sizes[-1]):
+            raise ValueError("absolute value of index should not exceed dataset length")
+        idx = len(cumulative_sizes[-1]) + idx
+    group_idx = bisect.bisect_right(cumulative_sizes, idx)
+    if group_idx == 0:
+        sample_idx = idx
+    else:
+        sample_idx = idx - cumulative_sizes[group_idx - 1]
+    return group_idx, sample_idx
+
+
+def cast_2(num):
+    return cast(Tuple[int, int], (num,) * 2)
