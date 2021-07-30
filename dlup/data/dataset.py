@@ -331,15 +331,17 @@ class ROIDataset(SlideImageDataset):
         super().__init__(path, mpp, tile_size, tile_overlap, tile_mode, mask, foreground_threshold, transform)
         self.scaling = self.slide_image.mpp / self.mpp
         if rois is not None and len(rois) > 0:
-            self.rois_scaled = [
-                [
-                    int(np.floor(r[0] * self.scaling)),
-                    int(np.floor(r[1] * self.scaling)),
-                    int(np.floor(r[2] * self.scaling)),
-                    int(np.floor(r[3] * self.scaling)),
-                ]
-                for r in rois
-            ]  # [y1, x1, h, w]
+            # self.rois_scaled = [
+            #     [
+            #         int(np.floor(r[0] * self.scaling)),
+            #         int(np.floor(r[1] * self.scaling)),
+            #         int(np.floor(r[2] * self.scaling)),
+            #         int(np.floor(r[3] * self.scaling)),
+            #     ]
+            #     for r in rois
+            # ]  # [y1, x1, h, w]
+            self.rois_scaled = [np.floor(np.asarray(r) * self.scaling).astype(int) for r in rois]
+
             self.index_map = [r_indx for r_indx, r in enumerate(self.rois_scaled)]
             self._grid = list(
                 itertools.chain.from_iterable(
