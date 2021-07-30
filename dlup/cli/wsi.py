@@ -19,6 +19,7 @@ from dlup.viz.plotting import plot_2d
 
 def tiling(args: argparse.Namespace):
     """Perform the WSI tiling."""
+
     def _save_tile(idx, dataset, output_directory_path):
         tile_dict = dataset[idx]
         tile = PIL.Image.fromarray(tile_dict["image"])
