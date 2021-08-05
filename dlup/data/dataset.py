@@ -139,7 +139,7 @@ class BaseSlideImageDataset(Dataset):
 
         slide_image = self.slide_image
         slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
-        self._grid = Grid.create(slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
+        self._grid = Grid.from_tiling((0, 0), slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
         self._tile_size = tile_size
 
     @staticmethod
