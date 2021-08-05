@@ -115,32 +115,29 @@ class Grid:
 
     def __init__(self, coordinates: List[np.ndarray]):
         """Initialize a lattice given a set of basis vectors."""
-        self._coordinates = coordinates
-        self._size = tuple(len(x) for x in self._coordinates)
+        self.coordinates = coordinates
 
     @classmethod
-    def create(
+    def from_tiling(
         cls,
+        offset: _GenericNumberArray,
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
         tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
         mode: TilingMode = TilingMode.skip,
     ):
-        """Main method to create a Lattice object."""
-        return cls(tiles_grid_coordinates(size, tile_size, tile_overlap, mode))
+        """Generate a grid from a set of tiling parameters."""
+        coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
+        coordinates = [c + o for c, o in zip(coordinates, offset)]
+        return cls(coordinates)
 
     @property
     def size(self) -> Tuple[int, ...]:
         """Return the size of the generated lattice."""
-        return self._size
-
-    @property
-    def coordinates(self) -> List[np.ndarray]:
-        """Returns the coordinates vectors generating the grid."""
-        return self._coordinates
+        return tuple(len(x) for x in self.coordinates)
 
     def __getitem__(self, i) -> np.ndarray:
-        index = np.unravel_index(i, self._size)
+        index = np.unravel_index(i, self.size)
         return np.array(list(c[i] for c, i in zip(self.coordinates, index)))
 
     def __len__(self) -> int:
