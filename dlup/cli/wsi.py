@@ -78,7 +78,7 @@ def tiling(args: argparse.Namespace):
     # Iterate through the tiles and save them in the provided location.
     indices = [None for _ in range(num_tiles)]
     tile_saver = TileSaver(dataset.__getitem__, output_directory_path)
-    with Pool() as pool:
+    with Pool(args.processes) as pool:
         res = pool.imap(tile_saver.save_tile, range(num_tiles))
         for (grid_index, idx) in res:
             indices[idx] = grid_index
@@ -162,10 +162,9 @@ def register_parser(parser: argparse._SubParsersAction):
         help="Microns per pixel.",
     )
     tiling_parser.add_argument(
-        "--num-workers",
+        "--processes",
         type=int,
-        default=1,
-        help="Number of parallel workers to run. 1/None -> no parallelization. -1 -> use all CPU cores",
+        help="Number of parallel threads to run. None -> fully parallelized.",
     )
     tiling_parser.add_argument(
         "slide_file_path",
