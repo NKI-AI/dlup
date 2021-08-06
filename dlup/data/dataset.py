@@ -224,9 +224,9 @@ class SlideImageDataset(AbstractSlideImageDataset):
         scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
 
         slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
-        self._grid = Grid.from_tiling(size=slide_level_size, tile_size=tile_size,
-                                      tile_overlap=tile_overlap, mode=tile_mode,
-                                      offset=None)
+        self._grid = Grid.from_tiling(
+            size=slide_level_size, tile_size=tile_size, tile_overlap=tile_overlap, mode=tile_mode, offset=None
+        )
 
         if mask is not None:
             boolean_mask = foreground_tiles_coordinates_mask(
@@ -344,9 +344,9 @@ class ROIDataset(SlideImageDataset):
             ]  # [y1, x1, h, w]
             self._grid = list(
                 itertools.chain.from_iterable(
-                    Grid.from_tiling(size=r[2:4], tile_size=tile_size,
-                                     tile_overlap=tile_overlap, mode=tile_mode,
-                                     offset=r[0:2])
+                    Grid.from_tiling(
+                        size=r[2:4], tile_size=tile_size, tile_overlap=tile_overlap, mode=tile_mode, offset=r[0:2]
+                    )
                     for r in self.rois_scaled
                 )
             )
