@@ -24,18 +24,6 @@ T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
 
 
-def cumsum(sequence) -> List:
-    """
-    Compute the running cumulative sum of a sequence of objects with a length as a list.
-    """
-    ret, _sum = [], 0
-    for elem in sequence:
-        length = len(elem)
-        ret.append(length + _sum)
-        _sum += length
-    return ret
-
-
 class Dataset(Generic[T_co], abc.ABC):
     """An abstract class representing a :class:`Dataset`.
 
@@ -90,7 +78,7 @@ class ConcatDataset(Dataset[T_co]):
         for d in self.datasets:
             if not hasattr(d, "__getitem__"):
                 raise ValueError("ConcatDataset requires datasets to be indexable.")
-        self.cumulative_sizes = cumsum(self.datasets)
+        self.cumulative_sizes = self.cumsum(self.datasets)
 
     def __len__(self):
         return self.cumulative_sizes[-1]
@@ -106,6 +94,18 @@ class ConcatDataset(Dataset[T_co]):
         else:
             sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
         return self.datasets[dataset_idx][sample_idx]
+
+    @staticmethod
+    def cumsum(sequence) -> List:
+        """
+        Compute the running cumulative sum of a sequence of objects with a length as a list.
+        """
+        ret, _sum = [], 0
+        for elem in sequence:
+            length = len(elem)
+            ret.append(length + _sum)
+            _sum += length
+        return ret
 
 
 class AbstractSlideImageDataset(Dataset, abc.ABC):
