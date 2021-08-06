@@ -11,7 +11,7 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar, cast
+from typing import Generic, Iterable, List, Optional, Tuple, TypeVar, Callable
 
 import numpy as np
 import PIL
@@ -117,6 +117,7 @@ class AbstractSlideImageDataset(Dataset, abc.ABC):
         self,
         path: pathlib.Path,
         mpp: float,
+        grid_func: Callable,
         crop: bool = True,
     ):
         """
@@ -131,6 +132,7 @@ class AbstractSlideImageDataset(Dataset, abc.ABC):
         self._path = path
         self._mpp = mpp
         self._crop = crop
+        self._grid = grid_func()
 
     @staticmethod
     @functools.lru_cache(32)
@@ -161,6 +163,11 @@ class AbstractSlideImageDataset(Dataset, abc.ABC):
     def crop(self):
         return self._crop
 
+    @property
+    def grid(self):
+        """Tiling grid (read only)"""
+        return self._grid
+
     @abc.abstractmethod
     def __getitem__(self, index):
         """Abstract method. Should return tile, coordinates"""
@@ -170,7 +177,7 @@ class AbstractSlideImageDataset(Dataset, abc.ABC):
         """Abstract method. Should return number of tiles."""
 
 
-class SlideImageDataset(AbstractSlideImageDataset):
+class MaskedSlideImageDataset(AbstractSlideImageDataset):
     """
     :class:`Dataset` class that represents a whole-slide image as tiles, possibly including a sampling mask.
     The function outputs a dictionary:
@@ -219,12 +226,12 @@ class SlideImageDataset(AbstractSlideImageDataset):
         self.transform = transform
         self.foreground_indices = None
         self._tile_size = tile_size
+        self._tile_overlap = tile_overlap
+        self._tile_mode = tile_mode
 
         slide_image = self.slide_image
         scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
-
-        slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
-        self._grid = Grid.create(slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
+        self._grid = self._construct_grid()
 
         if mask is not None:
             boolean_mask = foreground_tiles_coordinates_mask(
@@ -232,22 +239,28 @@ class SlideImageDataset(AbstractSlideImageDataset):
             )
             self.foreground_indices = np.argwhere(boolean_mask).flatten()
 
+    def _construct_grid(self):
+        slide_level_size = self.slide_image.get_scaled_size(self.slide_image.mpp / self.mpp)
+        grid = Grid.from_tiling(
+            size=slide_level_size,
+            tile_size=self.tile_size,
+            tile_overlap=self._tile_overlap,
+            mode=self._tile_mode,
+            offset=None,
+        )
+        return grid
+
     @property
     def tile_size(self):
         """Tile size (read only)"""
         return self._tile_size
-
-    @property
-    def grid(self):
-        """Tiling grid (read only)"""
-        return self._grid
 
     def __getitem__(self, index):
         # If a mask is given, we index the foreground indices set
         if self.foreground_indices is not None:
             index = self.foreground_indices[index]
 
-        coordinates = self.get_global_coordinates(index)
+        coordinates = self._grid[index]
         tile = self.region_view.read_region(coordinates, self._tile_size)
         grid_index = np.unravel_index(index, self.grid.size, order="C")
         sample = {"image": tile, "coordinates": coordinates, "grid_index": grid_index, "path": self.path}
@@ -259,8 +272,32 @@ class SlideImageDataset(AbstractSlideImageDataset):
     def __len__(self):
         return len(self.foreground_indices) if self.foreground_indices is not None else len(self.grid)
 
-    def get_global_coordinates(self, index):
-        return self._grid[index]
+
+class ROISlideImageDataset(MaskedSlideImageDataset):
+    def __init__(
+        self,
+        path: pathlib.Path,
+        mpp: float,
+        tile_size: Tuple[int, int],
+        tile_overlap: Tuple[int, int],
+        rois: Optional[list] = None,
+        tile_mode: TilingMode = TilingMode.skip,
+        mask: Optional[np.ndarray] = None,
+        foreground_threshold: float = 0.1,
+        transform: Optional[Callable] = None,
+    ):
+        super().__init__(path, mpp, tile_size, tile_overlap, tile_mode, mask, foreground_threshold, transform)
+        self.scaling = self.slide_image.mpp / self.mpp
+        if rois is not None and len(rois) > 0:
+            self.rois_scaled = [np.floor(np.asarray(r) * self.scaling).astype(int) for r in rois]  # [y1, x1, h, w]
+            self._grid = list(
+                itertools.chain.from_iterable(
+                    Grid.from_tiling(
+                        size=r[2:4], tile_size=tile_size, tile_overlap=tile_overlap, mode=tile_mode, offset=r[0:2]
+                    )
+                    for r in self.rois_scaled
+                )
+            )
 
 
 class TiledSlideImageDataset(Dataset):
@@ -313,65 +350,3 @@ class TiledSlideImageDataset(Dataset):
 
     def __len__(self):
         return self._num_tiles
-
-
-class ROIDataset(SlideImageDataset):
-    def __init__(
-        self,
-        path: pathlib.Path,
-        mpp: float,
-        tile_size: Tuple[int, int],
-        tile_overlap: Tuple[int, int],
-        rois: Optional[list] = None,
-        tile_mode: TilingMode = TilingMode.skip,
-        mask: Optional[np.ndarray] = None,
-        foreground_threshold: float = 0.1,
-        transform: Optional[Callable] = None,
-    ):
-        super().__init__(path, mpp, tile_size, tile_overlap, tile_mode, mask, foreground_threshold, transform)
-        self.scaling = self.slide_image.mpp / self.mpp
-        if rois is not None and len(rois) > 0:
-            # self.rois_scaled = [
-            #     [
-            #         int(np.floor(r[0] * self.scaling)),
-            #         int(np.floor(r[1] * self.scaling)),
-            #         int(np.floor(r[2] * self.scaling)),
-            #         int(np.floor(r[3] * self.scaling)),
-            #     ]
-            #     for r in rois
-            # ]  # [y1, x1, h, w]
-            self.rois_scaled = [np.floor(np.asarray(r) * self.scaling).astype(int) for r in rois]
-
-            self.index_map = [r_indx for r_indx, r in enumerate(self.rois_scaled)]
-            self._grid = list(
-                itertools.chain.from_iterable(
-                    Grid.create(size=r[2:4], tile_size=self.tile_size, tile_overlap=tile_overlap, mode=tile_mode)
-                    for r in self.rois_scaled
-                )
-            )
-            self.cumulative_sizes = cumsum(self._grid)
-
-    def get_global_coordinates(self, index):
-        group_idx, sample_idx = get_cumulative_indexes(index, self.cumulative_sizes)
-        coordinates = [
-            self._grid[sample_idx][0] + self.rois_scaled[group_idx][0],
-            self._grid[sample_idx][1] + self.rois_scaled[group_idx][1],
-        ]
-        return coordinates
-
-
-def get_cumulative_indexes(idx, cumulative_sizes):
-    if idx < 0:
-        if -idx > len(cumulative_sizes[-1]):
-            raise ValueError("absolute value of index should not exceed dataset length")
-        idx = len(cumulative_sizes[-1]) + idx
-    group_idx = bisect.bisect_right(cumulative_sizes, idx)
-    if group_idx == 0:
-        sample_idx = idx
-    else:
-        sample_idx = idx - cumulative_sizes[group_idx - 1]
-    return group_idx, sample_idx
-
-
-def cast_2(num):
-    return cast(Tuple[int, int], (num,) * 2)
