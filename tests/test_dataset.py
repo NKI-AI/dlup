@@ -5,13 +5,13 @@
 
 import pathlib
 
-from dlup.data.dataset import SlideImageDataset
+from dlup.data.dataset import MaskedSlideImageDataset
 
 
 def test_slide_image_dataset(monkeypatch, dlup_wsi):
     """Test a single image dataset."""
-    monkeypatch.setattr(SlideImageDataset, "slide_image", dlup_wsi)
-    dataset = SlideImageDataset("dummy", 1.0, (32, 24), (0, 0), "skip", None)
+    monkeypatch.setattr(MaskedSlideImageDataset, "slide_image", dlup_wsi)
+    dataset = MaskedSlideImageDataset("dummy", 1.0, (32, 24), (0, 0), "skip", None)
     tile_data = dataset[0]
     tile = tile_data["image"]
     coordinates = tile_data["coordinates"]

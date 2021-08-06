@@ -15,11 +15,11 @@ import pathlib
 from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
-import openslide  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
+import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError
 
 from ._region import BoundaryMode, RegionView

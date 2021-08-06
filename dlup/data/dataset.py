@@ -11,7 +11,7 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Generic, Iterable, List, Optional, Tuple, TypeVar, Callable
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 import numpy as np
 import PIL
@@ -222,16 +222,14 @@ class MaskedSlideImageDataset(AbstractSlideImageDataset):
         transform :
             Callable which should be applied after obtaining the sample, e.g. for augmentations.
         """
-        super().__init__(path, mpp=mpp)
         self.transform = transform
         self.foreground_indices = None
         self._tile_size = tile_size
         self._tile_overlap = tile_overlap
         self._tile_mode = tile_mode
+        super().__init__(path, mpp=mpp, grid_func=self._construct_grid)
 
-        slide_image = self.slide_image
-        scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
-        self._grid = self._construct_grid()
+        scaled_view = self.slide_image.get_scaled_view(self.slide_image.mpp / self._mpp)
 
         if mask is not None:
             boolean_mask = foreground_tiles_coordinates_mask(
