@@ -224,7 +224,9 @@ class SlideImageDataset(AbstractSlideImageDataset):
         scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
 
         slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
-        self._grid = Grid.create(slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
+        self._grid = Grid.from_tiling(size=slide_level_size, tile_size=tile_size,
+                                      tile_overlap=tile_overlap, mode=tile_mode,
+                                      offset=None)
 
         if mask is not None:
             boolean_mask = foreground_tiles_coordinates_mask(
@@ -340,36 +342,11 @@ class ROIDataset(SlideImageDataset):
                 ]
                 for r in rois
             ]  # [y1, x1, h, w]
-            self.index_map = [r_indx for r_indx, r in enumerate(self.rois_scaled)]
             self._grid = list(
                 itertools.chain.from_iterable(
-                    Grid.create(size=r[2:4], tile_size=self.tile_size, tile_overlap=tile_overlap, mode=tile_mode)
+                    Grid.from_tiling(size=r[2:4], tile_size=tile_size,
+                                     tile_overlap=tile_overlap, mode=tile_mode,
+                                     offset=r[0:2])
                     for r in self.rois_scaled
                 )
             )
-            self.cumulative_sizes = cumsum(self._grid)
-
-    def get_global_coordinates(self, index):
-        group_idx, sample_idx = get_cumulative_indexes(index, self.cumulative_sizes)
-        coordinates = [
-            self._grid[sample_idx][0] + self.rois_scaled[group_idx][0],
-            self._grid[sample_idx][1] + self.rois_scaled[group_idx][1],
-        ]
-        return coordinates
-
-
-def get_cumulative_indexes(idx, cumulative_sizes):
-    if idx < 0:
-        if -idx > len(cumulative_sizes[-1]):
-            raise ValueError("absolute value of index should not exceed dataset length")
-        idx = len(cumulative_sizes[-1]) + idx
-    group_idx = bisect.bisect_right(cumulative_sizes, idx)
-    if group_idx == 0:
-        sample_idx = idx
-    else:
-        sample_idx = idx - cumulative_sizes[group_idx - 1]
-    return group_idx, sample_idx
-
-
-def cast_2(num):
-    return cast(Tuple[int, int], (num,) * 2)

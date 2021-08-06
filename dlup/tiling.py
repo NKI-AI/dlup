@@ -3,7 +3,7 @@
 
 import functools
 from enum import Enum
-from typing import Iterator, List, Sequence, Tuple, Type, TypeVar, Union
+from typing import Iterator, List, Sequence, Tuple, Type, TypeVar, Union, Optional
 
 import numpy as np
 
@@ -27,7 +27,7 @@ class TilingMode(str, Enum):
     fit = "fit"
 
 
-def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarray:
+def _flattened_array(a: _GenericNumberArray) -> np.ndarray:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
 
@@ -51,7 +51,7 @@ def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.nd
 def tiles_grid_coordinates(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
-    tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
+    tile_overlap: Optional[_GenericNumberArray] = None,
     mode: TilingMode = TilingMode.skip,
 ) -> List[np.ndarray]:
     """Generate a list of coordinates for each dimension representing a tile location.
@@ -60,7 +60,7 @@ def tiles_grid_coordinates(
     """
     size = _flattened_array(size)
     tile_size = _flattened_array(tile_size)
-    tile_overlap = _flattened_array(tile_overlap)
+    tile_overlap = _flattened_array(np.zeros_like(tile_size) if not tile_overlap else tile_overlap)
 
     if not (size.shape == tile_size.shape == tile_overlap.shape):
         raise ValueError("size, tile_size and tile_overlap " "should have the same dimensions.")
@@ -120,14 +120,15 @@ class Grid:
     @classmethod
     def from_tiling(
         cls,
-        offset: _GenericNumberArray,
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
-        tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
+        tile_overlap: Optional[_GenericNumberArray] = None,
+        offset: Optional[_GenericNumberArray] = None,
         mode: TilingMode = TilingMode.skip,
     ):
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
+        offset = np.zeros(len(coordinates)) if not offset else offset
         coordinates = [c + o for c, o in zip(coordinates, offset)]
         return cls(coordinates)
 
