@@ -3,7 +3,7 @@
 
 import functools
 from enum import Enum
-from typing import Iterator, List, Sequence, Tuple, Type, TypeVar, Union
+from typing import Iterator, List, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import numpy as np
 
@@ -27,7 +27,7 @@ class TilingMode(str, Enum):
     fit = "fit"
 
 
-def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarray:
+def _flattened_array(a: _GenericNumberArray) -> np.ndarray:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
 
@@ -51,7 +51,7 @@ def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.nd
 def tiles_grid_coordinates(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
-    tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
+    tile_overlap: Optional[_GenericNumberArray] = None,
     mode: TilingMode = TilingMode.skip,
 ) -> List[np.ndarray]:
     """Generate a list of coordinates for each dimension representing a tile location.
@@ -60,7 +60,7 @@ def tiles_grid_coordinates(
     """
     size = _flattened_array(size)
     tile_size = _flattened_array(tile_size)
-    tile_overlap = _flattened_array(tile_overlap)
+    tile_overlap = _flattened_array(np.zeros_like(tile_size) if not tile_overlap else tile_overlap)
 
     if not (size.shape == tile_size.shape == tile_overlap.shape):
         raise ValueError("size, tile_size and tile_overlap " "should have the same dimensions.")
@@ -115,32 +115,30 @@ class Grid:
 
     def __init__(self, coordinates: List[np.ndarray]):
         """Initialize a lattice given a set of basis vectors."""
-        self._coordinates = coordinates
-        self._size = tuple(len(x) for x in self._coordinates)
+        self.coordinates = coordinates
 
     @classmethod
-    def create(
+    def from_tiling(
         cls,
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
-        tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
+        tile_overlap: Optional[_GenericNumberArray] = None,
+        offset: Optional[_GenericNumberArray] = None,
         mode: TilingMode = TilingMode.skip,
     ):
-        """Main method to create a Lattice object."""
-        return cls(tiles_grid_coordinates(size, tile_size, tile_overlap, mode))
+        """Generate a grid from a set of tiling parameters."""
+        coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
+        offset = np.zeros(len(coordinates)) if not offset else offset
+        coordinates = [c + o for c, o in zip(coordinates, offset)]
+        return cls(coordinates)
 
     @property
     def size(self) -> Tuple[int, ...]:
         """Return the size of the generated lattice."""
-        return self._size
-
-    @property
-    def coordinates(self) -> List[np.ndarray]:
-        """Returns the coordinates vectors generating the grid."""
-        return self._coordinates
+        return tuple(len(x) for x in self.coordinates)
 
     def __getitem__(self, i) -> np.ndarray:
-        index = np.unravel_index(i, self._size)
+        index = np.unravel_index(i, self.size)
         return np.array(list(c[i] for c, i in zip(self.coordinates, index)))
 
     def __len__(self) -> int:

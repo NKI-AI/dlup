@@ -4,9 +4,9 @@
 import argparse
 import json
 import pathlib
+from multiprocessing import Pool
 from typing import Tuple, cast
 
-import numpy as np
 import PIL
 
 from dlup import SlideImage
@@ -30,6 +30,8 @@ def tiling(args: argparse.Namespace):
     thumbnail_size = cast(Tuple[int, int], mask.shape[::-1])
     thumbnail = image.get_thumbnail(thumbnail_size)
 
+    # Prepare output directory.
+    output_directory_path.mkdir(parents=True, exist_ok=True)
     plot_2d(mask).save(output_directory_path / "mask.png")
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
@@ -70,26 +72,35 @@ def tiling(args: argparse.Namespace):
             "foreground_threshold": args.foreground_threshold,
         },
     }
-    # Prepare output directory.
-    output_directory_path /= "tiles"
 
-    indices = []
     # Iterate through the tiles and save them in the provided location.
-    for idx in range(num_tiles):
-        tile_dict = dataset[idx]
-        tile = PIL.Image.fromarray(tile_dict["image"])
-        grid_index = tile_dict["grid_index"]
-
-        indices.append(grid_index)
-        output_directory_path.mkdir(parents=True, exist_ok=True)
-        tile.save(output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
+    tiles_output_directory_path = output_directory_path / "tiles"
+    tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
+    indices = [None for _ in range(num_tiles)]
+    tile_saver = TileSaver(dataset.__getitem__, tiles_output_directory_path)
+    with Pool(args.num_workers) as pool:
+        for (grid_index, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
+            indices[idx] = grid_index
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
     output["output"]["background_tiles"] = len(dataset.grid) - num_tiles
 
-    with open(output_directory_path.parent / "tiles.json", "w") as file:
+    with open(output_directory_path / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)
+
+
+class TileSaver:
+    def __init__(self, get_index_function, output_directory_path):
+        self.get_index_function = get_index_function
+        self.output_directory_path = output_directory_path
+
+    def save_tile(self, index):
+        tile_dict = self.get_index_function(index)
+        tile = PIL.Image.fromarray(tile_dict["image"])
+        grid_index = tile_dict["grid_index"]
+        tile.save(self.output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
+        return grid_index, index
 
 
 def info(args: argparse.Namespace):
@@ -148,6 +159,11 @@ def register_parser(parser: argparse._SubParsersAction):
         type=float,
         required=True,
         help="Microns per pixel.",
+    )
+    tiling_parser.add_argument(
+        "--num-workers",
+        type=int,
+        help="Number of parallel threads to run. None -> fully parallelized.",
     )
     tiling_parser.add_argument(
         "slide_file_path",
