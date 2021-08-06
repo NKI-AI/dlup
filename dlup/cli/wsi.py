@@ -35,8 +35,6 @@ def tiling(args: argparse.Namespace):
     plot_2d(mask).save(output_directory_path / "mask.png")
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
-    output_directory_path /= "tiles"
-    output_directory_path.mkdir(parents=True, exist_ok=True)
 
     # TODO: Maybe give the SlideImageDataset an image as input?
     dataset = SlideImageDataset(
@@ -76,18 +74,19 @@ def tiling(args: argparse.Namespace):
     }
 
     # Iterate through the tiles and save them in the provided location.
+    tiles_output_directory_path = output_directory_path / "tiles"
+    tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
     indices = [None for _ in range(num_tiles)]
-    tile_saver = TileSaver(dataset.__getitem__, output_directory_path)
-    with Pool(args.processes) as pool:
-        res = pool.imap(tile_saver.save_tile, range(num_tiles))
-        for (grid_index, idx) in res:
+    tile_saver = TileSaver(dataset.__getitem__, tiles_output_directory_path)
+    with Pool(args.num_workers) as pool:
+        for (grid_index, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
             indices[idx] = grid_index
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
     output["output"]["background_tiles"] = len(dataset.grid) - num_tiles
 
-    with open(output_directory_path.parent / "tiles.json", "w") as file:
+    with open(output_directory_path / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)
 
 
@@ -162,7 +161,7 @@ def register_parser(parser: argparse._SubParsersAction):
         help="Microns per pixel.",
     )
     tiling_parser.add_argument(
-        "--processes",
+        "--num-workers",
         type=int,
         help="Number of parallel threads to run. None -> fully parallelized.",
     )
