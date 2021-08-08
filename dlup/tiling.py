@@ -195,7 +195,7 @@ class MaskedGrid(Grid):
         return cls(unfiltered_grid.coordinates, foreground_indices)
 
     def __getitem__(self, i) -> np.ndarray:
-        "Return the specified grid coordinate"
+        """Return the specified grid coordinate"""
         i = self._foreground_indices[i]
         index = np.unravel_index(i, self.size)
         return np.array(list(c[i] for c, i in zip(self.coordinates, index)))
