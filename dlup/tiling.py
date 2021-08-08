@@ -184,7 +184,7 @@ class MaskedGrid(Grid):
         scaled_region_view: Optional[RegionView] = None,
     ):
         """Generate a grid from a set of tiling parameters."""
-        unfiltered_grid = Grid.from_tiling(offset, size, tile_size, tile_overlap, mode)
+        unfiltered_grid = Grid.from_tiling(size, tile_size, tile_overlap, mode, offset)
         if mask is None:
             return unfiltered_grid
 
