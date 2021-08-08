@@ -16,17 +16,12 @@ Check their respective documentations for references.
 from typing import Callable, Iterable, List, Union
 
 import numpy as np
-import PIL.Image
 import scipy.ndimage as ndi
 import skimage.filters
 import skimage.morphology
 import skimage.segmentation
 
-import dlup
 import dlup.tiling
-from dlup.tiling import indexed_ndmesh
-
-_GenericIntArray = Union[np.ndarray, Iterable[int]]
 
 
 def _is_close(_seeds, _start) -> bool:
@@ -207,67 +202,3 @@ def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minima
     # TODO: max should be determined by system memory
     mask = mask_func(np.asarray(slide.get_thumbnail(size=(size, size))))
     return mask.astype(np.uint8)
-
-
-def foreground_tiles_coordinates_mask(
-    background_mask: np.ndarray,
-    region_view: dlup.RegionView,
-    grid: dlup.tiling.Grid,
-    tile_size: _GenericIntArray,
-    threshold: float = 1.0,
-):
-    """Generate a numpy boolean mask that can be applied to tiles coordinates.
-
-    A tiled region view contains the tiles coordinates as a flattened grid.
-    This function returns an array of boolean values being True if
-    the tile is considered foreground and False otherwise.
-
-
-    Parameters
-    ----------
-    background_mask :
-        Binary mask representing of the background generated with get_mask().
-    region_view :
-        Target region_view we want to generate the mask for.
-    grid :
-        Grid of coordinates used to define tiles top-left corner.
-    tile_size :
-        Size of the tiles.
-    threshold :
-        Threshold of amount of foreground required to classify a tile as foreground.
-
-    Returns
-    -------
-    np.ndarray:
-        Boolean array of the same shape as the tiled_region_view.coordinates.
-    """
-    mask_size = np.array(background_mask.shape[:2][::-1])
-
-    background_mask = PIL.Image.fromarray(background_mask)
-
-    # Type of background_mask is Any here.
-    scaling = background_mask.width / region_view.size[0]  # type: ignore
-    scaled_tile_size = np.array(tile_size) * scaling
-    scaled_tile_size = scaled_tile_size.astype(int)
-
-    coordinates = indexed_ndmesh(grid.coordinates).view()
-    coordinates.shape = (-1, len(region_view.size))
-    scaled_coordinates = coordinates * scaling
-
-    # Generate an array of boxes.
-    boxes = np.hstack([scaled_coordinates, scaled_coordinates + scaled_tile_size])
-
-    # Let's clip values outside boundaries.
-    max_a = np.tile(mask_size, 2)
-    min_a = np.zeros_like(max_a)
-    boxes = np.clip(boxes, min_a, max_a)  # type: ignore
-
-    # Fill in the mask with boolean values if the mean number of pixels
-    # of tissue surpasses a threshold.
-    mask = np.empty(len(boxes), dtype=bool)
-    for i, b in enumerate(boxes):
-        mask_tile = background_mask.resize(scaled_tile_size, PIL.Image.BICUBIC, box=b)  # type: ignore
-        mask_tile = np.asarray(mask_tile, dtype=float)
-        mask[i] = mask_tile.mean() >= threshold
-
-    return mask

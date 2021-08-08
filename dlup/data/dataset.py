@@ -16,8 +16,7 @@ import numpy as np
 import PIL
 
 from dlup import BoundaryMode, SlideImage
-from dlup.background import foreground_tiles_coordinates_mask
-from dlup.tiling import Grid, TilingMode
+from dlup.tiling import Grid, TilingMode, foreground_tiles_coordinates_mask
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
