@@ -67,7 +67,7 @@ def tiles_grid_coordinates(
     tile_overlap = _flattened_array(tile_overlap)
 
     if not (size.shape == tile_size.shape == tile_overlap.shape):
-        raise ValueError("size, tile_size and tile_overlap " "should have the same dimensions.")
+        raise ValueError("size, tile_size and tile_overlap should have the same dimensions.")
 
     if (size <= 0).any():
         raise ValueError("size should always be greater than zero.")
@@ -146,11 +146,11 @@ class Grid(BaseGrid):
     @classmethod
     def from_tiling(
         cls,
-        offset: _GenericNumberArray,
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
         tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
         mode: TilingMode = TilingMode.skip,
+        offset: Optional[_GenericNumberArray] = None,
     ):
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode, offset)
@@ -174,14 +174,14 @@ class MaskedGrid(Grid):
     @classmethod
     def from_tiling(
         cls,
-        offset: _GenericNumberArray,
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
         tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
         mode: TilingMode = TilingMode.skip,
         mask: Optional[np.ndarray] = None,
-        foreground_threshold: float = 0.05,
-        scaled_region_view=None,
+        offset: Optional[_GenericNumberArray] = None,
+        foreground_threshold: Optional[float] = 0.05,
+        scaled_region_view: Optional[RegionView] = None,
     ):
         """Generate a grid from a set of tiling parameters."""
         unfiltered_grid = Grid.from_tiling(offset, size, tile_size, tile_overlap, mode)
