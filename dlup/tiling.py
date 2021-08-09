@@ -146,11 +146,11 @@ class Grid(BaseGrid):
     @classmethod
     def from_tiling(
         cls,
+        offset: _GenericNumberArray,
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
         tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
         mode: TilingMode = TilingMode.skip,
-        offset: Optional[_GenericNumberArray] = None,
     ):
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode, offset)
@@ -174,17 +174,17 @@ class MaskedGrid(Grid):
     @classmethod
     def from_tiling(
         cls,
+        offset: _GenericNumberArray,
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
         tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
         mode: TilingMode = TilingMode.skip,
         mask: Optional[np.ndarray] = None,
-        offset: Optional[_GenericNumberArray] = None,
         foreground_threshold: Optional[float] = 0.05,
         scaled_region_view: Optional[RegionView] = None,
     ):
         """Generate a grid from a set of tiling parameters."""
-        unfiltered_grid = Grid.from_tiling(size, tile_size, tile_overlap, mode, offset)
+        unfiltered_grid = Grid.from_tiling(offset, size, tile_size, tile_overlap, mode)
         if mask is None:
             return unfiltered_grid
 
@@ -203,7 +203,6 @@ class MaskedGrid(Grid):
     def __len__(self) -> int:
         """Return the total number of points in the grid."""
         return len(self._foreground_indices)
-
 
 def foreground_tiles_coordinates_mask(
     background_mask: np.ndarray,

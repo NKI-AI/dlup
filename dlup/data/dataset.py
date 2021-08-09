@@ -228,6 +228,7 @@ class MaskedSlideImageDataset(AbstractGridSlideImageDataset):
     def _construct_grid(self):
         scaling = self.slide_image.mpp / self.mpp
         slide_level_size = self.slide_image.get_scaled_size(scaling)
+
         grid = MaskedGrid.from_tiling(
             size=slide_level_size,
             tile_size=self.tile_size,
@@ -235,9 +236,9 @@ class MaskedSlideImageDataset(AbstractGridSlideImageDataset):
             mode=self._tile_mode,
             mask=self._mask,
             foreground_threshold=self._foreground_threshold,
-            offset=None,
             scaled_region_view=self.slide_image.get_scaled_view(scaling)  # TODO: This is not optional!
         )
+
         return grid
 
     @property

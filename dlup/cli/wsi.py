@@ -36,7 +36,6 @@ def tiling(args: argparse.Namespace):
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
-    # TODO: Maybe give the SlideImageDataset an image as input?
     dataset = MaskedSlideImageDataset(
         input_file_path,
         mask=mask,
