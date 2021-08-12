@@ -1,6 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 
+import collections
 import functools
 from enum import Enum
 from typing import Iterator, List, Sequence, Tuple, Type, TypeVar, Union
@@ -110,8 +111,8 @@ def tiles_grid_coordinates(
     return coordinates
 
 
-class Grid:
-    """Facilitates the access to the coordinates of Lattice points."""
+class Grid(collections.abc.Sequence[np.ndarray]):
+    """Facilitates the access to the coordinates of an n-dimensional grid."""
 
     def __init__(self, coordinates: List[np.ndarray]):
         """Initialize a lattice given a set of basis vectors."""
@@ -136,7 +137,7 @@ class Grid:
         """Return the size of the generated lattice."""
         return tuple(len(x) for x in self.coordinates)
 
-    def __getitem__(self, i) -> np.ndarray:
+    def __getitem__(self, i):
         index = np.unravel_index(i, self.size)
         return np.array(list(c[i] for c, i in zip(self.coordinates, index)))
 

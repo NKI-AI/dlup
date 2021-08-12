@@ -130,7 +130,7 @@ class SlideImage:
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> np.ndarray:
-        """Return a pyramidal region.
+        """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
         In normal cirmustances, it's not possible to retrieve an image of

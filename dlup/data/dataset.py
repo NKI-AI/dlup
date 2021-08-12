@@ -7,6 +7,7 @@ Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 
 import abc
 import bisect
+import collections
 import functools
 import json
 import pathlib
@@ -18,12 +19,14 @@ import PIL
 from dlup import BoundaryMode, SlideImage
 from dlup.background import foreground_tiles_coordinates_mask
 from dlup.tiling import Grid, TilingMode
+from dlup.tools import MapSequence, IndexSequence
+
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
 
 
-class Dataset(Generic[T_co], abc.ABC):
+class Dataset(Generic[T_co], collections.abc.Sequence):
     """An abstract class representing a :class:`Dataset`.
 
     All datasets that represent a map from keys to data samples should subclass
@@ -41,10 +44,6 @@ class Dataset(Generic[T_co], abc.ABC):
     dataset with non-integral indices/keys, a custom sampler must be provided.
 
     """
-
-    @abc.abstractmethod
-    def __getitem__(self, index) -> T_co:
-        """Index method for dataset."""
 
     def __add__(self, other: "Dataset[T_co]") -> "ConcatDataset[T_co]":
         return ConcatDataset([self, other])
@@ -104,59 +103,44 @@ class ConcatDataset(Dataset[T_co]):
         return self.datasets[dataset_idx][sample_idx]
 
 
-class BaseSlideImageDataset(Dataset):
-    """
-    Basic :class:`Dataset` class that represents a whole-slide image as tiles.
+LRU_CACHE_SIZE = 32
+
+
+@functools.lru_cache(LRU_CACHE_SIZE)
+def _get_cached_slide_image(path: pathlib.Path):
+    return SlideImage.from_file_path(path)
+
+
+class SlideImageDataset(Dataset):
+    """Generic :class:`Dataset` to iterate over regions of a :class:`SlideImage`class.
+
+    This class features some logic to avoid instantiating too many slides
+    which for very large datasets can cause expensive allocation due to
+    openslide internal caching.
     """
 
     def __init__(
         self,
         path: pathlib.Path,
-        mpp: float,
-        tile_size: Tuple[int, int],
-        tile_overlap: Tuple[int, int],
-        tile_mode: TilingMode = TilingMode.skip,
+        regions: collections.abc.Sequence[Tuple[float, float, int, int, float]],
         crop: bool = True,
+        transform: Optional[Callable] = None,
     ):
         """
         Parameters
         ----------
         path :
             Path to the image.
-        mpp :
-            Requested microns per pixel.
-        tile_size :
-            Tile size in the requested microns per pixel.
-        tile_overlap :
-            Overlap of the extracted tiles.
-        tile_mode :
-            Which tiling mode.
+        regions :
+            Sequence of rectangular regions as (x, y, h, w, mpp)
+        crop :
+            Crop overflowing tiles.
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
-        self._mpp = mpp
         self._crop = crop
-
-        slide_image = self.slide_image
-        slide_level_size = slide_image.get_scaled_size(slide_image.mpp / mpp)
-        self._grid = Grid.from_tiling((0, 0), slide_level_size, tile_size, tile_overlap=tile_overlap, mode=tile_mode)
-        self._tile_size = tile_size
-
-    @staticmethod
-    @functools.lru_cache(32)
-    def get_slide_image(path: pathlib.Path):
-        return SlideImage.from_file_path(path)
-
-    @property
-    def slide_image(self):
-        return self.__class__.get_slide_image(self.path)
-
-    @property
-    def region_view(self):
-        slide_image = self.slide_image
-        region_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
-        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
-        return region_view
+        self.regions = regions
+        self.transform = transform
 
     @property
     def path(self):
@@ -164,43 +148,35 @@ class BaseSlideImageDataset(Dataset):
         return self._path
 
     @property
-    def tile_size(self):
-        return self._tile_size
-
-    @property
-    def mpp(self):
-        return self._mpp
-
-    @property
     def crop(self):
-        return self._crop
+        self._crop
 
     @property
-    def grid(self):
-        """Size of tiling grid"""
-        return self._grid
+    def slide_image(self):
+        return _get_cached_slide_image(self.path)
 
     def __getitem__(self, index):
-        coordinates = self._grid[index]
-        return self.region_view.read_region(coordinates, self._tile_size), coordinates
+        slide_image = self.slide_image
+        x, y, w, h, mpp = self.regions[index]
+        coordinates = x, y
+        region_size = w, h
+        scaling = slide_image.mpp / mpp
+        region_view = slide_image.get_scaled_view(scaling)
+        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
+
+        region = region_view.read_region(coordinates, region_size)
+        sample = {"image": region, "coordinates": coordinates, "mpp": mpp, "path": self.path}
+
+        if self.transform:
+            sample = self.transform(sample)
+        return sample
 
     def __len__(self):
-        return len(self.grid)
+        return len(self.regions)
 
 
-class SlideImageDataset(BaseSlideImageDataset):
-    """
-    :class:`Dataset` class that represents a whole-slide image as tiles, possibly including a sampling mask.
-    The function outputs a dictionary:
-
-    >>> {"image": array, "coordinates": coordinates, "grid_index": grid_index, "path": path}
-
-    Keys:
-        - :code:`image`: selected tile.
-        - :code:`coordinates`: coordinates in selected mpp.
-        - :code:`grid_index`: index in the tiling grid.
-        - :code:`path`: path of the file.
-    """
+class TiledLevelSlideImageDataset(SlideImageDataset):
+    """Typical dataset dataset use-case with fixed mpp."""
 
     def __init__(
         self,
@@ -213,57 +189,64 @@ class SlideImageDataset(BaseSlideImageDataset):
         foreground_threshold: float = 0.1,
         transform: Optional[Callable] = None,
     ):
-        """
-        Parameters
-        ----------
-        path :
-            Path to the image.
-        mpp :
-            Requested microns per pixel.
-        tile_size :
-            Tile size in the requested microns per pixel.
-        tile_overlap :
-            Overlap of the extracted tiles.
-        tile_mode :
-            Which tiling mode.
-        mask :
-            Array denoting the sampling mask.
-        foreground_threshold :
-            The percentage of non-zero pixels required in the mask to include a tile.
-        transform :
-            Callable which should be applied after obtaining the sample, e.g. for augmentations.
-        """
-        super().__init__(path, mpp=mpp, tile_size=tile_size, tile_overlap=tile_overlap, tile_mode=tile_mode)
-        self.transform = transform
+        super().__init__(path, [], True, transform)
+        self._mpp = mpp
+        self._tile_size = tile_size
+        region_view = self.region_view
+        scaling = region_view.mpp / self.mpp
+
+        grid = Grid.from_tiling(
+            offset=(0, 0),
+            size=region_view.size,
+            tile_size=tile_size,
+            tile_overlap=tile_overlap,
+            mode=tile_mode,
+        )
+        self._grid = grid
+
+        def coords_to_region(key, coords):
+            """Return the necessary tuple that represents a region."""
+            return (*coords, *tile_size, scaling)
+
+        self.regions = MapSequence(coords_to_region, grid)
+
         self.foreground_indices = None
-
-        slide_image = self.slide_image
-        scaled_view = slide_image.get_scaled_view(slide_image.mpp / self._mpp)
-
         if mask is not None:
-            boolean_mask = foreground_tiles_coordinates_mask(
-                mask, scaled_view, self.grid, self.tile_size, foreground_threshold
-            )
+            boolean_mask = foreground_tiles_coordinates_mask(mask, region_view, grid, tile_size, foreground_threshold)
             self.foreground_indices = np.argwhere(boolean_mask).flatten()
 
+    @property
+    def region_view(self):
+        slide_image = self.slide_image
+        region_view = slide_image.get_scaled_view(slide_image.mpp / self.mpp)
+        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
+        return region_view
+
+    @property
+    def mpp(self):
+        return self._mpp
+
+    @property
+    def grid(self):
+        """Tiling grid (read only)"""
+        return self._grid
+
+    @property
+    def tile_size(self):
+        """Tile size (read only)"""
+        return self._tile_size
+
     def __getitem__(self, index):
-        # If a mask is given, we index the foreground indices set
-        if self.foreground_indices is not None:
-            index = self.foreground_indices[index]
+        has_mask = self.foreground_indices is not None
+        tile_index = self.foreground_indices[index] if has_mask else index
 
-        grid_index = np.unravel_index(index, self.grid.size, order="C")
-        tile, coordinates = super().__getitem__(index)
-        sample = {"image": tile, "coordinates": coordinates, "grid_index": grid_index, "path": self.path}
-
-        if self.transform:
-            sample = self.transform(sample)
-        return sample
-
-    def __len__(self):
-        return len(self.foreground_indices) if self.foreground_indices is not None else len(self.grid)
+        data = super().__getitem__(tile_index)
+        grid_index = np.unravel_index(index, self.grid.size)
+        data.update({"grid_index": grid_index})
+        return data
 
 
-class TiledSlideImageDataset(Dataset):
+class PreTiledSlideImageDataset(Dataset):
     """Dataset class to handle a pretiled WSIs. If you want to combine multiple WSIs, use :class:`ConcatDataset`.
 
     Examples

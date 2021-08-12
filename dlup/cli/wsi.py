@@ -11,7 +11,7 @@ import PIL
 
 from dlup import SlideImage
 from dlup.background import get_mask
-from dlup.data.dataset import SlideImageDataset
+from dlup.data.dataset import TiledLevelSlideImageDataset
 from dlup.tiling import TilingMode
 from dlup.utils import ArrayEncoder
 from dlup.viz.plotting import plot_2d
@@ -37,7 +37,7 @@ def tiling(args: argparse.Namespace):
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
     # TODO: Maybe give the SlideImageDataset an image as input?
-    dataset = SlideImageDataset(
+    dataset = TiledLevelSlideImageDataset(
         input_file_path,
         mask=mask,
         mpp=args.mpp,
