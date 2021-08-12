@@ -56,7 +56,7 @@ class RegionView(ABC):
 
         if self.boundary_mode == BoundaryMode.zero:
             padding = np.zeros((len(region.shape), 2), dtype=int)
-            padding[:-1, 1] = size - clipped_region_size
+            padding[:-1, 1] = np.flip(size - clipped_region_size)
             values = np.zeros_like(padding)
             region = np.pad(region, padding, "constant", constant_values=values)
 

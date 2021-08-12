@@ -111,7 +111,7 @@ def tiles_grid_coordinates(
     return coordinates
 
 
-class Grid(collections.abc.Sequence[np.ndarray]):
+class Grid(collections.abc.Sequence):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
     def __init__(self, coordinates: List[np.ndarray]):

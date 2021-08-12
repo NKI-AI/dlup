@@ -122,7 +122,7 @@ class SlideImageDataset(Dataset):
     def __init__(
         self,
         path: pathlib.Path,
-        regions: collections.abc.Sequence[Tuple[float, float, int, int, float]],
+        regions: collections.abc.Sequence,
         crop: bool = True,
         transform: Optional[Callable] = None,
     ):
@@ -149,7 +149,7 @@ class SlideImageDataset(Dataset):
 
     @property
     def crop(self):
-        self._crop
+        return self._crop
 
     @property
     def slide_image(self):
@@ -193,7 +193,6 @@ class TiledLevelSlideImageDataset(SlideImageDataset):
         self._mpp = mpp
         self._tile_size = tile_size
         region_view = self.region_view
-        scaling = region_view.mpp / self.mpp
 
         grid = Grid.from_tiling(
             offset=(0, 0),
@@ -206,7 +205,7 @@ class TiledLevelSlideImageDataset(SlideImageDataset):
 
         def coords_to_region(key, coords):
             """Return the necessary tuple that represents a region."""
-            return (*coords, *tile_size, scaling)
+            return (*coords, *tile_size, mpp)
 
         self.regions = MapSequence(coords_to_region, grid)
 
