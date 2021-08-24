@@ -4,6 +4,9 @@
 """Utility classes to easily extend sequences logic without creating new classes."""
 
 import collections
+import functools
+import itertools
+import bisect
 
 
 class MapSequence(collections.abc.Sequence):
@@ -17,11 +20,15 @@ class MapSequence(collections.abc.Sequence):
         self._function = function
         self._sequence = sequence
 
+    def __len__(self):
+        return len(self._sequence)
+
     def __getitem__(self, key):
         return self._function(key, self._sequence[key])
 
-    def __len__(self):
-        return len(self._sequence)
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
 
 
 class IndexSequence(collections.abc.Sequence):
@@ -36,3 +43,29 @@ class IndexSequence(collections.abc.Sequence):
 
     def __len__(self):
         return len(self._indices)
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
+
+class ConcatSequences(collections.abc.Sequence):
+    """Concatenate two or more sequences."""
+
+    def __init__(self, sequences):
+        self._sequences = sequences
+        cumsum = list(itertools.accumulate([len(s) for s in sequences]))
+        self._starting_indices = [0] + cumsum[:-1]
+        self._len = cumsum[-1]
+
+    def __getitem__(self, key):
+        starting_index = bisect.bisect_right(self._starting_indices, key) - 1
+        sequence_index = key - self._starting_indices[starting_index]
+        return self._sequences[starting_index][sequence_index]
+
+    def __len__(self):
+        return self._len
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]

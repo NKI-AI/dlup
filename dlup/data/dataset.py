@@ -17,9 +17,9 @@ import numpy as np
 import PIL
 
 from dlup import BoundaryMode, SlideImage
-from dlup.background import foreground_tiles_coordinates_mask
+from dlup.background import is_foreground
 from dlup.tiling import Grid, TilingMode
-from dlup.tools import MapSequence, IndexSequence
+from dlup.tools import MapSequence, ConcatSequences
 
 
 T_co = TypeVar("T_co", covariant=True)
@@ -124,6 +124,8 @@ class SlideImageDataset(Dataset):
         path: pathlib.Path,
         regions: collections.abc.Sequence,
         crop: bool = True,
+        mask: Optional[np.ndarray] = None,
+        mask_threshold: float = 0.1,
         transform: Optional[Callable] = None,
     ):
         """
@@ -135,12 +137,29 @@ class SlideImageDataset(Dataset):
             Sequence of rectangular regions as (x, y, h, w, mpp)
         crop :
             Crop overflowing tiles.
+        transform :
+            Transforming function.
+        mask :
+            Binary mask used to filter each region toghether with a threshold.
+        mask_threshold :
+            0 every region is discarded, 1 requires the whole region to be foreground.
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
         self._crop = crop
         self.regions = regions
         self.transform = transform
+
+        # Maps from a masked index -> regions index.
+        # For instance, let's say we have three regions
+        # masked according to the following boolean values: [True, False, True].
+        # Then masked_indices[0] == 0, masked_indices[1] == 2.
+        self.masked_indices = None
+        if mask is not None:
+            boolean_mask = np.zeros(len(regions))
+            for i, region in enumerate(regions):
+                boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
+            self.masked_indices = np.argwhere(boolean_mask).flatten()
 
     @property
     def path(self):
@@ -149,15 +168,23 @@ class SlideImageDataset(Dataset):
 
     @property
     def crop(self):
+        """Returns true the regions will be cropped at the boundaries."""
         return self._crop
 
     @property
     def slide_image(self):
+        """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path)
 
     def __getitem__(self, index):
         slide_image = self.slide_image
-        x, y, w, h, mpp = self.regions[index]
+
+        # If there's a mask, we consider the index as a sub-sequence index.
+        # Let's map it back to the original regions index.
+        has_mask = self.masked_indices is not None
+        region_index = self.masked_indices[index] if has_mask else index
+
+        x, y, w, h, mpp = self.regions[region_index]
         coordinates = x, y
         region_size = w, h
         scaling = slide_image.mpp / mpp
@@ -165,84 +192,85 @@ class SlideImageDataset(Dataset):
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
         region = region_view.read_region(coordinates, region_size)
-        sample = {"image": region, "coordinates": coordinates, "mpp": mpp, "path": self.path}
+        sample = {
+            "image": region,
+            "coordinates": coordinates,
+            "mpp": mpp,
+            "path": self.path,
+            "index": index,
+        }
+        if has_mask:
+            sample["unmasked_index"] = region_index
 
         if self.transform:
             sample = self.transform(sample)
         return sample
 
     def __len__(self):
-        return len(self.regions)
+        """Returns the length of the dataset.
+
+        The length may vary depending on the provided boolean mask.
+        """
+        return len(self.regions) if self.masked_indices is None else len(self.masked_indices)
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
 
 
-class TiledLevelSlideImageDataset(SlideImageDataset):
-    """Typical dataset dataset use-case with fixed mpp."""
+def _coords_to_region(tile_size, target_mpp, key, coords):
+    """Return the necessary tuple that represents a region."""
+    return (*coords, *tile_size, target_mpp)
+
+
+class TiledROIsSlideImageDataset(SlideImageDataset):
+    """Example dataset dataset class that supports multiple ROIs."""
 
     def __init__(
         self,
+        path: pathlib.Path,
+        grids: Iterable[Tuple[Grid, Tuple[int, int], float]],
+        crop: bool = True,
+        mask: Optional[np.ndarray] = None,
+        mask_threshold: float = 0.1,
+        transform: Optional[Callable] = None,
+    ):
+        self._grids = grids
+        regions = []
+        for grid, tile_size, mpp in grids:
+            regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))
+
+        super().__init__(
+            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, transform=transform
+        )
+
+    @property
+    def grids(self):
+        return self._grids
+
+    @classmethod
+    def from_standard_tiling(
+        cls,
         path: pathlib.Path,
         mpp: float,
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.skip,
+        crop: bool = True,
         mask: Optional[np.ndarray] = None,
-        foreground_threshold: float = 0.1,
+        mask_threshold: float = 0.1,
         transform: Optional[Callable] = None,
     ):
-        super().__init__(path, [], True, transform)
-        self._mpp = mpp
-        self._tile_size = tile_size
-        region_view = self.region_view
-
+        with SlideImage.from_file_path(path) as slide_image:
+            slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
         grid = Grid.from_tiling(
-            offset=(0, 0),
-            size=region_view.size,
+            (0, 0),
+            size=slide_level_size,
             tile_size=tile_size,
             tile_overlap=tile_overlap,
             mode=tile_mode,
         )
-        self._grid = grid
-
-        def coords_to_region(key, coords):
-            """Return the necessary tuple that represents a region."""
-            return (*coords, *tile_size, mpp)
-
-        self.regions = MapSequence(coords_to_region, grid)
-
-        self.foreground_indices = None
-        if mask is not None:
-            boolean_mask = foreground_tiles_coordinates_mask(mask, region_view, grid, tile_size, foreground_threshold)
-            self.foreground_indices = np.argwhere(boolean_mask).flatten()
-
-    @property
-    def region_view(self):
-        slide_image = self.slide_image
-        region_view = slide_image.get_scaled_view(slide_image.mpp / self.mpp)
-        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
-        return region_view
-
-    @property
-    def mpp(self):
-        return self._mpp
-
-    @property
-    def grid(self):
-        """Tiling grid (read only)"""
-        return self._grid
-
-    @property
-    def tile_size(self):
-        """Tile size (read only)"""
-        return self._tile_size
-
-    def __getitem__(self, index):
-        has_mask = self.foreground_indices is not None
-        tile_index = self.foreground_indices[index] if has_mask else index
-
-        data = super().__getitem__(tile_index)
-        grid_index = np.unravel_index(index, self.grid.size)
-        data.update({"grid_index": grid_index})
-        return data
+        return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, transform)
 
 
 class PreTiledSlideImageDataset(Dataset):

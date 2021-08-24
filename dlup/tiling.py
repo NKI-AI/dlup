@@ -137,9 +137,9 @@ class Grid(collections.abc.Sequence):
         """Return the size of the generated lattice."""
         return tuple(len(x) for x in self.coordinates)
 
-    def __getitem__(self, i):
-        index = np.unravel_index(i, self.size)
-        return np.array(list(c[i] for c, i in zip(self.coordinates, index)))
+    def __getitem__(self, key):
+        index = np.unravel_index(key, self.size)
+        return np.array([c[i] for c, i in zip(self.coordinates, index)])
 
     def __len__(self) -> int:
         """Return the total number of points in the grid."""

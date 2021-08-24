@@ -235,6 +235,14 @@ class SlideImage:
         size = np.array(self.size) * scaling
         return tuple(size.astype(int))
 
+    def get_mpp(self, scaling: float) -> float:
+        """Returns the respective mpp from the scaling."""
+        return self._min_native_mpp / scaling
+
+    def get_scaling(self, mpp: float) -> float:
+        """Inverse of get_mpp()."""
+        return self._min_native_mpp / mpp
+
     def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
@@ -292,7 +300,7 @@ class SlideImage:
 
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
-        props = ("identifier", "vendor", "mpp", "magnification")
+        props = ("identifier", "vendor", "mpp", "magnification", "size")
         props_str = []
         for key in props:
             value = getattr(self, key)
