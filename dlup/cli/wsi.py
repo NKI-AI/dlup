@@ -80,8 +80,8 @@ def tiling(args: argparse.Namespace):
     indices = [None for _ in range(num_tiles)]
     tile_saver = TileSaver(dataset, tiles_output_directory_path)
     with Pool(args.num_workers) as pool:
-        for (grid_index, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
-            indices[idx] = grid_index
+        for (grid_local_coordinates, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
+            indices[idx] = grid_local_coordinates
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
@@ -99,12 +99,13 @@ class TileSaver:
     def save_tile(self, index):
         tile_dict = self.dataset[index]
         tile = PIL.Image.fromarray(tile_dict["image"])
-        grid_index = tile_dict["unmasked_index"] if "unmasked_index" in tile_dict else tile_dict["index"]
-        grid, _, _ = self.dataset.grids[0]
-        grid_indices = np.unravel_index(grid_index, grid.size)
-
-        tile.save(self.output_directory_path / f"{'_'.join(map(str, grid_indices))}.png")
-        return grid_index, index
+        grid_local_coordinates = tile_dict["grid_local_coordinates"]
+        grid_index = tile_dict["grid_index"]
+        indices = grid_local_coordinates
+        if len(self.dataset.grids) > 1:
+            indices = [grid_index] + indices
+        tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")
+        return grid_local_coordinates, index
 
 
 def info(args: argparse.Namespace):
