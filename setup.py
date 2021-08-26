@@ -42,7 +42,6 @@ setup(
     },
     install_requires=[
         "matplotlib",
-        "joblib",
         "numpy",
         "requests",
         "scikit-image",
