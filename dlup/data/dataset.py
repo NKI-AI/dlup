@@ -9,6 +9,7 @@ import abc
 import bisect
 import collections
 import functools
+import itertools
 import json
 import pathlib
 from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
@@ -197,10 +198,8 @@ class SlideImageDataset(Dataset):
             "coordinates": coordinates,
             "mpp": mpp,
             "path": self.path,
-            "index": index,
+            "region_index": region_index,
         }
-        if has_mask:
-            sample["unmasked_index"] = region_index
 
         if self.transform:
             sample = self.transform(sample)
@@ -240,6 +239,8 @@ class TiledROIsSlideImageDataset(SlideImageDataset):
         for grid, tile_size, mpp in grids:
             regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))
 
+        self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
+
         super().__init__(
             path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, transform=transform
         )
@@ -271,6 +272,16 @@ class TiledROIsSlideImageDataset(SlideImageDataset):
             mode=tile_mode,
         )
         return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, transform)
+
+    def __getitem__(self, index):
+        data = super().__getitem__(index)
+        region_index = data["region_index"]
+        starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
+        grid_index = region_index - self._starting_indices[starting_index]
+        grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
+        data["grid_local_coordinates"] = grid_local_coordinates
+        data["grid_index"] = starting_index
+        return data
 
 
 class PreTiledSlideImageDataset(Dataset):
