@@ -101,6 +101,7 @@ class TileSaver:
         tile = PIL.Image.fromarray(tile_dict["image"])
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
         grid_index = tile_dict["grid_index"]
+
         indices = grid_local_coordinates
         if len(self.dataset.grids) > 1:
             indices = [grid_index] + indices
