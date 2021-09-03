@@ -60,17 +60,17 @@ Dataset examples
     dataset = TiledROIsSlideImageDataset(INPUT_FILE_PATH, [(grid1, TILE_SIZE, TARGET_MPP), (grid2, TILE_SIZE, TARGET_MPP)], mask=mask)
 
 
-    background = Image.new('RGBA', tuple(scaled_region_view.size), (255, 255, 255, 255))
+    background = Image.new("RGBA", tuple(scaled_region_view.size), (255, 255, 255, 255))
 
     for i, d in enumerate(dataset):
-        tile = d['image']
-        coords = np.array(d['coordinates'])
-        print(coords, d['grid_local_coordinates'], d['grid_index'])
+        tile = d["image"]
+        coords = np.array(d["coordinates"])
+        print(coords, d["grid_local_coordinates"], d["grid_index"])
         pil_image = Image.fromarray(tile)
         box = tuple(np.array((*coords, *(coords + TILE_SIZE))).astype(int))
         background.paste(pil_image, box)
         draw = ImageDraw.Draw(background)
-        draw.rectangle(box, outline='red')
+        draw.rectangle(box, outline="red")
 
     plt.figure()
     plt.imshow(background)
