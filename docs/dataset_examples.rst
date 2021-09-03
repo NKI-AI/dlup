@@ -40,3 +40,40 @@ Dataset examples
     plt.show()
 
 .. figure:: img/dataset_example.png
+
+.. code-block:: python
+
+    grid1 = Grid.from_tiling(
+        (100, 120),
+        size=(100, 100),
+        tile_size=TILE_SIZE,
+        tile_overlap=(0, 0)
+    )
+
+    grid2 = Grid.from_tiling(
+        (65, 62, 0),
+        size=(100, 100),
+        tile_size=TILE_SIZE,
+        tile_overlap=(0, 0)
+    )
+
+    dataset = TiledROIsSlideImageDataset(INPUT_FILE_PATH, [(grid1, TILE_SIZE, TARGET_MPP), (grid2, TILE_SIZE, TARGET_MPP)], mask=mask)
+
+
+    background = Image.new('RGBA', tuple(scaled_region_view.size), (255, 255, 255, 255))
+
+    for i, d in enumerate(dataset):
+        tile = d['image']
+        coords = np.array(d['coordinates'])
+        print(coords, d['grid_local_coordinates'], d['grid_index'])
+        pil_image = Image.fromarray(tile)
+        box = tuple(np.array((*coords, *(coords + TILE_SIZE))).astype(int))
+        background.paste(pil_image, box)
+        draw = ImageDraw.Draw(background)
+        draw.rectangle(box, outline='red')
+
+    plt.figure()
+    plt.imshow(background)
+    plt.show()
+
+.. figure:: img/dataset_example2.png
