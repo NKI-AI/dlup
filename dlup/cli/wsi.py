@@ -8,10 +8,11 @@ from multiprocessing import Pool
 from typing import Tuple, cast
 
 import PIL
+import numpy as np
 
 from dlup import SlideImage
 from dlup.background import get_mask
-from dlup.data.dataset import SlideImageDataset
+from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import TilingMode
 from dlup.utils import ArrayEncoder
 from dlup.viz.plotting import plot_2d
@@ -37,14 +38,14 @@ def tiling(args: argparse.Namespace):
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
     # TODO: Maybe give the SlideImageDataset an image as input?
-    dataset = SlideImageDataset(
+    dataset = TiledROIsSlideImageDataset.from_standard_tiling(
         input_file_path,
         mask=mask,
         mpp=args.mpp,
         tile_size=tile_size,
         tile_overlap=tile_overlap,
         tile_mode=args.mode,
-        foreground_threshold=args.foreground_threshold,
+        mask_threshold=args.foreground_threshold,
         transform=None,
     )
     num_tiles = len(dataset)
@@ -60,8 +61,8 @@ def tiling(args: argparse.Namespace):
             "vendor": image.vendor,
         },
         "output": {
-            "mpp": dataset.mpp,
-            "size": dataset.region_view.size,
+            "mpp": args.mpp,
+            "size": dataset.slide_image.get_scaled_size(dataset.slide_image.get_scaling(args.mpp)),
         },
         "settings": {
             "mode": args.mode,
@@ -77,30 +78,35 @@ def tiling(args: argparse.Namespace):
     tiles_output_directory_path = output_directory_path / "tiles"
     tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
     indices = [None for _ in range(num_tiles)]
-    tile_saver = TileSaver(dataset.__getitem__, tiles_output_directory_path)
+    tile_saver = TileSaver(dataset, tiles_output_directory_path)
     with Pool(args.num_workers) as pool:
-        for (grid_index, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
-            indices[idx] = grid_index
+        for (grid_local_coordinates, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
+            indices[idx] = grid_local_coordinates
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
-    output["output"]["background_tiles"] = len(dataset.grid) - num_tiles
+    output["output"]["background_tiles"] = len(dataset.regions) - num_tiles
 
     with open(output_directory_path / "tiles.json", "w") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)
 
 
 class TileSaver:
-    def __init__(self, get_index_function, output_directory_path):
-        self.get_index_function = get_index_function
+    def __init__(self, dataset, output_directory_path):
+        self.dataset = dataset
         self.output_directory_path = output_directory_path
 
     def save_tile(self, index):
-        tile_dict = self.get_index_function(index)
+        tile_dict = self.dataset[index]
         tile = PIL.Image.fromarray(tile_dict["image"])
+        grid_local_coordinates = tile_dict["grid_local_coordinates"]
         grid_index = tile_dict["grid_index"]
-        tile.save(self.output_directory_path / f"{'_'.join(map(str, grid_index))}.png")
-        return grid_index, index
+
+        indices = grid_local_coordinates
+        if len(self.dataset.grids) > 1:
+            indices = [grid_index] + indices
+        tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")
+        return grid_local_coordinates, index
 
 
 def info(args: argparse.Namespace):

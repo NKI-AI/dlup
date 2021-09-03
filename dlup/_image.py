@@ -130,7 +130,7 @@ class SlideImage:
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> np.ndarray:
-        """Return a pyramidal region.
+        """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
         In normal cirmustances, it's not possible to retrieve an image of
@@ -224,8 +224,6 @@ class SlideImage:
         # We extract the region via openslide with the required extra border
         region = owsi.read_region(tuple(level_zero_location_adapted), native_level, tuple(native_size_adapted))
 
-        # Wiat a minute, isn't this rgba?
-
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.
         fractional_coordinates = native_location - native_location_adapted
@@ -236,6 +234,14 @@ class SlideImage:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
         return tuple(size.astype(int))
+
+    def get_mpp(self, scaling: float) -> float:
+        """Returns the respective mpp from the scaling."""
+        return self._min_native_mpp / scaling
+
+    def get_scaling(self, mpp: float) -> float:
+        """Inverse of get_mpp()."""
+        return self._min_native_mpp / mpp
 
     def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""
@@ -294,7 +300,7 @@ class SlideImage:
 
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
-        props = ("identifier", "vendor", "mpp", "magnification")
+        props = ("identifier", "vendor", "mpp", "magnification", "size")
         props_str = []
         for key in props:
             value = getattr(self, key)

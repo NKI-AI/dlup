@@ -20,6 +20,7 @@ datasets ready to be used for model training and inference.
    quickstart
    tiling
    cli
+   dataset_examples
    contributing
    modules
 
