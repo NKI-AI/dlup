@@ -7,12 +7,11 @@ If the :doc:`/installation` went smoothly, you should be able to run :bash:`dlup
 
 .. code-block:: console
 
-    usage: dlup [-h] {wsi,slidescore} ...
+    usage: dlup [-h] {wsi} ...
 
     positional arguments:
-      {wsi,slidescore}  Possible DLUP CLI utils to run.
+      {wsi}  Possible DLUP CLI utils to run.
         wsi             WSI parser
-        slidescore      SlideScore parser
 
     optional arguments:
       -h, --help        show this help message and exit

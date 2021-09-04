@@ -51,6 +51,7 @@ clean-docs: ## clean sphinx docs
 	rm -f docs/dlup.rst
 	rm -f docs/modules.rst
 	rm -f docs/dlup.*.rst
+	rm -rf docs/_build
 
 lint: ## check style with flake8
 	flake8 dlup tests
