@@ -224,11 +224,14 @@ class SlideImage:
         # We extract the region via openslide with the required extra border
         region = owsi.read_region(tuple(level_zero_location_adapted), native_level, tuple(native_size_adapted))
 
+        # All convolutional networks expect a 3-channel image. However, openslide returns RGBA (4-channel).
+        region = region.convert(mode="RGB")
+
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.
         fractional_coordinates = native_location - native_location_adapted
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
-        return np.asarray(region.resize(size, resample=PIL.Image.LANCZOS, box=box))
+        return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
 
     def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""
