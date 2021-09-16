@@ -215,7 +215,7 @@ def is_foreground(
     background_mask: np.ndarray,
     region: Tuple[float, float, int, int, float],
     threshold: float = 1.0,
-):
+) -> bool:
     mask_size = np.array(background_mask.shape[:2][::-1])
 
     # Let's get the region view from the slide image.
