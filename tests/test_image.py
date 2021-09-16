@@ -12,13 +12,13 @@ from the right level and locations of the original image.
 from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
-import openslide  # type: ignore
 import PIL
 import pytest
 from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
 
+import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError, SlideImage
 
 from .common import *
@@ -91,8 +91,8 @@ class TestSlideImage:
         # Notice that PIL box uses upper left and lower right rectangle coordinates.
         box = (*out_region_location, *(out_region_location + out_region_size))
         expected_level_box = np.array(box) / relative_scaling
-        pil_extracted_region = np.array(
-            expected_level_image.resize(out_region_size, resample=PIL.Image.LANCZOS, box=expected_level_box)
+        pil_extracted_region = expected_level_image.resize(
+            out_region_size, resample=PIL.Image.LANCZOS, box=expected_level_box
         )
 
         # Spy on how our mock object was called
@@ -101,8 +101,8 @@ class TestSlideImage:
         # Use dlup read_region to extract the same location
         extracted_region = dlup_wsi.read_region(out_region_location, scaling, out_region_size)
 
-        # Is a numpy array
-        assert isinstance(extracted_region, np.ndarray)
+        # Is a PIL Image
+        assert isinstance(extracted_region, PIL.Image.Image)
 
         # Check that the right layer was indeed requested from our mock function.
         call_args_list = openslide_image.read_region.call_args_list
@@ -111,8 +111,8 @@ class TestSlideImage:
         _, selected_level, _ = call.args
         assert selected_level == expected_level
 
-        # Check that the output correspondin shape and value.
-        assert pil_extracted_region.shape == extracted_region.shape
+        # Check that the output corresponding shape and value.
+        assert np.asarray(pil_extracted_region).shape == np.asarray(extracted_region).shape
         assert np.allclose(pil_extracted_region, extracted_region)
 
     @pytest.mark.parametrize("shift_x", list(np.linspace(0, 2, 10)))
@@ -177,5 +177,7 @@ def test_scaled_view(dlup_wsi, scaling):
     assert view.mpp == dlup_wsi.mpp / scaling
     location = (3.7, 0)
     size = (10, 15)
-    assert (view.read_region(location, size) == dlup_wsi.read_region(location, scaling, size)).all()
+    assert (
+        np.asarray(view.read_region(location, size)) == np.asarray(dlup_wsi.read_region(location, scaling, size))
+    ).all()
     assert dlup_wsi.get_scaled_size(scaling) == view.size
