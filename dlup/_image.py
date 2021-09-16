@@ -247,7 +247,7 @@ class SlideImage:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
-    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> np.ndarray:
+    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image.Image:
         """Returns an RGB numpy thumbnail for the current slide.
 
         Parameters
@@ -255,10 +255,10 @@ class SlideImage:
         size :
             Maximum bounding box for the thumbnail expressed as (width, height).
         """
-        return np.array(self._openslide_wsi.get_thumbnail(size))
+        return self._openslide_wsi.get_thumbnail(size)
 
     @property
-    def thumbnail(self) -> np.ndarray:
+    def thumbnail(self) -> PIL.Image.Image:
         """Returns the thumbnail."""
         return self.get_thumbnail()
 

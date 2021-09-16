@@ -47,7 +47,7 @@ class TestSlideImage:
         assert dlup_wsi.magnification == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
         assert isinstance(repr(dlup_wsi), str)
         assert dlup_wsi.identifier == "mock"
-        assert isinstance(dlup_wsi.thumbnail, np.ndarray)
+        assert isinstance(dlup_wsi.thumbnail, PIL.Image.Image)
 
     @pytest.mark.parametrize(
         "slide_config",
@@ -149,9 +149,9 @@ class TestSlideImage:
         assert (np.array(size) >= 0).all()
 
     def test_thumbnail(self, dlup_wsi):
-        """Check the thumbnail is a numpy array."""
+        """Check the thumbnail is a PIL Image."""
         thumbnail = dlup_wsi.thumbnail
-        assert isinstance(thumbnail, np.ndarray)
+        assert isinstance(thumbnail, PIL.Image.Image)
 
     def test_slide_image_with(self, mocker, openslide_image):
         """Test enter exit of the slide."""
