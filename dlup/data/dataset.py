@@ -20,8 +20,7 @@ import PIL
 from dlup import BoundaryMode, SlideImage
 from dlup.background import is_foreground
 from dlup.tiling import Grid, TilingMode
-from dlup.tools import MapSequence, ConcatSequences
-
+from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")

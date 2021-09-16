@@ -7,8 +7,8 @@ import pathlib
 from multiprocessing import Pool
 from typing import Tuple, cast
 
-import PIL
 import numpy as np
+import PIL
 
 from dlup import SlideImage
 from dlup.background import get_mask
