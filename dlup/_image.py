@@ -15,11 +15,11 @@ import pathlib
 from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
-import openslide  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
+import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError
 
 from ._region import BoundaryMode, RegionView
@@ -129,7 +129,7 @@ class SlideImage:
         location: Union[np.ndarray, Tuple[_GenericNumber, _GenericNumber]],
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
-    ) -> np.ndarray:
+    ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
@@ -223,9 +223,6 @@ class SlideImage:
 
         # We extract the region via openslide with the required extra border
         region = owsi.read_region(tuple(level_zero_location_adapted), native_level, tuple(native_size_adapted))
-
-        # All convolutional networks expect a 3-channel image. However, openslide returns RGBA (4-channel).
-        region = region.convert(mode="RGB")
 
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.
