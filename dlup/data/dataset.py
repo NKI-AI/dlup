@@ -12,7 +12,7 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar, TypedDict
 
 import numpy as np
 import PIL
@@ -24,6 +24,20 @@ from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
+
+
+class PretiledDatasetSample(TypedDict):
+    image: PIL.Image.Image
+    coordinates: Tuple[int, int]
+    mpp: float
+    path: pathlib.Path
+    region_index: int
+
+
+class RegionFromSlideDatasetSample(TypedDict):
+    image: PIL.Image.Image
+    grid_index: int
+    path: pathlib.Path
 
 
 class Dataset(Generic[T_co], collections.abc.Sequence):
@@ -117,6 +131,9 @@ class SlideImageDataset(Dataset):
     This class features some logic to avoid instantiating too many slides
     which for very large datasets can cause expensive allocation due to
     openslide internal caching.
+
+    This class is the superclass of :class:`TiledROIsSlideImageDataset`, which has a function,
+    `from_standard_tiling`, to compute all the regions for specified tiling parameters on the fly.
     """
 
     def __init__(
@@ -136,7 +153,7 @@ class SlideImageDataset(Dataset):
         regions :
             Sequence of rectangular regions as (x, y, h, w, mpp)
         crop :
-            Crop overflowing tiles.
+            Whether or not to crop overflowing tiles.
         transform :
             Transforming function.
         mask :
@@ -156,10 +173,10 @@ class SlideImageDataset(Dataset):
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
         self.masked_indices = None
         if mask is not None:
-            boolean_mask = np.zeros(len(regions))
+            boolean_mask: np.ndarray[bool] = np.zeros(len(regions))
             for i, region in enumerate(regions):
-                boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
-            self.masked_indices = np.argwhere(boolean_mask).flatten()
+                boolean_mask[i]: bool = is_foreground(self.slide_image, mask, region, mask_threshold)
+            self.masked_indices: np.ndarray[int] = np.argwhere(boolean_mask).flatten()
 
     @property
     def path(self):
@@ -176,18 +193,18 @@ class SlideImageDataset(Dataset):
         """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> RegionFromSlideDatasetSample:
         slide_image = self.slide_image
 
         # If there's a mask, we consider the index as a sub-sequence index.
         # Let's map it back to the original regions index.
         has_mask = self.masked_indices is not None
-        region_index = self.masked_indices[index] if has_mask else index
+        region_index: int = self.masked_indices[index] if has_mask else index
 
         x, y, w, h, mpp = self.regions[region_index]
-        coordinates = x, y
-        region_size = w, h
-        scaling = slide_image.mpp / mpp
+        coordinates: Tuple[int, int] = x, y
+        region_size: Tuple[int, int] = w, h
+        scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
@@ -222,7 +239,26 @@ def _coords_to_region(tile_size, target_mpp, key, coords):
 
 
 class TiledROIsSlideImageDataset(SlideImageDataset):
-    """Example dataset dataset class that supports multiple ROIs."""
+    """Example dataset dataset class that supports multiple ROIs.
+
+    This dataset can be used, for example, to tile your WSI on-the-fly using the `from_standard_tiling` function.
+
+    Example
+    -------
+    >>>  dlup_dataset = TiledROIsSlideImageDataset.from_standard_tiling(\
+            path='/path/to/TCGA-WSI.svs',\
+            mpp=0.5,\
+            tile_size=(512,512),\
+            tile_overlap=(0,0),\
+            tile_mode='skip',\
+            crop=True,\
+            mask=None,\
+            mask_threshold=0.5,\
+            transform=YourTransform()\
+         )
+    >>> sample = dlup_dataset[5]
+    >>> image = sample["image']
+    """
 
     def __init__(
         self,
@@ -261,6 +297,38 @@ class TiledROIsSlideImageDataset(SlideImageDataset):
         mask_threshold: float = 0.1,
         transform: Optional[Callable] = None,
     ):
+        """Function to be used to tile a WSI on-the-fly.
+        Parameters
+        ----------
+        path :
+            path to a single WSI
+        mpp :
+            float stating the microns per pixel that you wish the tiles to be.
+        tile_size :
+            Tuple of integers that represent the pixel size of output tiles
+        tile_overlap :
+            Tuple of integers that represents the overlap of tiles in the x and y direction
+        tile_mode :
+            "skip", "overflow", or "fit". see `dlup.tiling.TilingMode` for more information
+        crop :
+            Whether or not to crop overflowing tiles.
+        mask :
+            Binary mask used to filter each region toghether with a threshold.
+        mask_threshold :
+            0 every region is discarded, 1 requires the whole region to be foreground.
+        transform :
+            Tansform to be applied to the sample
+
+        Example
+        -------
+        See example of usage in the main class docstring
+
+        Returns
+        -------
+        Initialized SlideImageDataset with all the regions as computed using the given tile size, mpp, and so on.
+        Calling this dataset with an index will return a tile extracted straight from the WSI. This means tiling as
+        pre-processing step is not required.
+        """
         with SlideImage.from_file_path(path) as slide_image:
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
         grid = Grid.from_tiling(
@@ -313,7 +381,7 @@ class PreTiledSlideImageDataset(Dataset):
         self._num_tiles = tiles_data["output"]["num_tiles"]
         self._tile_indices = tiles_data["output"]["tile_indices"]
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> PretiledDatasetSample:
         grid_index = self._tile_indices[index]
         path_to_tile = self.path / "tiles" / f"{'_'.join(map(str, grid_index))}.png"
         # TODO(jt): Figure out why the mode is RGB
