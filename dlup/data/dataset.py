@@ -28,12 +28,17 @@ T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
 
 
-class RegionFromSlideDatasetSample(TypedDict):
+class StandardTilingFromSlideDatasetSample(TypedDict):
     image: PIL.Image.Image
     coordinates: Tuple[int, int]
     mpp: float
     path: pathlib.Path
     region_index: int
+
+
+class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
+    grid_local_coordinates: Tuple
+    grid_index: int
 
 
 class PretiledDatasetSample(TypedDict):
@@ -195,7 +200,7 @@ class SlideImageDataset(Dataset):
         """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path)
 
-    def __getitem__(self, index: int) -> RegionFromSlideDatasetSample:
+    def __getitem__(self, index: Union[int, slice]) -> StandardTilingFromSlideDatasetSample:
         slide_image = self.slide_image
 
         # If there's a mask, we consider the index as a sub-sequence index.
@@ -211,9 +216,14 @@ class SlideImageDataset(Dataset):
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
         region = region_view.read_region(coordinates, region_size)
-        sample = RegionFromSlideDatasetSample(
-            image=region, coordinates=coordinates, mpp=mpp, path=self.path, region_index=region_index
-        )
+        region = PIL.Image.fromarray(region)
+        sample: StandardTilingFromSlideDatasetSample = {
+            "image": region,
+            "coordinates": coordinates,
+            "mpp": mpp,
+            "path": self.path,
+            "region_index": region_index,
+        }
 
         if self.transform:
             sample = self.transform(sample)
@@ -338,15 +348,16 @@ class TiledROIsSlideImageDataset(SlideImageDataset):
         )
         return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, transform)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: Union[int, slice]) -> RegionFromSlideDatasetSample:
         data = super().__getitem__(index)
+        region_data: RegionFromSlideDatasetSample = dict(data)
         region_index = data["region_index"]
         starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
         grid_index = region_index - self._starting_indices[starting_index]
         grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
-        data["grid_local_coordinates"] = grid_local_coordinates
-        data["grid_index"] = starting_index
-        return data
+        region_data["grid_local_coordinates"] = grid_local_coordinates
+        region_data["grid_index"] = starting_index
+        return region_data
 
 
 class PreTiledSlideImageDataset(Dataset):
@@ -379,7 +390,7 @@ class PreTiledSlideImageDataset(Dataset):
         self._num_tiles = tiles_data["output"]["num_tiles"]
         self._tile_indices = tiles_data["output"]["tile_indices"]
 
-    def __getitem__(self, index) -> PretiledDatasetSample:
+    def __getitem__(self, index: Union[int, slice]) -> PretiledDatasetSample:
         grid_index = self._tile_indices[index]
         path_to_tile = self.path / "tiles" / f"{'_'.join(map(str, grid_index))}.png"
         # TODO(jt): Figure out why the mode is RGB
