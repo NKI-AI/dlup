@@ -216,7 +216,7 @@ class SlideImageDataset(Dataset):
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
         region = region_view.read_region(coordinates, region_size)
-        region = PIL.Image.fromarray(region)
+        
         sample: StandardTilingFromSlideDatasetSample = {
             "image": region,
             "coordinates": coordinates,
