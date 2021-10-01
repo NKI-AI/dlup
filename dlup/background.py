@@ -13,7 +13,7 @@ Currently implemented:
 Check their respective documentations for references.
 """
 
-from typing import Callable, Iterable, List, Union, Tuple
+from typing import Callable, Iterable, List, Tuple, Union
 
 import numpy as np
 import PIL.Image
@@ -24,9 +24,8 @@ import skimage.segmentation
 
 import dlup
 import dlup.tiling
-from dlup.tiling import indexed_ndmesh
 from dlup import SlideImage
-
+from dlup.tiling import indexed_ndmesh
 
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
 
@@ -216,7 +215,7 @@ def is_foreground(
     background_mask: np.ndarray,
     region: Tuple[float, float, int, int, float],
     threshold: float = 1.0,
-):
+) -> bool:
     mask_size = np.array(background_mask.shape[:2][::-1])
 
     # Let's get the region view from the slide image.

@@ -3,10 +3,10 @@
 
 """Utility classes to easily extend sequences logic without creating new classes."""
 
+import bisect
 import collections
 import functools
 import itertools
-import bisect
 
 
 class MapSequence(collections.abc.Sequence):

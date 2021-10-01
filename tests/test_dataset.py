@@ -5,6 +5,8 @@
 
 import pathlib
 
+import numpy as np
+
 import dlup
 from dlup.data.dataset import TiledROIsSlideImageDataset
 
@@ -20,5 +22,5 @@ def test_tiled_level_slide_image_dataset(monkeypatch, dlup_wsi):
 
     # Numpy array has height, width, channels.
     # Images have width, height, channels.
-    assert tile.shape == (24, 32, 4)
+    assert np.asarray(tile).shape == (24, 32, 4)
     assert len(coordinates) == 2

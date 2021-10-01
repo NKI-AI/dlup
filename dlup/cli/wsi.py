@@ -104,7 +104,7 @@ class TileSaver:
 
     def save_tile(self, index):
         tile_dict = self.dataset[index]
-        tile = PIL.Image.fromarray(tile_dict["image"])
+        tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
         grid_index = tile_dict["grid_index"]
 
