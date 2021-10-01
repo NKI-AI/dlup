@@ -7,8 +7,8 @@ import pathlib
 from multiprocessing import Pool
 from typing import Tuple, cast
 
-import PIL
 import numpy as np
+import PIL
 
 from dlup import SlideImage
 from dlup.background import get_mask
@@ -181,7 +181,8 @@ def register_parser(parser: argparse._SubParsersAction):
         help="Number of parallel threads to run. None -> fully parallelized.",
     )
     tiling_parser.add_argument(
-        "-n", "--dry-run",
+        "-n",
+        "--dry-run",
         dest="dry_run",
         action="store_true",
         help="Flag to show what would have been tiled. If set -> saves metadata and masks, but does not perform tiling",
