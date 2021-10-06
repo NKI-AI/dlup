@@ -20,9 +20,6 @@ from dlup.viz.plotting import plot_2d
 
 def tiling(args: argparse.Namespace):
     """Perform the WSI tiling."""
-    save_tiles = True
-    if args.do_not_save_tiles:
-        save_tiles = False
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
     tile_size = cast(Tuple[int, int], (args.tile_size,) * 2)
@@ -81,9 +78,10 @@ def tiling(args: argparse.Namespace):
 
     # Iterate through the tiles (and save them in the provided location)
     tiles_output_directory_path = output_directory_path / "tiles"
-    if save_tiles:
+    if not args.do_not_save_tiles:
         tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
-    tile_saver = TileSaver(dataset, tiles_output_directory_path, do_not_save_tiles=not save_tiles)
+    tile_saver = TileSaver(dataset, tiles_output_directory_path, do_not_save_tiles=args.do_not_save_tiles)
+
     with Pool(args.num_workers) as pool:
         for (grid_local_coordinates, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
             indices[idx] = grid_local_coordinates
