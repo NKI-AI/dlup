@@ -21,7 +21,7 @@ from dlup.viz.plotting import plot_2d
 def tiling(args: argparse.Namespace):
     """Perform the WSI tiling."""
     save_tiles = True
-    if args.dry_run:
+    if args.do_not_save_tiles:
         save_tiles = False
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
@@ -83,7 +83,7 @@ def tiling(args: argparse.Namespace):
     tiles_output_directory_path = output_directory_path / "tiles"
     if save_tiles:
         tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
-    tile_saver = TileSaver(dataset, tiles_output_directory_path, dry_run=not save_tiles)
+    tile_saver = TileSaver(dataset, tiles_output_directory_path, do_not_save_tiles=not save_tiles)
     with Pool(args.num_workers) as pool:
         for (grid_local_coordinates, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
             indices[idx] = grid_local_coordinates
@@ -97,10 +97,10 @@ def tiling(args: argparse.Namespace):
 
 
 class TileSaver:
-    def __init__(self, dataset, output_directory_path, dry_run=False):
+    def __init__(self, dataset, output_directory_path, do_not_save_tiles=False):
         self.dataset = dataset
         self.output_directory_path = output_directory_path
-        self.dry_run = dry_run
+        self.do_not_save_tiles = do_not_save_tiles
 
     def save_tile(self, index):
         tile_dict = self.dataset[index]
@@ -112,7 +112,7 @@ class TileSaver:
         if len(self.dataset.grids) > 1:
             indices = [grid_index] + indices
 
-        if not self.dry_run:
+        if not self.do_not_save_tiles:
             tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")
 
         return grid_local_coordinates, index
@@ -181,13 +181,12 @@ def register_parser(parser: argparse._SubParsersAction):
         help="Number of parallel threads to run. None -> fully parallelized.",
     )
     tiling_parser.add_argument(
-        "-n",
-        "--dry-run",
-        dest="dry_run",
+        "--do-not-save-tiles",
+        dest="do_not_save_tiles",
         action="store_true",
         help="Flag to show what would have been tiled. If set -> saves metadata and masks, but does not perform tiling",
     )
-    tiling_parser.set_defaults(dry_run=False)
+    tiling_parser.set_defaults(do_not_save_tiles=False)
 
     tiling_parser.add_argument(
         "slide_file_path",
