@@ -13,6 +13,8 @@ Currently implemented:
 Check their respective documentations for references.
 """
 
+from enum import Enum
+from functools import partial
 from typing import Callable, Iterable, List, Tuple, Union
 
 import numpy as np
@@ -236,3 +238,11 @@ def is_foreground(
     clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
     mask_tile[:clipped_h, :clipped_w] = np.asarray(background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float)  # type: ignore
     return mask_tile.mean() >= threshold
+
+
+class AvailableMaskFunctions(Enum):
+    fesi = partial(fesi)
+    improved_fesi = partial(improved_fesi)
+
+    def __call__(self, *args):
+        return self.value(*args)
