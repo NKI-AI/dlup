@@ -12,11 +12,11 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
@@ -47,7 +47,7 @@ class PretiledDatasetSample(TypedDict):
     path: pathlib.Path
 
 
-class Dataset(Generic[T_co], collections.abc.Sequence):
+class Dataset(Generic[T_co], collections.Sequence):
     """An abstract class representing a :class:`Dataset`.
 
     All datasets that represent a map from keys to data samples should subclass
@@ -68,6 +68,9 @@ class Dataset(Generic[T_co], collections.abc.Sequence):
 
     def __add__(self, other: "Dataset[T_co]") -> "ConcatDataset[T_co]":
         return ConcatDataset([self, other])
+
+    def __getitem__(self, index: int) -> T_co:  # type: ignore
+        raise IndexError
 
 
 class ConcatDataset(Dataset[T_co]):
@@ -132,7 +135,7 @@ def _get_cached_slide_image(path: pathlib.Path):
     return SlideImage.from_file_path(path)
 
 
-class SlideImageDataset(Dataset):
+class SlideImageDatasetBase(Dataset[T_co]):
     """Generic :class:`Dataset` to iterate over regions of a :class:`SlideImage`class.
 
     This class features some logic to avoid instantiating too many slides
@@ -178,9 +181,9 @@ class SlideImageDataset(Dataset):
         # For instance, let's say we have three regions
         # masked according to the following boolean values: [True, False, True].
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
-        self.masked_indices: Union[ArrayLike[int], None] = None
+        self.masked_indices: Union[NDArray[np.int_], None] = None
         if mask is not None:
-            boolean_mask: ArrayLike[bool] = np.zeros(len(regions))
+            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions))
             for i, region in enumerate(regions):
                 boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
@@ -200,13 +203,16 @@ class SlideImageDataset(Dataset):
         """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path)
 
-    def __getitem__(self, index: Union[int, slice]) -> StandardTilingFromSlideDatasetSample:
+    def __getitem__(self, index):
         slide_image = self.slide_image
 
         # If there's a mask, we consider the index as a sub-sequence index.
         # Let's map it back to the original regions index.
-        has_mask = self.masked_indices is not None
-        region_index: int = self.masked_indices[index] if has_mask else index
+        region_index: int
+        if self.masked_indices is not None:
+            region_index = self.masked_indices[index]
+        else:
+            region_index = index
 
         x, y, w, h, mpp = self.regions[region_index]
         coordinates: Tuple[int, int] = x, y
@@ -241,12 +247,17 @@ class SlideImageDataset(Dataset):
             yield self[i]
 
 
+class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSample]):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 def _coords_to_region(tile_size, target_mpp, key, coords):
     """Return the necessary tuple that represents a region."""
     return (*coords, *tile_size, target_mpp)
 
 
-class TiledROIsSlideImageDataset(SlideImageDataset):
+class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
     """Example dataset dataset class that supports multiple ROIs.
 
     This dataset can be used, for example, to tile your WSI on-the-fly using the `from_standard_tiling` function.
@@ -348,9 +359,9 @@ class TiledROIsSlideImageDataset(SlideImageDataset):
         )
         return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, transform)
 
-    def __getitem__(self, index: Union[int, slice]) -> RegionFromSlideDatasetSample:
+    def __getitem__(self, index):
         data = super().__getitem__(index)
-        region_data: RegionFromSlideDatasetSample = dict(data)
+        region_data: RegionFromSlideDatasetSample = cast(RegionFromSlideDatasetSample, data)
         region_index = data["region_index"]
         starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
         grid_index = region_index - self._starting_indices[starting_index]
@@ -360,7 +371,7 @@ class TiledROIsSlideImageDataset(SlideImageDataset):
         return region_data
 
 
-class PreTiledSlideImageDataset(Dataset):
+class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
     """Dataset class to handle a pretiled WSIs. If you want to combine multiple WSIs, use :class:`ConcatDataset`.
 
     Examples
@@ -390,7 +401,7 @@ class PreTiledSlideImageDataset(Dataset):
         self._num_tiles = tiles_data["output"]["num_tiles"]
         self._tile_indices = tiles_data["output"]["tile_indices"]
 
-    def __getitem__(self, index: Union[int, slice]) -> PretiledDatasetSample:
+    def __getitem__(self, index):
         grid_index = self._tile_indices[index]
         path_to_tile = self.path / "tiles" / f"{'_'.join(map(str, grid_index))}.png"
         # TODO(jt): Figure out why the mode is RGB
