@@ -69,7 +69,7 @@ class Dataset(Generic[T_co], collections.Sequence):
     def __add__(self, other: "Dataset[T_co]") -> "ConcatDataset[T_co]":
         return ConcatDataset([self, other])
 
-    def __getitem__(self, index) -> T_co:  # type: ignore
+    def __getitem__(self, index: int) -> T_co:  # type: ignore
         raise IndexError
 
 
