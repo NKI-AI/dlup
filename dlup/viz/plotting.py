@@ -2,16 +2,88 @@
 # Copyright (c) DLUP Contributors
 
 import io
+import pathlib
+from typing import List, Tuple
 
 import matplotlib
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import numpy as np
 import numpy.ma as ma
 import PIL
 import skimage.measure
 from matplotlib.ticker import NullLocator
+from PIL import Image, ImageDraw
+
+from dlup import SlideImage
 
 matplotlib.use("agg")
+
+
+def draw_used_tiles(
+    input_file_path: pathlib.Path, tile_size: int, thumbnail: np.ndarray, coords: List, original_mpp: float
+) -> PIL.Image.Image:
+    """
+    Draw on the thumbnail image the tiles proposed by the background segmentation and foreground thresholding
+    Converts the original resolution coordinates to thumbnail resolution coordinates and draws them there.
+
+    Parameters
+    ----------
+    input_file_path: pathlib.Path
+        path to WSI that we draw the used tiles for
+    tile_size : int
+        resulting tile size in px as given to the DLUP dataset class
+    thumbnail : ndarray
+        thumbnail of WSI to draw the tile locations on
+    scaled_view_size : tuple
+        size of WSI when viewed at the requested MPP. This is a (width, height) tuple for the requested level of the image.
+    coords : list
+        List of original mpp coordinates of the used tiles
+    original_mpp: float
+        the mpp of the originally requested tiles
+
+    Examples
+    --------
+    Used in the wsi tiling CLI, but can also be used retrospectively by loading the coordinates.
+    For details, see dlup.cli.wsi
+
+    >>> with Pool(args.num_workers) as pool:
+    >>>     for (grid_local_coordinates, local_coordinates, idx) in pool.imap(tile_iterator.iterate_tile, range(num_tiles)):
+    >>>         indices[idx] = grid_local_coordinates
+    >>>         coords[idx] = local_coordinates
+    >>> thumbnail_with_used_tiles = draw_used_tiles(tile_size=tile_size,
+    >>>                                         thumbnail=thumbnail,
+    >>>                                         scaled_view_size=scaled_view_size,
+    >>>                                         coords=coords)
+    >>> thumbnail_with_used_tiles.save(output_directory_path / "thumbnail_with_used_tiles.png")
+
+    Returns
+    -------
+    PIL Image
+    """
+    slide_image = SlideImage.from_file_path(input_file_path)
+    scaled_view_size = slide_image.get_scaled_view(slide_image.get_scaling(original_mpp)).size
+    thumbnail_with_used_tiles = Image.fromarray(thumbnail)
+    draw = ImageDraw.Draw(thumbnail_with_used_tiles)
+
+    # scaled_view_size is (width, height), whereas the thumbnail is (height, width)
+    # the rounding with (int) this may cause minor rounding errors displacing boundaries by a pixel. this is not
+    # detrimental for this functionality
+    converted_tile_size = (
+        int(tile_size / (scaled_view_size[1] / thumbnail.shape[0])),
+        int(tile_size / (scaled_view_size[0] / thumbnail.shape[1])),
+    )
+    coordinate_scales = ((scaled_view_size[1] / thumbnail.shape[0]), (scaled_view_size[0] / thumbnail.shape[1]))
+
+    for coord in coords:
+        coord = np.array(coord)
+        adjusted_coords = np.array([int(coord[0] / coordinate_scales[0]), int(coord[1] / coordinate_scales[1])])
+        box = tuple(np.array((*adjusted_coords, *(adjusted_coords + converted_tile_size))).astype(int))
+        draw.rectangle(box, outline="red")  # shows the tile
+        draw.line(
+            box, fill="red"
+        )  # shows a diagonal through the tile, to discern unused tiles surrounded by tiles from actually used tiles
+    return thumbnail_with_used_tiles
 
 
 def plot_2d(
