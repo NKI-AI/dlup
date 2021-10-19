@@ -7,8 +7,8 @@ import pathlib
 from multiprocessing import Pool
 from typing import Tuple, cast
 
-import PIL
 import numpy as np
+import PIL
 
 from dlup import SlideImage
 from dlup.background import get_mask
@@ -98,7 +98,7 @@ class TileSaver:
 
     def save_tile(self, index):
         tile_dict = self.dataset[index]
-        tile = PIL.Image.fromarray(tile_dict["image"])
+        tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
         grid_index = tile_dict["grid_index"]
 
