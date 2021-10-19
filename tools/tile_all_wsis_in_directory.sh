@@ -68,7 +68,6 @@ FOREGROUND_THRESHOLD=0.8
 find $SOURCE_DIRECTORY -name "*$EXTENSION" | while read line
 do
     RELATIVE_DIR=${line:$LEN_SOURCE_DIRECTORY+1} # Strip the source directory from the found file path and the /
-    echo "$RELATIVE_DIR"
     RELATIVE_DIR_WITHOUT_FILE_EXTENSION=${RELATIVE_DIR%.*} # Strip the extension from the found file path
 
     dlup wsi tile \
