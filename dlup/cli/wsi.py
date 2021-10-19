@@ -8,13 +8,14 @@ from multiprocessing import Pool
 from typing import Tuple, cast
 
 import numpy as np
+from PIL import Image
 
 from dlup import SlideImage
 from dlup.background import AvailableMaskFunctions, get_mask
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import TilingMode
 from dlup.utils import ArrayEncoder
-from dlup.viz.plotting import plot_2d
+from dlup.viz.plotting import draw_used_tiles, plot_2d
 
 
 def tiling(args: argparse.Namespace):
@@ -75,17 +76,33 @@ def tiling(args: argparse.Namespace):
         },
     }
 
-    indices = [None for _ in range(num_tiles)]
-
     # Iterate through the tiles (and save them in the provided location)
     tiles_output_directory_path = output_directory_path / "tiles"
+
     if not args.do_not_save_tiles:
         tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
-    tile_saver = TileSaver(dataset, tiles_output_directory_path, do_not_save_tiles=args.do_not_save_tiles)
+
+    indices = [None for _ in range(num_tiles)]
+    coords = [None for _ in range(num_tiles)]
+
+    tile_saver = TileSaver(
+        dataset=dataset, output_directory_path=tiles_output_directory_path, do_not_save_tiles=args.do_not_save_tiles
+    )
 
     with Pool(args.num_workers) as pool:
-        for (grid_local_coordinates, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
+        for (grid_local_coordinates, local_coordinates, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
             indices[idx] = grid_local_coordinates
+            coords[idx] = local_coordinates
+
+    thumbnail_with_used_tiles = draw_used_tiles(
+        input_file_path=input_file_path,
+        tile_size=args.tile_size,
+        thumbnail=thumbnail,
+        coords=coords,
+        original_mpp=args.mpp,
+    )
+
+    thumbnail_with_used_tiles.save(output_directory_path / "thumbnail_with_used_tiles.png")
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
@@ -106,7 +123,6 @@ class TileSaver:
         tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
         grid_index = tile_dict["grid_index"]
-
         indices = grid_local_coordinates
         if len(self.dataset.grids) > 1:
             indices = [grid_index] + indices
@@ -114,7 +130,7 @@ class TileSaver:
         if not self.do_not_save_tiles:
             tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")
 
-        return grid_local_coordinates, index
+        return grid_local_coordinates, tile_dict["coordinates"], index
 
 
 def info(args: argparse.Namespace):
