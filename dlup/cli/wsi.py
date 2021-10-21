@@ -7,7 +7,7 @@ import pathlib
 from multiprocessing import Pool
 from typing import Tuple, cast
 
-import numpy as np
+from PIL import Image
 
 from dlup import SlideImage
 from dlup.background import AvailableMaskFunctions, get_mask
@@ -27,14 +27,15 @@ def tiling(args: argparse.Namespace):
     image = SlideImage.from_file_path(input_file_path)
     mask = get_mask(slide=image, mask_func=AvailableMaskFunctions[args.mask_func])
 
+    # the nparray and PIL.Image.size height and width order are flipped is as it would be as a PIL.Image.
+    # Below [::-1] casts the thumbnail_size to the PIL.Image expected size
     thumbnail_size = cast(Tuple[int, int], mask.shape[::-1])
     thumbnail = image.get_thumbnail(thumbnail_size)
 
     # Prepare output directory.
     output_directory_path.mkdir(parents=True, exist_ok=True)
-    if args.save_mask_object:
-        np.save(file=output_directory_path / "mask.npy", arr=mask)
-    plot_2d(mask).save(output_directory_path / "mask.png")
+
+    Image.fromarray(mask.astype(dtype=bool)).save(output_directory_path / "mask.png")
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
@@ -184,14 +185,6 @@ def register_parser(parser: argparse._SubParsersAction):
         dest="do_not_save_tiles",
         action="store_true",
         help="Flag to show what would have been tiled. If set -> saves metadata and masks, but does not perform tiling",
-    )
-    tiling_parser.set_defaults(do_not_save_tiles=False)
-
-    tiling_parser.add_argument(
-        "--save-mask-object",
-        dest="save_mask_object",
-        action="store_true",
-        help="Flag to save the mask npy object. If set -> saves mask as mask.npy",
     )
     tiling_parser.set_defaults(do_not_save_tiles=False)
 
