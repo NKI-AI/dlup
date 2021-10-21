@@ -13,6 +13,7 @@ Currently implemented:
 Check their respective documentations for references.
 """
 
+import pathlib
 from enum import Enum
 from functools import partial
 from typing import Callable, Iterable, List, Tuple, Union
@@ -23,6 +24,7 @@ import scipy.ndimage as ndi
 import skimage.filters
 import skimage.morphology
 import skimage.segmentation
+from numpy.typing import NDArray
 
 import dlup
 import dlup.tiling
@@ -177,6 +179,26 @@ def next_power_of_2(x):
     """
     x = int(x)
     return 1 if x == 0 else 2 ** (x - 1).bit_length()
+
+
+def load_mask(mask_file_path: pathlib.Path) -> NDArray[np.int_]:
+    """
+    Load a tissue mask from disk for a Slide object.
+
+    For now, it expects that the .png is saved by DLUP as done in cli.wsi.tiling
+
+    Parameters
+    ----------
+    mask_file_path : pathlib.Path
+        Path to the mask.png
+
+    Returns
+    -------
+    np.ndarray
+        Tissue mask of thumbnail
+    """
+    mask = np.array(PIL.Image.open(mask_file_path)).astype(np.uint8)
+    return mask
 
 
 def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512) -> np.ndarray:
