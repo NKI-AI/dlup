@@ -241,6 +241,20 @@ def is_foreground(
 
 
 class AvailableMaskFunctions(Enum):
+    """
+    Class that maps strngs to the currently implemented mask functions as defined in dlup/background.py
+
+    The method returns the function from a string input, e.g.
+
+    >>> mask_func = AvailableMaskFunctions('fesi')
+
+    after which `mask_func` can be passed to dlup.background.get_mask
+
+    If you want to get a list of the strings that can be given that map to functions:
+
+    >>> valid_inputs = [key for key in AvailableMaskFunctions.__members__]
+    """
+
     fesi = partial(fesi)
     improved_fesi = partial(improved_fesi)
 

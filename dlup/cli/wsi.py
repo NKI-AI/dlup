@@ -188,7 +188,14 @@ def register_parser(parser: argparse._SubParsersAction):
     )
     tiling_parser.set_defaults(do_not_save_tiles=False)
 
-    tiling_parser.add_argument("--mask-func", dest="mask_func", type=str, default="improved_fesi")
+    tiling_parser.add_argument(
+        "--mask-func",
+        dest="mask_func",
+        type=str,
+        default="improved_fesi",
+        choices=AvailableMaskFunctions.__members__,
+        help="Function to compute the tissue mask with",
+    )
 
     tiling_parser.add_argument(
         "slide_file_path",
