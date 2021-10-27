@@ -6,13 +6,18 @@
 # If file paths are absolute, run the .sh script from anywhere
 # If file paths are relative, run the .sh script from the appropriate directory
 
-SOURCE_DIRECTORY="/absolute/or/relative/path/to/directory/containing/wsis"
+# Run with 
+# bash tile_all_wsis_in_direectory.sh source_directory extension output_directory mpp tile_size foreground_threshold
+# e.g. 
+# bash tile_all_wsis_in_directory.sh /absolute/or/relative/path/to/directory/containing/wsis .svs /absolute/or/relative/path/to/directory/to/save 2 2048 0.8
+
+SOURCE_DIRECTORY=$1 # "/absolute/or/relative/path/to/directory/containing/wsis"
 LEN_SOURCE_DIRECTORY=${#SOURCE_DIRECTORY}
-EXTENSION=".svs"
-OUTPUT_DIRECTORY="/absolute/or/relative/path/to/directory/to/save"
-MPP=2
-TILE_SIZE=2048
-FOREGROUND_THRESHOLD=0.8
+EXTENSION=$2 # e.g. .svs
+OUTPUT_DIRECTORY=$3 # "/absolute/or/relative/path/to/directory/to/save"
+MPP=$4 # e.g. 2
+TILE_SIZE=$5 # e.g. 2048
+FOREGROUND_THRESHOLD=$6 # e.g. 0.8
 
 # If the input dir looks like
 # SOURCE_DIRECTORY
