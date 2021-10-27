@@ -13,6 +13,8 @@ Currently implemented:
 Check their respective documentations for references.
 """
 
+from enum import Enum
+from functools import partial
 from typing import Callable, Iterable, List, Tuple, Union
 
 import numpy as np
@@ -236,3 +238,25 @@ def is_foreground(
     clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
     mask_tile[:clipped_h, :clipped_w] = np.asarray(background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float)  # type: ignore
     return mask_tile.mean() >= threshold
+
+
+class AvailableMaskFunctions(Enum):
+    """
+    Class that maps strngs to the currently implemented mask functions as defined in dlup/background.py
+
+    The method returns the function from a string input, e.g.
+
+    >>> mask_func = AvailableMaskFunctions('fesi')
+
+    after which `mask_func` can be passed to dlup.background.get_mask
+
+    If you want to get a list of the strings that can be given that map to functions:
+
+    >>> valid_inputs = [key for key in AvailableMaskFunctions.__members__]
+    """
+
+    fesi = partial(fesi)
+    improved_fesi = partial(improved_fesi)
+
+    def __call__(self, *args):
+        return self.value(*args)
