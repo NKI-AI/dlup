@@ -31,6 +31,7 @@ T = TypeVar("T")
 class StandardTilingFromSlideDatasetSample(TypedDict):
     image: PIL.Image.Image
     coordinates: Tuple[int, int]
+    region_size: Tuple[int, int]
     mpp: float
     path: pathlib.Path
     region_index: int
@@ -161,7 +162,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         path :
             Path to the image.
         regions :
-            Sequence of rectangular regions as (x, y, h, w, mpp)
+            Sequence of rectangular regions as (x, y, w, h, mpp)
         crop :
             Whether or not to crop overflowing tiles.
         transform :
@@ -226,6 +227,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         sample: StandardTilingFromSlideDatasetSample = {
             "image": region,
             "coordinates": coordinates,
+            "region_size": region_size,
             "mpp": mpp,
             "path": self.path,
             "region_index": region_index,
