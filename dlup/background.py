@@ -277,8 +277,8 @@ class AvailableMaskFunctions(Enum):
     >>> valid_inputs = [key for key in AvailableMaskFunctions.__members__]
     """
 
-    fesi = partial(fesi)
-    improved_fesi = partial(improved_fesi)
+    fesi = fesi
+    improved_fesi = improved_fesi
 
-    def __call__(self, *args):
-        return self.value(*args)
+    def __call__(self):
+        return self.value()
