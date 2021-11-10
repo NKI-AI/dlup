@@ -13,7 +13,8 @@ other than OpenSlide.
 import functools
 import pathlib
 from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
-
+import os
+import errno
 import numpy as np  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
@@ -117,6 +118,8 @@ class SlideImage:
     def from_file_path(
         cls: Type[_TSlideImage], wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
     ) -> _TSlideImage:
+        if not wsi_file_path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:
             wsi = openslide.open_slide(str(wsi_file_path))
         except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
