@@ -118,7 +118,7 @@ class SlideImage:
     def from_file_path(
         cls: Type[_TSlideImage], wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
     ) -> _TSlideImage:
-        if not os.path.exists(str(wsi_file_path)):
+        if not wsi_file_path.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:
             wsi = openslide.open_slide(str(wsi_file_path))
