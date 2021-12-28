@@ -77,7 +77,7 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
 
     kernel = np.ones((5, 5), np.uint8)
     # TODO: Binary opening is faster
-    mask = skimage.morphology.opening(mask, foreground=kernel)
+    mask = skimage.morphology.opening(mask, footprint=kernel)
     max_point = np.unravel_index(np.argmax(dseed, axis=None), dseed.shape)
 
     skimage.segmentation.flood_fill(mask, seed_point=max_point, new_value=0, in_place=True)
