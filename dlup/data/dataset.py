@@ -47,7 +47,7 @@ class PretiledDatasetSample(TypedDict):
     path: pathlib.Path
 
 
-class Dataset(Generic[T_co], collections.Sequence):
+class Dataset(Generic[T_co], collections.abc.Sequence):
     """An abstract class representing a :class:`Dataset`.
 
     All datasets that represent a map from keys to data samples should subclass

@@ -44,7 +44,7 @@ setup(
         "matplotlib",
         "numpy",
         "requests",
-        "scikit-image",
+        "scikit-image>=0.19",
         "tifftools",
         "tqdm",
         "pillow",
