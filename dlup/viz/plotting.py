@@ -6,6 +6,7 @@ import io
 import matplotlib
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import numpy as np
 import numpy.ma as ma
 import PIL
 import skimage.measure
@@ -15,7 +16,7 @@ matplotlib.use("agg")
 
 
 def plot_2d(
-    image,
+    image: PIL.Image.Image,
     mask=None,
     bboxes=None,
     contours=None,
@@ -27,15 +28,15 @@ def plot_2d(
     overlay_cmap="jet",
     overlay_threshold=0.1,
     overlay_alpha=0.1,
-):
+) -> PIL.Image.Image:
 
     """
     Plot image with contours and point annotations. Contours are automatically extracted from masks.
 
     Parameters
     ----------
-    image : ndarray
-        Image data of shape N x M x num channels.
+    image : PIL.Image.Image
+        PIL Image data of shape N x M x num channels.
     mask : ndarray
         Mask data of shape N x M.
     bboxes : tuple
@@ -70,6 +71,9 @@ def plot_2d(
     -------
     PIL Image
     """
+
+    image = np.asarray(image)
+
     dpi = 100
     width = image.shape[1]
     height = image.shape[0]

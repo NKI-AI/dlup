@@ -10,16 +10,18 @@ properties and offering a future aggregated api for possibly multiple different 
 other than OpenSlide.
 """
 
+import errno
 import functools
+import os
 import pathlib
 from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
-import openslide  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
+import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError
 
 from ._region import BoundaryMode, RegionView
@@ -52,7 +54,7 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
+    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image.Image:
         """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
@@ -97,7 +99,7 @@ class SlideImage:
         except KeyError:
             raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
 
-        if not np.isclose(mpp[0], mpp[1]):
+        if not np.isclose(mpp[0], mpp[1], rtol=1.0e-2):
             raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
 
         self._min_native_mpp = float(mpp[0])
@@ -115,8 +117,11 @@ class SlideImage:
 
     @classmethod
     def from_file_path(
-        cls: Type[_TSlideImage], wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
+        cls: Type[_TSlideImage], wsi_file_path: os.PathLike, identifier: Union[str, None] = None
     ) -> _TSlideImage:
+        wsi_file_path = pathlib.Path(wsi_file_path)
+        if not wsi_file_path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:
             wsi = openslide.open_slide(str(wsi_file_path))
         except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
@@ -129,7 +134,7 @@ class SlideImage:
         location: Union[np.ndarray, Tuple[_GenericNumber, _GenericNumber]],
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
-    ) -> np.ndarray:
+    ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
@@ -228,7 +233,7 @@ class SlideImage:
         # the pixel in the right position to retain the right sample weight.
         fractional_coordinates = native_location - native_location_adapted
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
-        return np.asarray(region.resize(size, resample=PIL.Image.LANCZOS, box=box))
+        return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
 
     def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""
@@ -247,7 +252,7 @@ class SlideImage:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
-    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> np.ndarray:
+    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image.Image:
         """Returns an RGB numpy thumbnail for the current slide.
 
         Parameters
@@ -255,10 +260,10 @@ class SlideImage:
         size :
             Maximum bounding box for the thumbnail expressed as (width, height).
         """
-        return np.array(self._openslide_wsi.get_thumbnail(size))
+        return self._openslide_wsi.get_thumbnail(size)
 
     @property
-    def thumbnail(self) -> np.ndarray:
+    def thumbnail(self) -> PIL.Image.Image:
         """Returns the thumbnail."""
         return self.get_thumbnail()
 

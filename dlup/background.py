@@ -13,7 +13,9 @@ Currently implemented:
 Check their respective documentations for references.
 """
 
-from typing import Callable, Iterable, List, Union, Tuple
+from enum import Enum
+from functools import partial
+from typing import Callable, Iterable, List, Tuple, Union
 
 import numpy as np
 import PIL.Image
@@ -24,9 +26,8 @@ import skimage.segmentation
 
 import dlup
 import dlup.tiling
-from dlup.tiling import indexed_ndmesh
 from dlup import SlideImage
-
+from dlup.tiling import indexed_ndmesh
 
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
 
@@ -76,7 +77,7 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
 
     kernel = np.ones((5, 5), np.uint8)
     # TODO: Binary opening is faster
-    mask = skimage.morphology.opening(mask, selem=kernel)
+    mask = skimage.morphology.opening(mask, footprint=kernel)
     max_point = np.unravel_index(np.argmax(dseed, axis=None), dseed.shape)
 
     skimage.segmentation.flood_fill(mask, seed_point=max_point, new_value=0, in_place=True)
@@ -216,7 +217,7 @@ def is_foreground(
     background_mask: np.ndarray,
     region: Tuple[float, float, int, int, float],
     threshold: float = 1.0,
-):
+) -> bool:
     mask_size = np.array(background_mask.shape[:2][::-1])
 
     # Let's get the region view from the slide image.
@@ -237,3 +238,25 @@ def is_foreground(
     clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
     mask_tile[:clipped_h, :clipped_w] = np.asarray(background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float)  # type: ignore
     return mask_tile.mean() >= threshold
+
+
+class AvailableMaskFunctions(Enum):
+    """
+    Class that maps strngs to the currently implemented mask functions as defined in dlup/background.py
+
+    The method returns the function from a string input, e.g.
+
+    >>> mask_func = AvailableMaskFunctions('fesi')
+
+    after which `mask_func` can be passed to dlup.background.get_mask
+
+    If you want to get a list of the strings that can be given that map to functions:
+
+    >>> valid_inputs = [key for key in AvailableMaskFunctions.__members__]
+    """
+
+    fesi = partial(fesi)
+    improved_fesi = partial(improved_fesi)
+
+    def __call__(self, *args):
+        return self.value(*args)

@@ -7,11 +7,10 @@ import pathlib
 from multiprocessing import Pool
 from typing import Tuple, cast
 
-import PIL
-import numpy as np
+from PIL import Image
 
 from dlup import SlideImage
-from dlup.background import get_mask
+from dlup.background import AvailableMaskFunctions, get_mask
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import TilingMode
 from dlup.utils import ArrayEncoder
@@ -26,14 +25,17 @@ def tiling(args: argparse.Namespace):
     tile_overlap = cast(Tuple[int, int], (args.tile_overlap,) * 2)
 
     image = SlideImage.from_file_path(input_file_path)
-    mask = get_mask(image)
+    mask = get_mask(slide=image, mask_func=AvailableMaskFunctions[args.mask_func])
 
+    # the nparray and PIL.Image.size height and width order are flipped is as it would be as a PIL.Image.
+    # Below [::-1] casts the thumbnail_size to the PIL.Image expected size
     thumbnail_size = cast(Tuple[int, int], mask.shape[::-1])
     thumbnail = image.get_thumbnail(thumbnail_size)
 
     # Prepare output directory.
     output_directory_path.mkdir(parents=True, exist_ok=True)
-    plot_2d(mask).save(output_directory_path / "mask.png")
+
+    Image.fromarray(mask.astype(dtype=bool)).save(output_directory_path / "mask.png")
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
@@ -69,16 +71,19 @@ def tiling(args: argparse.Namespace):
             "crop": args.crop,
             "tile_size": args.tile_size,
             "tile_overlap": args.tile_overlap,
-            "mask_function": "improved_fesi",
+            "mask_function": args.mask_func,
             "foreground_threshold": args.foreground_threshold,
         },
     }
 
-    # Iterate through the tiles and save them in the provided location.
-    tiles_output_directory_path = output_directory_path / "tiles"
-    tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
     indices = [None for _ in range(num_tiles)]
-    tile_saver = TileSaver(dataset, tiles_output_directory_path)
+
+    # Iterate through the tiles (and save them in the provided location)
+    tiles_output_directory_path = output_directory_path / "tiles"
+    if not args.do_not_save_tiles:
+        tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
+    tile_saver = TileSaver(dataset, tiles_output_directory_path, do_not_save_tiles=args.do_not_save_tiles)
+
     with Pool(args.num_workers) as pool:
         for (grid_local_coordinates, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
             indices[idx] = grid_local_coordinates
@@ -92,20 +97,24 @@ def tiling(args: argparse.Namespace):
 
 
 class TileSaver:
-    def __init__(self, dataset, output_directory_path):
+    def __init__(self, dataset, output_directory_path, do_not_save_tiles=False):
         self.dataset = dataset
         self.output_directory_path = output_directory_path
+        self.do_not_save_tiles = do_not_save_tiles
 
     def save_tile(self, index):
         tile_dict = self.dataset[index]
-        tile = PIL.Image.fromarray(tile_dict["image"])
+        tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
         grid_index = tile_dict["grid_index"]
 
         indices = grid_local_coordinates
         if len(self.dataset.grids) > 1:
             indices = [grid_index] + indices
-        tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")
+
+        if not self.do_not_save_tiles:
+            tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")
+
         return grid_local_coordinates, index
 
 
@@ -171,6 +180,23 @@ def register_parser(parser: argparse._SubParsersAction):
         type=int,
         help="Number of parallel threads to run. None -> fully parallelized.",
     )
+    tiling_parser.add_argument(
+        "--do-not-save-tiles",
+        dest="do_not_save_tiles",
+        action="store_true",
+        help="Flag to show what would have been tiled. If set -> saves metadata and masks, but does not perform tiling",
+    )
+    tiling_parser.set_defaults(do_not_save_tiles=False)
+
+    tiling_parser.add_argument(
+        "--mask-func",
+        dest="mask_func",
+        type=str,
+        default="improved_fesi",
+        choices=AvailableMaskFunctions.__members__,
+        help="Function to compute the tissue mask with",
+    )
+
     tiling_parser.add_argument(
         "slide_file_path",
         type=pathlib.Path,

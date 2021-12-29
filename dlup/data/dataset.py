@@ -12,19 +12,39 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypeVar
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
+from numpy.typing import ArrayLike, NDArray
+from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
 from dlup.background import is_foreground
 from dlup.tiling import Grid, TilingMode
-from dlup.tools import MapSequence, ConcatSequences
-
+from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
+
+
+class StandardTilingFromSlideDatasetSample(TypedDict):
+    image: PIL.Image.Image
+    coordinates: Tuple[int, int]
+    mpp: float
+    path: pathlib.Path
+    region_index: int
+
+
+class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
+    grid_local_coordinates: Tuple
+    grid_index: int
+
+
+class PretiledDatasetSample(TypedDict):
+    image: PIL.Image.Image
+    grid_index: int
+    path: pathlib.Path
 
 
 class Dataset(Generic[T_co], collections.abc.Sequence):
@@ -48,6 +68,9 @@ class Dataset(Generic[T_co], collections.abc.Sequence):
 
     def __add__(self, other: "Dataset[T_co]") -> "ConcatDataset[T_co]":
         return ConcatDataset([self, other])
+
+    def __getitem__(self, index: int) -> T_co:  # type: ignore
+        raise IndexError
 
 
 class ConcatDataset(Dataset[T_co]):
@@ -112,12 +135,15 @@ def _get_cached_slide_image(path: pathlib.Path):
     return SlideImage.from_file_path(path)
 
 
-class SlideImageDataset(Dataset):
+class SlideImageDatasetBase(Dataset[T_co]):
     """Generic :class:`Dataset` to iterate over regions of a :class:`SlideImage`class.
 
     This class features some logic to avoid instantiating too many slides
     which for very large datasets can cause expensive allocation due to
     openslide internal caching.
+
+    This class is the superclass of :class:`TiledROIsSlideImageDataset`, which has a function,
+    `from_standard_tiling`, to compute all the regions for specified tiling parameters on the fly.
     """
 
     def __init__(
@@ -137,7 +163,7 @@ class SlideImageDataset(Dataset):
         regions :
             Sequence of rectangular regions as (x, y, h, w, mpp)
         crop :
-            Crop overflowing tiles.
+            Whether or not to crop overflowing tiles.
         transform :
             Transforming function.
         mask :
@@ -155,9 +181,9 @@ class SlideImageDataset(Dataset):
         # For instance, let's say we have three regions
         # masked according to the following boolean values: [True, False, True].
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
-        self.masked_indices = None
+        self.masked_indices: Union[NDArray[np.int_], None] = None
         if mask is not None:
-            boolean_mask = np.zeros(len(regions))
+            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions))
             for i, region in enumerate(regions):
                 boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
@@ -182,18 +208,22 @@ class SlideImageDataset(Dataset):
 
         # If there's a mask, we consider the index as a sub-sequence index.
         # Let's map it back to the original regions index.
-        has_mask = self.masked_indices is not None
-        region_index = self.masked_indices[index] if has_mask else index
+        region_index: int
+        if self.masked_indices is not None:
+            region_index = self.masked_indices[index]
+        else:
+            region_index = index
 
         x, y, w, h, mpp = self.regions[region_index]
-        coordinates = x, y
-        region_size = w, h
-        scaling = slide_image.mpp / mpp
+        coordinates: Tuple[int, int] = x, y
+        region_size: Tuple[int, int] = w, h
+        scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
         region = region_view.read_region(coordinates, region_size)
-        sample = {
+
+        sample: StandardTilingFromSlideDatasetSample = {
             "image": region,
             "coordinates": coordinates,
             "mpp": mpp,
@@ -217,13 +247,37 @@ class SlideImageDataset(Dataset):
             yield self[i]
 
 
+class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSample]):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 def _coords_to_region(tile_size, target_mpp, key, coords):
     """Return the necessary tuple that represents a region."""
     return (*coords, *tile_size, target_mpp)
 
 
-class TiledROIsSlideImageDataset(SlideImageDataset):
-    """Example dataset dataset class that supports multiple ROIs."""
+class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
+    """Example dataset dataset class that supports multiple ROIs.
+
+    This dataset can be used, for example, to tile your WSI on-the-fly using the `from_standard_tiling` function.
+
+    Example
+    -------
+    >>>  dlup_dataset = TiledROIsSlideImageDataset.from_standard_tiling(\
+            path='/path/to/TCGA-WSI.svs',\
+            mpp=0.5,\
+            tile_size=(512,512),\
+            tile_overlap=(0,0),\
+            tile_mode='skip',\
+            crop=True,\
+            mask=None,\
+            mask_threshold=0.5,\
+            transform=YourTransform()\
+         )
+    >>> sample = dlup_dataset[5]
+    >>> image = sample["image']
+    """
 
     def __init__(
         self,
@@ -262,6 +316,38 @@ class TiledROIsSlideImageDataset(SlideImageDataset):
         mask_threshold: float = 0.1,
         transform: Optional[Callable] = None,
     ):
+        """Function to be used to tile a WSI on-the-fly.
+        Parameters
+        ----------
+        path :
+            path to a single WSI
+        mpp :
+            float stating the microns per pixel that you wish the tiles to be.
+        tile_size :
+            Tuple of integers that represent the pixel size of output tiles
+        tile_overlap :
+            Tuple of integers that represents the overlap of tiles in the x and y direction
+        tile_mode :
+            "skip", "overflow", or "fit". see `dlup.tiling.TilingMode` for more information
+        crop :
+            Whether or not to crop overflowing tiles.
+        mask :
+            Binary mask used to filter each region toghether with a threshold.
+        mask_threshold :
+            0 every region is discarded, 1 requires the whole region to be foreground.
+        transform :
+            Tansform to be applied to the sample
+
+        Example
+        -------
+        See example of usage in the main class docstring
+
+        Returns
+        -------
+        Initialized SlideImageDataset with all the regions as computed using the given tile size, mpp, and so on.
+        Calling this dataset with an index will return a tile extracted straight from the WSI. This means tiling as
+        pre-processing step is not required.
+        """
         with SlideImage.from_file_path(path) as slide_image:
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
         grid = Grid.from_tiling(
@@ -275,16 +361,17 @@ class TiledROIsSlideImageDataset(SlideImageDataset):
 
     def __getitem__(self, index):
         data = super().__getitem__(index)
+        region_data: RegionFromSlideDatasetSample = cast(RegionFromSlideDatasetSample, data)
         region_index = data["region_index"]
         starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
         grid_index = region_index - self._starting_indices[starting_index]
         grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
-        data["grid_local_coordinates"] = grid_local_coordinates
-        data["grid_index"] = starting_index
-        return data
+        region_data["grid_local_coordinates"] = grid_local_coordinates
+        region_data["grid_index"] = starting_index
+        return region_data
 
 
-class PreTiledSlideImageDataset(Dataset):
+class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
     """Dataset class to handle a pretiled WSIs. If you want to combine multiple WSIs, use :class:`ConcatDataset`.
 
     Examples
@@ -323,7 +410,7 @@ class PreTiledSlideImageDataset(Dataset):
         # TODO(jt): do something about the coordinates
         # Perhaps, they can be inferred in the same way as the original image
         # So do not directly compute from the current grid_index
-        sample = {"image": tile, "grid_index": grid_index, "path": self.original_path}
+        sample = PretiledDatasetSample(image=tile, grid_index=grid_index, path=self.original_path)
 
         if self.transform:
             sample = self.transform(sample)
