@@ -23,6 +23,7 @@ datasets ready to be used for model training and inference.
    dataset_examples
    contributing
    modules
+   examples/examples
 
 Indices and tables
 ==================
