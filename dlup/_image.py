@@ -10,11 +10,12 @@ properties and offering a future aggregated api for possibly multiple different 
 other than OpenSlide.
 """
 
+import errno
 import functools
+import os
 import pathlib
 from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
-import os
-import errno
+
 import numpy as np  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
@@ -116,8 +117,9 @@ class SlideImage:
 
     @classmethod
     def from_file_path(
-        cls: Type[_TSlideImage], wsi_file_path: pathlib.Path, identifier: Union[str, None] = None
+        cls: Type[_TSlideImage], wsi_file_path: os.PathLike, identifier: Union[str, None] = None
     ) -> _TSlideImage:
+        wsi_file_path = pathlib.Path(wsi_file_path)
         if not wsi_file_path.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:
