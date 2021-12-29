@@ -42,7 +42,7 @@ setup(
     },
     install_requires=[
         "matplotlib",
-        "numpy",
+        "numpy>=1.21",
         "requests",
         "scikit-image>=0.19",
         "tifftools",
