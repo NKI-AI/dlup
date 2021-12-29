@@ -1,5 +1,9 @@
-Dataset examples
-================
+Working with the SlideImage and creating a TiledROIsSlideImageDataset
+---------------------------------------------------------------------
+
+Below you can find code snippets that show how to work with the DLUP SlideImage class, and create
+a tiled dataset on the fly without any preprocessing. The visualizations show the result
+of the automatic masking and thresholding.
 
 .. code-block:: python
 

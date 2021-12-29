@@ -1,23 +1,41 @@
 
-Example: Use DLUP CLI to tile all WSIs in a directory
+Use DLUP CLI to tile all WSIs in a directory
 -----------------------------------------------------
 
 Below is an example of a `.sh` script that can be used to tile all WSIs in a directory, saving the tiles in a similar directory structure as the directory structure of the source.
 
+This script finds all files of a given extension (e.g. `.svs` for TCGA) in a given directory,
+tiles each WSI according to the given configuration, and saves it in a similar directory structure.
+
+If given file paths to the directories are absolute, you can run the .sh script from anywhere. Otherwise, run it from the proper directory.
+
+This simple script can then be run with
+
+.. code-block:: bash
+
+    bash tile_all_wsis_in_directory.sh \
+    source_directory \
+    extension \
+    output_directory \
+    mpp \
+    tile_size \
+    foreground_threshold
+
+e.g.
+
+.. code-block:: bash
+
+    bash tile_all_wsis_in_directory.sh \
+    /absolute/or/relative/path/to/directory/containing/wsis \
+    .svs \
+    /absolute/or/relative/path/to/directory/to/save \
+    2 \
+    2048 \
+    0.8
+
 .. code-block:: bash
 
     #!/bin/bash
-
-    # Example script to find all .svs files in a specific directory, run tiling for each WSI, and save the output in a
-    # similar directory structure as in the given directory
-
-    # If file paths are absolute, run the .sh script from anywhere
-    # If file paths are relative, run the .sh script from the appropriate directory
-
-    # Run with
-    # bash tile_all_wsis_in_directory.sh source_directory extension output_directory mpp tile_size foreground_threshold
-    # e.g.
-    # bash tile_all_wsis_in_directory.sh /absolute/or/relative/path/to/directory/containing/wsis .svs /absolute/or/relative/path/to/directory/to/save 2 2048 0.8
 
     SOURCE_DIRECTORY=$1 # "/absolute/or/relative/path/to/directory/containing/wsis"
     LEN_SOURCE_DIRECTORY=${#SOURCE_DIRECTORY}
