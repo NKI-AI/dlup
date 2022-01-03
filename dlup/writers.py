@@ -95,16 +95,16 @@ class TiffImageWriter(ImageWriter):
         for tile_index, (tile_coordinates, _tile) in tqdm(enumerate(iterator)):
             _tile = np.asarray(_tile)
             if vips_image is None:
-                # TODO: Check the size of this object in memory when writing. Is it smaller when only one tile is there?
                 vips_image = pyvips.Image.black(*self._size, bands=_tile.shape[-1])
 
             vips_tile = numpy_to_vips(_tile)
-            # These apparently need to be flipped?? With the png but not otherwise.
-            tile_coordinates = tile_coordinates
             vips_image = vips_image.insert(vips_tile, *tile_coordinates)
-        self._save_tiff(vips_image, save_path)
 
-    def _save_tiff(self, vips_image: pyvips.Image, save_path: Union[str, os.PathLike]):
+        # TODO: How to figure out the bit depth?
+        # TODO: This will take significant memory resources. Can they be written tile by tile?
+        self._save_tiff(vips_image, save_path, bitdepth=8)
+
+    def _save_tiff(self, vips_image: pyvips.Image, save_path: Union[str, os.PathLike], bitdepth: int = 8):
         vips_image.tiffsave(
             str(save_path),
             compression=self._compression.value,
@@ -115,7 +115,7 @@ class TiffImageWriter(ImageWriter):
             yres=self._mpp[1],
             pyramid=self._pyramid,
             squash=True,
-            bitdepth=8,
+            bitdepth=bitdepth,
             bigtiff=True,
             depth="onetile" if self._pyramid else "one",
             background=[0],
