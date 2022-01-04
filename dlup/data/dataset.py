@@ -16,13 +16,14 @@ from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict
 
 import numpy as np
 import PIL
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
 from dlup.background import is_foreground
 from dlup.tiling import Grid, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
+from dlup.utils.types import PathLike
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -306,7 +307,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
     @classmethod
     def from_standard_tiling(
         cls,
-        path: pathlib.Path,
+        path: PathLike,
         mpp: float,
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
@@ -336,7 +337,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
         transform :
-            Tansform to be applied to the sample
+            Transform to be applied to the sample
 
         Example
         -------

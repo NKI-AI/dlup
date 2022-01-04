@@ -48,6 +48,7 @@ setup(
         "tifftools",
         "tqdm",
         "pillow",
+        "pyvips",
         "openslide-python",
     ],
     extras_require={
