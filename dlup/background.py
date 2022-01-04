@@ -254,7 +254,7 @@ class AvailableMaskFunctions(Enum):
 
     >>> valid_inputs = [key for key in AvailableMaskFunctions.__members__]
     """
-
+    none = lambda x: None
     fesi = partial(fesi)
     improved_fesi = partial(improved_fesi)
 
