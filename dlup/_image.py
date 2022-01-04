@@ -106,8 +106,8 @@ class SlideImage:
                 mpp_x = pyvips_file.get("xres")
                 mpp_y = pyvips_file.get("yres")
                 pass
-        else:
-            raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
+            else:
+                raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
 
         mpp = np.array([mpp_y, mpp_x])
         if not np.isclose(mpp[0], mpp[1], rtol=1.0e-2):

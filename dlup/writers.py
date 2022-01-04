@@ -153,19 +153,34 @@ def testing():
     # iterator = grid_iterator(mask)
 
     # Level 0 ROI size
-    # TILE_SIZE = (512, 512)
-    # TARGET_MPP = 1.14
-    # INPUT_FILE_PATH = "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.svs"
-    # OUTPUT_FILE_PATH = "/processing/j.teuwen/test_compression_jp2k.tiff"
-    # # Generate the mask
+    TILE_SIZE = (512, 512)
+    TARGET_MPP = 1.14
+    INPUT_FILE_PATH = "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.svs"
+    OUTPUT_FILE_PATH = "/processing/j.teuwen/test.tiff"
+    # Generate the mask
     # from dlup.background import get_mask
     #
     # slide_image = SlideImage.from_file_path(INPUT_FILE_PATH)
     # # mask = get_mask(slide_image)
     # mask = None
-    # dataset = TiledROIsSlideImageDataset.from_standard_tiling(
-    #     INPUT_FILE_PATH, TARGET_MPP, TILE_SIZE, (0, 0), mask=mask, tile_mode=TilingMode.overflow
-    # )
+    dataset = TiledROIsSlideImageDataset.from_standard_tiling(
+        INPUT_FILE_PATH, TARGET_MPP, TILE_SIZE, (0, 0), mask=None, tile_mode=TilingMode.overflow
+    )
+
+    dataset2 = TiledROIsSlideImageDataset.from_standard_tiling(
+        OUTPUT_FILE_PATH, TARGET_MPP, TILE_SIZE, (0, 0), mask=None, tile_mode=TilingMode.overflow
+    )
+
+    idx = 800
+
+    for data0, data1 in zip(dataset, dataset2):
+        x = np.asarray(data0["image"])
+        y = np.asarray(data1["image"])
+        if not x.shape == y.shape:
+            pass
+        # assert np.allclose(x, y)
+        # z = np.abs(x - y)
+    print()
     #
     # image_size = (np.asarray(dataset.grids[0][0].size) * dataset.grids[0][1]).tolist()
     #
