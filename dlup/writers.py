@@ -11,7 +11,7 @@ from tqdm import tqdm
 from dlup import SlideImage
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import TilingMode
-
+#
 # map np dtypes to vips
 DTYPE_TO_FORMAT = {
     "uint8": "uchar",
@@ -153,37 +153,48 @@ def testing():
     # iterator = grid_iterator(mask)
 
     # Level 0 ROI size
-    TILE_SIZE = (512, 512)
-    TARGET_MPP = 1.14
-    INPUT_FILE_PATH = "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.svs"
-    OUTPUT_FILE_PATH = "/processing/j.teuwen/test_compression_jp2k.tiff"
-    # Generate the mask
-    from dlup.background import get_mask
+    # TILE_SIZE = (512, 512)
+    # TARGET_MPP = 1.14
+    # INPUT_FILE_PATH = "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.svs"
+    # OUTPUT_FILE_PATH = "/processing/j.teuwen/test_compression_jp2k.tiff"
+    # # Generate the mask
+    # from dlup.background import get_mask
+    #
+    # slide_image = SlideImage.from_file_path(INPUT_FILE_PATH)
+    # # mask = get_mask(slide_image)
+    # mask = None
+    # dataset = TiledROIsSlideImageDataset.from_standard_tiling(
+    #     INPUT_FILE_PATH, TARGET_MPP, TILE_SIZE, (0, 0), mask=mask, tile_mode=TilingMode.overflow
+    # )
+    #
+    # image_size = (np.asarray(dataset.grids[0][0].size) * dataset.grids[0][1]).tolist()
+    #
+    # def dataset_iterator(dataset):
+    #     for d in dataset:
+    #         yield np.array(d["coordinates"]), d["image"]
+    #
+    # writer = TiffImageWriter(
+    #     mpp=(TARGET_MPP, TARGET_MPP),
+    #     size=image_size,
+    #     tile_width=TILE_SIZE[1],
+    #     tile_height=TILE_SIZE[0],
+    #     pyramid=False,
+    #     compression=TiffCompression.JP2K,
+    #     quality=90,
+    # )
+    #
+    # writer.from_iterator(dataset_iterator(dataset), OUTPUT_FILE_PATH)
 
-    slide_image = SlideImage.from_file_path(INPUT_FILE_PATH)
-    # mask = get_mask(slide_image)
-    mask = None
-    dataset = TiledROIsSlideImageDataset.from_standard_tiling(
-        INPUT_FILE_PATH, TARGET_MPP, TILE_SIZE, (0, 0), mask=mask, tile_mode=TilingMode.overflow
-    )
+    import tifffile
 
-    image_size = (np.asarray(dataset.grids[0][0].size) * dataset.grids[0][1]).tolist()
+    # f = tifffile("/processing/j.teuwen/test_compression_pyramid.tiff")
 
-    def dataset_iterator(dataset):
-        for d in dataset:
-            yield np.array(d["coordinates"]), d["image"]
-
-    writer = TiffImageWriter(
-        mpp=(TARGET_MPP, TARGET_MPP),
-        size=image_size,
-        tile_width=TILE_SIZE[1],
-        tile_height=TILE_SIZE[0],
-        pyramid=False,
-        compression=TiffCompression.JP2K,
-        quality=90,
-    )
-
-    writer.from_iterator(dataset_iterator(dataset), OUTPUT_FILE_PATH)
+    # z = tifftools.read_tiff("/processing/j.teuwen/test_compression_pyramid.tiff")
+    image = SlideImage.from_file_path("/processing/j.teuwen/test_compression_pyramid.tiff")
+    z = pyvips.Image.new_from_file("/processing/j.teuwen/test_compression_pyramid.tiff")
+    mpp = [z.get("xres"), z.get("yres")]
+    h = z.get_fields()
+    print()
 
 
 if __name__ == "__main__":
