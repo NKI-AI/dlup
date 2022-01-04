@@ -51,7 +51,7 @@ class TiffImageWriter(ImageWriter):
     def from_iterator(self, iterator: Iterable, save_path: Union[str, os.PathLike]):
         vips_image = None
         bit_depth = None  # This is 1, 2, 4, 8
-        for tile_index, (tile_coordinates, _tile) in tqdm(enumerate(iterator)):
+        for tile_index, (tile_coordinates, _tile) in tqdm(enumerate(iterator), disable=False):
             _tile = np.asarray(_tile)
             if bit_depth is None:
                 if _tile.dtype == np.dtype("bool"):
