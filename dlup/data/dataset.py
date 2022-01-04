@@ -175,7 +175,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._path = path
         self._crop = crop
         self.regions = regions
-        self.transform = transform
+        self.__transform = transform
 
         # Maps from a masked index -> regions index.
         # For instance, let's say we have three regions
@@ -231,8 +231,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "region_index": region_index,
         }
 
-        if self.transform:
-            sample = self.transform(sample)
+        if self.__transform:
+            sample = self.__transform(sample)
         return sample
 
     def __len__(self):
@@ -294,9 +294,9 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))
 
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
-
+        self.__transform = transform
         super().__init__(
-            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, transform=transform
+            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, transform=None
         )
 
     @property
@@ -368,6 +368,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
         region_data["grid_local_coordinates"] = grid_local_coordinates
         region_data["grid_index"] = starting_index
+
+        if self.__transform:
+            region_data = self.__transform(region_data)
+
         return region_data
 
 
@@ -391,7 +395,7 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
 
         """
         self.path = pathlib.Path(path)
-        self.transform = transform
+        self.__transform = transform
         with open(self.path / "tiles.json") as json_file:
             tiles_data = json.load(json_file)
 
@@ -412,8 +416,8 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
         # So do not directly compute from the current grid_index
         sample = PretiledDatasetSample(image=tile, grid_index=grid_index, path=self.original_path)
 
-        if self.transform:
-            sample = self.transform(sample)
+        if self.__transform:
+            sample = self.__transform(sample)
         return sample
 
     def __iter__(self):
