@@ -1,6 +1,6 @@
-[submodule "openslide"]
-	path = openslide
-	url = https://github.com/NKI-AI/openslide.git
-[submodule "openslide-python"]
-	path = openslide-python
-	url = https://github.com/NKI-AI/openslide-python.git
+# [submodule "openslide"]
+# 	path = openslide
+# 	url = https://github.com/NKI-AI/openslide.git
+# [submodule "openslide-python"]
+# 	path = openslide-python
+# 	url = https://github.com/NKI-AI/openslide-python.git
