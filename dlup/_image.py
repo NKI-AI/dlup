@@ -11,16 +11,15 @@ other than OpenSlide.
 """
 
 import errno
-import functools
 import os
 import pathlib
 from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
-
+from enum import Enum
+import pyvips
 import numpy as np  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
-
 import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError
 
@@ -32,6 +31,11 @@ _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
 _Box = Tuple[_GenericNumber, _GenericNumber, _GenericNumber, _GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
+
+
+class SlideReaderBackend(Enum):
+    OPENSLIDE = "openslide"
+    VIPS = "vips"
 
 
 class _SlideImageRegionView(RegionView):
@@ -95,10 +99,17 @@ class SlideImage:
         try:
             mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
-            mpp = np.array([mpp_y, mpp_x])
         except KeyError:
+            # TODO: This should ideally be implemented as a different backend
+            # so we can read the file completely with vips
+            pyvips_file = pyvips.Image.new_from_file(self._openslide_wsi._filename)  # noqa
+            mpp_x = pyvips_file.get("xres")
+            mpp_y = pyvips_file.get("yres")
+            pass
+        else:
             raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
 
+        mpp = np.array([mpp_y, mpp_x])
         if not np.isclose(mpp[0], mpp[1], rtol=1.0e-2):
             raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
 
