@@ -2,13 +2,15 @@
 # Copyright (c) dlup contributors
 import os
 from enum import Enum
-from typing import Iterable, Optional, Union
+from typing import Iterable, Union
 
 import numpy as np
+import PIL.Image
 import pyvips
 from tqdm import tqdm
 
-from dlup.utils.vips import numpy_to_vips
+from dlup.tiling import Grid, TilingMode
+from dlup.utils.vips import numpy_to_vips, vips_to_numpy
 
 
 class TiffCompression(Enum):
@@ -38,7 +40,9 @@ class TiffImageWriter(ImageWriter):
         tile_width=256,
         pyramid=False,
         compression: TiffCompression = TiffCompression.NONE,
-        quality: Optional[int] = None,
+        quality: int = 100,
+        bit_depth: int = 8,
+        silent: bool = False,
     ):
         self._tile_height = tile_height
         self._tile_width = tile_width
@@ -47,31 +51,34 @@ class TiffImageWriter(ImageWriter):
         self._compression = compression
         self._pyramid = pyramid
         self._quality = quality
+        self._bit_depth = bit_depth
+        if bit_depth not in [1, 2, 4, 8]:
+            raise ValueError(f"bit_depth can only be 1, 2, 4 or 8.")
+
+        self._silent = silent
 
     def from_iterator(self, iterator: Iterable, save_path: Union[str, os.PathLike]):
         vips_image = None
-        bit_depth = None  # This is 1, 2, 4, 8
-        for tile_index, (tile_coordinates, _tile) in tqdm(enumerate(iterator), disable=False):
+        for tile_index, (tile_coordinates, _tile) in tqdm(enumerate(iterator), disable=self._silent):
             _tile = np.asarray(_tile)
-            if bit_depth is None:
-                if _tile.dtype == np.dtype("bool"):
-                    bit_depth = 1
-                elif _tile.dtype == np.dtype("uint8"):
-                    bit_depth = 8
-                else:
-                    ValueError(f"I am not so sure about this bit_depth.")
-
             if vips_image is None:
+                # Assumes last axis is the channel!
                 vips_image = pyvips.Image.black(*self._size, bands=_tile.shape[-1])
 
             vips_tile = numpy_to_vips(_tile)
             vips_image = vips_image.insert(vips_tile, *tile_coordinates)
 
-        # TODO: How to figure out the bit depth?
         # TODO: This will take significant memory resources. Can they be written tile by tile?
-        self._save_tiff(vips_image, save_path, bitdepth=bit_depth)
+        self._save_tiff(vips_image, save_path)
 
-    def _save_tiff(self, vips_image: pyvips.Image, save_path: Union[str, os.PathLike], bitdepth: int = 8):
+    def from_pil(self, pil_image: PIL.Image.Image, save_path: Union[str, os.PathLike]):
+        iterator = self._grid_iterator(pil_image)
+        writer = TiffImageWriter(
+            mpp=self._mpp, size=pil_image.size, compression=self._compression, bit_depth=self._bit_depth
+        )
+        writer.from_iterator(iterator, save_path=save_path)
+
+    def _save_tiff(self, vips_image: pyvips.Image, save_path: Union[str, os.PathLike]):
         vips_image.tiffsave(
             str(save_path),
             compression=self._compression.value,
@@ -82,9 +89,26 @@ class TiffImageWriter(ImageWriter):
             yres=self._mpp[1],
             pyramid=self._pyramid,
             squash=True,
-            bitdepth=bitdepth,
+            bitdepth=self._bit_depth,
             bigtiff=True,
             depth="onetile" if self._pyramid else "one",
             background=[0],
             Q=self._quality,
         )
+
+    def _grid_iterator(self, pil_image):
+        _tile_size = (self._tile_height, self._tile_width)
+        grid = Grid.from_tiling(
+            (0, 0),
+            size=pil_image.size[::-1],
+            tile_size=_tile_size,
+            tile_overlap=(0, 0),
+            mode=TilingMode.overflow,
+        )
+        for tile_coordinates in grid:
+            arr = np.asarray(pil_image)
+            cropped_mask = arr[
+                tile_coordinates[0] : tile_coordinates[0] + _tile_size[0],
+                tile_coordinates[1] : tile_coordinates[1] + _tile_size[1],
+            ]
+            yield tile_coordinates[::-1], cropped_mask[..., np.newaxis].astype("uint8")

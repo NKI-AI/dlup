@@ -8,8 +8,7 @@ import pathlib
 import numpy as np
 
 import dlup
-from dlup.data.dataset import TiledROIsSlideImageDataset
-from dlup.data.dataset import TilingMode
+from dlup.data.dataset import TiledROIsSlideImageDataset, TilingMode
 
 
 def test_tiled_level_slide_image_dataset(monkeypatch, dlup_wsi):

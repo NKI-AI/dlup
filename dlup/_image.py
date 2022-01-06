@@ -102,7 +102,8 @@ class SlideImage:
             mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
         except KeyError:
-            # TODO: This should ideally be implemented as a different backend so we can read the file completely with vips
+            # TODO: This should ideally be implemented as a different
+            # backend so we can read the file completely with vips
             if self._openslide_wsi.properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
                 pyvips_file = pyvips.Image.new_from_file(self._openslide_wsi._filename)  # noqa
                 mpp_x = pyvips_file.get("xres")

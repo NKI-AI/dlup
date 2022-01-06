@@ -7,14 +7,16 @@ import pathlib
 from multiprocessing import Pool
 from typing import Tuple, cast
 
+import numpy as np
 from PIL import Image
 
 from dlup import SlideImage
 from dlup.background import AvailableMaskFunctions, get_mask
 from dlup.data.dataset import TiledROIsSlideImageDataset
-from dlup.tiling import TilingMode
+from dlup.tiling import Grid, TilingMode
 from dlup.utils import ArrayEncoder
 from dlup.viz.plotting import plot_2d
+from dlup.writers import TiffCompression, TiffImageWriter
 
 
 def tiling(args: argparse.Namespace):
@@ -25,7 +27,9 @@ def tiling(args: argparse.Namespace):
     tile_overlap = cast(Tuple[int, int], (args.tile_overlap,) * 2)
 
     image = SlideImage.from_file_path(input_file_path)
-    mask = get_mask(slide=image, mask_func=AvailableMaskFunctions[args.mask_func])
+
+    mask_func = AvailableMaskFunctions[args.mask_func]
+    mask = get_mask(slide=image, mask_func=mask_func) if mask_func != mask_func.none else None
 
     # the nparray and PIL.Image.size height and width order are flipped is as it would be as a PIL.Image.
     # Below [::-1] casts the thumbnail_size to the PIL.Image expected size
@@ -35,7 +39,17 @@ def tiling(args: argparse.Namespace):
     # Prepare output directory.
     output_directory_path.mkdir(parents=True, exist_ok=True)
 
-    Image.fromarray(mask.astype(dtype=bool)).save(output_directory_path / "mask.png")
+    if args.mask_format == "png":
+        Image.fromarray(mask.astype(dtype=bool)).save(output_directory_path / "tissue_mask.png")
+    else:
+        mpp = image.mpp * np.asarray(image.size) / mask.shape[::-1]
+        # TODO: Figure out why bit_depth 8 is really needed here.
+        writer = TiffImageWriter(
+            mpp=mpp, size=mask.size, compression=TiffCompression.CCITTFAX4, bit_depth=8, silent=True
+        )
+        # TODO: Why is 255 needed? x255
+        writer.from_pil(Image.fromarray(mask * 255), output_directory_path / "tissue_mask.tiff")
+
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
@@ -195,6 +209,14 @@ def register_parser(parser: argparse._SubParsersAction):
         default="improved_fesi",
         choices=AvailableMaskFunctions.__members__,
         help="Function to compute the tissue mask with",
+    )
+    tiling_parser.add_argument(
+        "--mask-format",
+        dest="mask_format",
+        type=str,
+        default="tiff",
+        choices=["tiff", "png"],
+        help="Write mask as a tiff or png",
     )
 
     tiling_parser.add_argument(

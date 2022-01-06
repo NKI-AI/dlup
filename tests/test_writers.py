@@ -1,8 +1,9 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import tempfile
-import pytest
+
 import numpy as np
+import pytest
 
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import TilingMode
@@ -30,6 +31,7 @@ class TestTiffWriter:
             pyramid=False,
             compression=TiffCompression.NONE,
             quality=100,
+            bit_depth=8,
         )
 
         with tempfile.NamedTemporaryFile(suffix=".tif") as temp_file:
@@ -61,3 +63,13 @@ class TestTiffWriter:
     def _dataset_iterator(dataset):
         for d in dataset:
             yield np.array(d["coordinates"]), d["image"]
+
+
+#
+# if __name__ == "__main__":
+#     from dlup import SlideImage
+#     slide_image = SlideImage.from_file_path("/processing/j.teuwen/output_test/tissue_mask.tiff")
+#
+#     whole_image = slide_image.read_region(location=(0, 0), scaling=0.1, size=(400, 350))
+#     whole_image = np.asarray(whole_image)
+#
