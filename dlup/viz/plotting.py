@@ -40,8 +40,8 @@ def plot_2d(
     mask : ndarray
         Mask data of shape N x M.
     bboxes : tuple
-        Bounding boxes to overlay. In the form of [[x, y, h, w], ...]. Can also use it with colors, in that case
-        use a tuple: [([x, y, h, w], "red"), ...]. The color string has to be matplotlib supported.
+        Bounding boxes to overlay. In the form of [row, col, height, width], ...]. Can also use it with colors, in that case
+        use a tuple: [([row, col, height, width], "red"), ...]. The color string has to be matplotlib supported.
     contours : list
         List of contours in form (N, 2).
     points : ndarray
@@ -100,9 +100,15 @@ def plot_2d(
 
     if bboxes is not None:
         for bbox in bboxes:
-            if isinstance(bbox, (tuple, list)) and len(bbox) == 2:  # TODO: This can use a more elaborate check.
-                bbox = bbox[0]
+            if isinstance(bbox, (tuple, list)) and len(bbox) == 2:
+                if not isinstance(bbox[1], str):
+                    raise ValueError(f"Colour value in bbox({bbox}): `{bbox[1]}` is not a string")
+                if not isinstance(bbox[0], (list, tuple)):
+                    raise ValueError(f"Bbox {bbox[0]} must be a list or a tuple")
+                if not len(bbox[0] == 4):
+                    raise ValueError(f"Bbox {bbox[0]} must be of length 4: (row, col, height, width)")
                 bbox_color = bbox[1]
+                bbox = bbox[0]
             else:
                 bbox_color = None
             add_2d_bbox(bbox, axis, linewidth, bbox_color)
