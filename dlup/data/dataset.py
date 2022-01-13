@@ -5,7 +5,6 @@
 Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 """
 
-import abc
 import bisect
 import collections
 import functools

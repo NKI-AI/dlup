@@ -45,10 +45,8 @@ setup(
         "numpy>=1.21",
         "requests",
         "scikit-image>=0.19",
-        "tifftools",
         "tqdm",
         "pillow",
-        "pyvips",
         "openslide-python",
     ],
     extras_require={

@@ -79,17 +79,20 @@ class TiffImageWriter(ImageWriter):
         writer.from_iterator(iterator, save_path=save_path)
 
     def _save_tiff(self, vips_image: pyvips.Image, save_path: Union[str, os.PathLike]):
+        vips_image.set_type(pyvips.GValue.gdouble_type, "dlup.mpp_x", self._mpp[0])
+        vips_image.set_type(pyvips.GValue.gdouble_type, "dlup.mpp_y", self._mpp[1])
         vips_image.tiffsave(
             str(save_path),
             compression=self._compression.value,
             tile=True,
             tile_width=self._tile_width,
             tile_height=self._tile_width,
-            xres=self._mpp[0],
-            yres=self._mpp[1],
+            xres=1 / self._mpp[0],
+            yres=1 / self._mpp[1],
             pyramid=self._pyramid,
             squash=True,
             bitdepth=self._bit_depth,
+            properties=True,
             bigtiff=True,
             depth="onetile" if self._pyramid else "one",
             background=[0],

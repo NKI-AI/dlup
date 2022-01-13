@@ -14,16 +14,18 @@ import errno
 import os
 import pathlib
 from enum import Enum
-from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
-import pyvips
-from numpy.typing import ArrayLike
 
 from dlup import DlupUnsupportedSlideError
+from dlup.utils.imports import _PYVIPS_AVAILABLE
+
+if _PYVIPS_AVAILABLE:
+    import pyvips
 
 from ._region import BoundaryMode, RegionView
 
@@ -105,10 +107,27 @@ class SlideImage:
             # TODO: This should ideally be implemented as a different
             # backend so we can read the file completely with vips
             if self._openslide_wsi.properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
-                pyvips_file = pyvips.Image.new_from_file(self._openslide_wsi._filename)  # noqa
-                mpp_x = pyvips_file.get("xres")
-                mpp_y = pyvips_file.get("yres")
-                pass
+                # We store the key in dlup.mpp_x, dlup.mpp_y. See if we can obtain these.
+                comment = self._openslide_wsi.properties.get(openslide.PROPERTY_NAME_COMMENT, None)
+                if comment is not None:
+                    mpp_x = None
+                    mpp_y = None
+                    import xmltodict
+
+                    properties = xmltodict.parse(comment)["image"]["properties"]["property"]
+                    for property in properties:
+                        if property["name"] == "dlup.mpp_x":
+                            mpp_x = float(property["value"]["#text"])
+                        if property["name"] == "dlup.mpp_y":
+                            mpp_y = float(property["value"]["#text"])
+
+                else:
+                    # This is a last resort.
+                    if not _PYVIPS_AVAILABLE:
+                        raise RuntimeError("Package pyvips needs to be installed to read this file.")
+                    pyvips_file = pyvips.Image.new_from_file(self._openslide_wsi._filename)  # noqa
+                    mpp_x = 1 / pyvips_file.get("xres")
+                    mpp_y = 1 / pyvips_file.get("yres")
             else:
                 raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
 
@@ -247,11 +266,13 @@ class SlideImage:
         # the pixel in the right position to retain the right sample weight.
         fractional_coordinates = native_location - native_location_adapted
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
+        # box = (*fractional_coordinates, *_clip2size(fractional_coordinates + native_size, native_size_adapted))
         return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
 
     def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
+        # size = np.round(np.array(self.size) * scaling)
         return tuple(size.astype(int))
 
     def get_mpp(self, scaling: float) -> float:
@@ -307,9 +328,12 @@ class SlideImage:
         return self._min_native_mpp
 
     @property
-    def magnification(self) -> int:
+    def magnification(self) -> Optional[int]:
         """Returns the objective power at which the WSI was sampled."""
-        return int(self._openslide_wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        try:
+            return int(self._openslide_wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        except KeyError:
+            return None
 
     @property
     def aspect_ratio(self) -> float:
@@ -322,6 +346,6 @@ class SlideImage:
         props = ("identifier", "vendor", "mpp", "magnification", "size")
         props_str = []
         for key in props:
-            value = getattr(self, key)
+            value = getattr(self, key, None)
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
