@@ -1,8 +1,9 @@
+import numpy as np
+
 from dlup import SlideImage
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import TilingMode
-from dlup.writers import TiffImageWriter, TiffCompression
-import numpy as np
+from dlup.writers import TiffCompression, TiffImageWriter
 
 target_mpp = 11.4
 tile_size = [1024, 1024]

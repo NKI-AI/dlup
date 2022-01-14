@@ -2,7 +2,7 @@
 # Copyright (c) dlup contributors
 import os
 from enum import Enum
-from typing import Iterable, Union
+from typing import Iterable, Optional, Union
 
 import numpy as np
 import PIL.Image
@@ -57,9 +57,11 @@ class TiffImageWriter(ImageWriter):
 
         self._silent = silent
 
-    def from_iterator(self, iterator: Iterable, save_path: Union[str, os.PathLike]):
+    def from_iterator(self, iterator: Iterable, save_path: Union[str, os.PathLike], total: Optional[int] = None):
         vips_image = None
-        for tile_index, (tile_coordinates, _tile) in tqdm(enumerate(iterator), disable=self._silent):
+        for tile_index, (tile_coordinates, _tile) in tqdm(
+            enumerate(iterator), disable=self._silent, unit="tiles", total=total
+        ):
             _tile = np.asarray(_tile)
             if vips_image is None:
                 # Assumes last axis is the channel!

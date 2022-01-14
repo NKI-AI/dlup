@@ -1,9 +1,9 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+import numpy as np
 import pytest
 
 from dlup.utils.vips import numpy_to_vips, vips_to_numpy
-import numpy as np
 
 
 @pytest.mark.parametrize("shape", [[256, 256, 1], [512, 512, 3]])

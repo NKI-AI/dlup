@@ -4,6 +4,7 @@
 import argparse
 import json
 import pathlib
+import sys
 from multiprocessing import Pool
 from typing import Tuple, cast
 
@@ -12,6 +13,7 @@ from PIL import Image
 
 from dlup import SlideImage
 from dlup.background import AvailableMaskFunctions, get_mask
+from dlup.cache import create_tiff_cache
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import Grid, TilingMode
 from dlup.utils import ArrayEncoder
@@ -144,6 +146,35 @@ def info(args: argparse.Namespace):
         print(f"{k}\t{v}")
 
 
+def downsample(args: argparse.Namespace):
+    """Downsample a WSI"""
+    suffix = args.output_slide_file_path.suffixes[-1]
+    if suffix not in [".tif", ".tiff"]:
+        sys.exit(f"Can only downsample to TIFF images. Received {suffix}.")
+
+    slide_image = SlideImage.from_file_path(args.slide_file_path)
+    if slide_image.mpp > args.mpp:
+        sys.exit(f"Input image has mpp {slide_image.mpp}, while requested mpp is {args.mpp}. Exiting.")
+    slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(args.mpp))
+    grid = Grid.from_tiling(
+        (0, 0),
+        size=slide_level_size,
+        tile_size=(args.tile_size, args.tile_size),
+        tile_overlap=(0, 0),
+        mode=TilingMode.overflow,
+    )
+
+    create_tiff_cache(
+        slide_image=slide_image,
+        grid=grid,
+        mpp=args.mpp,
+        output_size=slide_level_size,
+        tile_size=(args.tile_size, args.tile_size),
+        filename=args.output_slide_file_path,
+        tiff_tile_size=(args.tile_size, args.tile_size),
+    )
+
+
 def register_parser(parser: argparse._SubParsersAction):
     """Register wsi commands to a root parser."""
     wsi_parser = parser.add_parser("wsi", help="WSI parser")
@@ -152,57 +183,57 @@ def register_parser(parser: argparse._SubParsersAction):
     wsi_subparsers.dest = "subcommand"
 
     # Tile a slide and save the tiles in an output folder.
-    tiling_parser = wsi_subparsers.add_parser("tile", help="Generate tiles in a target output folder.")
-    tiling_parser.add_argument(
+    wsi_parser = wsi_subparsers.add_parser("tile", help="Generate tiles in a target output folder.")
+    wsi_parser.add_argument(
         "--tile-size",
         type=int,
         required=True,
         help="Size of the generated tiles.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--tile-overlap",
         type=int,
         default=0,
         help="Number of overlapping pixels between tiles.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--mode",
         type=TilingMode,
         default=TilingMode.skip,
         choices=TilingMode.__members__,
-        help="Policy to handle verflowing tiles.",
+        help="Policy to handle overflowing tiles.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--crop",
         action="store_true",
         help="If a tile is overflowing, crop it.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--foreground-threshold",
         type=float,
         default=0.0,
         help="Fraction of foreground to consider a tile valid.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--mpp",
         type=float,
         required=True,
         help="Microns per pixel.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--num-workers",
         type=int,
         help="Number of parallel threads to run. None -> fully parallelized.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--do-not-save-tiles",
         dest="do_not_save_tiles",
         action="store_true",
         help="Flag to show what would have been tiled. If set -> saves metadata and masks, but does not perform tiling",
     )
-    tiling_parser.set_defaults(do_not_save_tiles=False)
+    wsi_parser.set_defaults(do_not_save_tiles=False)
 
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--mask-func",
         dest="mask_func",
         type=str,
@@ -210,7 +241,7 @@ def register_parser(parser: argparse._SubParsersAction):
         choices=AvailableMaskFunctions.__members__,
         help="Function to compute the tissue mask with",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--mask-format",
         dest="mask_format",
         type=str,
@@ -219,28 +250,57 @@ def register_parser(parser: argparse._SubParsersAction):
         help="Write mask as a tiff or png",
     )
 
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "slide_file_path",
         type=pathlib.Path,
         help="Input slide image.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "output_directory_path",
         type=pathlib.Path,
         help="Directory to save output too.",
     )
-    tiling_parser.set_defaults(subcommand=tiling)
+    wsi_parser.set_defaults(subcommand=tiling)
 
     # Get generic slide infos.
-    tiling_parser = wsi_subparsers.add_parser("info", help="Return available slide properties.")
-    tiling_parser.add_argument(
+    wsi_parser = wsi_subparsers.add_parser("info", help="Return available slide properties.")
+    wsi_parser.add_argument(
         "slide_file_path",
         type=pathlib.Path,
         help="Input slide image.",
     )
-    tiling_parser.add_argument(
+    wsi_parser.add_argument(
         "--json",
         action="store_true",
         help="Print available properties in json format.",
     )
-    tiling_parser.set_defaults(subcommand=info)
+    wsi_parser.set_defaults(subcommand=info)
+
+    wsi_parser = wsi_subparsers.add_parser("downsample", help="Downsample a slide.")
+    wsi_parser.add_argument(
+        "slide_file_path",
+        type=pathlib.Path,
+        help="Input slide image.",
+    )
+    wsi_parser.add_argument(
+        "output_slide_file_path",
+        type=pathlib.Path,
+        help="Output slide image. Only .tif or .tiff is allowed as an extension.",
+    )
+    wsi_parser.add_argument(
+        "--mpp",
+        type=float,
+        required=True,
+        help="Microns per pixel of the output image.",
+    )
+    wsi_parser.add_argument(
+        "--tile-size",
+        type=int,
+        required=True,
+        help="Size of the tile size used to write. "
+        "Likely this has very small visual effect, nevertheless it might make sense to use the same tile size"
+        "as you would when reading. Will also set the internal tiff tile size to this value.",
+    )
+    # TODO: Compression, quality.
+
+    wsi_parser.set_defaults(subcommand=downsample)

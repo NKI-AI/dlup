@@ -5,6 +5,7 @@
 
 import numpy as np
 import pytest
+
 import dlup
 from dlup.data.dataset import TiledROIsSlideImageDataset, TilingMode
 
