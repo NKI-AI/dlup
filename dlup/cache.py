@@ -39,7 +39,7 @@ def test_image_cache():
     create_tiff_cache(slide_image, grid, mpp, tile_size, output_size=slide_level_size, filename=OUTPUT_FILE_PATH)
 
 
-def create_tiff_cache(slide_image, grid, mpp, tile_size, output_size, filename, tiff_tile_size):
+def create_tiff_cache(slide_image, grid, mpp, tile_size, output_size, filename, tiff_tile_size, pyramid):
     scaling: float = slide_image.mpp / mpp
     region_view = slide_image.get_scaled_view(scaling)
     region_view.boundary_mode = BoundaryMode.crop
@@ -62,7 +62,7 @@ def create_tiff_cache(slide_image, grid, mpp, tile_size, output_size, filename, 
         size=output_size - grid_offset,
         tile_width=tiff_tile_size[0],
         tile_height=tiff_tile_size[1],
-        pyramid=False,
+        pyramid=pyramid,
         compression=TiffCompression.JPEG,
         quality=100,
         bit_depth=8,

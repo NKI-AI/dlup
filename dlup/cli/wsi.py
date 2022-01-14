@@ -172,6 +172,7 @@ def downsample(args: argparse.Namespace):
         tile_size=(args.tile_size, args.tile_size),
         filename=args.output_slide_file_path,
         tiff_tile_size=(args.tile_size, args.tile_size),
+        pyramid=args.pyramid,
     )
 
 
@@ -300,6 +301,11 @@ def register_parser(parser: argparse._SubParsersAction):
         help="Size of the tile size used to write. "
         "Likely this has very small visual effect, nevertheless it might make sense to use the same tile size"
         "as you would when reading. Will also set the internal tiff tile size to this value.",
+    )
+    wsi_parser.add_argument(
+        "--pyramid",
+        action="store_true",
+        help="Store as a pyramidal format. Is useful when the image will be further downsampled.",
     )
     # TODO: Compression, quality.
 
