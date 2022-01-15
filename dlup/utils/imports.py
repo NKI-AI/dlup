@@ -22,4 +22,4 @@ def _module_available(module_path: str) -> bool:
 
 
 _PYTORCH_AVAILABLE = _module_available("pytorch")
-_PYVIPS_AVAILABLE = _module_available("pyvips")
+PYVIPS_AVAILABLE = _module_available("pyvips")

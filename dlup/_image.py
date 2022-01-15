@@ -14,7 +14,7 @@ import errno
 import os
 import pathlib
 from enum import Enum
-from typing import Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
@@ -22,19 +22,18 @@ import PIL
 import PIL.Image  # type: ignore
 
 from dlup import DlupUnsupportedSlideError
-from dlup.utils.imports import _PYVIPS_AVAILABLE
+from dlup.utils.imports import PYVIPS_AVAILABLE
+from dlup.utils.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 
-if _PYVIPS_AVAILABLE:
+if PYVIPS_AVAILABLE:
     import pyvips
 
+from ._cache import current_cache, image_cache, ImageCacher
 from ._region import BoundaryMode, RegionView
 
-_GenericNumber = Union[int, float]
-_GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
-_GenericFloatArray = Union[np.ndarray, Iterable[float]]
-_GenericIntArray = Union[np.ndarray, Iterable[int]]
-_Box = Tuple[_GenericNumber, _GenericNumber, _GenericNumber, _GenericNumber]
+_Box = Tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
+AbstractSlide = Union[openslide.AbstractSlide]
 
 
 class SlideReaderBackend(Enum):
@@ -42,10 +41,15 @@ class SlideReaderBackend(Enum):
     VIPS = "vips"
 
 
+# Todo create a caching class which is taken from this all caps variable, then mix it in. Has writable = True or false
+# Need an abstract empty class NoCache for mixin.
+# CachingClass = #
+
+
 class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber, boundary_mode: BoundaryMode = None):
+    def __init__(self, wsi: _TSlideImage, scaling: GenericNumber, boundary_mode: BoundaryMode = None):
         """Initialize with a slide image object and the scaling level."""
         # Always call the parent init
         super().__init__(boundary_mode=boundary_mode)
@@ -62,14 +66,14 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> Sequence[_GenericNumber]:
+def _clip2size(a: np.ndarray, size: Tuple[GenericNumber, GenericNumber]) -> Sequence[GenericNumber]:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
@@ -95,11 +99,15 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: openslide.AbstractSlide, identifier: Union[str, None] = None):
+    def __init__(self, wsi: AbstractSlide, identifier: Union[str, None] = None):
         """Initialize a whole slide image and validate its properties."""
         self._openslide_wsi = wsi
         self._identifier = identifier
 
+        mpp = self._compute_mpp()
+        self._min_native_mpp = float(mpp[0])
+
+    def _compute_mpp(self):
         try:
             mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
@@ -123,7 +131,7 @@ class SlideImage:
 
                 else:
                     # This is a last resort.
-                    if not _PYVIPS_AVAILABLE:
+                    if not PYVIPS_AVAILABLE:
                         raise RuntimeError("Package pyvips needs to be installed to read this file.")
                     pyvips_file = pyvips.Image.new_from_file(self._openslide_wsi._filename)  # noqa
                     mpp_x = 1 / pyvips_file.get("xres")
@@ -135,7 +143,7 @@ class SlideImage:
         if not np.isclose(mpp[0], mpp[1], rtol=1.0e-2):
             raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
 
-        self._min_native_mpp = float(mpp[0])
+        return mpp
 
     def close(self):
         """Close the underlying openslide image."""
@@ -150,7 +158,9 @@ class SlideImage:
 
     @classmethod
     def from_file_path(
-        cls: Type[_TSlideImage], wsi_file_path: os.PathLike, identifier: Union[str, None] = None
+        cls: Type[_TSlideImage],
+        wsi_file_path: os.PathLike,
+        identifier: Union[str, None] = None,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
         if not wsi_file_path.exists():
@@ -164,7 +174,7 @@ class SlideImage:
 
     def read_region(
         self,
-        location: Union[np.ndarray, Tuple[_GenericNumber, _GenericNumber]],
+        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> PIL.Image.Image:
@@ -266,13 +276,11 @@ class SlideImage:
         # the pixel in the right position to retain the right sample weight.
         fractional_coordinates = native_location - native_location_adapted
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
-        # box = (*fractional_coordinates, *_clip2size(fractional_coordinates + native_size, native_size_adapted))
         return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
 
-    def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
+    def get_scaled_size(self, scaling: GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
-        # size = np.round(np.array(self.size) * scaling)
         return tuple(size.astype(int))
 
     def get_mpp(self, scaling: float) -> float:
@@ -283,7 +291,7 @@ class SlideImage:
         """Inverse of get_mpp()."""
         return self._min_native_mpp / mpp
 
-    def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
+    def get_scaled_view(self, scaling: GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
@@ -349,3 +357,41 @@ class SlideImage:
             value = getattr(self, key, None)
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
+
+
+class CachedSlideImage(SlideImage, ImageCacher):
+    writable_cache = False
+
+    def __init__(self, wsi: AbstractSlide, identifier: Union[str, None] = None):
+        """Initialize a whole slide image and validate its properties."""
+        SlideImage.__init__(self, wsi=wsi, identifier=identifier)
+        ImageCacher.__init__(self, original_filename=wsi._filename)
+        print(ImageCacher)
+
+    # def create_cache(self, regions):
+    #     # For TIFF, we need to find the different MPPs in the regions.
+    #     mpps: Set[float] = set()
+    #     regions_dict: DefaultDict[float, Tuple[int, int, int, int]] = defaultdict(tuple)
+    #
+    #     wsi = self.wsi
+    #     for region, mpp in regions:
+    #         if mpp not in mpps:
+    #             mpps.add(mpp)
+    #         regions_dict[mpp] += region
+
+    @image_cache
+    def read_region(
+        self,
+        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        scaling: float,
+        size: Union[np.ndarray, Tuple[int, int]],
+    ) -> PIL.Image.Image:
+        return super(SlideImage, self).read_region(location, scaling, size)
+
+    def region_hash(
+        self,
+        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        scaling: float,
+        size: Union[np.ndarray, Tuple[int, int]],
+    ) -> Tuple:
+        return location, self.get_mpp(scaling), size

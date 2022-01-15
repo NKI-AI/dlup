@@ -12,8 +12,8 @@ import numpy as np
 from PIL import Image
 
 from dlup import SlideImage
+from dlup._cache import create_tiff_cache
 from dlup.background import AvailableMaskFunctions, get_mask
-from dlup.cache import create_tiff_cache
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import Grid, TilingMode
 from dlup.utils import ArrayEncoder

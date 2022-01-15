@@ -6,11 +6,16 @@ from typing import Iterable, Optional, Union
 
 import numpy as np
 import PIL.Image
-import pyvips
+
+from dlup.utils.imports import PYVIPS_AVAILABLE
+
+if PYVIPS_AVAILABLE:
+    import pyvips
+    from dlup.utils.vips import numpy_to_vips, vips_to_numpy
+
 from tqdm import tqdm
 
 from dlup.tiling import Grid, TilingMode
-from dlup.utils.vips import numpy_to_vips, vips_to_numpy
 
 
 class TiffCompression(Enum):
@@ -44,6 +49,9 @@ class TiffImageWriter(ImageWriter):
         bit_depth: int = 8,
         silent: bool = False,
     ):
+        if not PYVIPS_AVAILABLE:
+            raise RuntimeError(f"pyvips needs to be installed to use TiffImageWriter.")
+
         self._tile_height = tile_height
         self._tile_width = tile_width
         self._size = size

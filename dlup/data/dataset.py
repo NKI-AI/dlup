@@ -20,7 +20,6 @@ from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
 from dlup.background import is_foreground
-from dlup.cache import ImageCache
 from dlup.tiling import Grid, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.utils.types import PathLike
@@ -155,7 +154,6 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
         transform: Optional[Callable] = None,
-        image_cache: Optional[ImageCache] = None,
     ):
         """
         Parameters
@@ -189,8 +187,6 @@ class SlideImageDatasetBase(Dataset[T_co]):
             for i, region in enumerate(regions):
                 boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
-
-        self._image_cache = image_cache
 
     @property
     def path(self):
