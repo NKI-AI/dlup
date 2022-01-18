@@ -359,14 +359,28 @@ class SlideImage:
         return f"{self.__class__.__name__}({', '.join(props_str)})"
 
 
-class CachedSlideImage(SlideImage, ImageCacher):
-    writable_cache = False
-
+class CachedSlideImage(SlideImage):
     def __init__(self, wsi: AbstractSlide, identifier: Union[str, None] = None):
         """Initialize a whole slide image and validate its properties."""
-        SlideImage.__init__(self, wsi=wsi, identifier=identifier)
-        ImageCacher.__init__(self, original_filename=wsi._filename)
-        print(ImageCacher)
+        super().__init__(wsi=wsi, identifier=identifier)
+        # ImageCacher.__init__(self, original_filename=wsi._filename)
+        # print(ImageCacher)
+        self._cache_directory = None
+        self._cacher = ImageCacher(original_filename=wsi._filename)
+
+    @property
+    def cache_directory(self):
+        return self._cache_directory
+
+    @cache_directory.setter
+    def cache_directory(self, cache_directory: PathLike):
+        cache_directory = pathlib.Path(cache_directory)
+        if not cache_directory.is_dir():
+            raise NotADirectoryError(
+                f"{cache_directory} is not a directory. It is assumed that the cached files,"
+                f"reside in this directory. The format is <original_filename>.mpp-<mpp>.tiff"
+            )
+        self._cache_directory = cache_directory
 
     # def create_cache(self, regions):
     #     # For TIFF, we need to find the different MPPs in the regions.
@@ -386,7 +400,7 @@ class CachedSlideImage(SlideImage, ImageCacher):
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> PIL.Image.Image:
-        return super(SlideImage, self).read_region(location, scaling, size)
+        return super().read_region(location, scaling, size)
 
     def region_hash(
         self,

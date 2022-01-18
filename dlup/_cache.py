@@ -17,7 +17,7 @@ from dlup.utils.imports import PYVIPS_AVAILABLE
 if PYVIPS_AVAILABLE:
     from dlup.writers import TiffCompression, TiffImageWriter
 
-from dlup import IMAGE_CACHE
+IMAGE_CACHE = None
 
 
 def is_cache_available():
@@ -37,7 +37,7 @@ class AbstractImageCache(abc.ABC):
     @property
     @classmethod
     @abc.abstractmethod
-    def writable_cache(cls):
+    def writable(cls):
         """"""
 
     def __init__(self, original_filename: PathLike):
@@ -69,8 +69,8 @@ class AbstractImageCache(abc.ABC):
 
 
 class IdentityImageCache(AbstractImageCache):
-    writeable_cache = False
     cache_lock = None
+    writable = False
 
     def read_cached_region(
         self,
@@ -83,7 +83,7 @@ class IdentityImageCache(AbstractImageCache):
 
 
 class TiffImageCache(AbstractImageCache):
-    writable_cache = False
+    writable = False
 
     def __init__(self, original_filename: PathLike):
         super().__init__(original_filename)
@@ -177,35 +177,39 @@ def image_cache(func):
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
+        cacher = self._cacher
         location, mpp, tile_size = self.region_hash(*args, **kwargs)
-        lock = None if not self.writable_cache else self.cache_lock
+        lock = None if not cacher.writable else cacher.cache_lock
 
         if lock:
             with self.cache_lock:
-                region = self.read_cached_region(location, mpp, tile_size)
+                region = cacher.read_cached_region(location, mpp, tile_size)
         else:
-            region = self.read_cached_region(location, mpp, tile_size)
+            region = cacher.read_cached_region(location, mpp, tile_size)
 
         if region:
             return region
 
+        # TODO: this needs to get it the old fashioned way!
         # We didn't manage to get a cached version to get it from the region.
         # Let's try to write it.
         v = func(self, *args, **kwargs)
-        try:
-            if lock:
-                with self.cache_lock:
-                    self.write_cached_region(v, location, mpp, tile_size)
-            else:
-                self.write_cached_region(v, location, mpp, tile_size)
 
-        except ValueError:
-            pass  # Cannot do this, just read the original region.
-        except RuntimeError as exception:
-            # For some reason we cannot read this region.
-            raise RuntimeError(
-                f"Had a cache KeyError while trying to store location {location}, mpp {mpp} and tile_size {tile_size}."
-            ) from exception
+        if cacher.writable:
+            try:
+                if lock:
+                    with cacher.cache_lock:
+                        cacher.write_cached_region(v, location, mpp, tile_size)
+                else:
+                    cacher.write_cached_region(v, location, mpp, tile_size)
+
+            except ValueError:
+                pass  # Cannot do this, just read the original region.
+            except RuntimeError as exception:
+                # For some reason we cannot read this region.
+                raise RuntimeError(
+                    f"Had a cache KeyError while trying to store location {location}, mpp {mpp} and tile_size {tile_size}."
+                ) from exception
         return v
 
     return wrapper
