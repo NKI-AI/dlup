@@ -168,7 +168,6 @@ def downsample(args: argparse.Namespace):
         slide_image=slide_image,
         grid=grid,
         mpp=args.mpp,
-        output_size=slide_level_size,
         tile_size=(args.tile_size, args.tile_size),
         filename=args.output_slide_file_path,
         tiff_tile_size=(args.tile_size, args.tile_size),
