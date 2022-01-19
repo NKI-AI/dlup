@@ -415,7 +415,19 @@ def _read_dlup_wsi_mpp(comment):
     return None
 
 
-def _read_pyvips_wsi_mpp(filename):
+def _read_pyvips_wsi_mpp(filename: PathLike):
+    """
+    Read resolution from tiff file using vips
+
+    Parameters
+    ----------
+    filename : PathLike
+
+    Returns
+    -------
+    Tuple
+        mpp_x, mpp_y
+    """
     if not PYVIPS_AVAILABLE:
         raise RuntimeError("Package pyvips needs to be installed to read this file.")
     pyvips_file = pyvips.Image.new_from_file(str(filename))  # noqa
