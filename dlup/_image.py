@@ -145,7 +145,7 @@ class SlideImage:
     @classmethod
     def from_file_path(
         cls: Type[_TSlideImage],
-        wsi_file_path: os.PathLike,
+        wsi_file_path: PathLike,
         identifier: Union[str, None] = None,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
