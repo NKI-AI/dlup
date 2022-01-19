@@ -137,11 +137,13 @@ class SlideImage:
                     mpp_x = 1 / pyvips_file.get("xres")
                     mpp_y = 1 / pyvips_file.get("yres")
             else:
-                raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
+                raise DlupUnsupportedSlideError(f"slide property mpp is not available.", self._identifier)
 
         mpp = np.array([mpp_y, mpp_x])
         if not np.isclose(mpp[0], mpp[1], rtol=1.0e-2):
-            raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
+            raise DlupUnsupportedSlideError(
+                f"cannot deal with slides having anisotropic mpps. Got {mpp}.", self._identifier
+            )
 
         return mpp
 

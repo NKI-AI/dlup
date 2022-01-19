@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import dlup
+
 dlup.IMAGE_CACHE = "TIFF"
 
 from dlup.data.dataset import TiledROIsSlideImageDataset
