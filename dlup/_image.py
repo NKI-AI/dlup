@@ -117,25 +117,9 @@ class SlideImage:
             if self._openslide_wsi.properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
                 # We store the key in dlup.mpp_x, dlup.mpp_y. See if we can obtain these.
                 comment = self._openslide_wsi.properties.get(openslide.PROPERTY_NAME_COMMENT, None)
-                if comment is not None:
-                    mpp_x = None
-                    mpp_y = None
-                    import xmltodict
+                mpp_x, mpp_y = _read_dlup_wsi_mpp(comment)
+                # If it is still none you can raise.
 
-                    properties = xmltodict.parse(comment)["image"]["properties"]["property"]
-                    for property in properties:
-                        if property["name"] == "dlup.mpp_x":
-                            mpp_x = float(property["value"]["#text"])
-                        if property["name"] == "dlup.mpp_y":
-                            mpp_y = float(property["value"]["#text"])
-
-                else:
-                    # This is a last resort.
-                    if not PYVIPS_AVAILABLE:
-                        raise RuntimeError("Package pyvips needs to be installed to read this file.")
-                    pyvips_file = pyvips.Image.new_from_file(self._openslide_wsi._filename)  # noqa
-                    mpp_x = 1 / pyvips_file.get("xres")
-                    mpp_y = 1 / pyvips_file.get("yres")
             else:
                 raise DlupUnsupportedSlideError(f"slide property mpp is not available.", self._identifier)
 
@@ -411,3 +395,31 @@ class CachedSlideImage(SlideImage):
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> Tuple:
         return location, self.get_mpp(scaling), size
+
+
+def _read_dlup_wsi_mpp(comment):
+    if comment is not None:
+        mpp_x = None
+        mpp_y = None
+        import xmltodict
+
+        properties = xmltodict.parse(comment)["image"]["properties"]["property"]
+        for property in properties:
+            if property["name"] == "dlup.mpp_x":
+                mpp_x = float(property["value"]["#text"])
+            if property["name"] == "dlup.mpp_y":
+                mpp_y = float(property["value"]["#text"])
+
+        return mpp_x, mpp_y
+
+    return None
+
+
+def _read_pyvips_wsi_mpp(filename):
+    if not PYVIPS_AVAILABLE:
+        raise RuntimeError("Package pyvips needs to be installed to read this file.")
+    pyvips_file = pyvips.Image.new_from_file(str(filename))  # noqa
+    mpp_x = 1 / pyvips_file.get("xres")
+    mpp_y = 1 / pyvips_file.get("yres")
+
+    return mpp_x, mpp_y
