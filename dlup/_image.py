@@ -13,6 +13,7 @@ other than OpenSlide.
 import errno
 import os
 import pathlib
+import xml.dom.minidom as xml_parser
 from enum import Enum
 from typing import Optional, Sequence, Tuple, Type, TypeVar, Union
 
@@ -360,22 +361,24 @@ class SlideImage:
         return f"{self.__class__.__name__}({', '.join(props_str)})"
 
 
-def _read_dlup_wsi_mpp(comment):
-    if comment is not None:
-        mpp_x = None
-        mpp_y = None
-        import xmltodict
+def _read_dlup_wsi_mpp(comment: str):
+    if comment is None:
+        return None
 
-        properties = xmltodict.parse(comment)["image"]["properties"]["property"]
-        for property in properties:
-            if property["name"] == "dlup.mpp_x":
-                mpp_x = float(property["value"]["#text"])
-            if property["name"] == "dlup.mpp_y":
-                mpp_y = float(property["value"]["#text"])
+    mpp_x = None
+    mpp_y = None
+    tree = xml_parser.parseString(comment)
+    properties = tree.getElementsByTagName("property")
+    for prop in properties:
+        name = prop.getElementsByTagName("name")[0].firstChild.data
+        if name in ["dlup.mpp_x", "dlup.mpp_y"]:
+            value = prop.getElementsByTagName("value")[0].firstChild.data
+            if name == "dlup.mpp_x":
+                mpp_x = value
+            if name == "dlup.mpp_y":
+                mpp_y = value
 
-        return mpp_x, mpp_y
-
-    return None
+    return mpp_x, mpp_y
 
 
 def _read_pyvips_wsi_mpp(filename: PathLike):

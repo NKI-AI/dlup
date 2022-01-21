@@ -5,15 +5,15 @@ import errno
 import functools
 import os
 import pathlib
-from typing import Tuple, Union, Dict, Optional
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import PIL
 
 import dlup
 from dlup import SlideImage
-from dlup.tiling import Grid
 from dlup._region import BoundaryMode
+from dlup.tiling import Grid
 from dlup.utils.imports import PYVIPS_AVAILABLE
 from dlup.utils.types import GenericNumber, PathLike
 

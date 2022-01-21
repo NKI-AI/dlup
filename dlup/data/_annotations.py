@@ -38,7 +38,7 @@ from shapely import geometry
 from shapely.geometry import shape
 from shapely.strtree import STRtree
 
-from dlup.utils.types import PathLike, GenericNumber
+from dlup.utils.types import GenericNumber, PathLike
 
 _TAnnotationParser = TypeVar("_TAnnotationParser", bound="AnnotationParser")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
