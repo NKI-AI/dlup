@@ -165,11 +165,11 @@ def downsample(args: argparse.Namespace):
     )
 
     create_tiff_cache(
+        filename=args.output_slide_file_path,
         slide_image=slide_image,
         grid=grid,
         mpp=args.mpp,
         tile_size=(args.tile_size, args.tile_size),
-        filename=args.output_slide_file_path,
         tiff_tile_size=(args.tile_size, args.tile_size),
         pyramid=args.pyramid,
     )

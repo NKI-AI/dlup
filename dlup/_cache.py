@@ -5,12 +5,14 @@ import errno
 import functools
 import os
 import pathlib
-from typing import Tuple, TypeVar, Union
+from typing import Tuple, Union, Dict, Optional
 
 import numpy as np
 import PIL
 
 import dlup
+from dlup import SlideImage
+from dlup.tiling import Grid
 from dlup._region import BoundaryMode
 from dlup.utils.imports import PYVIPS_AVAILABLE
 from dlup.utils.types import GenericNumber, PathLike
@@ -24,10 +26,22 @@ class AbstractScaleLevelCache(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def writable(cls):
-        """"""
+        """Return whether this is a writable cache"""
 
-    def __init__(self, original_filename: PathLike):
+    def __init__(self, original_filename: PathLike, mpp_to_cache_map: Optional[Dict[str, object]] = None):
+        """
+        Create an AbstractScaleLevelCache.
+
+        Parameters
+        ----------
+        original_filename : PathLike
+        mpp_to_cache_map : dict, optional
+            Dictionary mapping the mpp to the cache of interest.
+        """
         self._original_filename = pathlib.Path(original_filename)
+        self._mpp_to_cache_map = (
+            {} if not mpp_to_cache_map else {k: pathlib.Path(v) for k, v in mpp_to_cache_map.items()}
+        )
 
     @property
     @abc.abstractmethod
@@ -41,15 +55,34 @@ class AbstractScaleLevelCache(abc.ABC):
         mpp: float,
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> PIL.Image.Image:
-        """..."""
+        """
+        As in `dlup.SlideImage`, but reading from the cache if it exists. In this function we use mpp rather than
+        scaling, as this is the final target.
+
+        Parameters
+        ----------
+        location :
+            Location from the top left (x, y) in pixel coordinates given at the requested scaling.
+        mpp :
+            The mpp to read the region at
+        size :
+            Region size of the resulting region.
+
+        Returns
+        -------
+        PIL.Image.Image
+            The extract region.
+
+        """
 
 
 class TiffScaleLevelCache(AbstractScaleLevelCache):
+    """Cache implementation based on Tiffs"""
+
     writable = False
 
-    def __init__(self, original_filename: PathLike, mpp_to_cache_map=None):
-        super().__init__(original_filename)
-        self._mpp_to_cache_map = {k: pathlib.Path(v) for k, v in mpp_to_cache_map.items()}
+    def __init__(self, original_filename: PathLike, mpp_to_cache_map: Optional[Dict[str, object]] = None):
+        super().__init__(original_filename, mpp_to_cache_map=mpp_to_cache_map)
         self.__image_cache = {}
 
     def read_cached_region(
@@ -58,10 +91,7 @@ class TiffScaleLevelCache(AbstractScaleLevelCache):
         mpp: float,
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> PIL.Image:
-        """ "
-        Should raise a ValueError if it does not exist, and RuntimeError if something goes wrong
 
-        """
         slide_image = self.get_cache_for_mpp(mpp)
         if not slide_image:
             return None
@@ -73,9 +103,23 @@ class TiffScaleLevelCache(AbstractScaleLevelCache):
 
     @property
     def cache_lock(self):
+        """Cache lock, is not needed for Tiffs (they cannot be written on the fly)."""
         return None
 
-    def get_cache_for_mpp(self, mpp: float):
+    def get_cache_for_mpp(self, mpp: float) -> SlideImage:
+        """
+        Get the cache for a specific resolution.
+
+        Parameters
+        ----------
+        mpp : float
+            The microns per pixel value
+
+        Returns
+        -------
+        SlideImage
+            The image with native resolution at the requested resolution.
+        """
         cache_filename = self._mpp_to_cache_map.get(mpp, None)
         if not cache_filename.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(cache_filename))
@@ -86,10 +130,48 @@ class TiffScaleLevelCache(AbstractScaleLevelCache):
 
     def close(self):
         """Close the underlying images."""
-        [_.close() for _ in self.__image_cache.values()]
+        for image in self.__image_cache.values():
+            image.close()
 
 
-def create_tiff_cache(slide_image, grid, mpp, tile_size, filename, tiff_tile_size, pyramid):
+def create_tiff_cache(
+    filename: PathLike,
+    slide_image: SlideImage,
+    grid: Grid,
+    mpp: float,
+    tile_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+    tiff_tile_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]] = (256, 256),
+    compression: TiffCompression = TiffCompression.DEFLATE,
+    pyramid: bool = False,
+    silent: bool = True,
+):
+    """
+    Write a SlideImage to a TIFF of different resolution for caching purposes.
+
+    TODO
+    ----
+    - Grid offsets are not really stored currently, so they will create unexpected results.
+
+    Parameters
+    ----------
+    filename: PathLike
+    slide_image: SlideImage
+    grid: Grid
+    mpp: float
+    tile_size:
+        Size of the tiles corresponding to the coordinates in the grid
+    tiff_tile_size:
+        Size of the tiles written in the tiff format.
+    compression : TiffCompression
+    pyramid: bool
+        Create a pyramidal format.
+    silent: bool
+        Show a tqdm bar
+
+    Returns
+    -------
+    None
+    """
     scaling: float = slide_image.mpp / mpp
     region_view = slide_image.get_scaled_view(scaling)
     region_view.boundary_mode = BoundaryMode.crop
@@ -109,10 +191,10 @@ def create_tiff_cache(slide_image, grid, mpp, tile_size, filename, tiff_tile_siz
         tile_width=tiff_tile_size[0],
         tile_height=tiff_tile_size[1],
         pyramid=pyramid,
-        compression=TiffCompression.DEFLATE,
+        compression=compression,
         quality=100,
         bit_depth=8,
-        silent=False,
+        silent=silent,
     )
 
     writer.from_iterator(_local_iterator(), filename, total=len(grid))
@@ -131,7 +213,7 @@ def image_cache(func):
         if not self.cacher:
             return func(self, *args, **kwargs)
 
-        location, mpp, tile_size = self.region_hash(*args, **kwargs)
+        location, mpp, tile_size = self.region_encoding(*args, **kwargs)
         lock = None if not self.cacher.writable else self.cacher.cache_lock
 
         if lock:
@@ -160,7 +242,8 @@ def image_cache(func):
             except RuntimeError as exception:
                 # For some reason we cannot read this region.
                 raise RuntimeError(
-                    f"Had a cache KeyError while trying to store location {location}, mpp {mpp} and tile_size {tile_size}."
+                    f"Had a cache KeyError while trying to store location {location}, "
+                    f"mpp {mpp} and tile_size {tile_size}."
                 ) from exception
         return v
 

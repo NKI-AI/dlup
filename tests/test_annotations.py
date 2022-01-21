@@ -26,7 +26,7 @@ if __name__ == "__main__":
     )
 
     parser = AnnotationParser.from_geojson(["/processing/j.teuwen/specimen.json"], ["specimen"], slide_image.mpp)
-    annotations = SlideAnnotations(parser=parser)  # .get_annotations_for_labels(["specimen"])
+    annotations = SlideAnnotations(parser=parser)
 
     scaled_region_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
     grid = Grid.from_tiling((0, 0), size=scaled_region_size, tile_size=(1024, 1024), tile_overlap=(0, 0))

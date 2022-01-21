@@ -59,6 +59,7 @@ _POSTPROCESSORS = {
 
 class WholeSlideAnnotation:
     """Class to hold the annotations of one specific label for a label"""
+
     def __init__(self, data: List[ShapelyTypes], metadata: Dict[str, Union[AnnotationType, float, str]]):
         self.type = metadata["type"]
         self._annotations = data

@@ -210,7 +210,7 @@ class SlideImage:
 
         Returns
         -------
-        np.ndarray
+        PIL.Image.Image
             The extract region.
 
         Example
@@ -341,7 +341,7 @@ class SlideImage:
         width, height = self.size
         return width / height
 
-    def region_hash(
+    def region_encoding(
         self,
         location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
