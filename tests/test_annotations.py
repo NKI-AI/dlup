@@ -1,24 +1,20 @@
-from pathlib import Path
-from typing import List, Optional, Union
-
-from shapely import geometry
-
-# from shapely.strtree import STRtree
-import shapely
-
+import json
 from enum import Enum
-from typing import NamedTuple
+from pathlib import Path
+from typing import List, NamedTuple, Optional, Union
 
 # from collections import Sequence
 import numpy as np
-import json
-from dlup import SlideImage
-from dlup import BoundaryMode, SlideImage
-from dlup.tiling import Grid
 import rasterio.features
-from dlup.data._annotations import SlideAnnotations, AnnotationParser
-from dlup.viz.plotting import plot_2d
 
+# from shapely.strtree import STRtree
+import shapely
+from shapely import geometry
+
+from dlup import BoundaryMode, SlideImage
+from dlup.data._annotations import AnnotationParser, SlideAnnotations
+from dlup.tiling import Grid
+from dlup.viz.plotting import plot_2d
 
 if __name__ == "__main__":
 

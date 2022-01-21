@@ -1,39 +1,25 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import abc
+import errno
 import functools
+import os
 import pathlib
-from typing import Tuple, Union
-from dlup._region import BoundaryMode
-from dataclasses import dataclass
+from typing import Tuple, TypeVar, Union
+
 import numpy as np
 import PIL
-from enum import Enum
-import dlup
-from dlup.utils.types import GenericNumber, PathLike
 
+import dlup
+from dlup._region import BoundaryMode
 from dlup.utils.imports import PYVIPS_AVAILABLE
+from dlup.utils.types import GenericNumber, PathLike
 
 if PYVIPS_AVAILABLE:
     from dlup.writers import TiffCompression, TiffImageWriter
 
-IMAGE_CACHE = None
 
-
-def is_cache_available():
-    return IMAGE_CACHE is not None
-
-
-def current_cache():
-    try:
-        return _CACHES_AVAILABLE[IMAGE_CACHE]
-    except KeyError:
-        raise RuntimeError(
-            f"{IMAGE_CACHE} is not a valid value for image cache. Valid options are {_CACHES_AVAILABLE.keys()}"
-        )
-
-
-class AbstractImageCache(abc.ABC):
+class AbstractScaleLevelCache(abc.ABC):
     @property
     @classmethod
     @abc.abstractmethod
@@ -57,52 +43,14 @@ class AbstractImageCache(abc.ABC):
     ) -> PIL.Image.Image:
         """..."""
 
-    # @abc.abstractmethod
-    # def write_cached_region(
-    #     self,
-    #     region: PIL.Image.Image,
-    #     location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-    #     mpp: float,
-    #     size: Union[np.ndarray, Tuple[int, int]],
-    # ):
-    #     """Write region to cache"""
 
-
-class IdentityImageCache(AbstractImageCache):
-    cache_lock = None
+class TiffScaleLevelCache(AbstractScaleLevelCache):
     writable = False
 
-    def read_cached_region(
-        self,
-        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-        mpp: float,
-        size: Union[np.ndarray, Tuple[int, int]],
-    ) -> PIL.Image.Image:
-        """..."""
-        return None
-
-
-class TiffImageCache(AbstractImageCache):
-    writable = False
-
-    def __init__(self, original_filename: PathLike):
+    def __init__(self, original_filename: PathLike, mpp_to_cache_map=None):
         super().__init__(original_filename)
-        self._cache_directory = None
+        self._mpp_to_cache_map = {k: pathlib.Path(v) for k, v in mpp_to_cache_map.items()}
         self.__image_cache = {}
-
-    @property
-    def cache_directory(self):
-        return self._cache_directory
-
-    @cache_directory.setter
-    def cache_directory(self, cache_directory: PathLike):
-        cache_directory = pathlib.Path(cache_directory)
-        if not cache_directory.is_dir():
-            raise NotADirectoryError(
-                f"{cache_directory} is not a directory. It is assumed that the cached files,"
-                f"reside in this directory. The format is <original_filename>.mpp.tiff"
-            )
-        self._cache_directory = cache_directory
 
     def read_cached_region(
         self,
@@ -115,6 +63,8 @@ class TiffImageCache(AbstractImageCache):
 
         """
         slide_image = self.get_cache_for_mpp(mpp)
+        if not slide_image:
+            return None
         # Now we need to read the same image, but our scaling is different.
         scaling = slide_image.get_scaling(mpp)
         if scaling != 1.0:
@@ -126,9 +76,9 @@ class TiffImageCache(AbstractImageCache):
         return None
 
     def get_cache_for_mpp(self, mpp: float):
-        cache_filename = (self.cache_directory / self._original_filename.name).with_suffix(f".mpp-{mpp}.tiff")
-        if not cache_filename.is_file():
-            return None
+        cache_filename = self._mpp_to_cache_map.get(mpp, None)
+        if not cache_filename.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(cache_filename))
 
         if cache_filename.name not in self.__image_cache:
             self.__image_cache[cache_filename.name] = dlup.SlideImage.from_file_path(cache_filename)
@@ -177,31 +127,33 @@ def image_cache(func):
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        cacher = self._cacher
+        # If there is no caching object do no caching
+        if not self.cacher:
+            return func(self, *args, **kwargs)
+
         location, mpp, tile_size = self.region_hash(*args, **kwargs)
-        lock = None if not cacher.writable else cacher.cache_lock
+        lock = None if not self.cacher.writable else self.cacher.cache_lock
 
         if lock:
             with self.cache_lock:
-                region = cacher.read_cached_region(location, mpp, tile_size)
+                region = self.cacher.read_cached_region(location, mpp, tile_size)
         else:
-            region = cacher.read_cached_region(location, mpp, tile_size)
+            region = self.cacher.read_cached_region(location, mpp, tile_size)
 
         if region:
             return region
 
-        # TODO: this needs to get it the old fashioned way!
         # We didn't manage to get a cached version to get it from the region.
         # Let's try to write it.
         v = func(self, *args, **kwargs)
 
-        if cacher.writable:
+        if self.cacher.writable:
             try:
                 if lock:
-                    with cacher.cache_lock:
-                        cacher.write_cached_region(v, location, mpp, tile_size)
+                    with self.cacher.cache_lock:
+                        self.cacher.write_cached_region(v, location, mpp, tile_size)
                 else:
-                    cacher.write_cached_region(v, location, mpp, tile_size)
+                    self.cacher.write_cached_region(v, location, mpp, tile_size)
 
             except ValueError:
                 pass  # Cannot do this, just read the original region.
@@ -213,7 +165,3 @@ def image_cache(func):
         return v
 
     return wrapper
-
-
-_CACHES_AVAILABLE = {None: IdentityImageCache, "TIFF": TiffImageCache}
-ImageCacher = current_cache()

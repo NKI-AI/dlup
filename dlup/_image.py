@@ -28,7 +28,7 @@ from dlup.utils.types import GenericFloatArray, GenericIntArray, GenericNumber, 
 if PYVIPS_AVAILABLE:
     import pyvips
 
-from ._cache import current_cache, image_cache, ImageCacher
+from ._cache import image_cache
 from ._region import BoundaryMode, RegionView
 
 _Box = Tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
@@ -107,6 +107,9 @@ class SlideImage:
         mpp = self._compute_mpp()
         self._min_native_mpp = float(mpp[0])
 
+        self._cache_directory = None
+        self.cacher = None
+
     def _compute_mpp(self):
         try:
             mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
@@ -134,6 +137,8 @@ class SlideImage:
     def close(self):
         """Close the underlying openslide image."""
         self._openslide_wsi.close()
+        if self.cacher:
+            self.cacher.close()
 
     def __enter__(self):
         return self
@@ -158,6 +163,7 @@ class SlideImage:
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
+    @image_cache
     def read_region(
         self,
         location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
@@ -335,6 +341,15 @@ class SlideImage:
         width, height = self.size
         return width / height
 
+    def region_hash(
+        self,
+        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        scaling: float,
+        size: Union[np.ndarray, Tuple[int, int]],
+    ) -> Tuple:
+        """Representation of the region for caching"""
+        return location, self.get_mpp(scaling), size
+
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
         props = ("identifier", "vendor", "mpp", "magnification", "size")
@@ -343,58 +358,6 @@ class SlideImage:
             value = getattr(self, key, None)
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
-
-
-class CachedSlideImage(SlideImage):
-    def __init__(self, wsi: AbstractSlide, identifier: Union[str, None] = None):
-        """Initialize a whole slide image and validate its properties."""
-        super().__init__(wsi=wsi, identifier=identifier)
-        # ImageCacher.__init__(self, original_filename=wsi._filename)
-        # print(ImageCacher)
-        self._cache_directory = None
-        self._cacher = ImageCacher(original_filename=wsi._filename)
-
-    @property
-    def cache_directory(self):
-        return self._cache_directory
-
-    @cache_directory.setter
-    def cache_directory(self, cache_directory: PathLike):
-        cache_directory = pathlib.Path(cache_directory)
-        if not cache_directory.is_dir():
-            raise NotADirectoryError(
-                f"{cache_directory} is not a directory. It is assumed that the cached files,"
-                f"reside in this directory. The format is <original_filename>.mpp-<mpp>.tiff"
-            )
-        self._cache_directory = cache_directory
-
-    # def create_cache(self, regions):
-    #     # For TIFF, we need to find the different MPPs in the regions.
-    #     mpps: Set[float] = set()
-    #     regions_dict: DefaultDict[float, Tuple[int, int, int, int]] = defaultdict(tuple)
-    #
-    #     wsi = self.wsi
-    #     for region, mpp in regions:
-    #         if mpp not in mpps:
-    #             mpps.add(mpp)
-    #         regions_dict[mpp] += region
-
-    @image_cache
-    def read_region(
-        self,
-        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-        scaling: float,
-        size: Union[np.ndarray, Tuple[int, int]],
-    ) -> PIL.Image.Image:
-        return super().read_region(location, scaling, size)
-
-    def region_hash(
-        self,
-        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-        scaling: float,
-        size: Union[np.ndarray, Tuple[int, int]],
-    ) -> Tuple:
-        return location, self.get_mpp(scaling), size
 
 
 def _read_dlup_wsi_mpp(comment):

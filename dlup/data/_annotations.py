@@ -1,24 +1,8 @@
-from typing import List, Optional, Union, Dict
-
-from shapely import geometry
-from shapely.strtree import STRtree
-import shapely
-import pathlib
-from enum import Enum
-from typing import NamedTuple
-from collections.abc import Sequence
-import numpy as np
-import errno
-import json
-from dlup import SlideImage
-from dlup import BoundaryMode, SlideImage
-from dlup.tiling import Grid
-from dlup.utils.types import PathLike
-from shapely.geometry import shape
-from typing import Tuple
-import os
-
+# coding=utf-8
+# Copyright (c) dlup contributors
 """
+Annotation module for dlup.
+
 There are three types of annotations:
 - points
 - boxes (which are internally polygons)
@@ -40,12 +24,26 @@ shapely json is assumed to contain all the objects belonging to one label
     "data": [list of objects]
 }
 
-This can be a named tuple or so so it can be evaluated lazily.
-
 """
+import errno
+import json
+import os
+import pathlib
+from enum import Enum
+from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, TypeVar, Union
+
+import numpy as np
+import shapely
+from shapely import geometry
+from shapely.geometry import shape
+from shapely.strtree import STRtree
+
+from dlup.utils.types import PathLike
+
+_TAnnotationParser = TypeVar("_TAnnotationParser", bound="AnnotationParser")
+ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
 
 
-# How to
 class AnnotationType(Enum):
     POINT = "point"
     BOX = "box"
@@ -59,90 +57,70 @@ _POSTPROCESSORS = {
 }
 
 
-# class PolygonAnnotation:
-#     pass
-#
-#
-# class BoxAnnotation:
-#     pass
-#
-#
-# class PointAnnotation:
-#     pass
-#
-#
-# class Annotation_(NamedTuple):
-#     label: str
-#     type: AnnotationType
-#     data: List = []
-#     annotation_res: Optional[float] = None
-#
-#
+class SlideAnnotation:
+    def __init__(self, data: List[ShapelyTypes], metadata: Dict[str, Union[AnnotationType, float, str]]):
+        self.type = metadata["type"]
+        self._annotations = data
+        self.mpp = metadata["mpp"]
+        self.label = metadata["label"]
 
-
-class SlideAnnotation:  # (Sequence):
-    def __init__(self, data):
-        # Convert to datatype
-        self.type = AnnotationType[data["type"].upper()]
-        self._annotations = data["data"]
-        self.mpp = data["mpp"]
-        self.label = data["label"]
-
-    def as_strtree(self):
+    def as_strtree(self) -> STRtree:
         return STRtree(self._annotations)
 
 
 class AnnotationParser:
     def __init__(self, annotations):
         self._annotations = annotations
-
-        self._label_to_mpp = {annotation.label: annotation.mpp for annotation in annotations}
-        self._label_to_type = {annotation.label: annotation.type for annotation in annotations}
+        self._label_dict = {
+            annotation.label: (idx, annotation.mpp, annotation.type) for idx, annotation in enumerate(annotations)
+        }
 
     @classmethod
     def from_geojson(
-        cls,
-        geo_jsons: List[PathLike],
+        cls: Type[_TAnnotationParser],
+        geo_jsons: Iterable[PathLike],
         labels: List[str],
-        mpp=None,
-        label_map=None,
-    ) -> object:
+        mpp: float = None,
+        label_map: Optional[Dict[float, PathLike]] = None,
+    ) -> _TAnnotationParser:
         annotations = []
-        if isinstance(float, mpp):
+        if isinstance(mpp, float):
             mpp = [mpp] * len(labels)
 
-        for curr_mpp, label, annotation_label, path in zip(mpp, labels, label_map, geo_jsons):
+        for idx, (curr_mpp, label, path) in enumerate(zip(mpp, labels, geo_jsons)):
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
 
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                annotation_type = _infer_shapely_type(data, annotation_label)
-                data += [shape(x) for x in data]
-                data["type"] = annotation_type
-                data["mpp"] = curr_mpp
-                data["label"] = label
+                # There can be multiple polygons in one file, but they should all be constant
+                # TODO: Verify this assumption
+                annotation_type = _infer_shapely_type(data[0]["type"], None if label_map is None else label_map[idx])
+                metadata = {"type": annotation_type, "mpp": curr_mpp, "label": label}
 
-            annotations.append(SlideAnnotation(data))
+            annotations.append(SlideAnnotation([shape(x) for x in data], metadata))
 
         return cls(annotations)
 
     @property
     def available_labels(self) -> List[str]:
-        return list(self._label_to_type.keys())
+        return list(self._label_dict.keys())
 
-    def get_annotations_for_labels(self, labels) -> Dict[SlideAnnotation]:
+    def get_annotations_for_labels(self, labels: Iterable[str]) -> Dict[str, SlideAnnotation]:
         return {z.label: z for z in (x for x in self._annotations) if z.label in labels}
 
-    def label_to_mpp(self, label) -> float:
-        return self._label_to_mpp[label]
+    def label_to_mpp(self, label: str) -> float:
+        return self._label_dict[label][1]
 
-    def label_to_type(self, label) -> AnnotationType:
-        return self._label_to_type[label]
+    def label_to_type(self, label: str) -> AnnotationType:
+        return self._label_dict[label][2]
 
     @staticmethod
-    def filter_annotations(annotations, coordinates, region_size, crop_func=None):
+    # TODO: proper type
+    def filter_annotations(
+        annotations: STRtree, coordinates: np.ndarray, region_size: np.ndarray, crop_func: Optional[Callable] = None
+    ) -> List[ShapelyTypes]:
         box = coordinates.tolist() + (coordinates + region_size).tolist()
         # region can be made into a box class
         query_box = geometry.box(*box)
@@ -153,13 +131,12 @@ class AnnotationParser:
 
         return annotations
 
-    def __getitem__(self, label) -> SlideAnnotation:
-        annotation = self.get_annotations_for_labels([label])
-        z = SlideAnnotation(annotation[label])
-        return z
+    def __getitem__(self, label: str) -> SlideAnnotation:
+        index = self._label_dict[label][0]
+        return self._annotations[index]
 
 
-def _infer_shapely_type(shapely_type, label=None) -> AnnotationType:
+def _infer_shapely_type(shapely_type: str, label: Optional[str] = None) -> AnnotationType:
     if label:
         return label
 
@@ -170,23 +147,8 @@ def _infer_shapely_type(shapely_type, label=None) -> AnnotationType:
     else:  # LineString, MultiPoint, MultiLineString
         raise RuntimeError(f"Not a supported shapely type: {shapely_type}")
 
-class SlideScoreParser:
-    def __init__(self, data):
-        pass
-
-
-class ShapelyAnnotations:
-    pass
-
-
-def get_parser(parser_name):
-    pass
-
 
 class SlideAnnotations:  # Handle all annotations for one slide
-    STREE = {}
-    TYPES = ("points", "boxes", "polygon")
-
     def __init__(self, parser, labels=None):
         self._labels = labels  # T
 

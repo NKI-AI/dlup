@@ -5,10 +5,10 @@ import dlup
 
 dlup.IMAGE_CACHE = "TIFF"
 
+from dlup._cache import TiffScaleLevelCache
+from dlup._image import SlideImage
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import Grid, TilingMode
-from dlup._image import CachedSlideImage, SlideImage
-
 
 # def test_dataset_equality():
 #     INPUT_FILE_PATH = "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.svs"
@@ -58,8 +58,13 @@ class TestCache:
         tile_size = (512, 512)
 
         # TODO: Set hte propery on the class itself of cacher
-        cached_slide_image = CachedSlideImage.from_file_path(INPUT_FILE_PATH)
-        cached_slide_image.cache_directory = "/processing/j.teuwen/"
+        cached_slide_image = SlideImage.from_file_path(INPUT_FILE_PATH)
+        cached_slide_image.cacher = TiffScaleLevelCache(
+            original_filename=INPUT_FILE_PATH,
+            mpp_to_cache_map={
+                11.4: "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.mpp-11.4.tiff"
+            },
+        )
 
         scaling_original = slide_image.get_scaling(mpp)
 
