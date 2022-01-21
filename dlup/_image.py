@@ -347,7 +347,7 @@ class SlideImage:
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> Tuple:
-        """Representation of the region for caching"""
+        """Representation of the region for caching."""
         return location, self.get_mpp(scaling), size
 
     def __repr__(self) -> str:
