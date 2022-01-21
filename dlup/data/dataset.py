@@ -221,9 +221,6 @@ class SlideImageDatasetBase(Dataset[T_co]):
         region_view = slide_image.get_scaled_view(scaling)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
-        # if self._image_cache:
-        #     region = self._image_cache.read_cached_region(coordinates, region_size, mpp)
-        # else:
         region = region_view.read_region(coordinates, region_size)
 
         sample: StandardTilingFromSlideDatasetSample = {
@@ -290,7 +287,6 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
         transform: Optional[Callable] = None,
-        image_cache: Optional[object] = None,
     ):
         self._grids = grids
         regions = []
