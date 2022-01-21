@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     tile = slide_image.read_region(coordinates, scaling, region_size)
 
-    tile_annotations = annotations.get_region(coordinates, region_size, mpp)
+    tile_annotations = annotations.read_region(coordinates, region_size, mpp)
     mask = rasterio.features.rasterize(tile_annotations["specimen"], out_shape=tile_size)
 
     arr = np.asarray(plot_2d(tile, mask=mask))

@@ -38,7 +38,7 @@ from shapely import geometry
 from shapely.geometry import shape
 from shapely.strtree import STRtree
 
-from dlup.utils.types import PathLike
+from dlup.utils.types import PathLike, GenericNumber
 
 _TAnnotationParser = TypeVar("_TAnnotationParser", bound="AnnotationParser")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -69,7 +69,7 @@ class SlideAnnotation:
 
 
 class AnnotationParser:
-    def __init__(self, annotations):
+    def __init__(self, annotations: Dict[str, SlideAnnotation]):
         self._annotations = annotations
         self._label_dict = {
             annotation.label: (idx, annotation.mpp, annotation.type) for idx, annotation in enumerate(annotations)
@@ -117,9 +117,11 @@ class AnnotationParser:
         return self._label_dict[label][2]
 
     @staticmethod
-    # TODO: proper type
     def filter_annotations(
-        annotations: STRtree, coordinates: np.ndarray, region_size: np.ndarray, crop_func: Optional[Callable] = None
+        annotations: STRtree,
+        coordinates: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        crop_func: Optional[Callable] = None,
     ) -> List[ShapelyTypes]:
         box = coordinates.tolist() + (coordinates + region_size).tolist()
         # region can be made into a box class
@@ -149,18 +151,20 @@ def _infer_shapely_type(shapely_type: str, label: Optional[str] = None) -> Annot
 
 
 class SlideAnnotations:  # Handle all annotations for one slide
-    def __init__(self, parser, labels=None):
-        self._labels = labels  # T
-
+    def __init__(self, parser: AnnotationParser, labels: List[str] = None):
+        self._labels = labels
         self._parser = parser
         self._labels = labels if labels else parser.available_labels
 
-        # Create the trees, and load in memory.
         # TODO: How to ensure memory is not being used to keep the annotations themselves? This is enough.
         self._annotation_trees = {label: parser[label].as_strtree() for label in self._labels}
-        # Can we do parser.close()?
 
-    def get_region(self, coordinates, region_size, mpp):  # coordinates at which mpp
+    def read_region(
+        self,
+        coordinates: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        mpp: float,
+    ) -> Dict[str, List[ShapelyTypes]]:
         scaling = {k: self._parser.label_to_mpp(k) / mpp for k in self._labels}
         filtered_annotations = {
             k: self._parser.filter_annotations(
