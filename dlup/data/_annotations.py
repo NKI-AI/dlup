@@ -30,7 +30,7 @@ import json
 import os
 import pathlib
 from enum import Enum
-from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, TypeVar, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import shapely
@@ -57,7 +57,8 @@ _POSTPROCESSORS = {
 }
 
 
-class SlideAnnotation:
+class WholeSlideAnnotation:
+    """Class to hold the annotations of one specific label for a label"""
     def __init__(self, data: List[ShapelyTypes], metadata: Dict[str, Union[AnnotationType, float, str]]):
         self.type = metadata["type"]
         self._annotations = data
@@ -67,9 +68,12 @@ class SlideAnnotation:
     def as_strtree(self) -> STRtree:
         return STRtree(self._annotations)
 
+    def __str__(self) -> str:
+        return f"WholeSlideAnnotation(label={self.label})"
+
 
 class AnnotationParser:
-    def __init__(self, annotations: Dict[str, SlideAnnotation]):
+    def __init__(self, annotations: Dict[str, WholeSlideAnnotation]):
         self._annotations = annotations
         self._label_dict = {
             annotation.label: (idx, annotation.mpp, annotation.type) for idx, annotation in enumerate(annotations)
@@ -99,7 +103,7 @@ class AnnotationParser:
                 annotation_type = _infer_shapely_type(data[0]["type"], None if label_map is None else label_map[idx])
                 metadata = {"type": annotation_type, "mpp": curr_mpp, "label": label}
 
-            annotations.append(SlideAnnotation([shape(x) for x in data], metadata))
+            annotations.append(WholeSlideAnnotation([shape(x) for x in data], metadata))
 
         return cls(annotations)
 
@@ -107,7 +111,7 @@ class AnnotationParser:
     def available_labels(self) -> List[str]:
         return list(self._label_dict.keys())
 
-    def get_annotations_for_labels(self, labels: Iterable[str]) -> Dict[str, SlideAnnotation]:
+    def get_annotations_for_labels(self, labels: Iterable[str]) -> Dict[str, WholeSlideAnnotation]:
         return {z.label: z for z in (x for x in self._annotations) if z.label in labels}
 
     def label_to_mpp(self, label: str) -> float:
@@ -133,7 +137,7 @@ class AnnotationParser:
 
         return annotations
 
-    def __getitem__(self, label: str) -> SlideAnnotation:
+    def __getitem__(self, label: str) -> WholeSlideAnnotation:
         index = self._label_dict[label][0]
         return self._annotations[index]
 
