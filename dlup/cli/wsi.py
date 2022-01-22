@@ -31,29 +31,30 @@ def tiling(args: argparse.Namespace):
     image = SlideImage.from_file_path(input_file_path)
 
     mask_func = AvailableMaskFunctions[args.mask_func]
-    mask = get_mask(slide=image, mask_func=mask_func) if mask_func != mask_func.none else None
+    mask = get_mask(slide=image, mask_func=mask_func) if mask_func != AvailableMaskFunctions.none else None
 
     # the nparray and PIL.Image.size height and width order are flipped is as it would be as a PIL.Image.
     # Below [::-1] casts the thumbnail_size to the PIL.Image expected size
-    thumbnail_size = cast(Tuple[int, int], mask.shape[::-1])
+    thumbnail_size = cast(Tuple[int, int], mask.shape[::-1]) if mask else (1024, 1024)
     thumbnail = image.get_thumbnail(thumbnail_size)
 
     # Prepare output directory.
     output_directory_path.mkdir(parents=True, exist_ok=True)
 
-    if args.mask_format == "png":
-        Image.fromarray(mask.astype(dtype=bool)).save(output_directory_path / "tissue_mask.png")
-    else:
-        mpp = image.mpp * np.asarray(image.size) / mask.shape[::-1]
-        # TODO: Figure out why bit_depth 8 is really needed here.
-        writer = TiffImageWriter(
-            mpp=mpp, size=mask.size, compression=TiffCompression.CCITTFAX4, bit_depth=8, silent=True
-        )
-        # TODO: Why is 255 needed? x255
-        writer.from_pil(Image.fromarray(mask * 255), output_directory_path / "tissue_mask.tiff")
+    if mask is not None:
+        if args.mask_format == "png":
+            Image.fromarray(mask.astype(dtype=bool)).save(output_directory_path / "tissue_mask.png")
+        else:
+            mpp = image.mpp * np.asarray(image.size) / mask.shape[::-1]
+            # TODO: Figure out why bit_depth 8 is really needed here.
+            writer = TiffImageWriter(
+                mpp=mpp, size=mask.size, compression=TiffCompression.CCITTFAX4, bit_depth=8, silent=True
+            )
+            # TODO: Why is 255 needed? x255
+            writer.from_pil(Image.fromarray(mask * 255), output_directory_path / "tissue_mask.tiff")
+        plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
-    plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
     # TODO: Maybe give the SlideImageDataset an image as input?
     dataset = TiledROIsSlideImageDataset.from_standard_tiling(

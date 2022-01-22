@@ -5,7 +5,7 @@ import errno
 import functools
 import os
 import pathlib
-from typing import Dict, Optional, Tuple, Union, Any, TypeVar, Type
+from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import PIL
@@ -15,7 +15,7 @@ from dlup._region import BoundaryMode
 from dlup.tiling import Grid
 from dlup.utils.imports import PYVIPS_AVAILABLE
 from dlup.utils.types import GenericNumber, PathLike
-_TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
+
 
 
 if PYVIPS_AVAILABLE:
@@ -29,7 +29,7 @@ class AbstractScaleLevelCache(abc.ABC):
     def writable(cls):
         """Return whether this is a writable cache"""
 
-    def __init__(self, original_filename: PathLike, mpp_to_cache_map: Optional[Dict[str, object]] = None):
+    def __init__(self, original_filename: PathLike, mpp_to_cache_map: Optional[Dict[float, Any]] = None):
         """
         Create an AbstractScaleLevelCache.
 
@@ -82,9 +82,9 @@ class TiffScaleLevelCache(AbstractScaleLevelCache):
 
     writable = False
 
-    def __init__(self, original_filename: PathLike, mpp_to_cache_map: Optional[Dict[str, Any]] = None):
+    def __init__(self, original_filename: PathLike, mpp_to_cache_map: Optional[Dict[float, Any]] = None):
         super().__init__(original_filename, mpp_to_cache_map=mpp_to_cache_map)
-        self.__image_cache = {}
+        self.__image_cache: Dict[float, dlup.SlideImage] = {}
 
     def read_cached_region(
         self,
@@ -122,13 +122,13 @@ class TiffScaleLevelCache(AbstractScaleLevelCache):
         SlideImage
             The image with native resolution at the requested resolution.
         """
-        cache_filename = self._mpp_to_cache_map.get(mpp, None)
+        cache_filename = pathlib.Path(self._mpp_to_cache_map[mpp])
         if not cache_filename.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(cache_filename))
 
         if cache_filename.name not in self.__image_cache:
-            self.__image_cache[cache_filename.name] = dlup.SlideImage.from_file_path(cache_filename)
-        return self.__image_cache[cache_filename.name]
+            self.__image_cache[mpp] = dlup.SlideImage.from_file_path(cache_filename)
+        return self.__image_cache[mpp]
 
     def close(self):
         """Close the underlying images."""
@@ -138,7 +138,7 @@ class TiffScaleLevelCache(AbstractScaleLevelCache):
 
 def create_tiff_cache(
     filename: PathLike,
-    slide_image: Type[_TSlideImage],
+    slide_image,  # TODO: Type
     grid: Grid,
     mpp: float,
     tile_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],

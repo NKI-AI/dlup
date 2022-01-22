@@ -122,9 +122,7 @@ class SlideImage:
                 # We store the key in dlup.mpp_x, dlup.mpp_y. See if we can obtain these.
                 comment = self._openslide_wsi.properties.get(openslide.PROPERTY_NAME_COMMENT, None)
                 mpp_x, mpp_y = _read_dlup_wsi_mpp(comment)
-                # If it is still none you can raise.
-
-            else:
+            if not mpp_x or not mpp_y:
                 raise DlupUnsupportedSlideError(f"slide property mpp is not available.", self._identifier)
 
         mpp = np.array([mpp_y, mpp_x])
@@ -361,7 +359,15 @@ class SlideImage:
         return f"{self.__class__.__name__}({', '.join(props_str)})"
 
 
-def _read_dlup_wsi_mpp(comment: str):
+def _check_float(data) -> bool:
+    try:
+        float(data)
+        return True
+    except ValueError:
+        return False
+
+
+def _read_dlup_wsi_mpp(comment: str) -> Tuple[Optional[float], Optional[float]]:
     """
     Parse the mpp values written to a DLUP written tiff.
 
@@ -387,12 +393,14 @@ def _read_dlup_wsi_mpp(comment: str):
         name = prop.getElementsByTagName("name")[0].firstChild.data
         if name in ["dlup.mpp_x", "dlup.mpp_y"]:
             value = prop.getElementsByTagName("value")[0].firstChild.data
+            if not value:
+                break
             if name == "dlup.mpp_x":
-                mpp_x = value
+                mpp_x = float(value)
             if name == "dlup.mpp_y":
-                mpp_y = value
+                mpp_y = float(value)
 
-    return float(mpp_x), float(mpp_y)
+    return mpp_x, mpp_y
 
 
 def _read_pyvips_wsi_mpp(filename: PathLike):

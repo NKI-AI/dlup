@@ -50,4 +50,3 @@ class TestCache:
             y = np.asarray(region_1)
 
             np.testing.assert_allclose(x, y)
-

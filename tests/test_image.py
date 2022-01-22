@@ -21,7 +21,7 @@ from scipy import interpolate
 import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError, SlideImage
 
-from .common import get_sample_nonuniform_image, SlideProperties, SlideConfig, OpenSlideImageMock
+from .common import OpenSlideImageMock, SlideConfig, SlideProperties, get_sample_nonuniform_image
 
 
 class TestSlideImage:

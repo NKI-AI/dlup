@@ -257,6 +257,7 @@ class AvailableMaskFunctions(Enum):
 
     fesi = partial(fesi)
     improved_fesi = partial(improved_fesi)
+    none = lambda x: None
 
     def __call__(self, *args):
         return self.value(*args)
