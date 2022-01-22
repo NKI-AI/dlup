@@ -17,7 +17,6 @@ from dlup.utils.imports import PYVIPS_AVAILABLE
 from dlup.utils.types import GenericNumber, PathLike
 
 
-
 if PYVIPS_AVAILABLE:
     from dlup.writers import TiffCompression, TiffImageWriter
 
