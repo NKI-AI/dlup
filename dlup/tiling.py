@@ -91,7 +91,7 @@ def tiles_grid_coordinates(
         overflow = tiled_size - size
 
     # Let's create our indices list
-    coordinates = []
+    coordinates: List[np.ndarray] = []
     for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
 
