@@ -361,7 +361,7 @@ class SlideImage:
         return f"{self.__class__.__name__}({', '.join(props_str)})"
 
 
-def _read_dlup_wsi_mpp(comment: str) -> (float, float):
+def _read_dlup_wsi_mpp(comment: str) -> Union[(float, float), None]:
     """
     Parse the mpp values written to a DLUP written tiff.
 
@@ -372,7 +372,7 @@ def _read_dlup_wsi_mpp(comment: str) -> (float, float):
 
     Returns
     -------
-    (float, float)
+    (float, float) or None
         mpp_x, mpp_y pair.
 
     """
