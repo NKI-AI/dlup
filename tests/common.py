@@ -5,13 +5,13 @@
 from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
+import openslide  # type: ignore
 import PIL
 import pytest
 from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
 
-import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError, SlideImage
 
 

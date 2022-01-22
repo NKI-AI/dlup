@@ -6,7 +6,7 @@ import pathlib
 import sys
 from typing import Optional
 
-from dlup.types import PathLike
+from dlup.utils.types import PathLike
 
 
 def setup_logging(
