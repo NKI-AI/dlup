@@ -13,12 +13,8 @@ import PIL
 import dlup
 from dlup._region import BoundaryMode
 from dlup.tiling import Grid
-from dlup.utils.imports import PYVIPS_AVAILABLE
 from dlup.utils.types import GenericNumber, PathLike
-
-
-if PYVIPS_AVAILABLE:
-    from dlup.writers import TiffCompression, TiffImageWriter
+from dlup.writers import TiffCompression, TiffImageWriter
 
 
 class AbstractScaleLevelCache(abc.ABC):

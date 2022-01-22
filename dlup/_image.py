@@ -20,14 +20,11 @@ from typing import Optional, Sequence, Tuple, Type, TypeVar, Union
 import numpy as np  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
+import pyvips
 
 import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError
-from dlup.utils.imports import PYVIPS_AVAILABLE
 from dlup.utils.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
-
-if PYVIPS_AVAILABLE:
-    import pyvips
 
 from ._cache import image_cache
 from ._region import BoundaryMode, RegionView
@@ -416,8 +413,6 @@ def _read_pyvips_wsi_mpp(filename: PathLike):
     Tuple
         mpp_x, mpp_y
     """
-    if not PYVIPS_AVAILABLE:
-        raise RuntimeError("Package pyvips needs to be installed to read this file.")
     pyvips_file = pyvips.Image.new_from_file(str(filename))  # noqa
     mpp_x = 1 / pyvips_file.get("xres")
     mpp_y = 1 / pyvips_file.get("yres")
