@@ -11,33 +11,46 @@ other than OpenSlide.
 """
 
 import errno
-import functools
 import os
 import pathlib
-from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
+import xml.dom.minidom as xml_parser
+from enum import Enum
+from typing import Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
-from numpy.typing import ArrayLike
 
 import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError
+from dlup.utils.imports import PYVIPS_AVAILABLE
+from dlup.utils.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 
+if PYVIPS_AVAILABLE:
+    import pyvips
+
+from ._cache import image_cache
 from ._region import BoundaryMode, RegionView
 
-_GenericNumber = Union[int, float]
-_GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
-_GenericFloatArray = Union[np.ndarray, Iterable[float]]
-_GenericIntArray = Union[np.ndarray, Iterable[int]]
-_Box = Tuple[_GenericNumber, _GenericNumber, _GenericNumber, _GenericNumber]
+_Box = Tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
+AbstractSlide = Union[openslide.AbstractSlide]
+
+
+class SlideReaderBackend(Enum):
+    OPENSLIDE = "openslide"
+    VIPS = "vips"
+
+
+# Todo create a caching class which is taken from this all caps variable, then mix it in. Has writable = True or false
+# Need an abstract empty class NoCache for mixin.
+# CachingClass = #
 
 
 class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber, boundary_mode: BoundaryMode = None):
+    def __init__(self, wsi: _TSlideImage, scaling: GenericNumber, boundary_mode: BoundaryMode = None):
         """Initialize with a slide image object and the scaling level."""
         # Always call the parent init
         super().__init__(boundary_mode=boundary_mode)
@@ -54,14 +67,14 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> Sequence[_GenericNumber]:
+def _clip2size(a: np.ndarray, size: Tuple[GenericNumber, GenericNumber]) -> Sequence[GenericNumber]:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
@@ -87,26 +100,46 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: openslide.AbstractSlide, identifier: Union[str, None] = None):
+    def __init__(self, wsi: AbstractSlide, identifier: Union[str, None] = None):
         """Initialize a whole slide image and validate its properties."""
         self._openslide_wsi = wsi
         self._identifier = identifier
 
+        mpp = self._compute_mpp()
+        self._min_native_mpp = float(mpp[0])
+
+        self._cache_directory = None
+        self.cacher = None
+
+    def _compute_mpp(self):
         try:
             mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
             mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
-            mpp = np.array([mpp_y, mpp_x])
         except KeyError:
-            raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
+            # TODO: This should ideally be implemented as a different
+            # backend so we can read the file completely with vips
+            if self._openslide_wsi.properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
+                # We store the key in dlup.mpp_x, dlup.mpp_y. See if we can obtain these.
+                comment = self._openslide_wsi.properties.get(openslide.PROPERTY_NAME_COMMENT, None)
+                mpp_x, mpp_y = _read_dlup_wsi_mpp(comment)
+                # If it is still none you can raise.
 
+            else:
+                raise DlupUnsupportedSlideError(f"slide property mpp is not available.", self._identifier)
+
+        mpp = np.array([mpp_y, mpp_x])
         if not np.isclose(mpp[0], mpp[1], rtol=1.0e-2):
-            raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
+            raise DlupUnsupportedSlideError(
+                f"cannot deal with slides having anisotropic mpps. Got {mpp}.", self._identifier
+            )
 
-        self._min_native_mpp = float(mpp[0])
+        return mpp
 
     def close(self):
         """Close the underlying openslide image."""
         self._openslide_wsi.close()
+        if self.cacher:
+            self.cacher.close()
 
     def __enter__(self):
         return self
@@ -117,7 +150,9 @@ class SlideImage:
 
     @classmethod
     def from_file_path(
-        cls: Type[_TSlideImage], wsi_file_path: os.PathLike, identifier: Union[str, None] = None
+        cls: Type[_TSlideImage],
+        wsi_file_path: PathLike,
+        identifier: Union[str, None] = None,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
         if not wsi_file_path.exists():
@@ -129,9 +164,10 @@ class SlideImage:
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
+    @image_cache
     def read_region(
         self,
-        location: Union[np.ndarray, Tuple[_GenericNumber, _GenericNumber]],
+        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
     ) -> PIL.Image.Image:
@@ -175,7 +211,7 @@ class SlideImage:
 
         Returns
         -------
-        np.ndarray
+        PIL.Image.Image
             The extract region.
 
         Example
@@ -235,7 +271,7 @@ class SlideImage:
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
         return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
 
-    def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
+    def get_scaled_size(self, scaling: GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
         return tuple(size.astype(int))
@@ -248,7 +284,7 @@ class SlideImage:
         """Inverse of get_mpp()."""
         return self._min_native_mpp / mpp
 
-    def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
+    def get_scaled_view(self, scaling: GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
@@ -293,9 +329,12 @@ class SlideImage:
         return self._min_native_mpp
 
     @property
-    def magnification(self) -> int:
+    def magnification(self) -> Optional[int]:
         """Returns the objective power at which the WSI was sampled."""
-        return int(self._openslide_wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        try:
+            return int(self._openslide_wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        except KeyError:
+            return None
 
     @property
     def aspect_ratio(self) -> float:
@@ -303,11 +342,76 @@ class SlideImage:
         width, height = self.size
         return width / height
 
+    def region_encoding(
+        self,
+        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        scaling: float,
+        size: Union[np.ndarray, Tuple[int, int]],
+    ) -> Tuple:
+        """Representation of the region for caching."""
+        return location, self.get_mpp(scaling), size
+
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
         props = ("identifier", "vendor", "mpp", "magnification", "size")
         props_str = []
         for key in props:
-            value = getattr(self, key)
+            value = getattr(self, key, None)
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
+
+
+def _read_dlup_wsi_mpp(comment: str):
+    """
+    Parse the mpp values written to a DLUP written tiff.
+
+    Parameters
+    ----------
+    comment : str
+        XML header
+
+    Returns
+    -------
+    (float, float) or None
+        mpp_x, mpp_y pair.
+
+    """
+    if comment is None:
+        return None
+
+    mpp_x = None
+    mpp_y = None
+    tree = xml_parser.parseString(comment)
+    properties = tree.getElementsByTagName("property")
+    for prop in properties:
+        name = prop.getElementsByTagName("name")[0].firstChild.data
+        if name in ["dlup.mpp_x", "dlup.mpp_y"]:
+            value = prop.getElementsByTagName("value")[0].firstChild.data
+            if name == "dlup.mpp_x":
+                mpp_x = value
+            if name == "dlup.mpp_y":
+                mpp_y = value
+
+    return float(mpp_x), float(mpp_y)
+
+
+def _read_pyvips_wsi_mpp(filename: PathLike):
+    """
+    Read resolution from tiff file using vips
+
+    Parameters
+    ----------
+    filename : PathLike
+
+    Returns
+    -------
+    Tuple
+        mpp_x, mpp_y
+    """
+    if not PYVIPS_AVAILABLE:
+        raise RuntimeError("Package pyvips needs to be installed to read this file.")
+    pyvips_file = pyvips.Image.new_from_file(str(filename))  # noqa
+    mpp_x = 1 / pyvips_file.get("xres")
+    mpp_y = 1 / pyvips_file.get("yres")
+
+    return mpp_x, mpp_y

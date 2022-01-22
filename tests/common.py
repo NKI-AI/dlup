@@ -59,7 +59,8 @@ class SlideProperties(BaseModel):
 class SlideConfig(BaseModel):
     """Mock slide configuration."""
 
-    image: Type[Image] = get_sample_nonuniform_image()
+    image_size: Tuple[int, int] = (256, 256)
+    image: Type[Image] = get_sample_nonuniform_image(size=image_size)
     properties: SlideProperties = SlideProperties()
     level_downsamples: Tuple[float, ...] = (1.0, 2.0)
 
