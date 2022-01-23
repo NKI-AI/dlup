@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+import pathlib
 import tempfile
 
 import numpy as np
@@ -9,41 +10,42 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import TilingMode
 from dlup.writers import TiffCompression, TiffImageWriter
 
+from .common import _download_test_image
+
 
 class TestTiffWriter:
-    @pytest.mark.parametrize("tile_size", [[512, 512], [1024, 1024]])
-    @pytest.mark.parametrize("target_mpp", [11.4])
+    @pytest.mark.parametrize("tile_size", [[32, 32], [64, 64]])
+    @pytest.mark.parametrize("target_mpp", [1.0])
     @pytest.mark.parametrize("tile_mode", [TilingMode.overflow, TilingMode.skip, TilingMode.fit])
     def test_tiff_writer(self, tile_size, target_mpp, tile_mode):
-        INPUT_FILE_PATH = "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.svs"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = pathlib.Path(temp_dir) / "test_image.svs"
+            cache_filename = pathlib.Path(temp_dir) / f"test_image-mpp-{target_mpp}.tiff"
+            _download_test_image(save_to=path)
 
-        dataset = TiledROIsSlideImageDataset.from_standard_tiling(
-            INPUT_FILE_PATH, target_mpp, tile_size, (0, 0), mask=None, tile_mode=tile_mode
-        )
+            dataset = TiledROIsSlideImageDataset.from_standard_tiling(
+                path, target_mpp, tile_size, (0, 0), mask=None, tile_mode=tile_mode
+            )
 
-        image_size = dataset.slide_image.get_scaled_size(dataset.slide_image.get_scaling(target_mpp))
+            image_size = dataset.slide_image.get_scaled_size(dataset.slide_image.get_scaling(target_mpp))
 
-        writer = TiffImageWriter(
-            mpp=(target_mpp, target_mpp),
-            size=image_size,
-            tile_width=tile_size[1],
-            tile_height=tile_size[0],
-            pyramid=False,
-            compression=TiffCompression.NONE,
-            quality=100,
-            bit_depth=8,
-            silent=True,
-        )
+            writer = TiffImageWriter(
+                mpp=(target_mpp, target_mpp),
+                size=image_size,
+                tile_width=tile_size[1],
+                tile_height=tile_size[0],
+                pyramid=False,
+                compression=TiffCompression.NONE,
+                quality=100,
+                bit_depth=8,
+                silent=True,
+            )
 
-        with tempfile.NamedTemporaryFile(suffix=".tif") as temp_file:
-            writer.from_iterator(self._dataset_iterator(dataset), temp_file.name)
+            writer.from_iterator(self._dataset_iterator(dataset), path / "temp_file_downsampled.tiff")
 
             dataset_temp = TiledROIsSlideImageDataset.from_standard_tiling(
-                temp_file.name, target_mpp, tile_size, (0, 0), mask=None, tile_mode=tile_mode
+                cache_filename, target_mpp, tile_size, (0, 0), mask=None, tile_mode=tile_mode
             )
-            # TODO: This doesn't match likely due to some rounding.
-            # image_size_temp = dataset_temp.slide_image.get_scaled_size(dataset_temp.slide_image.get_scaling(target_mpp))
-            # assert image_size == image_size_temp
             self.assert_datasets_equal(dataset, dataset_temp, tile_mode=tile_mode)
 
     @staticmethod

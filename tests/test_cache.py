@@ -1,12 +1,14 @@
+import pathlib
+import tempfile
+
 import numpy as np
 import pytest
-from .common import _download_test_image
-from dlup._cache import TiffScaleLevelCache
+
+from dlup._cache import TiffScaleLevelCache, create_tiff_cache
 from dlup._image import SlideImage
 from dlup.tiling import Grid, TilingMode
-import tempfile
-from dlup._cache import create_tiff_cache
-import pathlib
+
+from .common import _download_test_image
 
 
 def _create_cache(input_file, cache_file, tile_size, mpp):
