@@ -1,52 +1,63 @@
 import numpy as np
 import pytest
-
+from .common import _download_test_image
 from dlup._cache import TiffScaleLevelCache
 from dlup._image import SlideImage
 from dlup.tiling import Grid, TilingMode
+import tempfile
+from dlup._cache import create_tiff_cache
+import pathlib
 
 
-def assert_datasets_equal(dataset0, dataset1, tile_mode):
-    for data0, data1 in zip(dataset0, dataset1):
-        x = np.asarray(data0["image"])
-        y = np.asarray(data1["image"])
-
-        del data0["image"]
-        del data1["image"]
-
-        assert data0["path"] == dataset0.path
-        del data0["path"]
-        assert data1["path"] == dataset1.path
-        del data1["path"]
-
-        np.testing.assert_allclose(x, y, atol=0 if tile_mode == TilingMode.skip else 2)
-    assert data0 == data1
+def _create_cache(input_file, cache_file, tile_size, mpp):
+    slide_image = SlideImage.from_file_path(input_file)
+    slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
+    grid = Grid.from_tiling(
+        (0, 0),
+        size=slide_level_size,
+        tile_size=tile_size,
+        tile_overlap=(0, 0),
+        mode=TilingMode.overflow,
+    )
+    create_tiff_cache(
+        cache_file,
+        slide_image,
+        grid,
+        mpp,
+        tile_size,
+        pyramid=False,
+        tiff_tile_size=(256, 256),
+        silent=False,
+    )
 
 
 class TestCache:
-    @pytest.mark.parametrize("regions", [(0, 0), (512, 512)])
-    def test_cache_correctness(self, regions):
-        INPUT_FILE_PATH = "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.svs"
-        slide_image = SlideImage.from_file_path(INPUT_FILE_PATH)
-        mpp = 11.4
-        tile_size = (512, 512)
+    @pytest.mark.parametrize("regions", [(0, 0), (64, 64)])
+    @pytest.mark.parametrize("tile_size", [(64, 64)])
+    @pytest.mark.parametrize("mpp", [1.0])
+    def test_cache_correctness(self, regions, tile_size, mpp):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = pathlib.Path(temp_dir) / "test_image.svs"
+            cache_filename = pathlib.Path(temp_dir) / f"test_image-mpp-{mpp}.tiff"
+            _download_test_image(save_to=path)
+            _create_cache(path, cache_filename, tile_size, mpp)
+            slide_image = SlideImage.from_file_path(path)
 
-        # TODO: Set hte propery on the class itself of cacher
-        cached_slide_image = SlideImage.from_file_path(INPUT_FILE_PATH)
-        cached_slide_image.cacher = TiffScaleLevelCache(
-            original_filename=INPUT_FILE_PATH,
-            mpp_to_cache_map={
-                11.4: "/processing/j.teuwen/TCGA-5T-A9QA-01Z-00-DX1.B4212117-E0A7-4EF2-B324-8396042ACEC1.mpp-11.4.tiff"
-            },
-        )
+            cached_slide_image = SlideImage.from_file_path(path)
+            cached_slide_image.cacher = TiffScaleLevelCache(
+                original_filename=path,
+                mpp_to_cache_map={
+                    mpp: cache_filename,
+                },
+            )
 
-        scaling_original = slide_image.get_scaling(mpp)
+            scaling_original = slide_image.get_scaling(mpp)
 
-        for region in regions:
-            region_0 = slide_image.read_region(region, scaling_original, tile_size)
-            region_1 = cached_slide_image.read_region(region, scaling_original, tile_size)
+            for region in regions:
+                region_0 = slide_image.read_region(region, scaling_original, tile_size)
+                region_1 = cached_slide_image.read_region(region, scaling_original, tile_size)
 
-            x = np.asarray(region_0)
-            y = np.asarray(region_1)
+                x = np.asarray(region_0)
+                y = np.asarray(region_1)
 
-            np.testing.assert_allclose(x, y)
+                np.testing.assert_allclose(x, y)

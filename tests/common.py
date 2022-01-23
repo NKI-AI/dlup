@@ -7,12 +7,19 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 import numpy as np
 import PIL
 import pytest
+import urllib
 from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
 
 import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError, SlideImage
+
+TEST_IMAGE_URL = "https://s3.aiforoncology.nl/dlup/checkerboard.svs"
+
+
+def _download_test_image(save_to):
+    urllib.request.urlretrieve(TEST_IMAGE_URL, save_to)
 
 
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
