@@ -11,7 +11,7 @@ import pytest
 from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
-
+import requests
 import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError, SlideImage
 
@@ -19,7 +19,8 @@ TEST_IMAGE_URL = "https://s3.aiforoncology.nl/dlup/checkerboard.svs"
 
 
 def _download_test_image(save_to):
-    urllib.request.urlretrieve(TEST_IMAGE_URL, save_to)
+    r = requests.get(TEST_IMAGE_URL, allow_redirects=True)
+    open(save_to, "wb").write(r.content)
 
 
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
