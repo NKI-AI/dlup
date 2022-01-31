@@ -153,6 +153,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional = None,
         transform: Optional[Callable] = None,
     ):
         """
@@ -175,6 +176,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._path = path
         self._crop = crop
         self.regions = regions
+        self.annotations = annotations
         self.transform = transform
 
         # Maps from a masked index -> regions index.
@@ -231,6 +233,10 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "region_index": region_index,
         }
 
+        if self.annotations is not None:
+            annotated_region = self.annotations.read_region(coordinates, region_size, mpp)
+            sample.update({f"label_{key}": value for key, value in annotated_region.items()})
+
         if self.transform:
             sample = self.transform(sample)
         return sample
@@ -286,6 +292,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional = None,
         transform: Optional[Callable] = None,
     ):
         self._grids = grids
@@ -296,7 +303,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
 
         super().__init__(
-            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, transform=transform
+            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, annotations=annotations, transform=transform
         )
 
     @property
@@ -314,6 +321,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional = None,
         transform: Optional[Callable] = None,
     ):
         """Function to be used to tile a WSI on-the-fly.
@@ -357,7 +365,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             tile_overlap=tile_overlap,
             mode=tile_mode,
         )
-        return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, transform)
+        return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, annotations, transform)
 
     def __getitem__(self, index):
         data = super().__getitem__(index)

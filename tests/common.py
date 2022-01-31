@@ -6,13 +6,14 @@ import urllib
 from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
+import openslide  # type: ignore
 import PIL
 import pytest
+import requests
 from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
-import requests
-import openslide  # type: ignore
+
 from dlup import DlupUnsupportedSlideError, SlideImage
 
 TEST_IMAGE_URL = "https://s3.aiforoncology.nl/dlup/checkerboard.svs"

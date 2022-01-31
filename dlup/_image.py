@@ -18,16 +18,18 @@ from enum import Enum
 from typing import Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
+import openslide  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
-import pyvips
 
-import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError
 from dlup.utils.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 
 from ._cache import image_cache
 from ._region import BoundaryMode, RegionView
+
+import pyvips
+
 
 _Box = Tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
@@ -118,7 +120,10 @@ class SlideImage:
             if self._openslide_wsi.properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
                 # We store the key in dlup.mpp_x, dlup.mpp_y. See if we can obtain these.
                 comment = self._openslide_wsi.properties.get(openslide.PROPERTY_NAME_COMMENT, None)
-                mpp_x, mpp_y = _read_dlup_wsi_mpp(comment)
+                if comment is not None:
+                    mpp_x, mpp_y = _read_dlup_wsi_mpp(comment)
+                else:  # read using pyvips
+                    mpp_x, mpp_y = _read_pyvips_wsi_mpp(self._identifier)
             if not mpp_x or not mpp_y:
                 raise DlupUnsupportedSlideError(f"slide property mpp is not available.", self._identifier)
 
@@ -416,5 +421,17 @@ def _read_pyvips_wsi_mpp(filename: PathLike):
     pyvips_file = pyvips.Image.new_from_file(str(filename))  # noqa
     mpp_x = 1 / pyvips_file.get("xres")
     mpp_y = 1 / pyvips_file.get("yres")
+
+    resolution_unit = pyvips_file.get("resolution-unit")
+    if resolution_unit == "cm":
+        # cm -> um
+        mpp_x *= 1000.0
+        mpp_y *= 1000.0
+
+    elif resolution_unit == "inch":
+        mpp_x *= 2540.0
+        mpp_y *= 2540.0
+    else:
+        raise NotImplementedError
 
     return mpp_x, mpp_y
