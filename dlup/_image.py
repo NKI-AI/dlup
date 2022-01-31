@@ -316,7 +316,7 @@ class SlideImage:
     @property
     def vendor(self) -> str:
         """Returns the scanner vendor."""
-        return self.properties["openslide.vendor"]
+        return self.properties.get("openslide.vendor", None)
 
     @property
     def size(self) -> Tuple[int, int]:

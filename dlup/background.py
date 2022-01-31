@@ -214,16 +214,25 @@ def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minima
 
 def is_foreground(
     slide_image: SlideImage,
-    background_mask: np.ndarray,
+    background_mask: Union[np.ndarray, SlideImage],
     region: Tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
-    mask_size = np.array(background_mask.shape[:2][::-1])
 
     # Let's get the region view from the slide image.
     x, y, w, h, mpp = region
+
+    if isinstance(background_mask, SlideImage):
+        # TODO: Let us read the mask at its native mpp for speed
+        background_mpp = background_mask.mpp
+        scaling = background_mpp / mpp
+        mask = background_mask.read_region((x, y), scaling, (w, h)).convert("L")
+        return np.asarray(mask).mean() >= threshold
+
     region_view = slide_image.get_scaled_view(slide_image.get_scaling(mpp))
+
     background_mask = PIL.Image.fromarray(background_mask)
+    mask_size = np.array(background_mask.shape[:2][::-1])
 
     # Type of background_mask is Any here.
     scaling = background_mask.width / region_view.size[0]  # type: ignore

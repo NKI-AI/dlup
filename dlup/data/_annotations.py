@@ -176,25 +176,23 @@ class SlideAnnotations:
         self,
         coordinates,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         region_size,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-        mpp: float,
+        scaling: float,
     ) -> Dict[str, List[ShapelyTypes]]:
-        scaling = {
-            k: self.label_to_mpp(k) / mpp if self.label_to_mpp(k) else 1.0 / mpp for k in self.available_labels
-        }
         filtered_annotations = {
             k: self.filter_annotations(
                 self._annotation_trees[k],
-                np.asarray(coordinates) / scaling[k],
-                np.asarray(region_size) / scaling[k],
+                np.asarray(coordinates) / scaling,
+                np.asarray(region_size) / scaling,
                 _POSTPROCESSORS[self.label_to_type(k)],
             )
             for k in self.available_labels
         }
 
+        transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0], -coordinates[1]]
         transformed_annotations = {
             k: [
                 shapely.affinity.affine_transform(
-                    annotation, [scaling[k], 0, 0, scaling[k], -coordinates[0], -coordinates[1]]
+                    annotation, transformation_matrix
                 )
                 for annotation in filtered_annotations[k]
             ]
