@@ -100,6 +100,7 @@ class SlideAnnotations:
         self._annotations = {k: WholeSlideAnnotation(v) for k, v in annotations.items()}
         # Now we have a dict of label: annotations.
         self._label_dict = {k: v.type for k, v in self._annotations.items()}
+        self.available_labels = sorted(list(self._annotations.keys()))
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
     @classmethod
@@ -135,7 +136,7 @@ class SlideAnnotations:
         return cls(annotations)
 
     @classmethod
-    def from_asap_xml(cls, asap_xml, labels=None, mpp=None):
+    def from_asap_xml(cls, asap_xml, label_map=None, mpp=None):
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
         annotations = dict()
@@ -144,9 +145,18 @@ class SlideAnnotations:
             for child in parent:
                 if child.tag != "Annotation":
                     continue
-                annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
                 label = child.attrib.get("PartOfGroup").lower().strip()
+
+                # If we have a label map and there is nothing defined, then continue.
+                if label_map is not None and label not in label_map:
+                    continue
+
+                annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
                 coordinates = _parse_asap_coordinates(child, annotation_type)
+
+                # If we have a label map function, we apply it to the coordinates.
+                if label_map is not None and label_map[label] is not None:
+                    coordinates, annotation_type = label_map[label](coordinates, mpp)
 
                 metadata = {"type": annotation_type, "mpp": mpp, "label": label}
 
@@ -159,10 +169,6 @@ class SlideAnnotations:
                 opened_annotations += 1
 
         return cls(annotations)
-
-    @property
-    def available_labels(self) -> List[str]:
-        return list(self._annotations.keys())
 
     def label_to_type(self, label: str) -> AnnotationType:
         return self._label_dict[label]
