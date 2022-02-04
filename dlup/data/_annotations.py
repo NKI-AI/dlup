@@ -30,14 +30,15 @@ import json
 import os
 import pathlib
 import xml.etree.ElementTree as ET
+from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
-from collections import defaultdict
+
 import numpy as np
 import shapely
+import shapely.validation
 from shapely import geometry
 from shapely.geometry import shape
-import shapely.validation
 from shapely.strtree import STRtree
 
 from dlup.utils.types import GenericNumber, PathLike
@@ -85,6 +86,7 @@ class WholeSlideAnnotation:
     def bounding_boxes(self, scaling=1):
         def _get_bbox(z):
             return z.min(axis=0).tolist() + (z.max(axis=0) - z.min(axis=0)).tolist()
+
         data = [np.asarray(_.envelope.exterior.coords) * scaling for _ in self.as_list()]
         return [_get_bbox(_) for _ in data]
 
@@ -264,4 +266,3 @@ def _parse_asap_coordinates(annotation_structure: List, annotation_type: Annotat
         coordinates = shapely.validation.make_valid(coordinates)
 
     return coordinates
-

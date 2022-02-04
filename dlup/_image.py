@@ -21,15 +21,13 @@ import numpy as np  # type: ignore
 import openslide  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
+import pyvips
 
 from dlup import DlupUnsupportedSlideError
 from dlup.utils.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 
 from ._cache import image_cache
 from ._region import BoundaryMode, RegionView
-
-import pyvips
-
 
 _Box = Tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
