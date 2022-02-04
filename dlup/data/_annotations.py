@@ -32,14 +32,15 @@ import pathlib
 import xml.etree.ElementTree as ET
 from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
-
+from collections import defaultdict
 import numpy as np
 import shapely
 from shapely import geometry
 from shapely.geometry import shape
+import shapely.validation
 from shapely.strtree import STRtree
 
-# from dlup.utils.types import GenericNumber, PathLike
+from dlup.utils.types import GenericNumber, PathLike
 
 _TAnnotationParser = TypeVar("_TAnnotationParser", bound="AnnotationParser")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -67,27 +68,38 @@ _ASAP_TYPES = {
 
 
 class WholeSlideAnnotation:
-    """Class to hold the annotations of one specific label for a label"""
+    """Class to hold the annotations of one specific label for a whole slide image"""
 
-    def __init__(self, data: List[ShapelyTypes], metadata: Dict[str, Union[AnnotationType, float, str]]):
-        self.type = metadata["type"]
-        self._annotations = data
-        self.mpp = metadata["mpp"]
-        self.label = metadata["label"]
+    def __init__(self, data):
+        self.type = data["type"]
+        self._annotations = data["coordinates"]
+        self.mpp = data["mpp"]
+        self.label = data["label"]
 
     def as_strtree(self) -> STRtree:
         return STRtree(self._annotations)
 
+    def as_list(self) -> List:
+        return self._annotations
+
+    def bounding_boxes(self, scaling=1):
+        def _get_bbox(z):
+            return z.min(axis=0).tolist() + (z.max(axis=0) - z.min(axis=0)).tolist()
+        data = [np.asarray(_.envelope.exterior.coords) * scaling for _ in self.as_list()]
+        return [_get_bbox(_) for _ in data]
+
+    def __len__(self) -> int:
+        return len(self._annotations)
+
     def __str__(self) -> str:
-        return f"WholeSlideAnnotation(label={self.label})"
+        return f"WholeSlideAnnotation(label={self.label}, length={self.__len__()})"
 
 
 class SlideAnnotations:
-    def __init__(self, annotations: List[WholeSlideAnnotation], labels: List[str] = None):
-        self._annotations = annotations
-        self._label_dict = {
-            annotation.label: (idx, annotation.mpp, annotation.type) for idx, annotation in enumerate(annotations)
-        }
+    def __init__(self, annotations: Dict[str, WholeSlideAnnotation], labels: List[str] = None):
+        self._annotations = {k: WholeSlideAnnotation(v) for k, v in annotations.items()}
+        # Now we have a dict of label: annotations.
+        self._label_dict = {k: v.type for k, v in self._annotations.items()}
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
     @classmethod
@@ -96,9 +108,9 @@ class SlideAnnotations:
         geo_jsons,  # : Iterable[PathLike],
         labels: List[str],
         mpp: float = None,
-        label_map=None,  #: Optional[Dict[float, PathLike]] = None,
+        label_map: Optional[Dict[float, PathLike]] = None,
     ) -> _TAnnotationParser:
-        annotations = []
+        annotations = defaultdict(dict)
         if isinstance(mpp, float):
             mpp = [mpp] * len(labels)
 
@@ -114,7 +126,11 @@ class SlideAnnotations:
                 annotation_type = _infer_shapely_type(data[0]["type"], None if label_map is None else label_map[idx])
                 metadata = {"type": annotation_type, "mpp": curr_mpp, "label": label}
 
-            annotations.append(WholeSlideAnnotation([shape(x) for x in data], metadata))
+            # if label not in annotations:
+            #     annotations[label] = metadata
+            #     annotations[label]["coordinates"] = _p
+
+            # annotations[label] =
 
         return cls(annotations)
 
@@ -122,7 +138,8 @@ class SlideAnnotations:
     def from_asap_xml(cls, asap_xml, labels=None, mpp=None):
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
-        annotations = []
+        annotations = dict()
+        opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
                 if child.tag != "Annotation":
@@ -132,27 +149,29 @@ class SlideAnnotations:
                 coordinates = _parse_asap_coordinates(child, annotation_type)
 
                 metadata = {"type": annotation_type, "mpp": mpp, "label": label}
-                annotations.append(WholeSlideAnnotation([coordinates], metadata))
+
+                if label not in annotations:
+                    annotations[label] = metadata
+                    annotations[label]["coordinates"] = [coordinates]
+                else:
+                    annotations[label]["coordinates"].append(coordinates)
+
+                opened_annotations += 1
+
         return cls(annotations)
 
     @property
     def available_labels(self) -> List[str]:
-        return list(self._label_dict.keys())
-
-    def get_annotations_for_labels(self, labels: Iterable[str]) -> Dict[str, WholeSlideAnnotation]:
-        return {z.label: z for z in (x for x in self._annotations) if z.label in labels}
-
-    def label_to_mpp(self, label: str) -> Optional[float]:
-        return self._label_dict[label][1]
+        return list(self._annotations.keys())
 
     def label_to_type(self, label: str) -> AnnotationType:
-        return self._label_dict[label][2]
+        return self._label_dict[label]
 
     @staticmethod
     def filter_annotations(
         annotations: STRtree,
-        coordinates,  # Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-        region_size,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        coordinates: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         crop_func: Optional[Callable] = None,
     ) -> List[ShapelyTypes]:
         box = coordinates.tolist() + (coordinates + region_size).tolist()
@@ -166,11 +185,10 @@ class SlideAnnotations:
         return annotations
 
     def __getitem__(self, label: str) -> WholeSlideAnnotation:
-        index = self._label_dict[label][0]
-        return self._annotations[index]
+        return self._annotations[label]
 
     def __str__(self):
-        return f"AnnotationParser(labels={self.available_labels})"
+        return f"SlideAnnotations(labels={self.available_labels})"
 
     def read_region(
         self,
@@ -191,9 +209,7 @@ class SlideAnnotations:
         transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0], -coordinates[1]]
         transformed_annotations = {
             k: [
-                shapely.affinity.affine_transform(
-                    annotation, transformation_matrix
-                )
+                shapely.affinity.affine_transform(annotation, transformation_matrix)
                 for annotation in filtered_annotations[k]
             ]
             for k in self.available_labels
@@ -218,7 +234,7 @@ def _infer_asap_type():
     pass
 
 
-def _parse_asap_coordinates(annotation_structure, annotation_type):
+def _parse_asap_coordinates(annotation_structure: List, annotation_type: AnnotationType) -> ShapelyTypes:
     coordinates = []
     coordinate_structure = annotation_structure[0]
     for coordinate in coordinate_structure:
@@ -236,14 +252,10 @@ def _parse_asap_coordinates(annotation_structure, annotation_type):
     elif annotation_type == AnnotationType.POINT:
         coordinates = shapely.geometry.MultiPoint(coordinates)
     else:
-        raise RuntimeError
+        raise RuntimeError(f"Annotation type not supported. Got {annotation_type}.")
+
+    if not coordinates.is_valid:
+        coordinates = shapely.validation.make_valid(coordinates)
 
     return coordinates
 
-
-
-
-
-#
-# if __name__ == "__main__":
-#     data = AnnotationParser.from_asap_xml("/Users/jteuwen/103S.xml", mpp=None)

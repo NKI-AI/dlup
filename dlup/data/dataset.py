@@ -148,7 +148,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
     def __init__(
         self,
-        path: pathlib.Path,
+        path: Union[pathlib.Path, SlideImage],
         regions: collections.abc.Sequence,
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
@@ -303,7 +303,13 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
 
         super().__init__(
-            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, annotations=annotations, transform=transform
+            path,
+            ConcatSequences(regions),
+            crop,
+            mask=mask,
+            mask_threshold=mask_threshold,
+            annotations=annotations,
+            transform=transform,
         )
 
     @property
