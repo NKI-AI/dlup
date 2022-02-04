@@ -156,19 +156,27 @@ class SlideAnnotations:
                 annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
                 coordinates = _parse_asap_coordinates(child, annotation_type)
 
-                # If we have a label map function, we apply it to the coordinates.
-                if label_map is not None and label_map[label] is not None:
-                    coordinates, annotation_type = label_map[label](coordinates, mpp)
-
-                metadata = {"type": annotation_type, "mpp": mpp, "label": label}
-
-                if label not in annotations:
-                    annotations[label] = metadata
-                    annotations[label]["coordinates"] = [coordinates]
+                # Sometimes we have two adjecent polygons which can be split
+                if isinstance(coordinates, shapely.geometry.multipolygon.MultiPolygon):
+                    coordinates_list = coordinates.geoms
                 else:
-                    annotations[label]["coordinates"].append(coordinates)
+                    # Explicitly turn into a list
+                    coordinates_list = [coordinates]
 
-                opened_annotations += 1
+                for coordinates in coordinates_list:
+                    # If we have a label map function, we apply it to the coordinates.
+                    if label_map is not None and label_map[label] is not None:
+                        coordinates, annotation_type = label_map[label](coordinates, mpp)
+
+                    metadata = {"type": annotation_type, "mpp": mpp, "label": label}
+
+                    if label not in annotations:
+                        annotations[label] = metadata
+                        annotations[label]["coordinates"] = [coordinates]
+                    else:
+                        annotations[label]["coordinates"].append(coordinates)
+
+                    opened_annotations += 1
 
         return cls(annotations)
 
@@ -264,5 +272,12 @@ def _parse_asap_coordinates(annotation_structure: List, annotation_type: Annotat
 
     if not coordinates.is_valid:
         coordinates = shapely.validation.make_valid(coordinates)
+
+    # It is possible there have been linestrings or so added.
+    if isinstance(coordinates, shapely.geometry.collection.GeometryCollection):
+        split_up = [_ for _ in coordinates.geoms if _.area > 0]
+        if len(split_up) != 1:
+            raise RuntimeError(f"Got unexpected object.")
+        coordinates = split_up[0]
 
     return coordinates
