@@ -155,6 +155,8 @@ class SlideAnnotations:
 
                 annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
                 coordinates = _parse_asap_coordinates(child, annotation_type)
+                if coordinates is None:
+                    continue
 
                 # Sometimes we have two adjecent polygons which can be split
                 if isinstance(coordinates, shapely.geometry.multipolygon.MultiPolygon):
@@ -279,5 +281,8 @@ def _parse_asap_coordinates(annotation_structure: List, annotation_type: Annotat
         if len(split_up) != 1:
             raise RuntimeError(f"Got unexpected object.")
         coordinates = split_up[0]
+
+    if coordinates.area == 0:
+        return None
 
     return coordinates

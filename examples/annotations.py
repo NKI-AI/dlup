@@ -49,7 +49,7 @@ TIGER_LABEL_CONVERSIONS = {
     "inflamed stroma": _cast_polygon,
     "invasive tumor": _cast_polygon,
     "tumor-associated stroma": _cast_polygon,
-    "lymphocytes and plasma cells": _convert_box_to_point,
+    "lymphocytes and plasma cells": _convert_box_to_point,  #
     "necrosis not in-situ": _cast_polygon,
     "rest": _cast_polygon,
     "roi": _cast_as_box,
