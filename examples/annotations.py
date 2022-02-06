@@ -95,21 +95,21 @@ def construct_dataset_per_wsi(slide_fn, annotation_fn, tile_size, target_mpp=Non
     return dataset
 
 
-def build_dataset(path_to_images, path_to_annotations, tile_size, target_mpp):
+def build_dataset(path_to_images, path_to_annotations, tile_size, target_mpp, transform=None):
     # Let us find all the images
-    xml_files = pathlib.Path(path_to_images).glob("*.xml")
+    xml_files = pathlib.Path(path_to_annotations).glob("*.xml")
     path_to_images = pathlib.Path(path_to_images)
     per_image_dataset = []
     for xml_filename in tqdm(xml_files):
         logger.info(f"Adding {xml_filename}")
-        image_filename = (path_to_images / xml_filename.name).with_suffix(".xml")
+        image_filename = (path_to_images / xml_filename.name).with_suffix(".tif")
         if not image_filename.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(image_filename))
 
         per_image_dataset.append(
-            construct_dataset_per_wsi(image_filename, xml_filename, tile_size=tile_size, target_mpp=target_mpp)
+            construct_dataset_per_wsi(image_filename, xml_filename, tile_size=tile_size, target_mpp=target_mpp, transform=transform)
         )
-    return ConcatDataset(per_image_dataset), failures
+    return ConcatDataset(per_image_dataset)
 
 
 def visualize_tile(d, label_map):
@@ -138,7 +138,7 @@ def visualize_tile(d, label_map):
 
 if __name__ == "__main__":
     tile_size = (1024, 1024)
-    dataset, failures = build_dataset(
+    dataset = build_dataset(
         "/mnt/archive/data/pathology/TIGER/tiger-training-data/wsirois/wsi-level-annotations/images/",
         "/mnt/archive/data/pathology/TIGER/tiger-training-data/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/",
         tile_size,
