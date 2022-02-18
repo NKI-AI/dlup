@@ -107,7 +107,9 @@ def build_dataset(path_to_images, path_to_annotations, tile_size, target_mpp, tr
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(image_filename))
 
         per_image_dataset.append(
-            construct_dataset_per_wsi(image_filename, xml_filename, tile_size=tile_size, target_mpp=target_mpp, transform=transform)
+            construct_dataset_per_wsi(
+                image_filename, xml_filename, tile_size=tile_size, target_mpp=target_mpp, transform=transform
+            )
         )
     return ConcatDataset(per_image_dataset)
 

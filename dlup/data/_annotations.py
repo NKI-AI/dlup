@@ -122,18 +122,20 @@ class SlideAnnotations:
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
 
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # There can be multiple polygons in one file, but they should all be constant
+            with open(path, "r", encoding="utf-8") as annotation_file:
+                data = [shape(x) for x in json.load(annotation_file)]
+                # There can be multiple polygons in one file, but they should all have to be constant(same mpp value)
                 # TODO: Verify this assumption
-                annotation_type = _infer_shapely_type(data[0]["type"], None if label_map is None else label_map[idx])
-                metadata = {"type": annotation_type, "mpp": curr_mpp, "label": label}
-
-            # if label not in annotations:
-            #     annotations[label] = metadata
-            #     annotations[label]["coordinates"] = _p
-
-            # annotations[label] =
+                annotation_types = [
+                    _infer_shapely_type(polygon.type, None if label_map is None else label_map[idx])
+                    for polygon in data
+                ]
+                # In the above line, we make a list of shapely types since there maybe multiple annotations for a particular label.
+                # However, it is assumed that all annotations corresponding to a particular label are of the same type.
+                # Therefore, in the next line, we assign "type" to the first member of this list
+                annotations[label].update(
+                    {"type": annotation_types[0], "label": label, "mpp": curr_mpp, "coordinates": data}
+                )
 
         return cls(annotations)
 
@@ -236,7 +238,7 @@ class SlideAnnotations:
         return transformed_annotations
 
 
-def _infer_shapely_type(shapely_type: str, label: Optional[str] = None) -> AnnotationType:
+def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[str] = None) -> AnnotationType:
     if label:
         return label
 
