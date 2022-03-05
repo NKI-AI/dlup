@@ -24,6 +24,9 @@ shapely json is assumed to contain all the objects belonging to one label
     "data": [list of objects]
 }
 
+# TODO: We need to return our own class of annotations, not just shapely objects.
+# TODO: We have POLYGON, POINT, BOX. There is already the internal use of ANNOTATIONTYPE
+
 """
 import errno
 import json
@@ -209,7 +212,6 @@ class SlideAnnotations:
         coordinates,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         region_size,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
-        sort_by_area: bool = True,
     ) -> Dict[str, List[ShapelyTypes]]:
 
         box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
@@ -237,6 +239,7 @@ class SlideAnnotations:
         }
 
         sorted_keys = sorted(areas.keys(), key=lambda x: areas[x], reverse=True)
+
         transformed_annotations = OrderedDict((key, transformed_annotations[key]) for key in sorted_keys)
 
         return transformed_annotations
