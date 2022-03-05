@@ -33,6 +33,8 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
+from collections import OrderedDict
+
 
 import numpy as np
 import shapely
@@ -155,7 +157,18 @@ class SlideAnnotations:
 
                 annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
                 coordinates = _parse_asap_coordinates(child, annotation_type)
-                if coordinates is None:
+
+                if not coordinates.is_valid:
+                    coordinates = shapely.validation.make_valid(coordinates)
+
+                # It is possible there have been linestrings or so added.
+                if isinstance(coordinates, shapely.geometry.collection.GeometryCollection):
+                    split_up = [_ for _ in coordinates.geoms if _.area > 0]
+                    if len(split_up) != 1:
+                        raise RuntimeError(f"Got unexpected object.")
+                    coordinates = split_up[0]
+
+                if coordinates.area == 0:
                     continue
 
                 # Sometimes we have two adjecent polygons which can be split
@@ -185,22 +198,25 @@ class SlideAnnotations:
     def label_to_type(self, label: str) -> AnnotationType:
         return self._label_dict[label]
 
-    @staticmethod
-    def filter_annotations(
-        annotations: STRtree,
-        coordinates: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-        region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-        crop_func: Optional[Callable] = None,
-    ) -> List[ShapelyTypes]:
-        box = coordinates.tolist() + (coordinates + region_size).tolist()
-        # region can be made into a box class
-        query_box = geometry.box(*box)
-        annotations = annotations.query(query_box)
-
-        if crop_func is not None:
-            annotations = [x for x in (crop_func(_, query_box) for _ in annotations) if x]
-
-        return annotations
+    # @staticmethod
+    # def filter_annotations(
+    #     annotations: STRtree,
+    #     coordinates: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+    #     region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+    #     crop_func: Optional[Callable] = None,
+    # ) -> List[ShapelyTypes]:
+    #     box = coordinates.tolist() + (coordinates + region_size).tolist()
+    #     # region can be made into a box class
+    #     query_box = geometry.box(*box)
+    #     annotations = annotations.query(query_box)
+    #
+    #     # The annotations need to be sorted from large to small, because ASAP overlays it this way.
+    #     # Not really sure this is required for other annotations as well, but does not hurt.
+    #
+    #     if crop_func is not None:
+    #         annotations = [x for x in (crop_func(_, query_box) for _ in annotations) if x]
+    #
+    #     return annotations
 
     def __getitem__(self, label: str) -> WholeSlideAnnotation:
         return self._annotations[label]
@@ -213,16 +229,23 @@ class SlideAnnotations:
         coordinates,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         region_size,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
+        sort_by_area: bool=True,
     ) -> Dict[str, List[ShapelyTypes]]:
-        filtered_annotations = {
-            k: self.filter_annotations(
-                self._annotation_trees[k],
-                np.asarray(coordinates) / scaling,
-                np.asarray(region_size) / scaling,
-                _POSTPROCESSORS[self.label_to_type(k)],
-            )
-            for k in self.available_labels
-        }
+
+        box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
+        box = (np.asarray(box) / scaling).tolist()
+        query_box = geometry.box(*box)
+
+        filtered_annotations = {k: self._annotation_trees[k].query(query_box) for k in self.available_labels}
+
+        areas = {k: sum([_.area for _ in v]) for k, v in filtered_annotations.items()}
+        # The annotations need to be sorted from large to small, because ASAP overlays it this way (before cropping).
+        # Not really sure this is required for other annotations as well, but does not hurt.
+
+        for k in self.available_labels:
+            crop_func = _POSTPROCESSORS[self.label_to_type(k)]
+            if crop_func is not None:
+                filtered_annotations[k] = [x for x in (crop_func(_, query_box) for _ in filtered_annotations[k]) if x]
 
         transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0], -coordinates[1]]
         transformed_annotations = {
@@ -232,6 +255,9 @@ class SlideAnnotations:
             ]
             for k in self.available_labels
         }
+
+        sorted_keys = sorted(areas.keys(), key=lambda x: areas[x], reverse=True)
+        transformed_annotations = OrderedDict((key, transformed_annotations[key]) for key in sorted_keys)
 
         return transformed_annotations
 
@@ -272,17 +298,13 @@ def _parse_asap_coordinates(annotation_structure: List, annotation_type: Annotat
     else:
         raise RuntimeError(f"Annotation type not supported. Got {annotation_type}.")
 
-    if not coordinates.is_valid:
-        coordinates = shapely.validation.make_valid(coordinates)
-
-    # It is possible there have been linestrings or so added.
-    if isinstance(coordinates, shapely.geometry.collection.GeometryCollection):
-        split_up = [_ for _ in coordinates.geoms if _.area > 0]
-        if len(split_up) != 1:
-            raise RuntimeError(f"Got unexpected object.")
-        coordinates = split_up[0]
-
-    if coordinates.area == 0:
-        return None
-
     return coordinates
+
+
+if __name__ == "__main__":
+    z = SlideAnnotations.from_asap_xml(
+        "/mnt/archive/data/pathology/TIGER/tiger-training-data/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/250B.xml"
+    )
+    z.read_region(coordinates=(0, 0), region_size=(250000, 250000), scaling=1.0)
+
+    print()
