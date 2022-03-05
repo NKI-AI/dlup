@@ -30,11 +30,9 @@ import json
 import os
 import pathlib
 import xml.etree.ElementTree as ET
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
-from collections import OrderedDict
-
 
 import numpy as np
 import shapely
@@ -200,26 +198,6 @@ class SlideAnnotations:
     def label_to_type(self, label: str) -> AnnotationType:
         return self._label_dict[label]
 
-    # @staticmethod
-    # def filter_annotations(
-    #     annotations: STRtree,
-    #     coordinates: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-    #     region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-    #     crop_func: Optional[Callable] = None,
-    # ) -> List[ShapelyTypes]:
-    #     box = coordinates.tolist() + (coordinates + region_size).tolist()
-    #     # region can be made into a box class
-    #     query_box = geometry.box(*box)
-    #     annotations = annotations.query(query_box)
-    #
-    #     # The annotations need to be sorted from large to small, because ASAP overlays it this way.
-    #     # Not really sure this is required for other annotations as well, but does not hurt.
-    #
-    #     if crop_func is not None:
-    #         annotations = [x for x in (crop_func(_, query_box) for _ in annotations) if x]
-    #
-    #     return annotations
-
     def __getitem__(self, label: str) -> WholeSlideAnnotation:
         return self._annotations[label]
 
@@ -231,7 +209,7 @@ class SlideAnnotations:
         coordinates,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         region_size,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
-        sort_by_area: bool=True,
+        sort_by_area: bool = True,
     ) -> Dict[str, List[ShapelyTypes]]:
 
         box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
@@ -302,11 +280,3 @@ def _parse_asap_coordinates(annotation_structure: List, annotation_type: Annotat
 
     return coordinates
 
-
-if __name__ == "__main__":
-    z = SlideAnnotations.from_asap_xml(
-        "/mnt/archive/data/pathology/TIGER/tiger-training-data/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/250B.xml"
-    )
-    z.read_region(coordinates=(0, 0), region_size=(250000, 250000), scaling=1.0)
-
-    print()
