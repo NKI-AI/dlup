@@ -212,37 +212,40 @@ class SlideAnnotations:
         coordinates,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         region_size,  #: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
-    ) -> Dict[str, List[ShapelyTypes]]:
+    ) -> List[Tuple[str, ShapelyTypes]]:
 
         box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
 
-        filtered_annotations = {k: self._annotation_trees[k].query(query_box) for k in self.available_labels}
-
-        areas = {k: sum([_.area for _ in v]) for k, v in filtered_annotations.items()}
-        # The annotations need to be sorted from large to small, because ASAP overlays it this way (before cropping).
-        # Not really sure this is required for other annotations as well, but does not hurt.
-
+        filtered_annotations = []
         for k in self.available_labels:
-            crop_func = _POSTPROCESSORS[self.label_to_type(k)]
+            curr_annotations = self._annotation_trees[k].query(query_box)
+            for v in curr_annotations:
+                filtered_annotations.append((k, v))
+
+        # Sort on name
+        filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0])
+        # Sort on area (largest to smallest)
+        filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
+
+        cropped_annotations = []
+        for annotation_name, annotation in filtered_annotations:
+            crop_func = _POSTPROCESSORS[self.label_to_type(annotation_name)]
             if crop_func is not None:
-                filtered_annotations[k] = [x for x in (crop_func(_, query_box) for _ in filtered_annotations[k]) if x]
+                annotation = crop_func(annotation, query_box)
+            if annotation:
+                cropped_annotations.append((annotation_name, annotation))
 
         transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0], -coordinates[1]]
-        transformed_annotations = {
-            k: [
-                shapely.affinity.affine_transform(annotation, transformation_matrix)
-                for annotation in filtered_annotations[k]
-            ]
-            for k in self.available_labels
-        }
 
-        sorted_keys = sorted(areas.keys(), key=lambda x: areas[x], reverse=True)
+        cropped_annotations = [
+            (k, shapely.affinity.affine_transform(v, transformation_matrix)) for k, v in cropped_annotations
+        ]
 
-        transformed_annotations = OrderedDict((key, transformed_annotations[key]) for key in sorted_keys)
-
-        return transformed_annotations
+        # TODO: This can be an annotation container.
+        # Should we split it here?
+        return cropped_annotations
 
 
 def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[str] = None) -> AnnotationType:
@@ -282,4 +285,3 @@ def _parse_asap_coordinates(annotation_structure: List, annotation_type: Annotat
         raise RuntimeError(f"Annotation type not supported. Got {annotation_type}.")
 
     return coordinates
-

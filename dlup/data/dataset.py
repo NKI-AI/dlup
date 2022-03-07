@@ -350,7 +350,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
         transform :
-            Tansform to be applied to the sample
+            Transform to be applied to the sample
 
         Example
         -------
