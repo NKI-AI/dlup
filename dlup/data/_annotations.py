@@ -239,13 +239,17 @@ class SlideAnnotations:
 
         transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0], -coordinates[1]]
 
-        cropped_annotations = [
-            (k, shapely.affinity.affine_transform(v, transformation_matrix)) for k, v in cropped_annotations
-        ]
+        output = []
+        for annotation_name, annotation in cropped_annotations:
+            annotation = shapely.affinity.affine_transform(annotation, transformation_matrix)
+            if isinstance(annotation, (geometry.MultiPolygon, geometry.GeometryCollection)):
+                output += [(annotation_name, _) for _ in annotation.geoms if _.area > 0]
+            else:
+                output.append((annotation_name, annotation))
 
         # TODO: This can be an annotation container.
         # Should we split it here?
-        return cropped_annotations
+        return output
 
 
 def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[str] = None) -> AnnotationType:
