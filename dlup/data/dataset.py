@@ -234,8 +234,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         }
 
         if self.annotations is not None:
-            annotated_region = self.annotations.read_region(coordinates, region_size, scaling)
-            sample.update({f"label_{key}": value for key, value in annotated_region.items()})
+            sample["annotations"] = self.annotations.read_region(coordinates, region_size, scaling)
 
         if self.transform:
             sample = self.transform(sample)
