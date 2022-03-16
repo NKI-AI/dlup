@@ -233,7 +233,12 @@ class SlideAnnotations:
         for annotation_name, annotation in filtered_annotations:
             crop_func = _POSTPROCESSORS[self.label_to_type(annotation_name)]
             if crop_func is not None:
+                curr_area = annotation.area
                 annotation = crop_func(annotation, query_box)
+                post_area = annotation.area
+                # Remove annotations which had area before (e.g. polygons) but after cropping are a point.
+                if curr_area > 0 and post_area == 0:
+                    continue
             if annotation:
                 cropped_annotations.append((annotation_name, annotation))
 
