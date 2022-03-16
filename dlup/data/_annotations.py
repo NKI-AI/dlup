@@ -242,8 +242,16 @@ class SlideAnnotations:
         output = []
         for annotation_name, annotation in cropped_annotations:
             annotation = shapely.affinity.affine_transform(annotation, transformation_matrix)
-            if isinstance(annotation, (geometry.MultiPolygon, geometry.GeometryCollection)):
+            if isinstance(
+                annotation,
+                (geometry.MultiPolygon, geometry.GeometryCollection),
+            ):
                 output += [(annotation_name, _) for _ in annotation.geoms if _.area > 0]
+
+            # TODO: Double check
+            elif isinstance(annotation, (geometry.LineString, geometry.multilinestring.MultiLineString)):
+                continue
+
             else:
                 output.append((annotation_name, annotation))
 
