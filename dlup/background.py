@@ -227,7 +227,7 @@ def is_foreground(
         background_mpp = background_mask.mpp
         scaling = background_mpp / mpp
         mask = background_mask.read_region((x, y), scaling, (w, h)).convert("L")
-        return np.asarray(mask).mean() >= threshold
+        return np.asarray(mask).mean() > threshold
 
     region_view = slide_image.get_scaled_view(slide_image.get_scaling(mpp))
 
@@ -246,7 +246,7 @@ def is_foreground(
     box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)  # type: ignore
     clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
     mask_tile[:clipped_h, :clipped_w] = np.asarray(background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float)  # type: ignore
-    return mask_tile.mean() >= threshold
+    return mask_tile.mean() > threshold
 
 
 class AvailableMaskFunctions(Enum):
