@@ -172,9 +172,9 @@ class SlideImage:
         """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
-        In normal cirmustances, it's not possible to retrieve an image of
+        In normal circumstances, it's not possible to retrieve an image of
         intermediate mpp between these levels. This method takes care of
-        sumbsampling the closest high resolution level to extract a target
+        subsampling the closest high resolution level to extract a target
         region via interpolation.
 
         Once the best layer is selected, a native resolution region
@@ -185,11 +185,11 @@ class SlideImage:
 
         1. Map the region that we want to extract to the below layer.
         2. Add some extra values (left and right) to the native region we want to extract
-           to take into account the interpolation samples at the border ("native_extra_pixels").
+           to take into account the interpolation samples at the border (`native_extra_pixels`).
         3. Map the location to the level0 coordinates, floor it to add extra information
-           on the left (level_zero_location_adapted).
-        4. Re-map the integral level-0 location to the native_level.
-        5. Compute the right bound of the region adding the native_size and extra pixels (native_size_adapted).
+           on the left (`level_zero_location_adapted`).
+        4. Re-map the integral level-0 location to the `native_level`.
+        5. Compute the right bound of the region adding the native_size and extra pixels (`native_size_adapted`).
            The size is also clipped so that any extra pixel will fit within the native level.
         6. Since the native_size_adapted needs to be passed to openslide and has to be an integer, we ceil it
            to avoid problems with possible overflows of the right boundary of the target region being greater
@@ -231,10 +231,15 @@ class SlideImage:
             raise ValueError("Requested region is outside level boundaries.")
 
         # Compute values projected onto the best layer.
+        # native_level is the closest level of higher resolution which can be used to downsample to the required mpp
         native_level = owsi.get_best_level_for_downsample(1 / scaling)
+        # native_level_size is the shape of the above level as stored in the pyramidal format
         native_level_size = owsi.level_dimensions[native_level]
+        # native_level_downsample is the downsampling factor compared to level 0.
         native_level_downsample = owsi.level_downsamples[native_level]
-        native_scaling = scaling * owsi.level_downsamples[native_level]
+        # native_scaling contains the scaling required from there requested scaling in the closest matching image
+        native_scaling = scaling * native_level_downsample
+        # native_location contains the location we are interested in the closest matching image
         native_location = location / native_scaling
         native_size = size / native_scaling
 
@@ -405,7 +410,7 @@ def _read_dlup_wsi_mpp(comment: str) -> Tuple[Optional[float], Optional[float]]:
 
 def _read_pyvips_wsi_mpp(filename: PathLike):
     """
-    Read resolution from tiff file using vips
+    Read resolution from tif file using vips
 
     Parameters
     ----------
