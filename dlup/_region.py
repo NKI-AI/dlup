@@ -61,7 +61,8 @@ class RegionView(ABC):
         if self.boundary_mode == BoundaryMode.zero and np.any(location < 0):
             new_region = PIL.Image.new("RGBA", tuple(size))
             # Now we need to paste the region into the new region.
-            new_region.paste(region, tuple(offset))
+            # We do some rounding to int.
+            new_region.paste(region, tuple(np.floor(offset).astype(int)))
             region = np.asarray(new_region)
 
         # TODO: This can be merged and be an actual PIL image
