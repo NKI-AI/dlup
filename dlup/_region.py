@@ -2,9 +2,10 @@
 """Defines the RegionView interface."""
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, Iterable, Optional, Tuple, TypeVar, Union
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
+import PIL.Image
 
 _GenericFloatArray = Union[np.ndarray, Iterable[float]]
 _GenericIntArray = Union[np.ndarray, Iterable[int]]
@@ -50,11 +51,22 @@ class RegionView(ABC):
         if self.boundary_mode is None:
             return self._read_region_impl(location, size)
 
-        clipped_region_size = np.clip(location + size, np.zeros_like(size), self.size) - location
-        clipped_region_size = clipped_region_size.astype(int)
-        region = self._read_region_impl(location, clipped_region_size)
+        # This is slightly tricky as it can influence the mpp slightly
+        offset = -np.clip(location, None, 0)
 
-        if self.boundary_mode == BoundaryMode.zero:
+        clipped_region_size = np.clip(location + size, np.zeros_like(size), self.size) - location - offset
+        clipped_region_size = clipped_region_size.astype(int)
+        region = self._read_region_impl(location + offset, clipped_region_size)
+
+        if self.boundary_mode == BoundaryMode.zero and np.any(location < 0):
+            new_region = PIL.Image.new("RGBA", tuple(size))
+            # Now we need to paste the region into the new region.
+            # We do some rounding to int.
+            new_region.paste(region, tuple(np.floor(offset).astype(int)))
+            region = np.asarray(new_region)
+
+        # TODO: This can be merged and be an actual PIL image
+        elif self.boundary_mode == BoundaryMode.zero:
             padding = np.zeros((len(np.asarray(region).shape), 2), dtype=int)
             padding[:-1, 1] = np.flip(size - clipped_region_size)
             values = np.zeros_like(padding)
