@@ -5,7 +5,6 @@
 Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 """
 
-import abc
 import bisect
 import collections
 import functools
@@ -16,7 +15,7 @@ from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict
 
 import numpy as np
 import PIL
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
@@ -336,7 +335,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
         transform :
-            Tansform to be applied to the sample
+            Transform to be applied to the sample.
 
         Example
         -------
