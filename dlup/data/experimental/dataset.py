@@ -3,7 +3,7 @@
 """Experimental dataset functions, might e.g. lack tests, or requires input from users"""
 
 import pathlib
-from typing import Iterable, Tuple, Optional, Callable, List
+from typing import Callable, Iterable, List, Optional, Tuple, Sequence
 
 import numpy as np
 
@@ -26,14 +26,17 @@ class MultiScaleTiledROIsSlideImageDataset(TiledROIsSlideImageDataset):
             tile_size=(1024, 1024),\
             tile_overlap=(512, 512),\
             tile_mode=TilingMode.skip,\
-            crop=True,\
+            crop=False,\
             mask=None,\
             mask_threshold=0.5,\
             transform=YourTransform()\
          )
     >>> sample = dlup_dataset[5]
     >>> images = (sample[0]["image"], sample[1]["image"])
+
+    Setting `crop` to False will pad the image with zeros in the lower resolutions at the borders.
     """
+
     def __init__(
         self,
         path: pathlib.Path,
@@ -49,7 +52,7 @@ class MultiScaleTiledROIsSlideImageDataset(TiledROIsSlideImageDataset):
         if len(list(grids)) % num_scales != 0:
             raise ValueError(f"In a multiscale dataset the grids needs to be divisible by the number of scales.")
 
-        self._step_size = len(grids[0][0])
+        self._step_size = len(list(grids)[0][0])
         self._index_ranges = [
             range(idx * self._step_size, (idx + 1) * self._step_size) for idx in range(0, num_scales)
         ]
@@ -67,9 +70,9 @@ class MultiScaleTiledROIsSlideImageDataset(TiledROIsSlideImageDataset):
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.skip,
-        crop: bool = True,
+        crop: bool = False,
         mask: Optional[np.ndarray] = None,
-        rois: Optional = None,
+        rois: Optional[Tuple[Tuple[int, ...]]] = None,
         mask_threshold: float = 0.1,
         transform: Optional[Callable] = None,
     ):
@@ -79,22 +82,23 @@ class MultiScaleTiledROIsSlideImageDataset(TiledROIsSlideImageDataset):
 
         with SlideImage.from_file_path(path) as slide_image:
             original_mpp = slide_image.mpp
-            original_size = slide_image.size
-            if rois is None:
-                rois = [[0, 0, *original_size]]
-            else:
-                # Do some checks whether the ROIs are within the image
-                origin_positive = [np.all(np.asarray(_[:2]) > 0) for _ in rois]
-                image_within_borders = [np.all((np.asarray(_[:2]) + _[2:]) <= original_size) for _ in rois]
-                if not origin_positive or not image_within_borders:
-                    raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
+            original_size = tuple(slide_image.size)
+
+        if rois is None:
+            rois = ((0, 0) + original_size,)
+        else:
+            # Do some checks whether the ROIs are within the image
+            origin_positive = [np.all(np.asarray(_[:2]) > 0) for _ in rois]
+            image_within_borders = [np.all((np.asarray(_[:2]) + _[2:]) <= original_size) for _ in rois]
+            if not origin_positive or not image_within_borders:
+                raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
         view_scalings = [mpp / original_mpp for mpp in mpps]
         grids = []
         for scaling in view_scalings:
             for roi in rois:
-                offset = roi[:2]
-                size = roi[2:]
+                offset = np.asarray(roi[:2])
+                size = np.asarray(roi[2:])
 
                 # We CEIL the offset and FLOOR the size, so that we are always in a fully annotated area.
                 offset = np.ceil(offset).astype(int)
