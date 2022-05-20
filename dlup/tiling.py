@@ -4,11 +4,10 @@
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, List, Sequence, Tuple, Type, TypeVar, Union
+from typing import Iterator, List, Sequence, Tuple, Union
 
 import numpy as np
-
-from ._region import RegionView
+from numpy.typing import NDArray
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Sequence[_GenericNumber]]
@@ -91,7 +90,7 @@ def tiles_grid_coordinates(
         overflow = tiled_size - size
 
     # Let's create our indices list
-    coordinates = []
+    coordinates: List[NDArray[np.float_]] = []
     for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
 

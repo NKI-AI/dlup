@@ -182,7 +182,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
         self.masked_indices: Union[NDArray[np.int_], None] = None
         if mask is not None:
-            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions))
+            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
             for i, region in enumerate(regions):
                 boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
@@ -253,7 +253,7 @@ class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSamp
 
 def _coords_to_region(tile_size, target_mpp, key, coords):
     """Return the necessary tuple that represents a region."""
-    return (*coords, *tile_size, target_mpp)
+    return *coords, *tile_size, target_mpp
 
 
 class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):

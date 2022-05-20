@@ -3,7 +3,7 @@
 """Experimental dataset functions, might e.g. lack tests, or requires input from users"""
 
 import pathlib
-from typing import Callable, Iterable, List, Optional, Tuple, Sequence
+from typing import Callable, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
