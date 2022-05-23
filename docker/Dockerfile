@@ -63,10 +63,6 @@ RUN conda update -n base conda -yq \
     # Install openslide-python from NKI-AI
     && python -m pip install git+https://github.com/NKI-AI/openslide-python.git
 
-# Install jupyter config to be able to run in the docker environment
-RUN jupyter notebook --generate-config
-ENV CONFIG_PATH "/users/$UNAME/.jupyter/jupyter_notebook_config.py"
-COPY "docker/jupyter_notebook_config.py" ${CONFIG_PATH}
 
 # Copy files into the docker
 COPY [".", "/$UNAME"]

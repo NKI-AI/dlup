@@ -2,17 +2,26 @@
 # Copyright (c) dlup contributors
 
 """Utilities to simplify the mocking of SlideImages."""
+import urllib
 from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
+import openslide  # type: ignore
 import PIL
 import pytest
+import requests
 from PIL.Image import Image
 from pydantic import BaseModel, Field
 from scipy import interpolate
 
-import openslide  # type: ignore
 from dlup import DlupUnsupportedSlideError, SlideImage
+
+TEST_IMAGE_URL = "https://s3.aiforoncology.nl/dlup/checkerboard.svs"
+
+
+def _download_test_image(save_to):
+    r = requests.get(TEST_IMAGE_URL, allow_redirects=True)
+    open(save_to, "wb").write(r.content)
 
 
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
@@ -59,7 +68,8 @@ class SlideProperties(BaseModel):
 class SlideConfig(BaseModel):
     """Mock slide configuration."""
 
-    image: Type[Image] = get_sample_nonuniform_image()
+    image_size: Tuple[int, int] = (256, 256)
+    image: Type[Image] = get_sample_nonuniform_image(size=image_size)
     properties: SlideProperties = SlideProperties()
     level_downsamples: Tuple[float, ...] = (1.0, 2.0)
 

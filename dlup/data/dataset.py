@@ -148,11 +148,12 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
     def __init__(
         self,
-        path: pathlib.Path,
+        path: Union[pathlib.Path, SlideImage],
         regions: collections.abc.Sequence,
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional = None,
         transform: Optional[Callable] = None,
     ):
         """
@@ -175,7 +176,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._path = path
         self._crop = crop
         self.regions = regions
-        self.transform = transform
+        self.annotations = annotations
+        self.__transform = transform
 
         # Maps from a masked index -> regions index.
         # For instance, let's say we have three regions
@@ -183,7 +185,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
         self.masked_indices: Union[NDArray[np.int_], None] = None
         if mask is not None:
-            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions))
+            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
             for i, region in enumerate(regions):
                 boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
@@ -231,8 +233,11 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "region_index": region_index,
         }
 
-        if self.transform:
-            sample = self.transform(sample)
+        if self.annotations is not None:
+            sample["annotations"] = self.annotations.read_region(coordinates, region_size, scaling)
+
+        if self.__transform:
+            sample = self.__transform(sample)
         return sample
 
     def __len__(self):
@@ -286,6 +291,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional = None,
         transform: Optional[Callable] = None,
     ):
         self._grids = grids
@@ -296,7 +302,13 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
 
         super().__init__(
-            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, transform=transform
+            path,
+            ConcatSequences(regions),
+            crop,
+            mask=mask,
+            mask_threshold=mask_threshold,
+            annotations=annotations,
+            transform=transform,
         )
 
     @property
@@ -314,6 +326,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional = None,
         transform: Optional[Callable] = None,
     ):
         """Function to be used to tile a WSI on-the-fly.
@@ -336,7 +349,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
         transform :
-            Tansform to be applied to the sample
+            Transform to be applied to the sample
 
         Example
         -------
@@ -357,7 +370,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             tile_overlap=tile_overlap,
             mode=tile_mode,
         )
-        return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, transform)
+        return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, annotations, transform)
 
     def __getitem__(self, index):
         data = super().__getitem__(index)
@@ -391,7 +404,7 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
 
         """
         self.path = pathlib.Path(path)
-        self.transform = transform
+        self.__transform = transform
         with open(self.path / "tiles.json") as json_file:
             tiles_data = json.load(json_file)
 
@@ -412,8 +425,8 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
         # So do not directly compute from the current grid_index
         sample = PretiledDatasetSample(image=tile, grid_index=grid_index, path=self.original_path)
 
-        if self.transform:
-            sample = self.transform(sample)
+        if self.__transform:
+            sample = self.__transform(sample)
         return sample
 
     def __iter__(self):
