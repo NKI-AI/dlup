@@ -5,7 +5,6 @@
 Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 """
 
-import abc
 import bisect
 import collections
 import functools
@@ -16,7 +15,7 @@ from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict
 
 import numpy as np
 import PIL
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
@@ -183,7 +182,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
         self.masked_indices: Union[NDArray[np.int_], None] = None
         if mask is not None:
-            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions))
+            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
             for i, region in enumerate(regions):
                 boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
@@ -254,7 +253,7 @@ class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSamp
 
 def _coords_to_region(tile_size, target_mpp, key, coords):
     """Return the necessary tuple that represents a region."""
-    return (*coords, *tile_size, target_mpp)
+    return *coords, *tile_size, target_mpp
 
 
 class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
@@ -336,7 +335,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
         transform :
-            Tansform to be applied to the sample
+            Transform to be applied to the sample.
 
         Example
         -------
