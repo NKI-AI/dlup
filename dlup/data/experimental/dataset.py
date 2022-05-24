@@ -12,7 +12,7 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import Grid, TilingMode
 
 
-class MultiScaleTiledROIsSlideImageDataset(TiledROIsSlideImageDataset):
+class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
     """Dataset class that supports multiscale output, and can have multiple ROIs.
 
     This dataset can be used, for example, to tile your WSI on-the-fly using the `multiscale_from_tiling` function.
@@ -20,7 +20,7 @@ class MultiScaleTiledROIsSlideImageDataset(TiledROIsSlideImageDataset):
 
     Example
     -------
-    >>>  dlup_dataset = MultiScaleTiledROIsSlideImageDataset.multiscale_from_tiling(\
+    >>>  dlup_dataset = MultiScaleSlideImageDataset.multiscale_from_tiling(\
             path="/path/to/TCGA-WSI.svs",\
             mpps=[0.0625, 0.125],\
             tile_size=(1024, 1024),\
