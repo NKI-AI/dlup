@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
+from dlup._experimental_annotation import SlideAnnotations
 from dlup.background import is_foreground
 from dlup.tiling import Grid, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
@@ -152,6 +153,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional[SlideAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         """
@@ -163,17 +165,20 @@ class SlideImageDatasetBase(Dataset[T_co]):
             Sequence of rectangular regions as (x, y, h, w, mpp)
         crop :
             Whether or not to crop overflowing tiles.
-        transform :
-            Transforming function.
         mask :
             Binary mask used to filter each region toghether with a threshold.
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
+        annotations :
+            Annotation class
+        transform :
+            Transforming function.
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
         self._crop = crop
         self.regions = regions
+        self.annotations = annotations
         self.transform = transform
 
         # Maps from a masked index -> regions index.
@@ -230,6 +235,9 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "region_index": region_index,
         }
 
+        if self.annotations is not None:
+            sample["annotations"] = self.annotations.read_region(coordinates, region_size, scaling)
+
         if self.transform:
             sample = self.transform(sample)
         return sample
@@ -272,6 +280,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             crop=True,\
             mask=None,\
             mask_threshold=0.5,\
+            annotations=None,\
             transform=YourTransform()\
          )
     >>> sample = dlup_dataset[5]
@@ -285,6 +294,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional[SlideAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         self._grids = grids
@@ -295,7 +305,13 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
 
         super().__init__(
-            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, transform=transform
+            path,
+            ConcatSequences(regions),
+            crop,
+            mask=mask,
+            mask_threshold=mask_threshold,
+            annotations=annotations,
+            transform=transform,
         )
 
     @property
@@ -334,6 +350,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             Binary mask used to filter each region toghether with a threshold.
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
+        annotations :
+            Annotation class
         transform :
             Transform to be applied to the sample.
 
