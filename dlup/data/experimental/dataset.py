@@ -8,7 +8,7 @@ from typing import Callable, Iterable, List, Optional, Tuple
 import numpy as np
 
 from dlup import SlideImage
-from dlup._experimental_annotation import SlideAnnotations
+from dlup._experimental_annotation import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import Grid, TilingMode
 
@@ -47,7 +47,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[SlideAnnotations] = None,
+        annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         self._grids = grids

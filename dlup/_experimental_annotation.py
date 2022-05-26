@@ -47,7 +47,7 @@ from shapely.strtree import STRtree
 
 from dlup.types import GenericNumber, PathLike
 
-_TAnnotationParser = TypeVar("_TAnnotationParser", bound="AnnotationParser")
+_TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
 
 
@@ -63,16 +63,8 @@ _POSTPROCESSORS = {
     AnnotationType.POLYGON: lambda x, region: x.intersection(region),
 }
 
-_ASAP_TYPES = {
-    "polygon": AnnotationType.POLYGON,
-    "rectangle": AnnotationType.BOX,
-    "dot": AnnotationType.POINT,
-    "spline": AnnotationType.POLYGON,
-    "pointset": AnnotationType.POINT,
-}
 
-
-class WholeSlideAnnotation:
+class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
     def __init__(self, data):
@@ -91,7 +83,7 @@ class WholeSlideAnnotation:
         def _get_bbox(z):
             return z.min(axis=0).tolist() + (z.max(axis=0) - z.min(axis=0)).tolist()
 
-        data = [np.asarray(_.envelope.exterior.coords) * scaling for _ in self.as_list()]
+        data = [np.asarray(annotation.envelope.exterior.coords) * scaling for annotation in self.as_list()]
         return [_get_bbox(_) for _ in data]
 
     def __len__(self) -> int:
@@ -101,11 +93,11 @@ class WholeSlideAnnotation:
         return f"WholeSlideAnnotation(label={self.label}, length={self.__len__()})"
 
 
-class SlideAnnotations:
+class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image"""
 
-    def __init__(self, annotations: Dict[str, WholeSlideAnnotation], labels: List[str] = None):
-        self._annotations = {k: WholeSlideAnnotation(v) for k, v in annotations.items()}
+    def __init__(self, annotations: Dict[str, Dict[str, Union[float, str, AnnotationType, WsiSingleLabelAnnotation]]]):
+        self._annotations = {k: WsiSingleLabelAnnotation(v) for k, v in annotations.items()}
         # Now we have a dict of label: annotations.
         self._label_dict = {k: v.type for k, v in self._annotations.items()}
         self.available_labels = sorted(list(self._annotations.keys()))
@@ -113,17 +105,37 @@ class SlideAnnotations:
 
     @classmethod
     def from_geojson(
-        cls: Type[_TAnnotationParser],
+        cls: Type[_TWsiAnnotations],
         geo_jsons: Iterable[PathLike],
         labels: List[str],
-        mpp: float = None,
-        label_map: Optional[Dict[float, PathLike]] = None,
-    ) -> _TAnnotationParser:
-        annotations = defaultdict(dict)
+        mpp: Optional[Union[List[float], float]] = None,
+        label_map: Optional[Dict[str, AnnotationType]] = None,
+    ) -> _TWsiAnnotations:
+        """
+        Construct an WsiAnnotations object from geo_json.
+
+        Parameters
+        ----------
+        geo_jsons : Iterable
+            List of geojsons representing objects, where each one is an individual annotation.
+        labels : List
+            Label names for the geo_jsons
+        mpp : List[float] or float, optional
+            The mpp in which the annotation is defined. If `None`, will assume label 0.
+        label_map : Dict, optional
+            A dictionary which can be used to override the annotation type, and not the one parsed by the Shapely.
+
+        Returns
+        -------
+        WsiAnnotations
+
+        """
+
+        annotations: Dict[str, Dict] = defaultdict(dict)
         if isinstance(mpp, float):
             mpp = [mpp] * len(labels)
 
-        for idx, (curr_mpp, label, path) in enumerate(zip(mpp, labels, geo_jsons)):
+        for idx, (label, path) in enumerate(zip(labels, geo_jsons)):
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
@@ -133,12 +145,15 @@ class SlideAnnotations:
                 # There can be multiple polygons in one file, but they should all have to be constant(same mpp value)
                 # TODO: Verify this assumption
                 annotation_types = [
-                    _infer_shapely_type(polygon.type, None if label_map is None else label_map[idx])
+                    _infer_shapely_type(polygon.type, None if label_map is None else label_map[label])
                     for polygon in data
                 ]
-                # In the above line, we make a list of shapely types since there maybe multiple annotations for a particular label.
+                # In the above line, we make a list of shapely types since there maybe multiple annotations
+                # for a particular label.
                 # However, it is assumed that all annotations corresponding to a particular label are of the same type.
                 # Therefore, in the next line, we assign "type" to the first member of this list
+                curr_mpp = None if mpp is None else mpp[idx]
+
                 annotations[label].update(
                     {"type": annotation_types[0], "label": label, "mpp": curr_mpp, "coordinates": data}
                 )
@@ -147,6 +162,15 @@ class SlideAnnotations:
 
     @classmethod
     def from_asap_xml(cls, asap_xml, label_map=None, mpp=None):
+        # ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
+        _ASAP_TYPES = {
+            "polygon": AnnotationType.POLYGON,
+            "rectangle": AnnotationType.BOX,
+            "dot": AnnotationType.POINT,
+            "spline": AnnotationType.POLYGON,
+            "pointset": AnnotationType.POINT,
+        }
+
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
         annotations = dict()
@@ -207,7 +231,7 @@ class SlideAnnotations:
     def label_to_type(self, label: str) -> AnnotationType:
         return self._label_dict[label]
 
-    def __getitem__(self, label: str) -> WholeSlideAnnotation:
+    def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
 
     def __str__(self):
@@ -271,7 +295,7 @@ class SlideAnnotations:
         return output
 
 
-def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[str] = None) -> AnnotationType:
+def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[AnnotationType] = None) -> AnnotationType:
     if label:
         return label
 
@@ -288,6 +312,20 @@ def _infer_asap_type():
 
 
 def _parse_asap_coordinates(annotation_structure: List, annotation_type: AnnotationType) -> ShapelyTypes:
+    """
+    Parse ASAP XML coordinates into Shapely objects.
+
+    Parameters
+    ----------
+    annotation_structure : list of strings
+    annotation_type : AnnotationType
+        The annotation type this structure is representing.
+
+    Returns
+    -------
+    Shapely object
+
+    """
     coordinates = []
     coordinate_structure = annotation_structure[0]
     for coordinate in coordinate_structure:

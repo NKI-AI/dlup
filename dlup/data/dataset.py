@@ -19,7 +19,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
-from dlup._experimental_annotation import SlideAnnotations
+from dlup._experimental_annotation import WsiAnnotations
 from dlup.background import is_foreground
 from dlup.tiling import Grid, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
@@ -153,7 +153,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[SlideAnnotations] = None,
+        annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         """
@@ -294,7 +294,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[SlideAnnotations] = None,
+        annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         self._grids = grids
@@ -329,6 +329,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         """Function to be used to tile a WSI on-the-fly.
@@ -374,7 +375,9 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             tile_overlap=tile_overlap,
             mode=tile_mode,
         )
-        return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, transform)
+        return cls(
+            path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, annotations=annotations, transform=transform
+        )
 
     def __getitem__(self, index):
         data = super().__getitem__(index)
