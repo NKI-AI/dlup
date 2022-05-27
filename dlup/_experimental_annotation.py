@@ -115,7 +115,7 @@ class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image"""
 
     def __init__(self, annotations: List[WsiSingleLabelAnnotation]):
-        self.available_labels = sorted(list(self._annotations.keys()))
+        self.available_labels = sorted([annotation.label for annotation in annotations])
         if len(set(self.available_labels)) != len(self.available_labels):
             raise ValueError(
                 f"annotations should be a list of `WsiSingleLabelAnnotation` with unique labels. "
