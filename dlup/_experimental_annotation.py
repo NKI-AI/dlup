@@ -36,7 +36,7 @@ import pathlib
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union, NamedTuple
 
 import numpy as np
 import shapely
@@ -67,11 +67,29 @@ _POSTPROCESSORS = {
 class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
-    def __init__(self, data):
-        self.type = data["type"]
-        self._annotations = data["coordinates"]
-        self.mpp = data["mpp"]
-        self.label = data["label"]
+    def __init__(self, label: str, coordinates, type: AnnotationType, mpp: Optional[float] = None):
+        self.__type = type
+        self._annotations = coordinates
+        self.__mpp = mpp
+        self.__label = label
+
+    @property
+    def type(self):
+        """The type of annotation, e.g. box, polygon or points."""
+        return self.__type
+
+    @property
+    def mpp(self):
+        """The mpp used to annotate. Can be None for level 0."""
+        return self.__mpp
+
+    @property
+    def label(self):
+        """The label name for this annotation."""
+        return self.__label
+
+    def append(self, sample):
+        self._annotations.append(sample)
 
     def as_strtree(self) -> STRtree:
         return STRtree(self._annotations)
@@ -96,11 +114,18 @@ class WsiSingleLabelAnnotation:
 class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image"""
 
-    def __init__(self, annotations: Dict[str, Dict[str, Union[float, str, AnnotationType, WsiSingleLabelAnnotation]]]):
-        self._annotations = {k: WsiSingleLabelAnnotation(v) for k, v in annotations.items()}
+    def __init__(self, annotations: List[WsiSingleLabelAnnotation]):
+        self.available_labels = sorted(list(self._annotations.keys()))
+        if len(set(self.available_labels)) != len(self.available_labels):
+            raise ValueError(
+                f"annotations should be a list of `WsiSingleLabelAnnotation` with unique labels. "
+                f"Got {self.available_labels}."
+            )
+
+        # We convert the list internally into a dictionary so we have an easy way to access the data.
+        self._annotations = {annotation.label: annotation for annotation in annotations}
         # Now we have a dict of label: annotations.
         self._label_dict = {k: v.type for k, v in self._annotations.items()}
-        self.available_labels = sorted(list(self._annotations.keys()))
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
     @classmethod
@@ -112,7 +137,7 @@ class WsiAnnotations:
         label_map: Optional[Dict[str, AnnotationType]] = None,
     ) -> _TWsiAnnotations:
         """
-        Construct an WsiAnnotations object from geo_json.
+        Constructs an WsiAnnotations object from geo_json.
 
         Parameters
         ----------
@@ -131,7 +156,7 @@ class WsiAnnotations:
 
         """
 
-        annotations: Dict[str, Dict] = defaultdict(dict)
+        annotations: List[WsiSingleLabelAnnotation] = []
         if isinstance(mpp, float):
             mpp = [mpp] * len(labels)
 
@@ -154,8 +179,8 @@ class WsiAnnotations:
                 # Therefore, in the next line, we assign "type" to the first member of this list
                 curr_mpp = None if mpp is None else mpp[idx]
 
-                annotations[label].update(
-                    {"type": annotation_types[0], "label": label, "mpp": curr_mpp, "coordinates": data}
+                annotations.append(
+                    WsiSingleLabelAnnotation(label=label, mpp=curr_mpp, coordinates=data, type=annotation_types[0])
                 )
 
         return cls(annotations)
@@ -173,7 +198,7 @@ class WsiAnnotations:
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
-        annotations = dict()
+        annotations: Dict[str, WsiSingleLabelAnnotation] = dict()
         opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
@@ -213,17 +238,16 @@ class WsiAnnotations:
                     if label_map is not None and label_map[label] is not None:
                         coordinates, annotation_type = label_map[label](coordinates, mpp)
 
-                    metadata = {"type": annotation_type, "mpp": mpp, "label": label}
-
                     if label not in annotations:
-                        annotations[label] = metadata
-                        annotations[label]["coordinates"] = [coordinates]
+                        annotations[label] = WsiSingleLabelAnnotation(
+                            label=label, mpp=mpp, coordinates=[coordinates], type=annotation_type
+                        )
                     else:
-                        annotations[label]["coordinates"].append(coordinates)
+                        annotations[label].append(coordinates)
 
                     opened_annotations += 1
 
-        return cls(annotations)
+        return cls(list(annotations.values()))
 
     def to_geo_json(self):
         pass
@@ -233,9 +257,6 @@ class WsiAnnotations:
 
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
-
-    def __str__(self):
-        return f"SlideAnnotations(labels={self.available_labels})"
 
     def read_region(
         self,
@@ -293,6 +314,9 @@ class WsiAnnotations:
         # TODO: This can be an annotation container.
         # Should we split it here?
         return output
+
+    def __str__(self):
+        return f"SlideAnnotations(labels={self.available_labels})"
 
 
 def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[AnnotationType] = None) -> AnnotationType:
