@@ -108,7 +108,7 @@ class WsiSingleLabelAnnotation:
         return len(self._annotations)
 
     def __str__(self) -> str:
-        return f"WholeSlideAnnotation(label={self.label}, length={self.__len__()})"
+        return f"{type(self).__name__}(label={self.label}, length={self.__len__()})"
 
 
 class WsiAnnotations:
@@ -125,7 +125,6 @@ class WsiAnnotations:
         # We convert the list internally into a dictionary so we have an easy way to access the data.
         self._annotations = {annotation.label: annotation for annotation in annotations}
         # Now we have a dict of label: annotations.
-        self._label_dict = {k: v.type for k, v in self._annotations.items()}
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
     @classmethod
@@ -252,9 +251,6 @@ class WsiAnnotations:
     def to_geo_json(self):
         pass
 
-    def label_to_type(self, label: str) -> AnnotationType:
-        return self._label_dict[label]
-
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
 
@@ -282,7 +278,7 @@ class WsiAnnotations:
 
         cropped_annotations = []
         for annotation_name, annotation in filtered_annotations:
-            crop_func = _POSTPROCESSORS[self.label_to_type(annotation_name)]
+            crop_func = _POSTPROCESSORS[self[annotation_name].type]
             if crop_func is not None:
                 curr_area = annotation.area
                 annotation = crop_func(annotation, query_box)
@@ -316,7 +312,12 @@ class WsiAnnotations:
         return output
 
     def __str__(self):
-        return f"SlideAnnotations(labels={self.available_labels})"
+        # Create a string for the labels
+        output = ""
+        for annotation_name in self._annotations:
+            output += f"{annotation_name} ({len(self._annotations[annotation_name])}, "
+
+        return f"{type(self).__name__}(labels={output[:-2]})"
 
 
 def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[AnnotationType] = None) -> AnnotationType:
