@@ -3,7 +3,7 @@
 """
 Annotation module for dlup.
 
-There are three types of annotations:
+There are three types of annotations, in the `AnnotationType` variable:
 - points
 - boxes (which are internally polygons)
 - polygons
@@ -25,8 +25,10 @@ shapely json is assumed to contain all the objects belonging to one label
     "data": [list of objects]
 }
 
-# TODO: We need to return our own class of annotations, not just shapely objects.
-# TODO: We have POLYGON, POINT, BOX. There is already the internal use of ANNOTATIONTYPE
+Also the ASAP XML data format is supported.
+
+# TODO: Perhaps we can create an internal data format of Points and Polygons.
+# https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
 
 """
 import errno
@@ -34,9 +36,8 @@ import json
 import os
 import pathlib
 import xml.etree.ElementTree as ET
-from collections import defaultdict
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union, NamedTuple
+from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import shapely
@@ -260,7 +261,38 @@ class WsiAnnotations:
         region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
     ) -> List[Tuple[str, ShapelyTypes]]:
+        """
+        Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
+        The process is as follows:
+        1. All the annotations which overlap with the requested region of interested are filtered with an STRTree.
+        2. The annotations are filtered by name, and subsequently by area from large to small. The reason this is
+         implemented this way is because sometimes one can annotate a larger region, and the smaller regions should
+         overwrite the previous part. A function `dlup.data.transforms.shapely_to_mask` can be used to convert such
+         outputs to a mask.
+         3. The annotations are cropped to the region-of-interest, or filtered in case of points. Polygons which
+          convert into points after intersection are removed.
+         4. The annotation is rescaled and shifted to the origin to match the local patch coordinate system.
+
+         The final returned data is a list of tuples with `(annotation_name, annotation)`.
+
+        Parameters
+        ----------
+        coordinates: np.ndarray or tuple
+        region_size : np.ndarray or tuple
+        scaling : float
+
+        Returns
+        -------
+        List[Tuple[str, ShapelyTypes]]
+            List of tuples denoting the name of the annotation and a shapely object.
+
+        TODO:
+        -----
+        We should create our own Point and Polygon classes, that have a type `AnnotationType` and behave like shapely
+        objects, but are of different type.
+
+        """
         box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
@@ -307,8 +339,6 @@ class WsiAnnotations:
             else:
                 output.append((annotation_name, annotation))
 
-        # TODO: This can be an annotation container.
-        # Should we split it here?
         return output
 
     def __str__(self):
