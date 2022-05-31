@@ -45,7 +45,7 @@ setup(
         "numpy>=1.21",
         "requests",
         "scikit-image>=0.19",
-        "shapely>=2.0.0",
+        "shapely",
         "tifftools",
         "tqdm",
         "pillow",
