@@ -236,8 +236,7 @@ class WsiAnnotations:
 
             with open(path, "r", encoding="utf-8") as annotation_file:
                 data = [shape(x) for x in json.load(annotation_file)]
-                # There can be multiple polygons in one file, but they should all have to be constant(same mpp value)
-                # TODO: Verify this assumption
+                # There can be multiple polygons in one file. They are stored at the largest image resolution.
                 annotation_types = [
                     _infer_shapely_type(polygon.type, None if label_map is None else label_map[label])
                     for polygon in data
