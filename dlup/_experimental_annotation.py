@@ -26,10 +26,6 @@ shapely json is assumed to contain all the objects belonging to one label
 }
 
 Also the ASAP XML data format is supported.
-
-# TODO: Perhaps we can create an internal data format of Points and Polygons.
-# https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
-
 """
 import errno
 import json
