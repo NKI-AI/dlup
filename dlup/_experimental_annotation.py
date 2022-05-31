@@ -69,7 +69,7 @@ class Point(shapely.geometry.Point):
     name: str  # For documentation generation and static type checking
 
     def __init__(self, coord: Tuple[float, float], label: str) -> None:
-        self._id_to_attrs[id(self)] = dict(label=label)
+        self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property
     def type(self):
@@ -81,11 +81,11 @@ class Point(shapely.geometry.Point):
         return point
 
     def __del__(self) -> None:
-        del self._id_to_attrs[id(self)]
+        del self._id_to_attrs[str(id(self))]
 
     def __getattr__(self, name: str) -> Any:
         try:
-            return Point._id_to_attrs[id(self)][name]
+            return Point._id_to_attrs[str(id(self))][name]
         except KeyError as e:
             raise AttributeError(str(e)) from None
 
@@ -102,11 +102,11 @@ class Polygon(shapely.geometry.Polygon):
     name: str  # For documentation generation and static type checking
 
     def __init__(self, coord: Tuple[float, float], label: str) -> None:
-        self._id_to_attrs[id(self)] = dict(label=label)
+        self._id_to_attrs[str(id(self))] = dict(label=label)
 
-        @property
-        def type(self):
-            return AnnotationType.POLYGON
+    @property
+    def type(self):
+        return AnnotationType.POLYGON
 
     def __new__(cls, coord: Tuple[float, float], *args, **kwargs) -> "Point":
         point = super().__new__(cls, coord)
@@ -114,11 +114,11 @@ class Polygon(shapely.geometry.Polygon):
         return point
 
     def __del__(self) -> None:
-        del self._id_to_attrs[id(self)]
+        del self._id_to_attrs[str(id(self))]
 
     def __getattr__(self, name: str) -> Any:
         try:
-            return Polygon._id_to_attrs[id(self)][name]
+            return Polygon._id_to_attrs[str(id(self))][name]
         except KeyError as e:
             raise AttributeError(str(e)) from None
 
@@ -391,14 +391,14 @@ class WsiAnnotations:
 
         transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0], -coordinates[1]]
 
-        output = []
+        output: List[Union[Polygon, Point]] = []
         for annotation_name, annotation in cropped_annotations:
             annotation = shapely.affinity.affine_transform(annotation, transformation_matrix)
             if isinstance(
                 annotation,
                 (geometry.MultiPolygon, geometry.GeometryCollection),
             ):
-                output += [(annotation_name, _) for _ in annotation.geoms if _.area > 0]
+                output += [self.__cast(annotation_name, _) for _ in annotation.geoms if _.area > 0]
 
             # TODO: Double check
             elif isinstance(annotation, (geometry.LineString, geometry.multilinestring.MultiLineString)):
@@ -406,16 +406,31 @@ class WsiAnnotations:
 
             else:
                 # The conversion to an internal format is only done here, because we only support Points and Polygons.
-                if self[annotation_name].type == AnnotationType.POINT:
-                    output.append(Point(annotation, label=annotation_name))
-                elif self[annotation_name].type == AnnotationType.POLYGON:
-                    output.append(Polygon(annotation, label=annotation_name))
-                else:
-                    raise RuntimeError(
-                        f"Unexpected type. Got {self[annotation_name].type} for coordinates {coordinates} and region size {region_size}."
-                    )
-
+                output.append(self.__cast(annotation_name, annotation))
         return output
+
+    def __cast(self, annotation_name, annotation):
+        """
+        Cast the shapely object with annotation_name to internal format.
+
+        Parameters
+        ----------
+        annotation_name : str
+        annotation : ShapelyTypes
+
+        Returns
+        -------
+        Union[Point, Polygon]
+
+        """
+        if self[annotation_name].type == AnnotationType.POINT:
+            return Point(annotation, label=annotation_name)
+        elif self[annotation_name].type == AnnotationType.POLYGON:
+            return Polygon(annotation, label=annotation_name)
+        else:
+            raise RuntimeError(
+                f"Unexpected type. Got {self[annotation_name].type}."
+            )
 
     def __str__(self):
         # Create a string for the labels
