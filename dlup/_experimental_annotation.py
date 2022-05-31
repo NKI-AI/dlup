@@ -164,6 +164,21 @@ class WsiSingleLabelAnnotation:
     def as_list(self) -> List:
         return self._annotations
 
+    def as_geo_json(self) -> Dict[str, Any]:
+        """
+        Return the annotation as GeoJSON format. Adds additional keys for set mpp and label.
+        **WARNING**: These extra keys are NOT read by the `WsiAnnotations.from_geojson` functions, and are there just
+        for convenience.
+
+        Returns
+        -------
+        Dict
+        """
+        data = shapely.geometry.mapping(self._annotations)
+        data["mpp"] = self.mpp
+        data["label"] = self.label
+        return data
+
     def bounding_boxes(self, scaling=1):
         def _get_bbox(z):
             return z.min(axis=0).tolist() + (z.max(axis=0) - z.min(axis=0)).tolist()
@@ -315,9 +330,6 @@ class WsiAnnotations:
 
         return cls(list(annotations.values()))
 
-    def to_geo_json(self):
-        pass
-
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
 
@@ -352,12 +364,6 @@ class WsiAnnotations:
         -------
         List[Tuple[str, ShapelyTypes]]
             List of tuples denoting the name of the annotation and a shapely object.
-
-        TODO:
-        -----
-        We should create our own Point and Polygon classes, that have a type `AnnotationType` and behave like shapely
-        objects, but are of different type.
-
         """
         box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
         box = (np.asarray(box) / scaling).tolist()
