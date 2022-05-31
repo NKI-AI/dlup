@@ -17,14 +17,6 @@ Assumed:
 - The type of object (point, box, polygon) is fixed per label.
 - The mpp is fixed per label.
 
-shapely json is assumed to contain all the objects belonging to one label
-
-{
-    "label": <label_name>,
-    "type": points, polygon, box
-    "data": [list of objects]
-}
-
 Also the ASAP XML data format is supported.
 """
 import errno
