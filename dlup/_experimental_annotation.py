@@ -47,6 +47,8 @@ from shapely.geometry import shape
 from shapely.strtree import STRtree
 
 from dlup.types import GenericNumber, PathLike
+from typing import Any, ClassVar, Dict, Tuple
+
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -56,6 +58,72 @@ class AnnotationType(Enum):
     POINT = "point"
     BOX = "box"
     POLYGON = "polygon"
+
+
+class Point(shapely.geometry.Point):
+    # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
+    _id_to_attrs: ClassVar[Dict[str, Any]] = {}
+    __slots__ = (
+        shapely.geometry.Point.__slots__
+    )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
+    name: str  # For documentation generation and static type checking
+
+    def __init__(self, coord: Tuple[float, float], label: str) -> None:
+        self._id_to_attrs[id(self)] = dict(label=label)
+
+    @property
+    def type(self):
+        return AnnotationType.POINT
+
+    def __new__(cls, coord: Tuple[float, float], *args, **kwargs) -> "Point":
+        point = super().__new__(cls, coord)
+        point.__class__ = cls
+        return point
+
+    def __del__(self) -> None:
+        del self._id_to_attrs[id(self)]
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return Point._id_to_attrs[id(self)][name]
+        except KeyError as e:
+            raise AttributeError(str(e)) from None
+
+    def __str__(self) -> str:
+        return f"{self.label}, {self.wkt}"
+
+
+class Polygon(shapely.geometry.Polygon):
+    # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
+    _id_to_attrs: ClassVar[Dict[str, Any]] = {}
+    __slots__ = (
+        shapely.geometry.Polygon.__slots__
+    )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
+    name: str  # For documentation generation and static type checking
+
+    def __init__(self, coord: Tuple[float, float], label: str) -> None:
+        self._id_to_attrs[id(self)] = dict(label=label)
+
+        @property
+        def type(self):
+            return AnnotationType.POLYGON
+
+    def __new__(cls, coord: Tuple[float, float], *args, **kwargs) -> "Point":
+        point = super().__new__(cls, coord)
+        point.__class__ = cls
+        return point
+
+    def __del__(self) -> None:
+        del self._id_to_attrs[id(self)]
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return Polygon._id_to_attrs[id(self)][name]
+        except KeyError as e:
+            raise AttributeError(str(e)) from None
+
+    def __str__(self) -> str:
+        return f"{self.label}, {self.wkt}"
 
 
 _POSTPROCESSORS = {
@@ -260,7 +328,7 @@ class WsiAnnotations:
         coordinates: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
-    ) -> List[Tuple[str, ShapelyTypes]]:
+    ) -> List[Union[Polygon, Point]]:
         """
         Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
@@ -337,7 +405,15 @@ class WsiAnnotations:
                 continue
 
             else:
-                output.append((annotation_name, annotation))
+                # The conversion to an internal format is only done here, because we only support Points and Polygons.
+                if self[annotation_name].type == AnnotationType.POINT:
+                    output.append(Point(annotation, label=annotation_name))
+                elif self[annotation_name].type == AnnotationType.POLYGON:
+                    output.append(Polygon(annotation, label=annotation_name))
+                else:
+                    raise RuntimeError(
+                        f"Unexpected type. Got {self[annotation_name].type} for coordinates {coordinates} and region size {region_size}."
+                    )
 
         return output
 
