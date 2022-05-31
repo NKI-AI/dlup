@@ -33,6 +33,7 @@ import shapely.validation
 from shapely import geometry
 from shapely.geometry import shape
 from shapely.strtree import STRtree
+from shapely.validation import make_valid
 
 from dlup.types import GenericNumber, PathLike
 
@@ -369,6 +370,8 @@ class WsiAnnotations:
 
         cropped_annotations = []
         for annotation_name, annotation in filtered_annotations:
+            if annotation.is_valid is False:
+                annotation = make_valid(annotation)
             crop_func = _POSTPROCESSORS[self[annotation_name].type]
             if crop_func is not None:
                 curr_area = annotation.area
