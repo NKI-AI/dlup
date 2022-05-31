@@ -92,12 +92,24 @@ class SlideImage:
         self._openslide_wsi = wsi
         self._identifier = identifier
 
+        # There are several ways to read the mpp value. First try is to get these directly from the OpenSlide properties
+        # This doesn't work with some datasets, e.g., the public TIGER dataset provides tiff resolution tags.
+        # OpenSlide currently doesn't use these to convert to mpp values.
         try:
-            mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
-            mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
-            mpp = np.array([mpp_y, mpp_x])
+            vendor = self._openslide_wsi.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
+            # Generic tiff's don't have mpp values defined by OpenSlide, but they can be available in the header.
+            if vendor == "generic-tiff":
+                # TODO: Check if this is always parsed to pixels/cm!
+                mpp_x = 1 / float(self._openslide_wsi.properties["tiff.XResolution"]) / 10e-5
+                mpp_y = 1 / float(self._openslide_wsi.properties["tiff.YResolution"]) / 10e-5
+            else:
+                mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
+                mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
+
         except KeyError:
             raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
+
+        mpp = np.array([mpp_y, mpp_x])
 
         if not np.isclose(mpp[0], mpp[1], rtol=1.0e-2):
             raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
