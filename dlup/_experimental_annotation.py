@@ -37,7 +37,7 @@ import os
 import pathlib
 import xml.etree.ElementTree as ET
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import shapely
@@ -47,8 +47,6 @@ from shapely.geometry import shape
 from shapely.strtree import STRtree
 
 from dlup.types import GenericNumber, PathLike
-from typing import Any, ClassVar, Dict, Tuple
-
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -68,7 +66,7 @@ class Point(shapely.geometry.Point):
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
-    def __init__(self, coord: Tuple[float, float], label: str) -> None:
+    def __init__(self, coord: Union[shapely.geometry.Point, Tuple[float, float]], label: str) -> None:
         self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property
@@ -101,7 +99,7 @@ class Polygon(shapely.geometry.Polygon):
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
-    def __init__(self, coord: Tuple[float, float], label: str) -> None:
+    def __init__(self, coord: Union[shapely.geometry.Polygon, Tuple[float, float]], label: str) -> None:
         self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property
@@ -409,7 +407,7 @@ class WsiAnnotations:
                 output.append(self.__cast(annotation_name, annotation))
         return output
 
-    def __cast(self, annotation_name, annotation):
+    def __cast(self, annotation_name: str, annotation: ShapelyTypes) -> Union[Point, Polygon]:
         """
         Cast the shapely object with annotation_name to internal format.
 
@@ -428,9 +426,7 @@ class WsiAnnotations:
         elif self[annotation_name].type == AnnotationType.POLYGON:
             return Polygon(annotation, label=annotation_name)
         else:
-            raise RuntimeError(
-                f"Unexpected type. Got {self[annotation_name].type}."
-            )
+            raise RuntimeError(f"Unexpected type. Got {self[annotation_name].type}.")
 
     def __str__(self):
         # Create a string for the labels
