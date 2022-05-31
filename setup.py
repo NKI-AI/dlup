@@ -45,7 +45,7 @@ setup(
         "numpy>=1.21",
         "requests",
         "scikit-image>=0.19",
-        "shapely @ git+ssh://git@github.com/shapely/shapely.git",
+        "shapely @ git+https://github.com/shapely/shapely.git",
         "tifftools",
         "tqdm",
         "pillow",
