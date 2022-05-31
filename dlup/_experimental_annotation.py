@@ -183,7 +183,26 @@ class WsiSingleLabelAnnotation:
 
 
 class WsiAnnotations:
-    """Class to hold the annotations of all labels specific label for a whole slide image"""
+    """Class to hold the annotations of all labels specific label for a whole slide image.
+
+    Examples
+    --------
+    1. To read geo_json annotations abd convert them into masks:
+
+    >>> from pathlib import Path
+    >>> from dlup import SlideImage
+    >>> import numpy as np
+    >>> from rasterio.features import rasterize
+    >>> wsi = SlideImage.from_file_path(Path("path/to/.svs"))
+    >>> wsi = wsi.get_scaled_view(scaling=0.5)
+    >>> wsi = wsi.read_region(location=(0,0), size=wsi.size)
+    >>> annotations = WsiAnnotations.from_geojson([Path("path/to/geo_json")], labels=["class_name"])
+    >>> polygons: list[Polygons] = annotations.read_region(coordinates=(0,0), region_size=wsi.size, scaling= 0.01)
+    >>> mask = np.zeros(wsi.size, dtype=np.uint8)
+    >>> mask = rasterize(polygons, out_shape=(wsi.size[1], wsi.size[0]))
+
+    """
+
 
     def __init__(self, annotations: List[WsiSingleLabelAnnotation]):
         self.available_labels = sorted([annotation.label for annotation in annotations])
