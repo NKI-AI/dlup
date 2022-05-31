@@ -96,7 +96,7 @@ class SlideImage:
         # This doesn't work with some datasets, e.g., the public TIGER dataset provides tiff resolution tags.
         # OpenSlide currently doesn't use these to convert to mpp values.
         try:
-            vendor = self._openslide_wsi.properties[openslide.PROPERTY_NAME_VENDOR]
+            vendor = self._openslide_wsi.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
             # Generic tiff's don't have mpp values defined by OpenSlide, but they can be available in the header.
             if vendor == "generic-tiff":
                 # TODO: Check if this is always parsed to pixels/cm!
