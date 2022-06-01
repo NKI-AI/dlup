@@ -3,11 +3,12 @@
 """Experimental dataset functions, might e.g. lack tests, or requires input from users"""
 
 import pathlib
-from typing import Callable, Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 import numpy as np
 
 from dlup import SlideImage
+from dlup._experimental_annotation import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import Grid, TilingMode
 
@@ -29,6 +30,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
             crop=False,\
             mask=None,\
             mask_threshold=0.5,\
+            annotations=None,\
             transform=YourTransform()\
          )
     >>> sample = dlup_dataset[5]
@@ -45,6 +47,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         self._grids = grids
@@ -56,7 +59,9 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         self._index_ranges = [
             range(idx * self._step_size, (idx + 1) * self._step_size) for idx in range(0, num_scales)
         ]
-        super().__init__(path, grids, crop, mask=mask, mask_threshold=mask_threshold, transform=None)
+        super().__init__(
+            path, grids, crop, mask=mask, mask_threshold=mask_threshold, annotations=annotations, transform=None
+        )
         self.__transform = transform
 
     def __len__(self):
