@@ -5,7 +5,6 @@
 Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 """
 
-import abc
 import bisect
 import collections
 import functools
@@ -16,10 +15,11 @@ from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict
 
 import numpy as np
 import PIL
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
+from dlup._experimental_annotation import WsiAnnotations
 from dlup.background import is_foreground
 from dlup.tiling import Grid, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
@@ -47,7 +47,7 @@ class PretiledDatasetSample(TypedDict):
     path: pathlib.Path
 
 
-class Dataset(Generic[T_co], collections.Sequence):
+class Dataset(Generic[T_co], collections.abc.Sequence):
     """An abstract class representing a :class:`Dataset`.
 
     All datasets that represent a map from keys to data samples should subclass
@@ -153,6 +153,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         """
@@ -164,17 +165,20 @@ class SlideImageDatasetBase(Dataset[T_co]):
             Sequence of rectangular regions as (x, y, h, w, mpp)
         crop :
             Whether or not to crop overflowing tiles.
-        transform :
-            Transforming function.
         mask :
             Binary mask used to filter each region toghether with a threshold.
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
+        annotations :
+            Annotation class
+        transform :
+            Transforming function.
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
         self._crop = crop
         self.regions = regions
+        self.annotations = annotations
         self.transform = transform
 
         # Maps from a masked index -> regions index.
@@ -183,7 +187,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
         self.masked_indices: Union[NDArray[np.int_], None] = None
         if mask is not None:
-            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions))
+            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
             for i, region in enumerate(regions):
                 boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
@@ -231,6 +235,9 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "region_index": region_index,
         }
 
+        if self.annotations is not None:
+            sample["annotations"] = self.annotations.read_region(coordinates, region_size, scaling)
+
         if self.transform:
             sample = self.transform(sample)
         return sample
@@ -254,7 +261,7 @@ class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSamp
 
 def _coords_to_region(tile_size, target_mpp, key, coords):
     """Return the necessary tuple that represents a region."""
-    return (*coords, *tile_size, target_mpp)
+    return *coords, *tile_size, target_mpp
 
 
 class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
@@ -273,6 +280,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             crop=True,\
             mask=None,\
             mask_threshold=0.5,\
+            annotations=None,\
             transform=YourTransform()\
          )
     >>> sample = dlup_dataset[5]
@@ -286,6 +294,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         self._grids = grids
@@ -296,7 +305,13 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
 
         super().__init__(
-            path, ConcatSequences(regions), crop, mask=mask, mask_threshold=mask_threshold, transform=transform
+            path,
+            ConcatSequences(regions),
+            crop,
+            mask=mask,
+            mask_threshold=mask_threshold,
+            annotations=annotations,
+            transform=transform,
         )
 
     @property
@@ -314,6 +329,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
+        annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
     ):
         """Function to be used to tile a WSI on-the-fly.
@@ -335,8 +351,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             Binary mask used to filter each region toghether with a threshold.
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
+        annotations :
+            Annotation class
         transform :
-            Tansform to be applied to the sample
+            Transform to be applied to the sample.
 
         Example
         -------
@@ -357,7 +375,9 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             tile_overlap=tile_overlap,
             mode=tile_mode,
         )
-        return cls(path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, transform)
+        return cls(
+            path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, annotations=annotations, transform=transform
+        )
 
     def __getitem__(self, index):
         data = super().__getitem__(index)
