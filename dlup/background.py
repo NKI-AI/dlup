@@ -226,7 +226,12 @@ def is_foreground(
     background_mask = PIL.Image.fromarray(background_mask)
 
     # Type of background_mask is Any here.
-    scaling = background_mask.width / region_view.size[0]  # type: ignore
+    # The scaling should be computed using the longest edge of the image.
+    background_size = (background_mask.width, background_mask.height)  # type: ignore
+
+    region_size = region_view.size
+    max_dimension_index = max(range(len(background_size)), key=background_size.__getitem__)
+    scaling = background_size[max_dimension_index] / region_size[max_dimension_index]
     scaled_region = np.array((x, y, w, h)) * scaling
     scaled_coordinates, scaled_sizes = scaled_region[:2], scaled_region[2:].astype(int)
 

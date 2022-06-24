@@ -61,7 +61,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> Sequence[_GenericNumber]:
+def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> np.ndarray:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
