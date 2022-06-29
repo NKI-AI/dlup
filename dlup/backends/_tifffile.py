@@ -23,12 +23,10 @@ def get_tile(page, coordinates, size):
     ----------
     page : TiffPage
         TIFF image file directory (IFD) from which the crop must be extracted.
-    i0, j0: int
-        Coordinates of the top left corner of the desired crop.
-    h: int
-        Desired crop height.
-    w: int
-        Desired crop width.
+    coordinates: (int, int)
+        Coordinates of the top left and right corner corner of the desired crop.
+    size: (int, int)
+        Desired crop height and width.
 
     Returns
     -------
@@ -122,28 +120,6 @@ class TifffileSlide(AbstractSlideBackend):
                 self._downsamples.append(downsample)
 
     @property
-    def level_count(self):
-        """The number of levels in the image."""
-        return self._level_count
-
-    @property
-    def level_dimensions(self):
-        """A list of (width, height) tuples, one for each level of the image.
-        level_dimensions[n] contains the dimensions of level n."""
-        return self._shapes
-
-    @property
-    def dimensions(self):
-        """A (width, height) tuple for level 0 of the image."""
-        return self.level_dimensions[0]
-
-    @property
-    def level_downsamples(self):
-        """A list of downsampling factors for each level of the image.
-        level_downsample[n] contains the downsample factor of level n."""
-        return tuple(self._downsamples)
-
-    @property
     def properties(self):
         """Metadata about the image.
         This is a map: property name -> property value."""
@@ -211,6 +187,7 @@ if __name__ == "__main__":
 
     location = (0, 0)
     size = (465, 368)
+    level = 6
     img = np.asarray(vslide.read_region(location, level, size))
     mask = np.asarray(tslide.read_region(location, level, size))
 
