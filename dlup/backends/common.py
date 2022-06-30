@@ -58,3 +58,7 @@ class AbstractSlideBackend(abc.ABC):
         level = self.get_best_level_for_downsample(downsample)
         tile = self.read_region((0, 0), level, self.level_dimensions[level]).convert("RGB")
         return tile
+
+    @abc.abstractmethod
+    def read_region(self, coordinates, level, size):
+        """Read region of multiresolution image"""
