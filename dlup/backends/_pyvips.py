@@ -18,14 +18,14 @@ class PyVipsSlide(AbstractSlideBackend):
         self._images = []
         self._images.append(pyvips.Image.new_from_file(str(path)))
 
-        loader = self._images[0].get("vips-loader")
+        self._loader = self._images[0].get("vips-loader")
 
-        if loader == "tiffload":
+        if self._loader == "tiffload":
             self._read_as_tiff(path)
-        elif loader == "openslideload":
+        elif self._loader == "openslideload":
             self._read_as_openslide(path)
         else:
-            raise NotImplementedError(f"Loader {loader} is not implemented.")
+            raise NotImplementedError(f"Loader {self._loader} is not implemented.")
 
         self._regions = [pyvips.Region.new(image) for image in self._images]
 
@@ -63,7 +63,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         mpp_x = float(self._images[0].get("openslide.mpp-x"))
         mpp_y = float(self._images[0].get("openslide.mpp-y"))
-        self.__check_mpp(mpp_x, mpp_y)
+        check_mpp(mpp_x, mpp_y)
         self._mpps = [mpp_x * downsample for downsample in self._downsamples]
 
     @property
@@ -77,7 +77,15 @@ class PyVipsSlide(AbstractSlideBackend):
     def associated_images(self):
         """Images associated with this whole-slide image.
         This is a map: image name -> PIL.Image."""
+        if not self._loader == "openslideload":
+            return {}
         associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
+        # image = pyvips.Image.openslideload(str(self._path)), attach_associated=True)
+
+        # Create a delayed dictionary...
+        # This only works with openslideload
+        # staticopenslideload(filename, attach_associated=bool, level=int, autocrop=bool, associated=str, memory=bool,
+        #                     access=Union[str, Access], fail_on=Union[str, FailOn], flags=bool)¶
 
         raise NotImplementedError
 
@@ -91,13 +99,13 @@ class PyVipsSlide(AbstractSlideBackend):
         ratio = self._downsamples[level]
         x, y = coordinates
         height, width = size
-        vreg = PIL.Image.fromarray(
+        region = PIL.Image.fromarray(
             np.asarray(image.fetch(int(x // ratio), int(y // ratio), int(height), int(width))).reshape(
                 int(width), int(height), -1
             )
         )
 
-        return vreg
+        return region
 
     def close(self):
         del self._regions
