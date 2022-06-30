@@ -1,5 +1,8 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+import os
+from typing import Dict, Tuple
+
 import numpy as np
 import PIL.Image
 import tifffile
@@ -7,11 +10,11 @@ import tifffile
 from dlup.backends.common import AbstractSlideBackend, check_mpp
 
 
-def open_slide(filename):
+def open_slide(filename: os.PathLike) -> "TifffileSlide":
     return TifffileSlide(filename)
 
 
-def get_tile(page, coordinates, size):
+def get_tile(page: tifffile.TiffPage, coordinates: Tuple[int, int], size: Tuple[int, int]) -> np.ndarray:
     # https://gist.github.com/rfezzani/b4b8852c5a48a901c1e94e09feb34743
 
     """Extract a crop from a TIFF image file directory (IFD).
@@ -34,71 +37,69 @@ def get_tile(page, coordinates, size):
         Extracted crop.
 
     """
-    i0, j0 = coordinates
+    y0, x0 = coordinates
     w, h = size
 
     if not page.is_tiled:
         raise ValueError("Input page must be tiled.")
 
-    im_width = page.imagewidth
-    im_height = page.imagelength
+    image_width = page.imagewidth
+    image_height = page.imagelength
 
     if h < 1 or w < 1:
         raise ValueError("h and w must be strictly positive.")
 
-    if i0 < 0 or j0 < 0 or i0 + h > im_height or j0 + w > im_width:
+    if y0 < 0 or x0 < 0 or y0 + h > image_height or x0 + w > image_width:
         raise ValueError("Requested crop area is out of image bounds.")
 
     tile_width, tile_height = page.tilewidth, page.tilelength
-    i1, j1 = i0 + h, j0 + w
+    y1, x1 = y0 + h, x0 + w
 
-    tile_i0, tile_j0 = i0 // tile_height, j0 // tile_width
-    tile_i1, tile_j1 = np.ceil([i1 / tile_height, j1 / tile_width]).astype(int)
+    tile_y0, tile_x0 = y0 // tile_height, x0 // tile_width
+    tile_y1, tile_x1 = np.ceil([y1 / tile_height, x1 / tile_width]).astype(int)
 
-    tile_per_line = int(np.ceil(im_width / tile_width))
+    tile_per_line = int(np.ceil(image_width / tile_width))
 
     out = np.empty(
-        (page.imagedepth, (tile_i1 - tile_i0) * tile_height, (tile_j1 - tile_j0) * tile_width, page.samplesperpixel),
+        (page.imagedepth, (tile_y1 - tile_y0) * tile_height, (tile_x1 - tile_x0) * tile_width, page.samplesperpixel),
         dtype=page.dtype,
     )
 
     fh = page.parent.filehandle
 
-    jpegtables = page.tags.get("JPEGTables", None)
-    if jpegtables is not None:
-        jpegtables = jpegtables.value
+    jpeg_tables = page.tags.get("JPEGTables", None)
+    if jpeg_tables is not None:
+        jpeg_tables = jpeg_tables.value
 
-    for i in range(tile_i0, tile_i1):
-        for j in range(tile_j0, tile_j1):
-            index = int(i * tile_per_line + j)
+    for idx_y in range(tile_y0, tile_y1):
+        for idx_x in range(tile_x0, tile_x1):
+            index = int(idx_y * tile_per_line + idx_x)
 
             offset = page.dataoffsets[index]
             bytecount = page.databytecounts[index]
 
             fh.seek(offset)
             data = fh.read(bytecount)
-            tile, indices, shape = page.decode(data, index, jpegtables=jpegtables)
+            tile, indices, shape = page.decode(data, index, jpegtables=jpeg_tables)
 
-            im_i = (i - tile_i0) * tile_height
-            im_j = (j - tile_j0) * tile_width
-            out[:, im_i : im_i + tile_height, im_j : im_j + tile_width, :] = tile
+            image_y = (idx_y - tile_y0) * tile_height
+            image_x = (idx_x - tile_x0) * tile_width
+            out[:, image_y : image_y + tile_height, image_x : image_x + tile_width, :] = tile
 
-    im_i0 = i0 - tile_i0 * tile_height
-    im_j0 = j0 - tile_j0 * tile_width
+    image_y0 = y0 - tile_y0 * tile_height
+    image_x0 = x0 - tile_x0 * tile_width
 
-    return out[:, im_i0 : im_i0 + h, im_j0 : im_j0 + w, :]
+    return out[:, image_y0 : image_y0 + h, image_x0 : image_x0 + w, :]
 
 
 class TifffileSlide(AbstractSlideBackend):
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: os.PathLike) -> None:
         super().__init__(path)
-        # You can have pyvips figure out the reader
         self._image = tifffile.TiffFile(path)
         self._level_count = len(self._image.pages)
-
         self.__parse_tifffile()
 
-    def __parse_tifffile(self):
+    def __parse_tifffile(self) -> None:
         unit_dict = {1: 1, 2: 254000, 3: 100000, 4: 1000000, 5: 10000000}
         self._downsamples.append(1.0)
         for idx, page in enumerate(self._image.pages):
@@ -120,13 +121,13 @@ class TifffileSlide(AbstractSlideBackend):
                 self._downsamples.append(downsample)
 
     @property
-    def properties(self):
+    def properties(self) -> Dict:
         """Metadata about the image.
         This is a map: property name -> property value."""
         properties = {}
         for idx, page in enumerate(self._image.pages):
             for tag in page.tags:
-                # Not so relevant at this point
+                # These tags are not so relevant at this point and have a lot of output
                 if tag.name in [
                     "TileOffsets",
                     "TileByteCounts",
@@ -140,19 +141,11 @@ class TifffileSlide(AbstractSlideBackend):
 
         return properties
 
-    @property
-    def associated_images(self):
-        """Images associated with this whole-slide image.
-        This is a map: image name -> PIL.Image."""
-
-        raise NotImplementedError
-
     def set_cache(self, cache):
-        """Use the specified cache to store recently decoded slide tiles.
-        cache: an OpenSlideCache object."""
+        """Cache for tifffile."""
         raise NotImplementedError
 
-    def read_region(self, coordinates, level, size):
+    def read_region(self, coordinates: Tuple[int, int], level: int, size: Tuple[int, int]) -> PIL.Image:
         if level > self._level_count - 1:
             raise RuntimeError(f"Level {level} not present.")
 
@@ -174,25 +167,3 @@ class TifffileSlide(AbstractSlideBackend):
 
     def close(self):
         self._image.close()
-
-
-if __name__ == "__main__":
-    from dlup.backends._pyvips import open_slide as openslide_pyvips
-
-    path = "/mnt/archive/data/pathology/TIGER/wsitils/images/105S.tif"
-    tissue_path = "/mnt/archive/data/pathology/TIGER/wsitils/tissue-masks/105S_tissue.tif"
-
-    vslide = openslide_pyvips(path)
-    tslide = open_slide(tissue_path)
-
-    location = (0, 0)
-    size = (465, 368)
-    level = 6
-    img = np.asarray(vslide.read_region(location, level, size))
-    mask = np.asarray(tslide.read_region(location, level, size))
-
-    from dlup.viz.plotting import plot_2d
-
-    output = np.asarray(plot_2d(img, mask=mask))
-
-    print("hi")

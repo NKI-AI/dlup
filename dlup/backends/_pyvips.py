@@ -1,5 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+import os
+
 import numpy as np
 import PIL.Image
 import pyvips
@@ -7,12 +9,12 @@ import pyvips
 from dlup.backends.common import AbstractSlideBackend, check_mpp
 
 
-def open_slide(filename):
+def open_slide(filename: os.PathLike) -> "PyVipsSlide":
     return PyVipsSlide(filename)
 
 
 class PyVipsSlide(AbstractSlideBackend):
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: os.PathLike) -> None:
         super().__init__(path)
         # You can have pyvips figure out the reader
         self._images = []

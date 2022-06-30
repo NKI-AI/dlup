@@ -1,9 +1,9 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import abc
+from typing import List, Tuple, Union
 
 import numpy as np
-from typing import Tuple, Union, List
 import PIL.Image
 
 
@@ -13,7 +13,7 @@ def check_mpp(mpp_x, mpp_y):
 
 
 class AbstractSlideBackend(abc.ABC):
-    def __init__(self, path):
+    def __init__(self, path: os.PathLike):
         self._path = path
         self._level_count = 0
         self._downsamples = []
