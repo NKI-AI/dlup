@@ -13,6 +13,7 @@ def check_mpp(mpp_x, mpp_y):
 
 class AbstractSlideBackend(abc.ABC):
     def __init__(self, path):
+        self._path = path
         self._level_count = 0
         self._downsamples = []
         self._spacings = []
@@ -50,15 +51,10 @@ class AbstractSlideBackend(abc.ABC):
     def get_thumbnail(self, size):
         """Return a PIL.Image containing an RGB thumbnail of the image.
         size:     the maximum size of the thumbnail."""
+        if isinstance(size, int):
+            size = (size, size)
+
         downsample = max(*(dim / thumb for dim, thumb in zip(self.dimensions, size)))
         level = self.get_best_level_for_downsample(downsample)
-        tile = self.read_region((0, 0), level, self.level_dimensions[level])
-        # Apply on solid background
-        # bg_color = "#" + self.properties.get(PROPERTY_NAME_BACKGROUND_COLOR, "ffffff")
-        bg_color = "#ffffff"
-        thumb = PIL.Image.new("RGB", tile.size, bg_color)
-        thumb.paste(tile, None, tile)
-        # Image.Resampling added in Pillow 9.1.0
-        # Image.LANCZOS removed in Pillow 10
-        thumb.thumbnail(size, getattr(PIL.Image, "Resampling", PIL.Image).LANCZOS)
-        return thumb
+        tile = self.read_region((0, 0), level, self.level_dimensions[level]).convert("RGB")
+        return tile
