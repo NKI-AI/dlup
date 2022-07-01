@@ -7,7 +7,7 @@ import numpy as np
 import PIL.Image
 import tifffile
 
-from dlup.backends.common import AbstractSlideBackend, check_mpp
+from dlup.backends.common import AbstractSlideBackend, check_mpp, numpy_to_pil
 
 
 def open_slide(filename: os.PathLike) -> "TifffileSlide":
@@ -93,9 +93,9 @@ def get_tile(page: tifffile.TiffPage, coordinates: Tuple[int, int], size: Tuple[
 
 
 class TifffileSlide(AbstractSlideBackend):
-    def __init__(self, path: os.PathLike) -> None:
-        super().__init__(path)
-        self._image = tifffile.TiffFile(path)
+    def __init__(self, filename: os.PathLike) -> None:
+        super().__init__(filename)
+        self._image = tifffile.TiffFile(filename)
         self._level_count = len(self._image.pages)
         self.__parse_tifffile()
 
@@ -114,10 +114,10 @@ class TifffileSlide(AbstractSlideBackend):
             mpp_x = unit_dict[unit] / x_res
             mpp_y = unit_dict[unit] / y_res
             check_mpp(mpp_x, mpp_y)
-            self._spacings.append(mpp_x)
+            self._spacings.append((mpp_y, mpp_x))
 
             if idx >= 1:
-                downsample = mpp_x / self._spacings[0]
+                downsample = mpp_x / self._spacings[0][0]
                 self._downsamples.append(downsample)
 
     @property
@@ -151,19 +151,8 @@ class TifffileSlide(AbstractSlideBackend):
 
         page = self._image.pages[level]
         tile = get_tile(page, coordinates, size)[0]
-        bands = tile.shape[-1]
 
-        if bands == 1:
-            mode = "L"
-            tile = tile[:, :, 0]
-        elif bands == 3:
-            mode = "RGB"
-        elif bands == 4:
-            mode = "RGBA"
-        else:
-            raise RuntimeError(f"Incorrect number of channels.")
-
-        return PIL.Image.fromarray(tile, mode=mode)
+        return numpy_to_pil(tile)
 
     def close(self):
         self._image.close()

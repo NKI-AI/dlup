@@ -3,10 +3,9 @@
 import os
 
 import numpy as np
-import PIL.Image
 import pyvips
 
-from dlup.backends.common import AbstractSlideBackend, check_mpp
+from dlup.backends.common import AbstractSlideBackend, check_mpp, numpy_to_pil
 
 
 def open_slide(filename: os.PathLike) -> "PyVipsSlide":
@@ -14,18 +13,18 @@ def open_slide(filename: os.PathLike) -> "PyVipsSlide":
 
 
 class PyVipsSlide(AbstractSlideBackend):
-    def __init__(self, path: os.PathLike) -> None:
-        super().__init__(path)
+    def __init__(self, filename: os.PathLike) -> None:
+        super().__init__(filename)
         # You can have pyvips figure out the reader
         self._images = []
-        self._images.append(pyvips.Image.new_from_file(str(path)))
+        self._images.append(pyvips.Image.new_from_file(str(filename)))
 
         self._loader = self._images[0].get("vips-loader")
 
         if self._loader == "tiffload":
-            self._read_as_tiff(path)
+            self._read_as_tiff(filename)
         elif self._loader == "openslideload":
-            self._read_as_openslide(path)
+            self._read_as_openslide(filename)
         else:
             raise NotImplementedError(f"Loader {self._loader} is not implemented.")
 
@@ -44,9 +43,9 @@ class PyVipsSlide(AbstractSlideBackend):
             mpp_y = unit_dict[image.get("resolution-unit")] / float(image.get("yres"))
             check_mpp(mpp_x, mpp_y)
 
-            self._spacings.append(mpp_x)
+            self._spacings.append((mpp_y, mpp_x))
             if idx >= 1:
-                downsample = mpp_x / self._spacings[0]
+                downsample = mpp_x / self._spacings[0][0]
                 self._downsamples.append(downsample)
             self._shapes.append((image.get("width"), image.get("height")))
 
@@ -101,13 +100,12 @@ class PyVipsSlide(AbstractSlideBackend):
         ratio = self._downsamples[level]
         x, y = coordinates
         height, width = size
-        region = PIL.Image.fromarray(
-            np.asarray(image.fetch(int(x // ratio), int(y // ratio), int(height), int(width))).reshape(
-                int(width), int(height), -1
-            )
+
+        region = np.asarray(image.fetch(int(x // ratio), int(y // ratio), int(height), int(width))).reshape(
+            int(width), int(height), -1
         )
 
-        return region
+        return numpy_to_pil(region)
 
     def close(self):
         del self._regions

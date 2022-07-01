@@ -1,20 +1,40 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import abc
+import os
 from typing import List, Tuple, Union
 
 import numpy as np
 import PIL.Image
 
+from dlup import UnsupportedSlideError
+
+
+def numpy_to_pil(tile: np.ndarray) -> PIL.Image:
+    bands = tile.shape[-1]
+
+    if bands == 1:
+        mode = "L"
+        tile = tile[:, :, 0]
+    elif bands == 3:
+        mode = "RGB"
+    elif bands == 4:
+        mode = "RGBA"
+    else:
+        raise RuntimeError(f"Incorrect number of channels.")
+
+    return PIL.Image.fromarray(tile, mode=mode)
+
 
 def check_mpp(mpp_x, mpp_y):
-    if not np.allclose(mpp_x, mpp_y):
-        raise RuntimeError(f"mpp_x and mpp_y are assumed to be close. Got {mpp_x} and {mpp_y}")
+    if not np.isclose(mpp_x, mpp_y, rtol=1.0e-2):
+        raise UnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp_x} and {mpp_y}.")
 
 
 class AbstractSlideBackend(abc.ABC):
-    def __init__(self, path: os.PathLike):
-        self._path = path
+    # TODO: Do something with the cache.
+    def __init__(self, filename: os.PathLike):
+        self._filename = filename
         self._level_count = 0
         self._downsamples = []
         self._spacings = []
@@ -37,6 +57,14 @@ class AbstractSlideBackend(abc.ABC):
         return self.level_dimensions[0]
 
     @property
+    def spacing(self) -> Tuple[float, float]:
+        return self._spacings[0]
+
+    @property
+    def level_spacings(self) -> Tuple[Tuple[float, float], ...]:
+        return tuple(self._spacings)
+
+    @property
     def level_downsamples(self) -> Tuple[float, ...]:
         """A tuple of downsampling factors for each level of the image.
         level_downsample[n] contains the downsample factor of level n."""
@@ -53,16 +81,41 @@ class AbstractSlideBackend(abc.ABC):
         return self._downsamples.index(number)
 
     def get_thumbnail(self, size: Union[int, Tuple[int, int]]) -> PIL.Image:
-        """Return a PIL.Image containing an RGB thumbnail of the image.
-        size:     the maximum size of the thumbnail."""
+        """
+        Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
+        Aspect ratio is preserved.
+
+        Parameters
+        ----------
+        size : int or Tuple[int, int]
+            Output size of the thumbnail, will take the maximal value for the output and preserve aspect ratio.
+
+        Returns
+        -------
+        PIL.Image
+            The thumbnail.
+        """
         if isinstance(size, int):
             size = (size, size)
 
         downsample = max(*(dim / thumb for dim, thumb in zip(self.dimensions, size)))
         level = self.get_best_level_for_downsample(downsample)
-        tile = self.read_region((0, 0), level, self.level_dimensions[level]).convert("RGB")
-        return tile
+        thumbnail = (
+            self.read_region((0, 0), level, self.level_dimensions[level])
+            .convert("RGB")
+            .resize(
+                np.floor(np.asarray(self.dimensions) / downsample).astype(int).tolist(), resample=PIL.Image.LANCZOS
+            )
+        )
+        return thumbnail
 
     @abc.abstractmethod
     def read_region(self, coordinates: Tuple[int, int], level: int, size: Tuple[int, int]) -> PIL.Image:
         """Read region of multiresolution image"""
+
+    @abc.abstractmethod
+    def close(self):
+        """Close the underlying slide"""
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}({self._filename})>"

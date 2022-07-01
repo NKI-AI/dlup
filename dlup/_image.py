@@ -22,7 +22,8 @@ import PIL.Image  # type: ignore
 from numpy.typing import ArrayLike
 
 import openslide  # type: ignore
-from dlup import DlupUnsupportedSlideError
+from dlup import UnsupportedSlideError
+from dlup.backends import AbstractSlideBackend, ImageBackends
 
 from ._region import BoundaryMode, RegionView
 
@@ -87,38 +88,16 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: openslide.AbstractSlide, identifier: Union[str, None] = None):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: Union[str, None] = None):
         """Initialize a whole slide image and validate its properties."""
-        self._openslide_wsi = wsi
+        self._wsi = wsi
         self._identifier = identifier
 
-        # There are several ways to read the mpp value. First try is to get these directly from the OpenSlide properties
-        # This doesn't work with some datasets, e.g., the public TIGER dataset provides tiff resolution tags.
-        # OpenSlide currently doesn't use these to convert to mpp values.
-        try:
-            vendor = self._openslide_wsi.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
-            # Generic tiff's don't have mpp values defined by OpenSlide, but they can be available in the header.
-            if vendor == "generic-tiff":
-                # TODO: Check if this is always parsed to pixels/cm!
-                mpp_x = 1 / float(self._openslide_wsi.properties["tiff.XResolution"]) / 10e-5
-                mpp_y = 1 / float(self._openslide_wsi.properties["tiff.YResolution"]) / 10e-5
-            else:
-                mpp_x = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_X])
-                mpp_y = float(self._openslide_wsi.properties[openslide.PROPERTY_NAME_MPP_Y])
-
-        except KeyError:
-            raise DlupUnsupportedSlideError(f"slide property mpp is not available.", identifier)
-
-        mpp = np.array([mpp_y, mpp_x])
-
-        if not np.isclose(mpp[0], mpp[1], rtol=1.0e-2):
-            raise DlupUnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp}.", identifier)
-
-        self._min_native_mpp = float(mpp[0])
+        self._min_native_mpp = float(self._wsi.spacing[0])
 
     def close(self):
-        """Close the underlying openslide image."""
-        self._openslide_wsi.close()
+        """Close the underlying image."""
+        self._wsi.close()
 
     def __enter__(self):
         return self
@@ -129,15 +108,18 @@ class SlideImage:
 
     @classmethod
     def from_file_path(
-        cls: Type[_TSlideImage], wsi_file_path: os.PathLike, identifier: Union[str, None] = None
+        cls: Type[_TSlideImage],
+        wsi_file_path: os.PathLike,
+        identifier: Union[str, None] = None,
+        backend: AbstractSlideBackend = ImageBackends.OPENSLIDE,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
         if not wsi_file_path.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:
-            wsi = openslide.open_slide(str(wsi_file_path))
-        except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
-            raise DlupUnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
+            wsi = backend(filename=wsi_file_path)
+        except UnsupportedSlideError:
+            raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
@@ -197,7 +179,7 @@ class SlideImage:
          ``(tile_size, tile_size)`` with a scaling factor of 0.5, we can use:
         >>>  wsi.read_region(location=(coordinate_x, coordinate_y), scaling=0.5, size=(tile_size, tile_size))
         """
-        owsi = self._openslide_wsi
+        owsi = self._wsi
         location = np.asarray(location)
         size = np.asarray(size)
         level_size = np.array(self.get_scaled_size(scaling))
@@ -264,7 +246,7 @@ class SlideImage:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
-    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image.Image:
+    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image:
         """Returns an RGB numpy thumbnail for the current slide.
 
         Parameters
@@ -272,10 +254,10 @@ class SlideImage:
         size :
             Maximum bounding box for the thumbnail expressed as (width, height).
         """
-        return self._openslide_wsi.get_thumbnail(size)
+        return self._wsi.get_thumbnail(size)
 
     @property
-    def thumbnail(self) -> PIL.Image.Image:
+    def thumbnail(self) -> PIL.Image:
         """Returns the thumbnail."""
         return self.get_thumbnail()
 
@@ -287,17 +269,20 @@ class SlideImage:
     @property
     def properties(self) -> dict:
         """Returns any extra associated properties with the image."""
-        return self._openslide_wsi.properties
+        return self._wsi.properties
 
     @property
     def vendor(self) -> str:
         """Returns the scanner vendor."""
-        return self.properties["openslide.vendor"]
+        try:
+            return self.properties["openslide.vendor"]
+        except (KeyError, TypeError):
+            return ""
 
     @property
     def size(self) -> Tuple[int, int]:
         """Returns the highest resolution image size in pixels."""
-        return self._openslide_wsi.dimensions
+        return self._wsi.dimensions
 
     @property
     def mpp(self) -> float:
@@ -307,7 +292,7 @@ class SlideImage:
     @property
     def magnification(self) -> int:
         """Returns the objective power at which the WSI was sampled."""
-        return int(self._openslide_wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        return int(self._wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
 
     @property
     def aspect_ratio(self) -> float:

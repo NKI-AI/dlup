@@ -2,7 +2,7 @@
 # Copyright (c) dlup contributors
 """Top-level package for dlup."""
 
-from ._exceptions import DlupError, DlupUnsupportedSlideError
+from ._exceptions import DlupError, UnsupportedSlideError
 from ._image import SlideImage
 from ._region import BoundaryMode, RegionView
 
