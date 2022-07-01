@@ -1,7 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import os
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import PIL.Image
@@ -14,7 +14,7 @@ def open_slide(filename: os.PathLike) -> "TifffileSlide":
     return TifffileSlide(filename)
 
 
-def get_tile(page: tifffile.TiffPage, coordinates: Tuple[int, int], size: Tuple[int, int]) -> np.ndarray:
+def get_tile(page: tifffile.TiffPage, coordinates: Tuple[Any, ...], size: Tuple[Any, ...]) -> np.ndarray:
     # https://gist.github.com/rfezzani/b4b8852c5a48a901c1e94e09feb34743
 
     """Extract a crop from a TIFF image file directory (IFD).
@@ -145,7 +145,7 @@ class TifffileSlide(AbstractSlideBackend):
         """Cache for tifffile."""
         raise NotImplementedError
 
-    def read_region(self, coordinates: Tuple[int, int], level: int, size: Tuple[int, int]) -> PIL.Image:
+    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
         if level > self._level_count - 1:
             raise RuntimeError(f"Level {level} not present.")
 

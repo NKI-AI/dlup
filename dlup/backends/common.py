@@ -1,13 +1,13 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import abc
-import os
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
 import PIL.Image
 
-from dlup import UnsupportedSlideError
+from dlup._exceptions import UnsupportedSlideError
+from dlup.types import PathLike
 
 
 def numpy_to_pil(tile: np.ndarray) -> PIL.Image:
@@ -33,12 +33,12 @@ def check_mpp(mpp_x, mpp_y):
 
 class AbstractSlideBackend(abc.ABC):
     # TODO: Do something with the cache.
-    def __init__(self, filename: os.PathLike):
+    def __init__(self, filename: PathLike):
         self._filename = filename
         self._level_count = 0
-        self._downsamples = []
-        self._spacings = []
-        self._shapes = []
+        self._downsamples: List[float] = []
+        self._spacings: List[Tuple[Any, ...]] = []  # This is to make mypy shut up
+        self._shapes: List[Tuple[int, int]] = []
 
     @property
     def level_count(self) -> int:
@@ -57,11 +57,11 @@ class AbstractSlideBackend(abc.ABC):
         return self.level_dimensions[0]
 
     @property
-    def spacing(self) -> Tuple[float, float]:
+    def spacing(self) -> Tuple[Any, ...]:
         return self._spacings[0]
 
     @property
-    def level_spacings(self) -> Tuple[Tuple[float, float], ...]:
+    def level_spacings(self) -> Tuple[Tuple[Any, ...], ...]:
         return tuple(self._spacings)
 
     @property
@@ -110,7 +110,12 @@ class AbstractSlideBackend(abc.ABC):
         return thumbnail
 
     @abc.abstractmethod
-    def read_region(self, coordinates: Tuple[int, int], level: int, size: Tuple[int, int]) -> PIL.Image:
+    @property
+    def properties(self):
+        """Properties of slide"""
+
+    @abc.abstractmethod
+    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
         """Read region of multiresolution image"""
 
     @abc.abstractmethod

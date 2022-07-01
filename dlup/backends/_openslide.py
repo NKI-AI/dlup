@@ -26,7 +26,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
 
         check_mpp(mpp_x, mpp_y)
         mpp = np.array([mpp_y, mpp_x])
-        self._spacings = tuple([tuple(mpp * downsample) for downsample in self.level_downsamples])
+        self._spacings = [tuple(mpp * downsample) for downsample in self.level_downsamples]
 
 
 if __name__ == "__main__":

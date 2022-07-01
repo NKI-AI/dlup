@@ -11,10 +11,9 @@ other than OpenSlide.
 """
 
 import errno
-import functools
 import os
 import pathlib
-from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Callable, Iterable, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
 import PIL
@@ -24,6 +23,7 @@ from numpy.typing import ArrayLike
 import openslide  # type: ignore
 from dlup import UnsupportedSlideError
 from dlup.backends import AbstractSlideBackend, ImageBackends
+from dlup.types import PathLike
 
 from ._region import BoundaryMode, RegionView
 
@@ -109,9 +109,9 @@ class SlideImage:
     @classmethod
     def from_file_path(
         cls: Type[_TSlideImage],
-        wsi_file_path: os.PathLike,
+        wsi_file_path: PathLike,
         identifier: Union[str, None] = None,
-        backend: AbstractSlideBackend = ImageBackends.OPENSLIDE,
+        backend: Callable = ImageBackends.OPENSLIDE,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
         if not wsi_file_path.exists():

@@ -94,7 +94,7 @@ def _try_tifffile(filename: os.PathLike) -> AbstractSlideBackend:
 
 @dataclass
 class ImageBackends:
-    OPENSLIDE: AbstractSlideBackend = OpenSlideSlide
-    PYVIPS: AbstractSlideBackend = PyVipsSlide
-    TIFFFILE: AbstractSlideBackend = TifffileSlide
+    OPENSLIDE: Callable = OpenSlideSlide
+    PYVIPS: Callable = PyVipsSlide
+    TIFFFILE: Callable = TifffileSlide
     AUTODETECT: Callable = autodetect_backend
