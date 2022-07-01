@@ -6,7 +6,7 @@
 In this module we take care of abstracting the access to whole slide images.
 The main workhorse is SlideImage which takes care of simplifying region extraction
 of discrete-levels pyramidal images in a continuous way, validating relevant
-properties and offering a future aggregated api for possibly multiple different backends
+properties and offering a future aggregated api for possibly multiple different experimental_backends
 other than OpenSlide.
 """
 
@@ -22,7 +22,7 @@ from numpy.typing import ArrayLike
 
 import openslide  # type: ignore
 from dlup import UnsupportedSlideError
-from dlup.backends import AbstractSlideBackend, ImageBackends
+from dlup.experimental_backends import AbstractSlideBackend, ImageBackends
 from dlup.types import PathLike
 
 from ._region import BoundaryMode, RegionView

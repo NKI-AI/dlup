@@ -125,7 +125,7 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
 
 @dataclass
 class ImageBackends:
-    """Available image backends."""
+    """Available image experimental_backends."""
 
     OPENSLIDE: Callable = OpenSlideSlide
     PYVIPS: Callable = PyVipsSlide

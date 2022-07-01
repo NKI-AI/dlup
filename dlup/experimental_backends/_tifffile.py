@@ -7,7 +7,7 @@ import numpy as np
 import PIL.Image
 import tifffile
 
-from dlup.backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic, numpy_to_pil
+from dlup.experimental_backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic, numpy_to_pil
 
 
 def open_slide(filename: os.PathLike) -> "TifffileSlide":

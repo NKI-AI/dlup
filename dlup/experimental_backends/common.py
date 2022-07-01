@@ -56,7 +56,7 @@ def check_if_mpp_is_isotropic(mpp_x: float, mpp_y: float) -> None:
 
 class AbstractSlideBackend(abc.ABC):
     """
-    Abstract base class for slide backends
+    Abstract base class for slide experimental_backends
     """
 
     # TODO: Do something with the cache.
