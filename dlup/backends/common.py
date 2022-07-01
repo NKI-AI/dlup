@@ -11,6 +11,17 @@ from dlup.types import PathLike
 
 
 def numpy_to_pil(tile: np.ndarray) -> PIL.Image:
+    """
+    Convert a numpy tile to a PIL image, assuming the last axis is the channels
+
+    Parameters
+    ----------
+    tile : np.ndarray
+
+    Returns
+    -------
+    PIL.Image
+    """
     bands = tile.shape[-1]
 
     if bands == 1:
@@ -26,14 +37,36 @@ def numpy_to_pil(tile: np.ndarray) -> PIL.Image:
     return PIL.Image.fromarray(tile, mode=mode)
 
 
-def check_mpp(mpp_x, mpp_y):
+def check_if_mpp_is_isotropic(mpp_x: float, mpp_y: float) -> None:
+    """
+    Checks if the mpp is (nearly) isotropic.
+
+    Parameters
+    ----------
+    mpp_x : float
+    mpp_y : float
+
+    Returns
+    -------
+    None
+    """
     if not np.isclose(mpp_x, mpp_y, rtol=1.0e-2):
         raise UnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp_x} and {mpp_y}.")
 
 
 class AbstractSlideBackend(abc.ABC):
+    """
+    Abstract base class for slide backends
+    """
+
     # TODO: Do something with the cache.
     def __init__(self, filename: PathLike):
+        """
+        Parameters
+        ----------
+        filename : PathLike
+            Path to image.
+        """
         self._filename = filename
         self._level_count = 0
         self._downsamples: List[float] = []
@@ -48,20 +81,47 @@ class AbstractSlideBackend(abc.ABC):
     @property
     def level_dimensions(self) -> List[Tuple[int, int]]:
         """A list of (width, height) tuples, one for each level of the image.
-        level_dimensions[n] contains the dimensions of level n."""
+        This property level_dimensions[n] contains the dimensions of the image at level n.
+
+        Returns
+        -------
+        List
+
+        """
         return self._shapes
 
     @property
     def dimensions(self) -> Tuple[int, int]:
-        """A (width, height) tuple for level 0 of the image."""
+        """A (width, height) tuple for the base level (level 0) of the image.
+
+        Returns
+        -------
+        Tuple
+        """
         return self.level_dimensions[0]
 
     @property
     def spacing(self) -> Tuple[Any, ...]:
+        """
+        A (mpp_x, mpp_y) tuple for spacing of the base level
+
+        Returns
+        -------
+        Tuple
+        """
         return self._spacings[0]
 
     @property
     def level_spacings(self) -> Tuple[Tuple[Any, ...], ...]:
+        """
+        A list of (mpp_x, mpp_y) tuples, one for each level of the image.
+        This property level_spacings[n] contains the spacings of the image at level n.
+
+        Returns
+        -------
+        Tuple
+        """
+
         return tuple(self._spacings)
 
     @property
@@ -71,7 +131,17 @@ class AbstractSlideBackend(abc.ABC):
         return tuple(self._downsamples)
 
     def get_best_level_for_downsample(self, downsample: float) -> int:
-        """Return the best level for displaying the given downsample."""
+        """
+        Compute the best level for displaying the given downsample. Returns the closest better resolution.
+
+        Parameters
+        ----------
+        downsample : float
+
+        Returns
+        -------
+        int
+        """
         sorted_downsamples = sorted(self._downsamples, reverse=True)
 
         def difference(sorted_list):
@@ -116,7 +186,23 @@ class AbstractSlideBackend(abc.ABC):
 
     @abc.abstractmethod
     def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
-        """Read region of multiresolution image"""
+        """
+        Return the best level for displaying the given downsample.
+
+        Parameters
+        ----------
+        coordinates : tuple
+            Coordinates of the region in level 0.
+        level : int
+            Level of the image pyramid.
+        size : tuple
+            Size of the region to be extracted.
+
+        Returns
+        -------
+        PIL.Image
+            The requested region.
+        """
 
     @abc.abstractmethod
     def close(self):

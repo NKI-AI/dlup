@@ -5,7 +5,7 @@ import os
 import numpy as np
 import pyvips
 
-from dlup.backends.common import AbstractSlideBackend, check_mpp, numpy_to_pil
+from dlup.backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic, numpy_to_pil
 
 
 def open_slide(filename: os.PathLike) -> "PyVipsSlide":
@@ -41,7 +41,7 @@ class PyVipsSlide(AbstractSlideBackend):
         for idx, image in enumerate(self._images):
             mpp_x = unit_dict[image.get("resolution-unit")] / float(image.get("xres"))
             mpp_y = unit_dict[image.get("resolution-unit")] / float(image.get("yres"))
-            check_mpp(mpp_x, mpp_y)
+            check_if_mpp_is_isotropic(mpp_x, mpp_y)
 
             self._spacings.append((mpp_y, mpp_x))
             if idx >= 1:
@@ -64,7 +64,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         mpp_x = float(self._images[0].get("openslide.mpp-x"))
         mpp_y = float(self._images[0].get("openslide.mpp-y"))
-        check_mpp(mpp_x, mpp_y)
+        check_if_mpp_is_isotropic(mpp_x, mpp_y)
         self._mpps = [mpp_x * downsample for downsample in self._downsamples]
 
     @property
