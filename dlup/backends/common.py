@@ -109,8 +109,8 @@ class AbstractSlideBackend(abc.ABC):
         )
         return thumbnail
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def properties(self):
         """Properties of slide"""
 
