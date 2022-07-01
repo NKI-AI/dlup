@@ -16,7 +16,7 @@ jobs:
     steps:
     - name: Install minimal dependencies
       run: |
-        sudo apt install -y libopenslide0 libgeos-dev
+        sudo apt install -y libopenslide0 libgeos-dev libvips42
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
