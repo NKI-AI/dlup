@@ -1,19 +1,39 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import os
+from typing import Any, Tuple
 
 import numpy as np
+import PIL.Image
 import pyvips
 
 from dlup.backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic, numpy_to_pil
 
 
 def open_slide(filename: os.PathLike) -> "PyVipsSlide":
+    """
+    Read slide with pyvips.
+
+    Parameters
+    ----------
+    filename : PathLike
+        Path to image.
+    """
     return PyVipsSlide(filename)
 
 
 class PyVipsSlide(AbstractSlideBackend):
+    """
+    Backend for pyvips.
+    """
+
     def __init__(self, filename: os.PathLike) -> None:
+        """
+        Parameters
+        ----------
+        filename : PathLike
+            Path to image.
+        """
         super().__init__(filename)
         # You can have pyvips figure out the reader
         self._images = []
@@ -69,8 +89,8 @@ class PyVipsSlide(AbstractSlideBackend):
 
     @property
     def properties(self):
-        """Metadata about the image.
-        This is a map: property name -> property value."""
+        """Metadata about the image as given by pyvips, which includes openslide tags in case openslide is the selected reader."""
+
         keys = self._images[0].get_fields()
         return {key: self._images[0].get_value(key) for key in keys}
 
@@ -81,21 +101,29 @@ class PyVipsSlide(AbstractSlideBackend):
         if not self._loader == "openslideload":
             return {}
         associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
-        # image = pyvips.Image.openslideload(str(self._path)), attach_associated=True)
-
-        # Create a delayed dictionary...
-        # This only works with openslideload
-        # staticopenslideload(filename, attach_associated=bool, level=int, autocrop=bool, associated=str, memory=bool,
-        #                     access=Union[str, Access], fail_on=Union[str, FailOn], flags=bool)¶
-
         raise NotImplementedError
 
     def set_cache(self, cache):
-        """Use the specified cache to store recently decoded slide tiles.
-        cache: an OpenSlideCache object."""
         raise NotImplementedError
 
-    def read_region(self, coordinates, level, size):
+    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
+        """
+        Return the best level for displaying the given image level.
+
+        Parameters
+        ----------
+        coordinates : tuple
+            Coordinates of the region in level 0.
+        level : int
+            Level of the image pyramid.
+        size : tuple
+            Size of the region to be extracted.
+
+        Returns
+        -------
+        PIL.Image
+            The requested region.
+        """
         image = self._regions[level]
         ratio = self._downsamples[level]
         x, y = coordinates

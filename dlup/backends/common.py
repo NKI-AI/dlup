@@ -187,7 +187,7 @@ class AbstractSlideBackend(abc.ABC):
     @abc.abstractmethod
     def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
         """
-        Return the best level for displaying the given downsample.
+        Return the best level for displaying the given image level.
 
         Parameters
         ----------

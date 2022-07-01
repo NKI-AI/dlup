@@ -11,16 +11,24 @@ from dlup.backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic
 
 
 def open_slide(filename: os.PathLike) -> "TifffileSlide":
+    """
+    Read slide with tifffile.
+
+    Parameters
+    ----------
+    filename : PathLike
+        Path to image.
+    """
     return TifffileSlide(filename)
 
 
 def get_tile(page: tifffile.TiffPage, coordinates: Tuple[Any, ...], size: Tuple[Any, ...]) -> np.ndarray:
-    # https://gist.github.com/rfezzani/b4b8852c5a48a901c1e94e09feb34743
-
     """Extract a crop from a TIFF image file directory (IFD).
 
     Only the tiles englobing the crop area are loaded and not the whole page.
-    This is usefull for large Whole slide images that can't fit int RAM.
+    This is useful for large Whole slide images that can't fit int RAM.
+
+    Code obtained from [1].
 
     Parameters
     ----------
@@ -30,6 +38,10 @@ def get_tile(page: tifffile.TiffPage, coordinates: Tuple[Any, ...], size: Tuple[
         Coordinates of the top left and right corner corner of the desired crop.
     size: (int, int)
         Desired crop height and width.
+
+    References
+    ----------
+    .. [1] https://gist.github.com/rfezzani/b4b8852c5a48a901c1e94e09feb34743
 
     Returns
     -------
@@ -93,13 +105,24 @@ def get_tile(page: tifffile.TiffPage, coordinates: Tuple[Any, ...], size: Tuple[
 
 
 class TifffileSlide(AbstractSlideBackend):
+    """
+    Backend for tifffile.
+    """
+
     def __init__(self, filename: os.PathLike) -> None:
+        """
+        Parameters
+        ----------
+        filename : PathLike
+            Path to image.
+        """
         super().__init__(filename)
         self._image = tifffile.TiffFile(filename)
         self._level_count = len(self._image.pages)
         self.__parse_tifffile()
 
     def __parse_tifffile(self) -> None:
+        """Parse the file with tifffile, extract the resolution, downsample factors and sizes for each level."""
         unit_dict = {1: 1, 2: 254000, 3: 100000, 4: 1000000, 5: 10000000}
         self._downsamples.append(1.0)
         for idx, page in enumerate(self._image.pages):
@@ -122,8 +145,8 @@ class TifffileSlide(AbstractSlideBackend):
 
     @property
     def properties(self) -> Dict:
-        """Metadata about the image.
-        This is a map: property name -> property value."""
+        """Metadata about the image as given by tifffile."""
+
         properties = {}
         for idx, page in enumerate(self._image.pages):
             for tag in page.tags:
@@ -146,6 +169,23 @@ class TifffileSlide(AbstractSlideBackend):
         raise NotImplementedError
 
     def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
+        """
+        Return the best level for displaying the given image level.
+
+        Parameters
+        ----------
+        coordinates : tuple
+            Coordinates of the region in level 0.
+        level : int
+            Level of the image pyramid.
+        size : tuple
+            Size of the region to be extracted.
+
+        Returns
+        -------
+        PIL.Image
+            The requested region.
+        """
         if level > self._level_count - 1:
             raise RuntimeError(f"Level {level} not present.")
 

@@ -15,11 +15,8 @@ import openslide
 from dlup import UnsupportedSlideError
 
 from ._openslide import OpenSlideSlide
-from ._openslide import open_slide as open_slide_openslide
 from ._pyvips import PyVipsSlide
-from ._pyvips import open_slide as open_slide_pyvips
 from ._tifffile import TifffileSlide
-from ._tifffile import open_slide as open_slide_tifffile
 from .common import AbstractSlideBackend
 
 
@@ -28,7 +25,7 @@ def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
     """
     Try to read the file in consecutive order of pyvips, openslide, tifffile,
     by trying to a tile at the lowest resolution.
-    The results are cached.
+    The results are cached, so the test is only performed once per filename.
 
     Parameters
     ----------
@@ -36,7 +33,8 @@ def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
 
     Returns
     -------
-
+    AbstractSlideBackend
+        A backend which is able to read the image.
     """
     # Can try to be a bit more complex by first checking the path
     filename = pathlib.Path(filename)
@@ -62,7 +60,18 @@ def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or openslide.")
 
 
-def _try_openslide(filename: os.PathLike) -> AbstractSlideBackend:
+def _try_openslide(filename: os.PathLike) -> OpenSlideSlide:
+    """
+    Attempt to read the slide with openslide. Will open the slide and extract a region at the highest level.
+
+    Parameters
+    ----------
+    filename : PathLike
+
+    Returns
+    -------
+    OpenSlideSlide
+    """
     try:
         slide = OpenSlideSlide(filename)
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
@@ -72,7 +81,18 @@ def _try_openslide(filename: os.PathLike) -> AbstractSlideBackend:
         raise UnsupportedSlideError(f"Cannot read {filename} with openslide.")
 
 
-def _try_pyvips(filename: os.PathLike) -> AbstractSlideBackend:
+def _try_pyvips(filename: os.PathLike) -> PyVipsSlide:
+    """
+    Attempt to read the slide with pyvips. Will open the slide and extract a region at the highest level.
+
+    Parameters
+    ----------
+    filename : PathLike
+
+    Returns
+    -------
+    PyVipsSlide
+    """
     try:
         slide = PyVipsSlide(filename)
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
@@ -82,7 +102,18 @@ def _try_pyvips(filename: os.PathLike) -> AbstractSlideBackend:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips.")
 
 
-def _try_tifffile(filename: os.PathLike) -> AbstractSlideBackend:
+def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
+    """
+    Attempt to read the slide with tifffile. Will open the slide and extract a region at the highest level.
+
+    Parameters
+    ----------
+    filename : PathLike
+
+    Returns
+    -------
+    TifffileSlide
+    """
     try:
         slide = TifffileSlide(filename)
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
@@ -94,6 +125,8 @@ def _try_tifffile(filename: os.PathLike) -> AbstractSlideBackend:
 
 @dataclass
 class ImageBackends:
+    """Available image backends."""
+
     OPENSLIDE: Callable = OpenSlideSlide
     PYVIPS: Callable = PyVipsSlide
     TIFFFILE: Callable = TifffileSlide

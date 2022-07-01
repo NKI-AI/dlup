@@ -1,6 +1,5 @@
 # coding=utf-8
-
-
+# Copyright (c) dlup contributors
 from typing import Optional
 
 

@@ -10,11 +10,29 @@ from dlup.backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic
 
 
 def open_slide(filename: os.PathLike) -> "OpenSlideSlide":
+    """
+    Read slide with openslide.
+
+    Parameters
+    ----------
+    filename : PathLike
+        Path to image.
+    """
     return OpenSlideSlide(filename)
 
 
 class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
+    """
+    Backend for openslide.
+    """
+
     def __init__(self, filename: os.PathLike):
+        """
+        Parameters
+        ----------
+        filename : PathLike
+            Path to image.
+        """
         super().__init__(str(filename))
 
         try:
