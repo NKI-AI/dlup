@@ -8,7 +8,7 @@ import PIL.Image
 import pyvips
 
 from dlup.backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic, numpy_to_pil
-
+from dlup.types import PathLike
 
 def open_slide(filename: os.PathLike) -> "PyVipsSlide":
     """
@@ -50,7 +50,14 @@ class PyVipsSlide(AbstractSlideBackend):
 
         self._regions = [pyvips.Region.new(image) for image in self._images]
 
-    def _read_as_tiff(self, path):
+    def _read_as_tiff(self, path: PathLike) -> None:
+        """
+        Read all other pages except the first using the tiff backend of pyvips.
+
+        Parameters
+        ----------
+        path : PathLike
+        """
         self._level_count = int(self._images[0].get_value("n-pages"))
         for level in range(1, self._level_count):
             self._images.append(pyvips.Image.tiffload(str(path), page=level))
@@ -69,7 +76,14 @@ class PyVipsSlide(AbstractSlideBackend):
                 self._downsamples.append(downsample)
             self._shapes.append((image.get("width"), image.get("height")))
 
-    def _read_as_openslide(self, path):
+    def _read_as_openslide(self, path: PathLike):
+        """
+        Read all other pages except the first using the openslide backend of pyvips.
+
+        Parameters
+        ----------
+        path : PathLike
+        """
         self._level_count = int(self._images[0].get("openslide.level-count"))
         for level in range(1, self._level_count):
             self._images.append(pyvips.Image.openslideload(str(path), level=level))
@@ -89,15 +103,15 @@ class PyVipsSlide(AbstractSlideBackend):
 
     @property
     def properties(self):
-        """Metadata about the image as given by pyvips, which includes openslide tags in case openslide is the selected reader."""
+        """Metadata about the image as given by pyvips,
+        which includes openslide tags in case openslide is the selected reader."""
 
         keys = self._images[0].get_fields()
         return {key: self._images[0].get_value(key) for key in keys}
 
     @property
     def associated_images(self):
-        """Images associated with this whole-slide image.
-        This is a map: image name -> PIL.Image."""
+        """Images associated with this whole-slide image."""
         if not self._loader == "openslideload":
             return {}
         associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
@@ -136,5 +150,6 @@ class PyVipsSlide(AbstractSlideBackend):
         return numpy_to_pil(region)
 
     def close(self):
+        """Close the underlying slide"""
         del self._regions
         del self._images

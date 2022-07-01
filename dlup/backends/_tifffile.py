@@ -195,4 +195,5 @@ class TifffileSlide(AbstractSlideBackend):
         return numpy_to_pil(tile)
 
     def close(self):
+        """Close the underlying slide"""
         self._image.close()
