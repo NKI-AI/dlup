@@ -195,6 +195,11 @@ class TifffileSlide(AbstractSlideBackend):
         return numpy_to_pil(tile)
 
     @property
+    def vendor(self) -> None:
+        """Returns the scanner vendor. For tiffs this is unknown."""
+        return None
+
+    @property
     def magnification(self) -> None:
         """Returns the objective power at which the WSI was sampled. For tiff's this is unknown."""
         return None
