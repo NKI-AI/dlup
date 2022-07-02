@@ -274,10 +274,7 @@ class SlideImage:
     @property
     def vendor(self) -> str:
         """Returns the scanner vendor."""
-        try:
-            return self.properties["openslide.vendor"]
-        except (KeyError, TypeError):
-            return ""
+        return self._wsi.vendor
 
     @property
     def size(self) -> Tuple[int, int]:
@@ -290,9 +287,9 @@ class SlideImage:
         return self._min_native_mpp
 
     @property
-    def magnification(self) -> int:
+    def magnification(self) -> Optional[float]:
         """Returns the objective power at which the WSI was sampled."""
-        return int(self._wsi.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        return self._wsi.magnification
 
     @property
     def aspect_ratio(self) -> float:

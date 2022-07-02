@@ -4,11 +4,13 @@ import os
 from typing import Any, Tuple
 
 import numpy as np
+import openslide
 import PIL.Image
 import pyvips
-
+from typing import Optional
 from dlup.experimental_backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic, numpy_to_pil
 from dlup.types import PathLike
+
 
 def open_slide(filename: os.PathLike) -> "PyVipsSlide":
     """
@@ -108,6 +110,21 @@ class PyVipsSlide(AbstractSlideBackend):
 
         keys = self._images[0].get_fields()
         return {key: self._images[0].get_value(key) for key in keys}
+
+    @property
+    def magnification(self) -> Optional[float]:
+        """Returns the objective power at which the WSI was sampled."""
+        if self._loader == "openslideloader":
+            return float(self._images[0].properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        else:
+            return None
+
+    @property
+    def vendor(self) -> Optional[str]:
+        """Returns the scanner vendor."""
+        if self._loader == "openslideloader":
+            return self._images[0].properties[openslide.PROPERTY_NAME_VENDOR]
+        return None
 
     @property
     def associated_images(self):

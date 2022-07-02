@@ -1,7 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import abc
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple, Union, Optional
 
 import numpy as np
 import PIL.Image
@@ -203,6 +203,16 @@ class AbstractSlideBackend(abc.ABC):
         PIL.Image
             The requested region.
         """
+
+    @property
+    def magnification(self) -> Optional[float]:
+        """Returns the objective power at which the WSI was sampled."""
+        return NotImplementedError
+
+    @property
+    def vendor(self) -> Optional[str]:
+        """Returns the scanner vendor."""
+        return NotImplementedError
 
     @abc.abstractmethod
     def close(self):

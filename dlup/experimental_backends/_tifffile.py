@@ -194,6 +194,11 @@ class TifffileSlide(AbstractSlideBackend):
 
         return numpy_to_pil(tile)
 
+    @property
+    def magnification(self) -> None:
+        """Returns the objective power at which the WSI was sampled. For tiff's this is unknown."""
+        return None
+
     def close(self):
         """Close the underlying slide"""
         self._image.close()
