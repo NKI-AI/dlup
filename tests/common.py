@@ -13,6 +13,7 @@ from scipy import interpolate
 
 import openslide  # type: ignore
 
+
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
     """Generate a non-uniform sample image."""
     # Interpolate some simple function

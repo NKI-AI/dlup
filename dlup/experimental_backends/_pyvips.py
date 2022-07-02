@@ -1,13 +1,13 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import os
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 import numpy as np
-import openslide
 import PIL.Image
 import pyvips
-from typing import Optional
+
+import openslide
 from dlup.experimental_backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic, numpy_to_pil
 from dlup.types import PathLike
 

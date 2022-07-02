@@ -1,7 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import abc
-from typing import Any, List, Tuple, Union, Optional
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import PIL.Image
