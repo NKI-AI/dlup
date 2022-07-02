@@ -18,7 +18,6 @@ from typing import Callable, Iterable, Optional, Tuple, Type, TypeVar, Union
 import numpy as np  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
-from numpy.typing import ArrayLike
 
 import openslide  # type: ignore
 from dlup import UnsupportedSlideError
@@ -93,6 +92,7 @@ class SlideImage:
         self._wsi = wsi
         self._identifier = identifier
 
+        check_if_mpp_is_isotropic(*self._wsi.spacing)
         self._min_native_mpp = float(self._wsi.spacing[0])
 
     def close(self):
@@ -305,3 +305,20 @@ class SlideImage:
             value = getattr(self, key)
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
+
+
+def check_if_mpp_is_isotropic(mpp_x: float, mpp_y: float) -> None:
+    """
+    Checks if the mpp is (nearly) isotropic and defined.
+
+    Parameters
+    ----------
+    mpp_x : float
+    mpp_y : float
+
+    Returns
+    -------
+    None
+    """
+    if not mpp_x or not mpp_y or not np.isclose(mpp_x, mpp_y, rtol=1.0e-2):
+        raise UnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp_x} and {mpp_y}.")

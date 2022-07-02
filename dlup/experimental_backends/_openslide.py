@@ -6,7 +6,7 @@ import numpy as np
 
 import openslide
 from dlup import UnsupportedSlideError
-from dlup.experimental_backends.common import AbstractSlideBackend, check_if_mpp_is_isotropic
+from dlup.experimental_backends.common import AbstractSlideBackend
 
 
 def open_slide(filename: os.PathLike) -> "OpenSlideSlide":
@@ -42,7 +42,6 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         except KeyError:
             raise UnsupportedSlideError(f"slide property mpp is not available.", str(filename))
 
-        check_if_mpp_is_isotropic(mpp_x, mpp_y)
         mpp = np.array([mpp_y, mpp_x])
         self._spacings = [tuple(mpp * downsample) for downsample in self.level_downsamples]
 

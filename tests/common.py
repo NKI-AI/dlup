@@ -48,7 +48,7 @@ class SlideProperties(BaseModel):
 
     mpp_x: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_X)
     mpp_y: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_Y)
-    mag: Optional[int] = Field(40, alias=openslide.PROPERTY_NAME_OBJECTIVE_POWER)
+    mag: Optional[float] = Field(40.0, alias=openslide.PROPERTY_NAME_OBJECTIVE_POWER)
     vendor: str = Field("dummy", alias=openslide.PROPERTY_NAME_VENDOR)
 
     class Config:
@@ -103,6 +103,18 @@ class OpenSlideImageMock(openslide.ImageSlide):
         image = PIL.Image.fromarray(image)
         location = np.asarray(location) / self.level_downsamples[level]
         return image.resize(size, resample=PIL.Image.LANCZOS, box=(*location, *(location + size)))
+
+    @property
+    def spacing(self):
+        return self.properties.get("openslide.mpp-x", None), self.properties.get("openslide.mpp-y", None)
+
+    @property
+    def vendor(self):
+        return self.properties.get("openslide.vendor", None)
+
+    @property
+    def magnification(self):
+        return self.properties.get("openslide.objective-power", None)
 
     @classmethod
     def from_slide_config(cls, slide_config):

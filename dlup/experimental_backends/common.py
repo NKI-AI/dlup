@@ -6,7 +6,6 @@ from typing import Any, List, Optional, Tuple, Union
 import numpy as np
 import PIL.Image
 
-from dlup._exceptions import UnsupportedSlideError
 from dlup.types import PathLike
 
 
@@ -35,23 +34,6 @@ def numpy_to_pil(tile: np.ndarray) -> PIL.Image:
         raise RuntimeError(f"Incorrect number of channels.")
 
     return PIL.Image.fromarray(tile, mode=mode)
-
-
-def check_if_mpp_is_isotropic(mpp_x: float, mpp_y: float) -> None:
-    """
-    Checks if the mpp is (nearly) isotropic.
-
-    Parameters
-    ----------
-    mpp_x : float
-    mpp_y : float
-
-    Returns
-    -------
-    None
-    """
-    if not np.isclose(mpp_x, mpp_y, rtol=1.0e-2):
-        raise UnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp_x} and {mpp_y}.")
 
 
 class AbstractSlideBackend(abc.ABC):
