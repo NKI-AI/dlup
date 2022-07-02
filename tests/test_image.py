@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from scipy import interpolate
 
 import openslide  # type: ignore
-from dlup import DlupUnsupportedSlideError, SlideImage
+from dlup import SlideImage, UnsupportedSlideError
 
 from .common import *
 
@@ -36,7 +36,7 @@ class TestSlideImage:
     )
     def test_mpp_exceptions(self, openslide_image):
         """Test that we break if the slide has no isotropic resolution."""
-        with pytest.raises(DlupUnsupportedSlideError):
+        with pytest.raises(UnsupportedSlideError):
             wsi = SlideImage(openslide_image)
 
     def test_properties(self, openslide_image):

@@ -12,8 +12,6 @@ from pydantic import BaseModel, Field
 from scipy import interpolate
 
 import openslide  # type: ignore
-from dlup import DlupUnsupportedSlideError, SlideImage
-
 
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
     """Generate a non-uniform sample image."""
