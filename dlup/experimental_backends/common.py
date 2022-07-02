@@ -207,12 +207,12 @@ class AbstractSlideBackend(abc.ABC):
     @property
     def magnification(self) -> Optional[float]:
         """Returns the objective power at which the WSI was sampled."""
-        return NotImplementedError
+        return None
 
     @property
     def vendor(self) -> Optional[str]:
         """Returns the scanner vendor."""
-        return NotImplementedError
+        return None
 
     @abc.abstractmethod
     def close(self):

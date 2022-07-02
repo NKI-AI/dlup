@@ -272,7 +272,7 @@ class SlideImage:
         return self._wsi.properties
 
     @property
-    def vendor(self) -> str:
+    def vendor(self) -> Optional[str]:
         """Returns the scanner vendor."""
         return self._wsi.vendor
 
