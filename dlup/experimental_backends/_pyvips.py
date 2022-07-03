@@ -4,10 +4,10 @@ import os
 from typing import Any, Optional, Tuple
 
 import numpy as np
+import openslide
 import PIL.Image
 import pyvips
 
-import openslide
 from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
 

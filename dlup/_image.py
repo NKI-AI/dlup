@@ -16,10 +16,10 @@ import pathlib
 from typing import Callable, Iterable, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
+import openslide  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
 
-import openslide  # type: ignore
 from dlup import UnsupportedSlideError
 from dlup.experimental_backends import AbstractSlideBackend, ImageBackends
 from dlup.types import PathLike

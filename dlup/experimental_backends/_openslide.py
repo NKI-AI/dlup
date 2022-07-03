@@ -3,8 +3,8 @@
 import os
 
 import numpy as np
-
 import openslide
+
 from dlup import UnsupportedSlideError
 from dlup.experimental_backends.common import AbstractSlideBackend
 

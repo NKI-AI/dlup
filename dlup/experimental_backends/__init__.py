@@ -7,11 +7,11 @@ from functools import lru_cache
 from typing import Callable
 
 import numpy as np
+import openslide
 import PIL
 import pyvips
 import tifffile
 
-import openslide
 from dlup import UnsupportedSlideError
 
 from ._openslide import OpenSlideSlide
