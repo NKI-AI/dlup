@@ -47,6 +47,8 @@ setup(
         "scikit-image>=0.19",
         "shapely @ git+https://github.com/shapely/shapely.git",
         "tifftools",
+        "tifffile>=2022.5.4",
+        "pyvips",
         "tqdm",
         "pillow",
         "openslide-python",

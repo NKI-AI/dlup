@@ -19,6 +19,7 @@ datasets ready to be used for model training and inference.
    installation
    quickstart
    tiling
+   backends
    cli
    examples
    contributing
@@ -32,8 +33,6 @@ Indices and tables
 
 
 
-
-.. _Singularity: https://sylabs.io/singularity/
 .. _OpenSlide: https://openslide.org
 .. _fork of OpenSlide: https://github.com/NKI-AI/OpenSlide
 .. _Github repo: https://github.com/NKI-AI/dlup

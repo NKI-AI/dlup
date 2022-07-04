@@ -3,6 +3,8 @@
 
 """Fixtures, hooks and plugins."""
 
+from dlup import SlideImage
+
 from .common import *
 
 
