@@ -5,9 +5,7 @@
 
 In this module we take care of abstracting the access to whole slide images.
 The main workhorse is SlideImage which takes care of simplifying region extraction
-of discrete-levels pyramidal images in a continuous way, validating relevant
-properties and offering a future aggregated api for possibly multiple different experimental_backends
-other than OpenSlide.
+of discrete-levels pyramidal images in a continuous way, supporting multiple different backends.
 """
 
 import errno
