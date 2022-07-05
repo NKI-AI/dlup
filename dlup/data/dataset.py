@@ -226,10 +226,6 @@ class SlideImageDatasetBase(Dataset[T_co]):
         region_size: Tuple[int, int] = w, h
         scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
-        # pyvips: x, y, w, h, mpp = 100, 2, 100, 0, 100
-        # scaling: 0.022834700627931966
-        # coordinates: (0, 100)
-        # region_size: (100, 100)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
         region = region_view.read_region(coordinates, region_size)
