@@ -189,7 +189,6 @@ class SlideImage:
         if ((location < 0) | ((location + size) > level_size)).any():
             raise ValueError("Requested region is outside level boundaries.")
 
-        # Compute values projected onto the best layer.
         native_level = owsi.get_best_level_for_downsample(1 / scaling)
         native_level_size = owsi.level_dimensions[native_level]
         native_level_downsample = owsi.level_downsamples[native_level]

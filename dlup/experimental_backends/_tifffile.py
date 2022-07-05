@@ -49,7 +49,7 @@ def get_tile(page: tifffile.TiffPage, coordinates: Tuple[Any, ...], size: Tuple[
         Extracted crop.
 
     """
-    y0, x0 = coordinates
+    x0, y0 = coordinates
     w, h = size
 
     if not page.is_tiled:
@@ -123,11 +123,13 @@ class TifffileSlide(AbstractSlideBackend):
 
     def __parse_tifffile(self) -> None:
         """Parse the file with tifffile, extract the resolution, downsample factors and sizes for each level."""
-        unit_dict = {1: 1, 2: 254000, 3: 100000, 4: 1000000, 5: 10000000}
+        unit_dict = {1: 1, 2: 2540, 3: 1000, 4: 10000, 5: 100000}
         self._downsamples.append(1.0)
         for idx, page in enumerate(self._image.pages):
-            self._shapes.append(page.shape[::-1])
+            # Remove channel dimension and swap rows and columns
+            self._shapes.append(page.shape[1::-1])
 
+            # TODO: The order of the x and y tag need to be verified
             x_res = page.tags["XResolution"].value
             x_res = x_res[0] / x_res[1]
             y_res = page.tags["YResolution"].value
@@ -189,6 +191,8 @@ class TifffileSlide(AbstractSlideBackend):
             raise RuntimeError(f"Level {level} not present.")
 
         page = self._image.pages[level]
+        ratio = self._downsamples[level]
+        coordinates = (np.asarray(coordinates) / ratio).astype(int).tolist()
         tile = get_tile(page, coordinates, size)[0]
 
         return numpy_to_pil(tile)
