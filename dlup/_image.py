@@ -23,6 +23,7 @@ from dlup.experimental_backends import AbstractSlideBackend, ImageBackends
 from dlup.types import PathLike
 
 from ._region import BoundaryMode, RegionView
+from .utils.image import check_if_mpp_is_isotropic
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
@@ -300,23 +301,6 @@ class SlideImage:
         props = ("identifier", "vendor", "mpp", "magnification", "size")
         props_str = []
         for key in props:
-            value = getattr(self, key)
+            value = getattr(self, key, None)
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"
-
-
-def check_if_mpp_is_isotropic(mpp_x: float, mpp_y: float) -> None:
-    """
-    Checks if the mpp is (nearly) isotropic and defined.
-
-    Parameters
-    ----------
-    mpp_x : float
-    mpp_y : float
-
-    Returns
-    -------
-    None
-    """
-    if not mpp_x or not mpp_y or not np.isclose(mpp_x, mpp_y, rtol=1.0e-2):
-        raise UnsupportedSlideError(f"cannot deal with slides having anisotropic mpps. Got {mpp_x} and {mpp_y}.")
