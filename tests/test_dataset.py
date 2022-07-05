@@ -14,7 +14,7 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 def test_tiled_level_slide_image_dataset(monkeypatch, dlup_wsi):
     """Test a single image dataset."""
     monkeypatch.setattr(TiledROIsSlideImageDataset, "slide_image", dlup_wsi)
-    monkeypatch.setattr(dlup.SlideImage, "from_file_path", lambda x: dlup_wsi)
+    monkeypatch.setattr(dlup.SlideImage, "from_file_path", lambda x, backend: dlup_wsi)
     dataset = TiledROIsSlideImageDataset.from_standard_tiling("dummy", 1.0, (32, 24), (0, 0), "skip", None)
     tile_data = dataset[0]
     tile = tile_data["image"]
