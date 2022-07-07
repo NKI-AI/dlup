@@ -10,6 +10,7 @@ import numpy as np
 from dlup import SlideImage
 from dlup._experimental_annotation import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset
+from dlup.experimental_backends import ImageBackends
 from dlup.tiling import Grid, TilingMode
 
 
@@ -49,6 +50,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mask_threshold: float = 0.1,
         annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
+        backend: Callable = ImageBackends.OPENSLIDE,
     ):
         self._grids = grids
         self._num_scales = num_scales
@@ -60,7 +62,14 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
             range(idx * self._step_size, (idx + 1) * self._step_size) for idx in range(0, num_scales)
         ]
         super().__init__(
-            path, grids, crop, mask=mask, mask_threshold=mask_threshold, annotations=annotations, transform=None
+            path,
+            grids,
+            crop,
+            mask=mask,
+            mask_threshold=mask_threshold,
+            annotations=annotations,
+            transform=None,
+            backend=backend,
         )
         self.__transform = transform
 
@@ -80,12 +89,13 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         rois: Optional[Tuple[Tuple[int, ...]]] = None,
         mask_threshold: float = 0.1,
         transform: Optional[Callable] = None,
+        backend: Callable = ImageBackends.OPENSLIDE,
     ):
 
         if mpps != sorted(mpps):
             raise ValueError(f"The mpp values should be in increasing order.")
 
-        with SlideImage.from_file_path(path) as slide_image:
+        with SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp
             original_size = tuple(slide_image.size)
 

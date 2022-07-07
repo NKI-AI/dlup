@@ -21,6 +21,7 @@ from PIL import Image
 from dlup import BoundaryMode, SlideImage
 from dlup._experimental_annotation import WsiAnnotations
 from dlup.background import is_foreground
+from dlup.experimental_backends import ImageBackends
 from dlup.tiling import Grid, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 
@@ -131,8 +132,8 @@ LRU_CACHE_SIZE = 32
 
 
 @functools.lru_cache(LRU_CACHE_SIZE)
-def _get_cached_slide_image(path: pathlib.Path):
-    return SlideImage.from_file_path(path)
+def _get_cached_slide_image(path: pathlib.Path, backend):
+    return SlideImage.from_file_path(path, backend=backend)
 
 
 class SlideImageDatasetBase(Dataset[T_co]):
@@ -155,6 +156,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold: float = 0.1,
         annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
+        backend: Callable = ImageBackends.OPENSLIDE,
     ):
         """
         Parameters
@@ -180,6 +182,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self.regions = regions
         self.annotations = annotations
         self.transform = transform
+        self._backend = backend
 
         # Maps from a masked index -> regions index.
         # For instance, let's say we have three regions
@@ -205,7 +208,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
     @property
     def slide_image(self):
         """Return the cached slide image instance associated with this dataset."""
-        return _get_cached_slide_image(self.path)
+        return _get_cached_slide_image(self.path, self._backend)
 
     def __getitem__(self, index):
         slide_image = self.slide_image
@@ -296,6 +299,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold: float = 0.1,
         annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
+        backend: Callable = ImageBackends.OPENSLIDE,
     ):
         self._grids = grids
         regions = []
@@ -312,6 +316,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask_threshold=mask_threshold,
             annotations=annotations,
             transform=transform,
+            backend=backend,
         )
 
     @property
@@ -331,6 +336,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold: float = 0.1,
         annotations: Optional[WsiAnnotations] = None,
         transform: Optional[Callable] = None,
+        backend: Callable = ImageBackends.OPENSLIDE,
     ):
         """Function to be used to tile a WSI on-the-fly.
         Parameters
@@ -353,8 +359,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             0 every region is discarded, 1 requires the whole region to be foreground.
         annotations :
             Annotation class
-        transform :
+        transform : ImageBackends
             Transform to be applied to the sample.
+        backend :
+            Backend to use to read the whole slide image
 
         Example
         -------
@@ -366,7 +374,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         Calling this dataset with an index will return a tile extracted straight from the WSI. This means tiling as
         pre-processing step is not required.
         """
-        with SlideImage.from_file_path(path) as slide_image:
+        with SlideImage.from_file_path(path, backend=backend) as slide_image:
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
         grid = Grid.from_tiling(
             (0, 0),
@@ -376,7 +384,14 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mode=tile_mode,
         )
         return cls(
-            path, [(grid, tile_size, mpp)], crop, mask, mask_threshold, annotations=annotations, transform=transform
+            path,
+            [(grid, tile_size, mpp)],
+            crop,
+            mask,
+            mask_threshold,
+            annotations=annotations,
+            transform=transform,
+            backend=backend,
         )
 
     def __getitem__(self, index):

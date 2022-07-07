@@ -17,9 +17,6 @@ of the automatic masking and thresholding.
     INPUT_FILE_PATH = "TCGA-B6-A0IG-01Z-00-DX1.4238CB6E-0561-49FD-9C49-9B8AEAFC4618.svs"
     slide_image = SlideImage.from_file_path(INPUT_FILE_PATH)
 
-    # Level 0 ROI size
-    ROI_SIZE = (30000, 20000)
-    ROI_COORDINATES = (100000, 50000)
     TILE_SIZE = (10, 10)
     TARGET_MPP = 100
 
@@ -33,9 +30,8 @@ of the automatic masking and thresholding.
     for d in dataset:
         tile = d["image"]
         coords = np.array(d["coordinates"])
-        pil_image = Image.fromarray(tile)
         box = tuple(np.array((*coords, *(coords + TILE_SIZE))).astype(int))
-        background.paste(pil_image, box)
+        background.paste(tile, box)
         draw = ImageDraw.Draw(background)
         draw.rectangle(box, outline="red")
 
@@ -70,9 +66,8 @@ of the automatic masking and thresholding.
         tile = d["image"]
         coords = np.array(d["coordinates"])
         print(coords, d["grid_local_coordinates"], d["grid_index"])
-        pil_image = Image.fromarray(tile)
         box = tuple(np.array((*coords, *(coords + TILE_SIZE))).astype(int))
-        background.paste(pil_image, box)
+        background.paste(tile, box)
         draw = ImageDraw.Draw(background)
         draw.rectangle(box, outline="red")
 

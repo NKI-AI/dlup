@@ -1,6 +1,5 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-import os
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -8,11 +7,13 @@ import openslide
 import PIL.Image
 import pyvips
 
+from dlup import UnsupportedSlideError
 from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
+from dlup.utils.image import check_if_mpp_is_isotropic
 
 
-def open_slide(filename: os.PathLike) -> "PyVipsSlide":
+def open_slide(filename: PathLike) -> "PyVipsSlide":
     """
     Read slide with pyvips.
 
@@ -29,7 +30,7 @@ class PyVipsSlide(AbstractSlideBackend):
     Backend for pyvips.
     """
 
-    def __init__(self, filename: os.PathLike) -> None:
+    def __init__(self, filename: PathLike) -> None:
         """
         Parameters
         ----------
@@ -65,7 +66,7 @@ class PyVipsSlide(AbstractSlideBackend):
             self._images.append(pyvips.Image.tiffload(str(path), page=level))
 
         # Each tiff page has a resolution
-        unit_dict = {"cm": 10000, "centimeter": 10000}
+        unit_dict = {"cm": 100, "centimeter": 100}
         self._downsamples.append(1.0)
         for idx, image in enumerate(self._images):
             mpp_x = unit_dict[image.get("resolution-unit")] / float(image.get("xres"))
@@ -90,16 +91,27 @@ class PyVipsSlide(AbstractSlideBackend):
             self._images.append(pyvips.Image.openslideload(str(path), level=level))
 
         for idx, image in enumerate(self._images):
-            self._shapes.append(
-                (int(image.get(f"openslide.level[{idx}].width")), int(image.get(f"openslide.level[{idx}].height")))
+            openslide_shape = (
+                int(image.get(f"openslide.level[{idx}].width")),
+                int(image.get(f"openslide.level[{idx}].height")),
             )
+            pyvips_shape = (image.width, image.height)
+            if not openslide_shape == pyvips_shape:
+                raise UnsupportedSlideError(
+                    f"Reading {path} failed as openslide metadata reports different shapes than pyvips. "
+                    f"Got {openslide_shape} and {pyvips_shape}."
+                )
+
+            self._shapes.append(pyvips_shape)
 
         for idx, image in enumerate(self._images):
             self._downsamples.append(float(image.get(f"openslide.level[{idx}].downsample")))
 
         mpp_x = float(self._images[0].get("openslide.mpp-x"))
         mpp_y = float(self._images[0].get("openslide.mpp-y"))
-        self._mpps = [mpp_x * downsample for downsample in self._downsamples]
+        check_if_mpp_is_isotropic(mpp_x, mpp_y)
+
+        self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
 
     @property
     def properties(self):
