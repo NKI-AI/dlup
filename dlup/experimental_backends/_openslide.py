@@ -9,9 +9,10 @@ import PIL.Image
 
 from dlup import UnsupportedSlideError
 from dlup.experimental_backends.common import AbstractSlideBackend
+from dlup.types import PathLike
 
 
-def open_slide(filename: os.PathLike) -> "OpenSlideSlide":
+def open_slide(filename: PathLike) -> "OpenSlideSlide":
     """
     Read slide with openslide.
 

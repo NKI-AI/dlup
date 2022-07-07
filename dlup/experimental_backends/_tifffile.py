@@ -8,9 +8,10 @@ import PIL.Image
 import tifffile
 
 from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
+from dlup.types import PathLike
 
 
-def open_slide(filename: os.PathLike) -> "TifffileSlide":
+def open_slide(filename: PathLike) -> "TifffileSlide":
     """
     Read slide with tifffile.
 

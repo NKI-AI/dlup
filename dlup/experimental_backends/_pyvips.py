@@ -14,7 +14,7 @@ from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_isotropic
 
 
-def open_slide(filename: os.PathLike) -> "PyVipsSlide":
+def open_slide(filename: PathLike) -> "PyVipsSlide":
     """
     Read slide with pyvips.
 
