@@ -375,7 +375,8 @@ class WsiAnnotations:
 
         filtered_annotations = []
         for k in self.available_labels:
-            curr_annotations = self._annotation_trees[k].query(query_box)
+            curr_indices = self._annotation_trees[k].query(query_box)
+            curr_annotations = self._annotation_trees[k].geometries[curr_indices]
             for v in curr_annotations:
                 filtered_annotations.append((k, v))
 
