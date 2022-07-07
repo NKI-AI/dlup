@@ -1,6 +1,5 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-import os
 from typing import Any, Dict, Tuple
 
 import numpy as np
@@ -110,7 +109,7 @@ class TifffileSlide(AbstractSlideBackend):
     Backend for tifffile.
     """
 
-    def __init__(self, filename: os.PathLike) -> None:
+    def __init__(self, filename: PathLike) -> None:
         """
         Parameters
         ----------

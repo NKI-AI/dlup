@@ -1,6 +1,5 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-import os
 from typing import Tuple, Union
 
 import numpy as np
@@ -29,7 +28,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
     Backend for openslide.
     """
 
-    def __init__(self, filename: os.PathLike):
+    def __init__(self, filename: PathLike):
         """
         Parameters
         ----------

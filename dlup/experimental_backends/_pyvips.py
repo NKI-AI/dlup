@@ -1,6 +1,5 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-import os
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -31,7 +30,7 @@ class PyVipsSlide(AbstractSlideBackend):
     Backend for pyvips.
     """
 
-    def __init__(self, filename: os.PathLike) -> None:
+    def __init__(self, filename: PathLike) -> None:
         """
         Parameters
         ----------
