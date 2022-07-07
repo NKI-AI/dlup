@@ -2,7 +2,7 @@
 # Copyright (c) dlup contributors
 import os
 import pathlib
-from dataclasses import dataclass
+from enum import Enum
 from functools import lru_cache
 from typing import Callable
 
@@ -123,11 +123,13 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
         raise UnsupportedSlideError(f"Cannot read {filename} with tifffile.")
 
 
-@dataclass
-class ImageBackends:
+class ImageBackends(Enum):
     """Available image experimental_backends."""
 
     OPENSLIDE: Callable = OpenSlideSlide
     PYVIPS: Callable = PyVipsSlide
     TIFFFILE: Callable = TifffileSlide
     AUTODETECT: Callable = autodetect_backend
+
+    def __call__(self, *args):
+        return self.value(*args)
