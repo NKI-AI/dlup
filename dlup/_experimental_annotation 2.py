@@ -375,11 +375,7 @@ class WsiAnnotations:
 
         filtered_annotations = []
         for k in self.available_labels:
-            curr_tree_indices = self._annotation_trees[k].query(query_box)
-            # in older versions of shapely, this returns
-            # polygons. However, since commit 9b3fa0ae3dfa802a56bb01b21ccf8411a20d5a9d, this only returns the indices.
-            # the srtree now has the geometries a property, which can be indexed.
-            curr_annotations = self._annotation_trees[k].index.geometries[curr_tree_indices]
+            curr_annotations = self._annotation_trees[k].query(query_box)
             for v in curr_annotations:
                 filtered_annotations.append((k, v))
 
