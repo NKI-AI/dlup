@@ -110,9 +110,13 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: Union[str, None] = None,
-        backend: Callable = ImageBackends.OPENSLIDE,
+        backend: Union[str, Callable] = ImageBackends.OPENSLIDE,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
+
+        if isinstance(backend, str):
+            backend = ImageBackends[backend]
+
         if not wsi_file_path.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:
