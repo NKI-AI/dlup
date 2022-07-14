@@ -123,7 +123,7 @@ class TifffileSlide(AbstractSlideBackend):
 
     def __parse_tifffile(self) -> None:
         """Parse the file with tifffile, extract the resolution, downsample factors and sizes for each level."""
-        unit_dict = {1: 1, 2: 2540, 3: 1000, 4: 10000, 5: 100000}
+        unit_dict = {1: 10, 2: 25400, 3: 10000, 4: 100000, 5: 1000000}
         self._downsamples.append(1.0)
         for idx, page in enumerate(self._image.pages):
             # Remove channel dimension and swap rows and columns
