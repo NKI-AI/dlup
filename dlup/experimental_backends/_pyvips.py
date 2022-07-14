@@ -66,7 +66,7 @@ class PyVipsSlide(AbstractSlideBackend):
             self._images.append(pyvips.Image.tiffload(str(path), page=level))
 
         # Each tiff page has a resolution
-        unit_dict = {"cm": 100, "centimeter": 100}
+        unit_dict = {"cm": 1000, "centimeter": 1000}
         self._downsamples.append(1.0)
         for idx, image in enumerate(self._images):
             mpp_x = unit_dict[image.get("resolution-unit")] / float(image.get("xres"))
