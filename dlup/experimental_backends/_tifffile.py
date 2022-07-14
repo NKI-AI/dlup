@@ -72,7 +72,7 @@ def get_tile(page: tifffile.TiffPage, coordinates: Tuple[Any, ...], size: Tuple[
 
     tile_per_line = int(np.ceil(image_width / tile_width))
 
-    out = np.empty(
+    out = np.zeros(
         (page.imagedepth, (tile_y1 - tile_y0) * tile_height, (tile_x1 - tile_x0) * tile_width, page.samplesperpixel),
         dtype=page.dtype,
     )
@@ -89,6 +89,10 @@ def get_tile(page: tifffile.TiffPage, coordinates: Tuple[Any, ...], size: Tuple[
 
             offset = page.dataoffsets[index]
             bytecount = page.databytecounts[index]
+
+            # Some files written by ASAP have an empty bytecount if it is empty.
+            if not bytecount:
+                continue
 
             fh.seek(offset)
             data = fh.read(bytecount)
