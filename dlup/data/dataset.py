@@ -245,7 +245,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
             annotations = [("annotations", self.annotations)]
 
         sample.update(
-            {name: annotation.read_region(coordinates, region_size, scaling) for name, annotation in annotations}
+            {name: annotation.read_region(coordinates, scaling, region_size) for name, annotation in annotations}
         )
 
         if self.transform:

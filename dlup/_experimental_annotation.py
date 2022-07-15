@@ -324,8 +324,8 @@ class WsiAnnotations:
     def read_region(
         self,
         coordinates: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
-        region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
+        region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
     ) -> List[Union[Polygon, Point]]:
         """
         Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
