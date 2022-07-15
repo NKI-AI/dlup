@@ -27,6 +27,8 @@ from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
+_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
+_AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
@@ -154,7 +156,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[WsiAnnotations] = None,
+        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -238,8 +240,13 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "region_index": region_index,
         }
 
-        if self.annotations is not None:
-            sample["annotations"] = self.annotations.read_region(coordinates, region_size, scaling)
+        annotations = self.annotations
+        if not isinstance(self.annotations, list):
+            annotations = [("annotations", self.annotations)]
+
+        sample.update(
+            {name: annotation.read_region(coordinates, region_size, scaling) for name, annotation in annotations}
+        )
 
         if self.transform:
             sample = self.transform(sample)
@@ -297,7 +304,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[WsiAnnotations] = None,
+        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -334,7 +341,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[WsiAnnotations] = None,
+        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
