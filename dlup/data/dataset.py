@@ -11,7 +11,7 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast, Dict
 
 import numpy as np
 import PIL
@@ -29,6 +29,7 @@ T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
+_LabelTypes = Union[str, bool, int, float]
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
@@ -37,6 +38,8 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
     mpp: float
     path: pathlib.Path
     region_index: int
+    labels: Optional[Dict[str, _LabelTypes]]
+    annotations: Optional[Dict[str, Callable]]
 
 
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
@@ -157,6 +160,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
+        labels: Optional[List[str, _LabelTypes]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -174,15 +178,18 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
         annotations :
-            Annotation class
+            Annotation classes.
+        labels : list
+            Image-level labels. Will be added to each individual tile.
         transform :
-            Transforming function.
+            Transforming function. To be used for augmentations or other model specific preprocessing.
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
         self._crop = crop
         self.regions = regions
         self.annotations = annotations
+        self.labels = labels
         self.transform = transform
         self._backend = backend
 
@@ -244,9 +251,13 @@ class SlideImageDatasetBase(Dataset[T_co]):
         if not isinstance(self.annotations, list):
             annotations = [("annotations", self.annotations)]
 
-        sample.update(
-            {name: annotation.read_region(coordinates, scaling, region_size) for name, annotation in annotations}
-        )
+        # TODO: Shouldn't these be named tuples? Easier to
+        if annotations:
+            sample["annotations"] = {
+                name: annotation.read_region(coordinates, scaling, region_size) for name, annotation in annotations
+            }
+        if self.labels:
+            sample["labels"] = {k: v for k, v in self.labels}
 
         if self.transform:
             sample = self.transform(sample)

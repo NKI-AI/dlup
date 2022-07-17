@@ -45,6 +45,7 @@ class AnnotationType(Enum):
     POINT = "point"
     BOX = "box"
     POLYGON = "polygon"
+    IMAGELEVEL = "imagelevel"
 
 
 class Point(shapely.geometry.Point):
@@ -123,7 +124,7 @@ _POSTPROCESSORS = {
 class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
-    def __init__(self, label: str, coordinates, type: AnnotationType, mpp: Optional[float] = None):
+    def __init__(self, label: str, type: AnnotationType, coordinates: Optional, mpp: Optional[float] = None):
         self.__type = type
         self._annotations = coordinates
         self.__mpp = mpp
@@ -153,7 +154,7 @@ class WsiSingleLabelAnnotation:
     def as_list(self) -> List:
         return self._annotations
 
-    def as_geo_json(self) -> Dict[str, Any]:
+    def as_geojson(self) -> Dict[str, Any]:
         """
         Return the annotation as GeoJSON format. Adds additional keys for set mpp and label.
         **WARNING**: These extra keys are NOT read by the `WsiAnnotations.from_geojson` functions, and are there just
@@ -201,20 +202,20 @@ class WsiAnnotations:
     @classmethod
     def from_geojson(
         cls: Type[_TWsiAnnotations],
-        geo_jsons: Iterable[PathLike],
+        geojsons: Iterable[PathLike],
         labels: List[str],
         mpp: Optional[Union[List[float], float]] = None,
         label_map: Optional[Dict[str, AnnotationType]] = None,
     ) -> _TWsiAnnotations:
         """
-        Constructs an WsiAnnotations object from geo_json.
+        Constructs an WsiAnnotations object from geojson.
 
         Parameters
         ----------
-        geo_jsons : Iterable
+        geojsons : Iterable
             List of geojsons representing objects, where each one is an individual annotation.
         labels : List
-            Label names for the geo_jsons
+            Label names for the geojsons
         mpp : List[float] or float, optional
             The mpp in which the annotation is defined. If `None`, will assume label 0.
         label_map : Dict, optional
@@ -230,7 +231,7 @@ class WsiAnnotations:
         if isinstance(mpp, float):
             mpp = [mpp] * len(labels)
 
-        for idx, (label, path) in enumerate(zip(labels, geo_jsons)):
+        for idx, (label, path) in enumerate(zip(labels, geojsons)):
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
@@ -249,7 +250,7 @@ class WsiAnnotations:
                 curr_mpp = None if mpp is None else mpp[idx]
 
                 annotations.append(
-                    WsiSingleLabelAnnotation(label=label, mpp=curr_mpp, coordinates=data, type=annotation_types[0])
+                    WsiSingleLabelAnnotation(label=label, type=annotation_types[0], coordinates=data, mpp=curr_mpp)
                 )
 
         return cls(annotations)
@@ -309,7 +310,7 @@ class WsiAnnotations:
 
                     if label not in annotations:
                         annotations[label] = WsiSingleLabelAnnotation(
-                            label=label, mpp=mpp, coordinates=[coordinates], type=annotation_type
+                            label=label, type=annotation_type, coordinates=[coordinates], mpp=mpp
                         )
                     else:
                         annotations[label].append(coordinates)
@@ -317,6 +318,14 @@ class WsiAnnotations:
                     opened_annotations += 1
 
         return cls(list(annotations.values()))
+
+    @classmethod
+    def from_labels(cls, labels: Iterable[Tuple[str, Union[str, bool, int, float]]]):
+        annotations = [
+            WsiSingleLabelAnnotation(label=label, type=AnnotationType.IMAGELEVEL, coordinates=values, mpp=None)
+            for label, values in labels
+        ]
+        return cls(annotations)
 
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
@@ -337,7 +346,7 @@ class WsiAnnotations:
          overwrite the previous part. A function `dlup.data.transforms.shapely_to_mask` can be used to convert such
          outputs to a mask.
          3. The annotations are cropped to the region-of-interest, or filtered in case of points. Polygons which
-          convert into points after intersection are removed.
+          convert into points after intersection are removed. If it's a image-level label, nothing happens.
          4. The annotation is rescaled and shifted to the origin to match the local patch coordinate system.
 
          The final returned data is a list of tuples with `(annotation_name, annotation)`.
@@ -355,20 +364,21 @@ class WsiAnnotations:
 
         Examples
         --------
-        1. To read geo_json annotations and convert them into masks:
+        1. To read geojson annotations and convert them into masks:
 
         >>> from pathlib import Path
         >>> from dlup import SlideImage
         >>> import numpy as np
         >>> from rasterio.features import rasterize
-        >>> wsi = SlideImage.from_file_path(Path("path/to/.svs"))
+        >>> wsi = SlideImage.from_file_path(Path("path/to/image.svs"))
         >>> wsi = wsi.get_scaled_view(scaling=0.5)
         >>> wsi = wsi.read_region(location=(0,0), size=wsi.size)
-        >>> annotations = WsiAnnotations.from_geojson([Path("path/to/geo_json")], labels=["class_name"])
-        >>> polygons: list[Polygons] = annotations.read_region(coordinates=(0,0), region_size=wsi.size, scaling= 0.01)
+        >>> annotations = WsiAnnotations.from_geojson([Path("path/to/geojson.json")], labels=["class_name"])
+        >>> polygons: list[Polygons] = annotations.read_region(coordinates=(0,0), region_size=wsi.size, scaling=0.01)
         >>> mask = np.zeros(wsi.size, dtype=np.uint8)
         >>> mask = rasterize(polygons, out_shape=(wsi.size[1], wsi.size[0]))
         """
+
         box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
