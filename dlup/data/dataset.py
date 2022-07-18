@@ -11,7 +11,7 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast, Dict
+from typing import Callable, Dict, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
@@ -302,6 +302,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask=None,\
             mask_threshold=0.5,\
             annotations=None,\
+            labels=[("msi", True),]
             transform=YourTransform()\
          )
     >>> sample = dlup_dataset[5]
@@ -316,6 +317,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
+        labels: Optional[List[str, _LabelTypes]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -333,6 +335,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask=mask,
             mask_threshold=mask_threshold,
             annotations=annotations,
+            labels=labels,
             transform=transform,
             backend=backend,
         )
