@@ -8,7 +8,7 @@ from typing import Callable, Iterable, List, Optional, Tuple, Union
 import numpy as np
 
 from dlup import SlideImage
-from dlup._experimental_annotation import WsiAnnotations
+from dlup.experimental_annotations import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackends
 from dlup.tiling import Grid, TilingMode
