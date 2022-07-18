@@ -414,6 +414,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask,
             mask_threshold,
             annotations=annotations,
+            labels=labels,
             transform=transform,
             backend=backend,
         )
