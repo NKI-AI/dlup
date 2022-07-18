@@ -249,10 +249,11 @@ class SlideImageDatasetBase(Dataset[T_co]):
         if not isinstance(self.annotations, list):
             annotations = [("annotations", self.annotations)]
 
-        # TODO: Shouldn't these be named tuples? Easier to
         if annotations:
             sample["annotations"] = {
-                name: annotation.read_region(coordinates, scaling, region_size) for name, annotation in annotations
+                name: annotation.read_region(coordinates, scaling, region_size)
+                for name, annotation in annotations
+                if annotation
             }
 
         if self.labels:
