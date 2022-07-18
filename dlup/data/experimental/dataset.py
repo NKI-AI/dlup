@@ -54,7 +54,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[WsiAnnotations] = None,
-        labels: Optional[List[str, _LabelTypes]] = None,
+        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):

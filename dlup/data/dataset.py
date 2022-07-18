@@ -160,7 +160,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
-        labels: Optional[List[str, _LabelTypes]] = None,
+        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -317,7 +317,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
-        labels: Optional[List[str, _LabelTypes]] = None,
+        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -356,6 +356,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
+        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -380,6 +381,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             0 every region is discarded, 1 requires the whole region to be foreground.
         annotations :
             Annotation class
+        labels : list
+            Image-level labels. Will be added to each individual tile.
         transform : ImageBackends
             Transform to be applied to the sample.
         backend :
