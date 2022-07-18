@@ -319,14 +319,6 @@ class WsiAnnotations:
 
         return cls(list(annotations.values()))
 
-    @classmethod
-    def from_labels(cls, labels: Iterable[Tuple[str, Union[str, bool, int, float]]]):
-        annotations = [
-            WsiSingleLabelAnnotation(label=label, type=AnnotationType.IMAGELEVEL, coordinates=values, mpp=None)
-            for label, values in labels
-        ]
-        return cls(annotations)
-
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
 
