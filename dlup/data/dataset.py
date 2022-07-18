@@ -38,8 +38,6 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
     mpp: float
     path: pathlib.Path
     region_index: int
-    labels: Optional[Dict[str, _LabelTypes]]
-    annotations: Optional[Dict[str, Callable]]
 
 
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
@@ -256,6 +254,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
             sample["annotations"] = {
                 name: annotation.read_region(coordinates, scaling, region_size) for name, annotation in annotations
             }
+
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
 

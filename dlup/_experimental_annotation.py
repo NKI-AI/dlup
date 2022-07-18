@@ -124,7 +124,7 @@ _POSTPROCESSORS = {
 class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
-    def __init__(self, label: str, type: AnnotationType, coordinates: Optional, mpp: Optional[float] = None):
+    def __init__(self, label: str, type: AnnotationType, coordinates, mpp: Optional[float] = None):
         self.__type = type
         self._annotations = coordinates
         self.__mpp = mpp
