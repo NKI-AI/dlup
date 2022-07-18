@@ -3,15 +3,19 @@
 """Experimental dataset functions, might e.g. lack tests, or requires input from users"""
 
 import pathlib
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 
 from dlup import SlideImage
-from dlup._experimental_annotation import WsiAnnotations
+from dlup.experimental_annotations import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackends
 from dlup.tiling import Grid, TilingMode
+
+_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
+_AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
+_LabelTypes = Union[str, bool, int, float]
 
 
 class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
@@ -32,6 +36,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
             mask=None,\
             mask_threshold=0.5,\
             annotations=None,\
+            labels=[("msi", True),],\
             transform=YourTransform()\
          )
     >>> sample = dlup_dataset[5]
@@ -49,6 +54,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[WsiAnnotations] = None,
+        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -68,6 +74,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
             mask=mask,
             mask_threshold=mask_threshold,
             annotations=annotations,
+            labels=labels,
             transform=None,
             backend=backend,
         )
