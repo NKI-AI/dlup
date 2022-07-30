@@ -128,6 +128,7 @@ class Grid(collections.abc.Sequence):
     def __init__(self, coordinates: List[np.ndarray], order: Union[str, GridOrder] = GridOrder.F):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
+        self.order = order
 
         if isinstance(order, str):
             order = GridOrder[order]

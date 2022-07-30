@@ -48,7 +48,7 @@ setup(
         "shapely @ git+https://github.com/shapely/shapely.git",
         "tifftools",
         "tifffile>=2022.5.4",
-        "pyvips",
+        "pyvips>=2.2.1",
         "tqdm",
         "pillow",
         "openslide-python",
