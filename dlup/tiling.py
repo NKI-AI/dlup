@@ -35,7 +35,7 @@ class GridOrder(str, Enum):
     """
 
     C = "C"
-    FORTRAN = "F"
+    F = "F"
 
 
 def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarray:
@@ -125,9 +125,12 @@ def tiles_grid_coordinates(
 class Grid(collections.abc.Sequence):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: List[np.ndarray], order: GridOrder = GridOrder.FORTRAN):
+    def __init__(self, coordinates: List[np.ndarray], order: Union[str, GridOrder] = GridOrder.F):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
+
+        if isinstance(order, str):
+            order = GridOrder[order]
         self.order = order
 
     @classmethod
@@ -138,7 +141,7 @@ class Grid(collections.abc.Sequence):
         tile_size: _GenericNumberArray,
         tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
         mode: TilingMode = TilingMode.skip,
-        order: GridOrder = GridOrder.FORTRAN,
+        order: GridOrder = GridOrder.F,
     ):
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)

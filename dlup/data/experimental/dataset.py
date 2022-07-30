@@ -11,7 +11,7 @@ from dlup import SlideImage
 from dlup._experimental_annotation import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackends
-from dlup.tiling import Grid, TilingMode
+from dlup.tiling import Grid, GridOrder, TilingMode
 
 
 class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
@@ -84,6 +84,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.skip,
+        grid_order: GridOrder = GridOrder.F,
         crop: bool = False,
         mask: Optional[np.ndarray] = None,
         rois: Optional[Tuple[Tuple[int, ...]]] = None,
@@ -127,6 +128,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
                     tile_size=tile_size,
                     tile_overlap=curr_tile_overlap + np.asarray(tile_overlap) / scaling,
                     mode=tile_mode,
+                    order=grid_order,
                 )
 
                 grids.append((curr_grid, tile_size, original_mpp * scaling))
