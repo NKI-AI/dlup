@@ -280,7 +280,7 @@ class SlideImage:
 
     @property
     def size(self) -> Tuple[int, int]:
-        """Returns the highest resolution image size in pixels."""
+        """Returns the highest resolution image size in pixels. Returns in (width, height)."""
         return self._wsi.dimensions
 
     @property

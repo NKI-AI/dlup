@@ -365,7 +365,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         transform : ImageBackends
             Transform to be applied to the sample.
         backend :
-            Backend to use to read the whole slide image
+            Backend to use to read the whole slide image.
 
         Example
         -------

@@ -51,7 +51,7 @@ class TifffileImageWriter(ImageWriter):
 
     def __init__(
         self,
-        size: Tuple[int, int, int],
+        size: Union[Tuple[int, int, int], Tuple[int, int]],
         mpp: Union[float, Tuple[float, float]],
         tile_height: int = 512,
         tile_width: int = 512,
@@ -59,7 +59,26 @@ class TifffileImageWriter(ImageWriter):
         compression: Optional[TiffCompression] = TiffCompression.JPEG,
         quality: Optional[int] = 100,
     ):
+        """
+        Writer based on tifffile.
+
+        Parameters
+        ----------
+        size : Tuple
+            Size of the image to be written. This is defined as (height, width, num_channels),
+            or rather (rows, columns, num_channels) and is important value to get correct.
+            In case of a mask with a single channel the value is given by (rows, columns).
+        mpp : int, or Tuple[int, int]
+        tile_height : int
+        tile_width : int
+        pyramid : bool
+            Whether to write a pyramidal image.
+        compression
+        quality
+        """
         self._tile_size = (tile_height, tile_width)
+        if len(size) == 2:
+            size = (*size, 1)
         self._size = size
 
         if isinstance(mpp, float):
@@ -87,7 +106,9 @@ class TifffileImageWriter(ImageWriter):
 
         native_size = self._size[:-1]
         software = f"dlup {dlup.__version__} with tifffile.py backend"
-        n_subresolutions = int(np.ceil(np.log2(np.asarray(native_size) / np.asarray(self._tile_size))).min())
+        n_subresolutions = 0
+        if self._pyramid:
+            n_subresolutions = int(np.ceil(np.log2(np.asarray(native_size) / np.asarray(self._tile_size))).min())
         shapes = [
             np.floor(np.asarray(native_size) / 2**n).astype(int).tolist() for n in range(0, n_subresolutions + 1)
         ]
@@ -103,15 +124,17 @@ class TifffileImageWriter(ImageWriter):
         }
 
         _compression = TIFFFILE_COMPRESSION[self._compression.value]
+
+        is_rgb = self._size[-1] in (3, 4)
         with tifffile.TiffWriter(temp_filename, bigtiff=True) as tiff_writer:
             tiff_writer.write(
                 iterator,  # noqa
-                shape=(*shapes[0], 3),
+                shape=(*shapes[0], self._size[-1]) if is_rgb else (*shapes[0], 1),
                 dtype="uint8",
                 subifds=None,
                 resolution=(*native_resolution, "CENTIMETER"),  # noqa
                 metadata=metadata,
-                photometric="rgb",
+                photometric="rgb" if is_rgb else "minisblack",
                 compression=_compression if not self._quality else (_compression, self._quality),
                 tile=self._tile_size,
                 software=software,
@@ -120,14 +143,14 @@ class TifffileImageWriter(ImageWriter):
             for level in range(0, n_subresolutions):
                 with tifffile.TiffReader(temp_filename) as tiff_reader:
                     page = tiff_reader.pages[level]
-                    tile_iterator = _new_tile_iterator(page, self._tile_size, shapes[level], scale=2)
+                    tile_iterator = _new_tile_iterator(page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb)
                     tiff_writer.write(
                         tile_iterator,  # noqa
-                        shape=(*shapes[level + 1], 3),
+                        shape=(*shapes[level + 1], self._size[-1]) if is_rgb else (*shapes[level + 1], 1),
                         dtype="uint8",
                         subfiletype=1,
                         resolution=(*native_resolution / 2 ** (level + 1), "CENTIMETER"),  # noqa
-                        photometric="rgb",
+                        photometric="rgb" if is_rgb else "minisblack",
                         compression=_compression if not self._quality else (_compression, self._quality),
                         tile=self._tile_size,
                         software=software,
@@ -154,7 +177,9 @@ def _pil_grid_iterator(pil_image: PIL.Image, tile_size: Tuple[int, int]):
         yield cropped_array
 
 
-def _new_tile_iterator(page: tifffile.TiffPage, tile_size: Tuple[int, int], region_size: Tuple[int, int], scale: int):
+def _new_tile_iterator(
+    page: tifffile.TiffPage, tile_size: Tuple[int, int], region_size: Tuple[int, int], scale: int, is_rgb: bool = True
+):
     resized_tile_size = tuple(map(lambda x: x * scale, tile_size))
     grid = Grid.from_tiling(
         (0, 0),
@@ -170,4 +195,7 @@ def _new_tile_iterator(page: tifffile.TiffPage, tile_size: Tuple[int, int], regi
 
         tile = get_tile(page, coordinates[::-1], size[::-1])[0]
         vips_tile = numpy_to_vips(tile).resize(1 / scale)
-        yield vips_to_numpy(vips_tile)
+        output = vips_to_numpy(vips_tile)
+        if not is_rgb:
+            output = output[..., 0]
+        yield output
