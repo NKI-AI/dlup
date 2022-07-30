@@ -6,7 +6,7 @@ import numpy as np
 import PIL.Image
 import pyvips
 
-from dlup.experimental_writers import TiffCompression, TifffileImageWriter
+from dlup.writers import TiffCompression, TifffileImageWriter
 from dlup.utils.pyvips import vips_to_numpy
 
 
