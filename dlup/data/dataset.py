@@ -19,7 +19,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
-from dlup._experimental_annotation import WsiAnnotations
+from dlup.experimental_annotations import WsiAnnotations
 from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackends
 from dlup.tiling import Grid, GridOrder, TilingMode
@@ -27,6 +27,9 @@ from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
+_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
+_AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
+_LabelTypes = Union[str, bool, int, float]
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
@@ -154,7 +157,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[WsiAnnotations] = None,
+        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
+        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -172,15 +176,18 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
         annotations :
-            Annotation class
+            Annotation classes.
+        labels : list
+            Image-level labels. Will be added to each individual tile.
         transform :
-            Transforming function.
+            Transforming function. To be used for augmentations or other model specific preprocessing.
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
         self._crop = crop
         self.regions = regions
         self.annotations = annotations
+        self.labels = labels
         self.transform = transform
         self._backend = backend
 
@@ -238,8 +245,19 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "region_index": region_index,
         }
 
-        if self.annotations is not None:
-            sample["annotations"] = self.annotations.read_region(coordinates, region_size, scaling)
+        annotations = self.annotations
+        if not isinstance(self.annotations, list):
+            annotations = [("annotations", self.annotations)]
+
+        if annotations:
+            sample["annotations"] = {
+                name: annotation.read_region(coordinates, scaling, region_size)
+                for name, annotation in annotations
+                if annotation
+            }
+
+        if self.labels:
+            sample["labels"] = {k: v for k, v in self.labels}
 
         if self.transform:
             sample = self.transform(sample)
@@ -284,6 +302,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask=None,\
             mask_threshold=0.5,\
             annotations=None,\
+            labels=[("msi", True),]
             transform=YourTransform()\
          )
     >>> sample = dlup_dataset[5]
@@ -297,7 +316,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[WsiAnnotations] = None,
+        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
+        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -315,6 +335,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask=mask,
             mask_threshold=mask_threshold,
             annotations=annotations,
+            labels=labels,
             transform=transform,
             backend=backend,
         )
@@ -335,7 +356,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[WsiAnnotations] = None,
+        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
+        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -362,6 +384,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             0 every region is discarded, 1 requires the whole region to be foreground.
         annotations :
             Annotation class
+        labels : list
+            Image-level labels. Will be added to each individual tile.
         transform : ImageBackends
             Transform to be applied to the sample.
         backend :
@@ -394,6 +418,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask,
             mask_threshold,
             annotations=annotations,
+            labels=labels,
             transform=transform,
             backend=backend,
         )
