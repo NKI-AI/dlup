@@ -23,10 +23,12 @@ class TiffCompression(str, Enum):
     JPEG = "jpeg"  # Jpeg compression
     DEFLATE = "deflate"  # zip compression
     PACKBITS = "packbits"  # packbits compression
-    #     LZW = "lzw"  # LZW compression, not implemented in tifffile
+    LZW = "lzw"  # LZW compression, not implemented in tifffile
     WEBP = "webp"  # WEBP compression
     ZSTD = "zstd"  # ZSTD compression
     JP2K = "jp2k"  # JP2K compression
+    JP2K_LOSSY = "jp2k_lossy"
+    PNG = "png"
 
 
 TIFFFILE_COMPRESSION = {
@@ -39,6 +41,8 @@ TIFFFILE_COMPRESSION = {
     "webp": "webp",
     "zstd": "zstd",
     "jp2k": "jpeg2000",
+    "jp2k_lossy": "jpeg_2000_lossy",
+    "png": "png",
 }
 
 
