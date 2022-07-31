@@ -81,9 +81,7 @@ class TifffileImageWriter(ImageWriter):
         quality
         """
         self._tile_size = (tile_height, tile_width)
-        if len(size) == 2:
-            size = (*size, 1)
-        self._size = size
+        self._size = (*size, 1) if len(size) == 2 else size
 
         if isinstance(mpp, float):
             mpp = (mpp, mpp)
