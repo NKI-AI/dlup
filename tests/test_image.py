@@ -92,7 +92,7 @@ class TestSlideImage:
         box = (*out_region_location, *(out_region_location + out_region_size))
         expected_level_box = np.array(box) / relative_scaling
         pil_extracted_region = expected_level_image.resize(
-            out_region_size, resample=PIL.Image.LANCZOS, box=expected_level_box
+            out_region_size, resample=PIL.Image.Resampling.LANCZOS, box=expected_level_box
         )
 
         # Spy on how our mock object was called

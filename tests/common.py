@@ -101,7 +101,7 @@ class OpenSlideImageMock(openslide.ImageSlide):
         image = np.pad(image, [(0, 1), (0, 1), (0, 0)])
         image = PIL.Image.fromarray(image)
         location = np.asarray(location) / self.level_downsamples[level]
-        return image.resize(size, resample=PIL.Image.LANCZOS, box=(*location, *(location + size)))
+        return image.resize(size, resample=PIL.Image.Resampling.LANCZOS, box=(*location, *(location + size)))
 
     @property
     def spacing(self):

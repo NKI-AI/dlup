@@ -229,7 +229,7 @@ class SlideImage:
         # the pixel in the right position to retain the right sample weight.
         fractional_coordinates = native_location - native_location_adapted
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
-        return region.resize(size, resample=PIL.Image.LANCZOS, box=box)
+        return region.resize(size, resample=PIL.Image.Resampling.LANCZOS, box=box)
 
     def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""

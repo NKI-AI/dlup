@@ -156,7 +156,7 @@ class AbstractSlideBackend(abc.ABC):
             self.read_region((0, 0), level, self.level_dimensions[level])
             .convert("RGB")
             .resize(
-                np.floor(np.asarray(self.dimensions) / downsample).astype(int).tolist(), resample=PIL.Image.LANCZOS
+                np.floor(np.asarray(self.dimensions) / downsample).astype(int).tolist(), resample=PIL.Image.Resampling.LANCZOS
             )
         )
         return thumbnail
