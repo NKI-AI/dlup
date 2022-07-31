@@ -77,8 +77,10 @@ class TifffileImageWriter(ImageWriter):
         tile_width : int
         pyramid : bool
             Whether to write a pyramidal image.
-        compression
-        quality
+        compression : TiffCompression
+            Compressor to use.
+        quality : int
+            Quality in case a lossy compressor is used.
         """
         self._tile_size = (tile_height, tile_width)
         self._size = (*size, 1) if len(size) == 2 else size
