@@ -17,10 +17,6 @@ _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
 
-_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
-_AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
-_LabelTypes = Union[str, bool, int, float]
-
 
 class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
     """Dataset class that supports multiscale output, and can have multiple ROIs.
