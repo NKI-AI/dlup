@@ -31,6 +31,7 @@ class TiffCompression(str, Enum):
     PNG = "png"
 
 
+# Mapping to map TiffCompression to their respective values in tifffile.
 TIFFFILE_COMPRESSION = {
     "none": None,
     "ccittfax4": "CCITT_T4",
@@ -55,10 +56,10 @@ class TifffileImageWriter(ImageWriter):
 
     def __init__(
         self,
+        filename: PathLike,
         size: Union[Tuple[int, int, int], Tuple[int, int]],
         mpp: Union[float, Tuple[float, float]],
-        tile_height: int = 512,
-        tile_width: int = 512,
+        tile_size: Tuple[int, int],
         pyramid: bool = False,
         compression: Optional[TiffCompression] = TiffCompression.JPEG,
         quality: Optional[int] = 100,
@@ -68,13 +69,15 @@ class TifffileImageWriter(ImageWriter):
 
         Parameters
         ----------
+        filename : PathLike
+            Filename where to write
         size : Tuple
             Size of the image to be written. This is defined as (height, width, num_channels),
             or rather (rows, columns, num_channels) and is important value to get correct.
             In case of a mask with a single channel the value is given by (rows, columns).
         mpp : int, or Tuple[int, int]
-        tile_height : int
-        tile_width : int
+        tile_size : Tuple[int, int]
+            Tiff tile_size, defined as (height, width).
         pyramid : bool
             Whether to write a pyramidal image.
         compression : TiffCompression
@@ -82,7 +85,8 @@ class TifffileImageWriter(ImageWriter):
         quality : int
             Quality in case a lossy compressor is used.
         """
-        self._tile_size = (tile_height, tile_width)
+        self._filename = filename
+        self._tile_size = tile_size
         self._size = (*size, 1) if len(size) == 2 else size
 
         if isinstance(mpp, float):
@@ -96,16 +100,16 @@ class TifffileImageWriter(ImageWriter):
         self._pyramid = pyramid
         self._quality = quality
 
-    def from_pil(self, pil_image: PIL.Image, filename: PathLike):
+    def from_pil(self, pil_image: PIL.Image):
         if not np.all(np.asarray(pil_image.size)[::-1] >= self._tile_size):
             raise RuntimeError(
                 f"PIL Image must be larger than set tile size. Got {pil_image.size} and {self._tile_size}."
             )
         iterator = _pil_grid_iterator(pil_image, self._tile_size)
-        self.from_iterator(iterator, filename=filename)
+        self.from_iterator(iterator, filename=self._filename)
 
-    def from_iterator(self, iterator: Iterator[np.ndarray | None], filename: PathLike):
-        filename = pathlib.Path(filename)
+    def from_iterator(self, iterator: Iterator[np.ndarray | None]):
+        filename = pathlib.Path(self._filename)
         temp_filename = filename.with_suffix(f"{filename.suffix}.partial")
 
         native_size = self._size[:-1]
