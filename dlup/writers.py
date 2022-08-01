@@ -6,6 +6,7 @@ Classes to write image and mask files
 from __future__ import annotations
 
 import pathlib
+import shutil
 import tempfile
 from enum import Enum
 from typing import Iterator, List, Optional, Tuple, Union
@@ -185,6 +186,7 @@ class TifffileImageWriter(ImageWriter):
                 )
                 tiff_reader.close()
             tiff_writer.close()
+            shutil.move(temp_filename, filename)
 
     def _write_page(
         self,
