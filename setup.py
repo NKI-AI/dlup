@@ -50,7 +50,7 @@ setup(
         "tifffile>=2022.5.4",
         "pyvips>=2.2.1",
         "tqdm",
-        "pillow",
+        "pillow>=9.2.0",
         "openslide-python",
     ],
     extras_require={
