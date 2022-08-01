@@ -8,10 +8,14 @@ from typing import Callable, Iterable, List, Optional, Tuple, Union
 import numpy as np
 
 from dlup import SlideImage
-from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_annotations import WsiAnnotations
+from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackends
 from dlup.tiling import Grid, GridOrder, TilingMode
+
+_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
+_AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
+_LabelTypes = Union[str, bool, int, float]
 
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
