@@ -1,10 +1,14 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""
+Classes to write image and mask files
+"""
 from __future__ import annotations
 
 import pathlib
+import tempfile
 from enum import Enum
-from typing import Iterator, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import PIL.Image
@@ -85,7 +89,7 @@ class TifffileImageWriter(ImageWriter):
         quality : int
             Quality in case a lossy compressor is used.
         """
-        self._filename = filename
+        self._filename = pathlib.Path(filename)
         self._tile_size = tile_size
         self._size = (*size, 1) if len(size) == 2 else size
 
@@ -100,17 +104,34 @@ class TifffileImageWriter(ImageWriter):
         self._pyramid = pyramid
         self._quality = quality
 
-    def from_pil(self, pil_image: PIL.Image):
+    def from_pil(self, pil_image: PIL.Image) -> None:
+        """
+        Create tiff image from a PIL image
+
+        Parameters
+        ----------
+        pil_image : PIL.Image
+        """
         if not np.all(np.asarray(pil_image.size)[::-1] >= self._tile_size):
             raise RuntimeError(
                 f"PIL Image must be larger than set tile size. Got {pil_image.size} and {self._tile_size}."
             )
-        iterator = _pil_grid_iterator(pil_image, self._tile_size)
-        self.from_iterator(iterator, filename=self._filename)
+        iterator = _tiles_iterator_from_pil_image(pil_image, self._tile_size)
+        self.from_tiles_iterator(iterator)
 
-    def from_iterator(self, iterator: Iterator[np.ndarray | None]):
+    def from_tiles_iterator(self, iterator: Iterator[np.ndarray]) -> None:
+        """
+        Generate the tiff from a tiles iterator. The tiles should be in row-major (C-order) order.
+        The `dlup.tiling.Grid` class has the possibility to generate such grids using `GridOrder.C.
+
+        Parameters
+        ----------
+        iterator : Iterator
+            Iterator providing the tiles as numpy arrays.
+            They are expected to be (tile_height, tile_width, num_channels) when RGB(A) images or
+            (tile_height, tile_width) when masks. The tiles can be smaller at the border.
+        """
         filename = pathlib.Path(self._filename)
-        temp_filename = filename.with_suffix(f"{filename.suffix}.partial")
 
         native_size = self._size[:-1]
         software = f"dlup {dlup.__version__} with tifffile.py backend"
@@ -121,53 +142,87 @@ class TifffileImageWriter(ImageWriter):
             np.floor(np.asarray(native_size) / 2**n).astype(int).tolist() for n in range(0, n_subresolutions + 1)
         ]
 
-        native_resolution = 1 / np.array(self._mpp) * 10000
+        # TODO: add to metadata "axes": "TCYXS", and "SignificantBits": 10,
         metadata = {
-            # "axes": "TCYXS",
-            # "SignificantBits": 10,
             "PhysicalSizeX": self._mpp[0],
             "PhysicalSizeXUnit": "µm",
             "PhysicalSizeY": self._mpp[1],
             "PhysicalSizeYUnit": "µm",
         }
 
+        # Convert the compression variable to a tifffile supported one.
         _compression = TIFFFILE_COMPRESSION[self._compression.value]
 
         is_rgb = self._size[-1] in (3, 4)
-        with tifffile.TiffWriter(temp_filename, bigtiff=True) as tiff_writer:
-            tiff_writer.write(
-                iterator,  # noqa
-                shape=(*shapes[0], self._size[-1]) if is_rgb else (*shapes[0], 1),
-                dtype="uint8",
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_filename = pathlib.Path(temp_dir) / filename.name
+            tiff_writer = tifffile.TiffWriter(temp_filename, bigtiff=True)
+            self._write_page(
+                tiff_writer,
+                tile_iterator=iterator,
+                level=0,
+                compression=_compression,
+                shapes=shapes,
+                is_rgb=is_rgb,
                 subifds=None,
-                resolution=(*native_resolution, "CENTIMETER"),  # noqa
-                metadata=metadata,
-                photometric="rgb" if is_rgb else "minisblack",
-                compression=_compression if not self._quality else (_compression, self._quality),
-                tile=self._tile_size,
                 software=software,
+                metadata=metadata,
             )
 
             for level in range(0, n_subresolutions):
-                with tifffile.TiffReader(temp_filename) as tiff_reader:
-                    page = tiff_reader.pages[level]
-                    tile_iterator = _new_tile_iterator(page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb)
-                    tiff_writer.write(
-                        tile_iterator,  # noqa
-                        shape=(*shapes[level + 1], self._size[-1]) if is_rgb else (*shapes[level + 1], 1),
-                        dtype="uint8",
-                        subfiletype=1,
-                        resolution=(*native_resolution / 2 ** (level + 1), "CENTIMETER"),  # noqa
-                        photometric="rgb" if is_rgb else "minisblack",
-                        compression=_compression if not self._quality else (_compression, self._quality),
-                        tile=self._tile_size,
-                        software=software,
-                    )
+                tiff_reader = tifffile.TiffReader(temp_filename)
+                page = tiff_reader.pages[level]
+                tile_iterator = _tile_iterator_from_page(page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb)
+                self._write_page(
+                    tiff_writer,
+                    tile_iterator=tile_iterator,
+                    level=level + 1,
+                    compression=_compression,
+                    shapes=shapes,
+                    is_rgb=is_rgb,
+                    subfiletype=1,
+                    software=software,
+                )
+                tiff_reader.close()
+            tiff_writer.close()
 
-        temp_filename.rename(filename)
+    def _write_page(
+        self,
+        tiff_writer: tifffile.TiffWriter,
+        tile_iterator: Iterator,
+        level: int,
+        compression: str | None,
+        shapes: List[Tuple[int, int]],
+        is_rgb: bool,
+        **options,
+    ):
+        native_resolution = 1 / np.array(self._mpp) * 10000
+        tiff_writer.write(
+            tile_iterator,  # noqa
+            shape=(*shapes[level], self._size[-1]) if is_rgb else (*shapes[level], 1),
+            dtype="uint8",
+            resolution=(*native_resolution / 2 ** (level + 1), "CENTIMETER"),  # noqa
+            photometric="rgb" if is_rgb else "minisblack",
+            compression=compression if not self._quality else (compression, self._quality),  # noqa
+            tile=self._tile_size,
+            **options,
+        )
 
 
-def _pil_grid_iterator(pil_image: PIL.Image, tile_size: Tuple[int, int]):
+def _tiles_iterator_from_pil_image(pil_image: PIL.Image, tile_size: Tuple[int, int]):
+    """
+    Given a PIL image return a a tile-iterator.
+
+    Parameters
+    ----------
+    pil_image : PIL.Image
+    tile_size : tuple
+
+    Yields
+    ------
+    np.ndarray
+        Tile outputted in row-major format
+    """
     grid = Grid.from_tiling(
         (0, 0),
         size=pil_image.size[::-1],
@@ -185,9 +240,28 @@ def _pil_grid_iterator(pil_image: PIL.Image, tile_size: Tuple[int, int]):
         yield cropped_array
 
 
-def _new_tile_iterator(
+def _tile_iterator_from_page(
     page: tifffile.TiffPage, tile_size: Tuple[int, int], region_size: Tuple[int, int], scale: int, is_rgb: bool = True
 ):
+    """
+    Create an iterator from a tiff page. Useful when writing a pyramidal tiff where the previous page is read to write
+    the new page. Each tile will be the downsampled version from the previous version.
+
+    Parameters
+    ----------
+    page : tifffile.TiffPage
+    tile_size : tuple
+    region_size : tuple
+    scale : int
+        Scale between the two pages
+    is_rgb : bool
+        Whether color image or mask
+
+    Yields
+    ------
+    np.ndarray
+        Tile outputted in row-major format
+    """
     resized_tile_size = tuple(map(lambda x: x * scale, tile_size))
     grid = Grid.from_tiling(
         (0, 0),
