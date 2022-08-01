@@ -19,6 +19,7 @@ datasets ready to be used for model training and inference.
    installation
    quickstart
    tiling
+   writers
    backends
    cli
    examples
