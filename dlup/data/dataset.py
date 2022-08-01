@@ -19,8 +19,8 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
-from dlup.experimental_annotations import WsiAnnotations
 from dlup.background import is_foreground
+from dlup.experimental_annotations import WsiAnnotations
 from dlup.experimental_backends import ImageBackends
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
