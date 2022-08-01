@@ -10,6 +10,9 @@ jobs:
       matrix:
         python-version: [3.8]
     steps:
+    - name: Install minimal dependencies
+      run: |
+        sudo apt install -y libgeos-dev
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
