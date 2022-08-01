@@ -64,7 +64,7 @@ class TifffileImageWriter(ImageWriter):
         filename: PathLike,
         size: Union[Tuple[int, int, int], Tuple[int, int]],
         mpp: Union[float, Tuple[float, float]],
-        tile_size: Tuple[int, int],
+        tile_size: Tuple[int, int] = (512, 512),
         pyramid: bool = False,
         compression: Optional[TiffCompression] = TiffCompression.JPEG,
         quality: Optional[int] = 100,
