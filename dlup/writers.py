@@ -186,7 +186,7 @@ class TifffileImageWriter(ImageWriter):
                 )
                 tiff_reader.close()
             tiff_writer.close()
-            shutil.move(temp_filename, filename)
+            shutil.move(str(temp_filename), str(filename))
 
     def _write_page(
         self,
