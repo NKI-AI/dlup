@@ -27,6 +27,17 @@ class TilingMode(str, Enum):
     fit = "fit"
 
 
+class GridOrder(str, Enum):
+    """Order of the grid.
+
+    Fortran is column-major order, and C is in row-major order, that is, the tiles are created in a column-by-column
+    fashion or in a row by row fashion.
+    """
+
+    C = "C"
+    F = "F"
+
+
 def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarray:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
@@ -107,15 +118,21 @@ def tiles_grid_coordinates(
             tiles_locations[1:-1] -= distribute * (np.arange(n - 2) + 1)
 
         coordinates.append(tiles_locations)
+
     return coordinates
 
 
 class Grid(collections.abc.Sequence):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: List[np.ndarray]):
+    def __init__(self, coordinates: List[np.ndarray], order: Union[str, GridOrder] = GridOrder.F):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
+        self.order = order
+
+        if isinstance(order, str):
+            order = GridOrder[order]
+        self.order = order
 
     @classmethod
     def from_tiling(
@@ -125,11 +142,12 @@ class Grid(collections.abc.Sequence):
         tile_size: _GenericNumberArray,
         tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
         mode: TilingMode = TilingMode.skip,
+        order: GridOrder = GridOrder.F,
     ):
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
         coordinates = [c + o for c, o in zip(coordinates, offset)]
-        return cls(coordinates)
+        return cls(coordinates, order=order)
 
     @property
     def size(self) -> Tuple[int, ...]:
@@ -137,7 +155,8 @@ class Grid(collections.abc.Sequence):
         return tuple(len(x) for x in self.coordinates)
 
     def __getitem__(self, key):
-        index = np.unravel_index(key, self.size)
+        order = "F" if self.order.value == "C" else "C"
+        index = np.unravel_index(key, self.size, order=order)
         return np.array([c[i] for c, i in zip(self.coordinates, index)])
 
     def __len__(self) -> int:

@@ -19,10 +19,10 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
-from dlup.experimental_annotations import WsiAnnotations
 from dlup.background import is_foreground
+from dlup.experimental_annotations import WsiAnnotations
 from dlup.experimental_backends import ImageBackends
-from dlup.tiling import Grid, TilingMode
+from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
@@ -352,6 +352,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.skip,
+        grid_order: GridOrder = GridOrder.F,
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
@@ -373,6 +374,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             Tuple of integers that represents the overlap of tiles in the x and y direction
         tile_mode :
             "skip", "overflow", or "fit". see `dlup.tiling.TilingMode` for more information
+        grid_order : GridOrder
+            Run through the grid either in C order or Fortan order.
         crop :
             Whether or not to crop overflowing tiles.
         mask :
@@ -386,7 +389,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         transform : ImageBackends
             Transform to be applied to the sample.
         backend :
-            Backend to use to read the whole slide image
+            Backend to use to read the whole slide image.
 
         Example
         -------
@@ -406,6 +409,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             tile_size=tile_size,
             tile_overlap=tile_overlap,
             mode=tile_mode,
+            order=grid_order,
         )
         return cls(
             path,

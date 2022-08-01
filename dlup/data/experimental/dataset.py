@@ -8,10 +8,10 @@ from typing import Callable, Iterable, List, Optional, Tuple, Union
 import numpy as np
 
 from dlup import SlideImage
-from dlup.experimental_annotations import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset
+from dlup.experimental_annotations import WsiAnnotations
 from dlup.experimental_backends import ImageBackends
-from dlup.tiling import Grid, TilingMode
+from dlup.tiling import Grid, GridOrder, TilingMode
 
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
@@ -91,6 +91,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.skip,
+        grid_order: GridOrder = GridOrder.F,
         crop: bool = False,
         mask: Optional[np.ndarray] = None,
         rois: Optional[Tuple[Tuple[int, ...]]] = None,
@@ -134,6 +135,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
                     tile_size=tile_size,
                     tile_overlap=curr_tile_overlap + np.asarray(tile_overlap) / scaling,
                     mode=tile_mode,
+                    order=grid_order,
                 )
 
                 grids.append((curr_grid, tile_size, original_mpp * scaling))

@@ -43,14 +43,13 @@ setup(
     install_requires=[
         "matplotlib",
         "numpy>=1.21",
-        "requests",
         "scikit-image>=0.19",
         "shapely @ git+https://github.com/shapely/shapely.git",
         "tifftools",
         "tifffile>=2022.5.4",
-        "pyvips",
+        "pyvips>=2.2.1",
         "tqdm",
-        "pillow",
+        "pillow>=9.2.0",
         "openslide-python",
     ],
     extras_require={
