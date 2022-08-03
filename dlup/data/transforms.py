@@ -1,3 +1,5 @@
+# coding=utf-8
+# Copyright (c) dlup contributors
 from __future__ import annotations
 
 from collections import defaultdict
@@ -97,7 +99,7 @@ class ConvertAnnotationsToMask:
 
         annotations = sample["annotations"]
         points, mask, roi = convert_annotations(annotations, sample["image"].size, roi_name="roi", index_map=self._index_map)
-        sample["annotations2"] = {
+        sample["annotations"] = {
             "points": points,
             "mask": mask,
         }
