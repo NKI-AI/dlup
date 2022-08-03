@@ -24,6 +24,7 @@ import json
 import os
 import pathlib
 import xml.etree.ElementTree as ET
+from collections import defaultdict
 from enum import Enum
 from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
@@ -36,7 +37,6 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 from dlup.types import GenericNumber, PathLike
-from collections import defaultdict
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -227,9 +227,6 @@ class WsiAnnotations:
         WsiAnnotations
 
         """
-
-        annotations: List[WsiSingleLabelAnnotation] = []
-
         data = defaultdict(list)
         for idx, path in enumerate(geojsons):
             path = pathlib.Path(path)
@@ -243,11 +240,10 @@ class WsiAnnotations:
 
         # It is assume that a specific label can only be one type (point or polygon)
         annotation_types = {
-            k: _infer_shapely_type(data[k][0].type, None if label_map is None else label_map[k])
-            for k in data.keys()
+            k: _infer_shapely_type(data[k][0].type, None if label_map is None else label_map[k]) for k in data.keys()
         }
 
-        annotations = [
+        annotations: List[WsiSingleLabelAnnotation] = [
             WsiSingleLabelAnnotation(label=k, type=annotation_types[k], coordinates=data[k], mpp=mpp)
             for k in data.keys()
         ]
