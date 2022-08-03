@@ -170,6 +170,8 @@ class WsiSingleLabelAnnotation:
         return data
 
     def bounding_boxes(self, scaling=1):
+        # TODO: Different output format
+        # TODO: `scaling` is a bit strange here. Should be at native resolution
         def _get_bbox(z):
             return z.min(axis=0).tolist() + (z.max(axis=0) - z.min(axis=0)).tolist()
 

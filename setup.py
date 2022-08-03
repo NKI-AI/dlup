@@ -41,7 +41,6 @@ setup(
         ],
     },
     install_requires=[
-        "matplotlib",
         "numpy>=1.21",
         "scikit-image>=0.19",
         "shapely @ git+https://github.com/shapely/shapely.git",
@@ -51,6 +50,7 @@ setup(
         "tqdm",
         "pillow>=9.2.0",
         "openslide-python",
+        "opencv-python>=4.6.0"
     ],
     extras_require={
         "dev": [
