@@ -239,7 +239,7 @@ class WsiAnnotations:
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
 
             with open(path, "r", encoding="utf-8") as annotation_file:
-                data = [shape(x) for x in json.load(annotation_file)]
+                data = [shape(x["geometry"]) for x in json.load(annotation_file)["features"]]
                 # There can be multiple polygons in one file. They are stored at the largest image resolution.
                 annotation_types = [
                     _infer_shapely_type(polygon.type, None if label_map is None else label_map[label])
