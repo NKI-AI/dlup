@@ -1,0 +1,15 @@
+#!/bin/bash
+
+ANNOT_DIR=/home/j.teuwen/annotations/1957/wsong@ellogon.ai
+TCGA_DIR=/mnt/archive/data/pathology/TCGA_OLD/gdc_manifest_all_BRCA_DX-2020-08-05/images
+OUTPUT_DIR=/home/j.teuwen/annotations_images/
+
+for i in $(ls -1 $ANNOT_DIR)
+do
+    image="$(find ${TCGA_DIR} -type f -name ${i}.svs | head -n1)"
+    annotation_dir=${ANNOT_DIR}/$i
+    output_dir=${OUTPUT_DIR}/$i
+    mkdir -p $output_dir
+    echo $i
+    python inspect_roi_dataset.py $image $annotation_dir $output_dir
+done
