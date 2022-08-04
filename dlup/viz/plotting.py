@@ -17,6 +17,27 @@ def plot_2d(
     geometries=None,
     geometries_color_map=None,
 ) -> PIL.Image:
+    """
+    Plotting utility to overlay masks and geometries (Points, Polygons) on top of the image.
+
+    Parameters
+    ----------
+    image : PIL.Image
+    mask : np.ndarray
+        Integer array
+    mask_colors : dict
+        A dictionary mapping the integer value of the mask to a PIL color value.
+    mask_alpha : int
+        Value between 0-100 defining the transparency of the overlays
+    geometries : List
+        List of Point or Polygon
+    geometries_color_map : dict
+        Dictionary mapping label names to the PIL color value
+
+    Returns
+    -------
+    PIL.Image
+    """
     image = image.convert("RGBA")
 
     if mask is not None:
