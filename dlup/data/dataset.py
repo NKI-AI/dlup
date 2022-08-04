@@ -12,7 +12,7 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast, Any
 
 import numpy as np
 import PIL
@@ -188,7 +188,13 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._crop = crop
         self.regions = regions
 
-        self.annotations = [annotations] if not isinstance(annotations, (list, tuple)) else annotations
+        # Bit awkward but intended to make mypy and pytest happy
+        if annotations is None:
+            _annotations: List[Any] = []
+        else:
+            _annotations = [annotations] if not isinstance(annotations, (list, tuple)) else annotations
+
+        self.annotations = _annotations
         self.labels = labels
         self.transform = transform
         self._backend = backend
@@ -246,8 +252,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "path": self.path,
             "region_index": region_index,
         }
-
-        if self.annotations:
+        print(self.annotations)
+        if self.annotations is not None:
             sample["annotations"] = []
             for annotation in self.annotations:
                 sample["annotations"] += annotation.read_region(coordinates, scaling, region_size)
@@ -496,7 +502,7 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
 
 def parse_rois(rois, image_size) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
     if rois is None:
-        rois = ((0, 0), image_size)
+        return ((0, 0), image_size),
     else:
         # Do some checks whether the ROIs are within the image
         origin_positive = [np.all(np.asarray(_[:2]) > 0) for _ in rois]
