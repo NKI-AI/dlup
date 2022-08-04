@@ -8,7 +8,7 @@ from typing import Callable, Iterable, List, Optional, Tuple, Union
 import numpy as np
 
 from dlup import SlideImage
-from dlup.data.dataset import TiledROIsSlideImageDataset
+from dlup.data.dataset import TiledROIsSlideImageDataset, parse_rois
 from dlup.experimental_annotations import WsiAnnotations
 from dlup.experimental_backends import ImageBackends
 from dlup.tiling import Grid, GridOrder, TilingMode
@@ -48,7 +48,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
     def __init__(
         self,
         path: pathlib.Path,
-        grids: Iterable[Tuple[Grid, Tuple[int, int], float]],
+        grids: List[Tuple[Grid, Tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
@@ -94,8 +94,8 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         grid_order: GridOrder = GridOrder.F,
         crop: bool = False,
         mask: Optional[np.ndarray] = None,
-        rois: Optional[Tuple[Tuple[int, ...]]] = None,
         mask_threshold: float = 0.1,
+        rois: Optional[Tuple[Tuple[int, ...]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackends.OPENSLIDE,
     ):
@@ -105,40 +105,30 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
 
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp
-            original_size = tuple(slide_image.size)
-
-        if rois is None:
-            rois = ((0, 0) + original_size,)
-        else:
-            # Do some checks whether the ROIs are within the image
-            origin_positive = [np.all(np.asarray(_[:2]) > 0) for _ in rois]
-            image_within_borders = [np.all((np.asarray(_[:2]) + _[2:]) <= original_size) for _ in rois]
-            if not origin_positive or not image_within_borders:
-                raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
+            _rois = parse_rois(rois, tuple(slide_image.size))
 
         view_scalings = [mpp / original_mpp for mpp in mpps]
         grids = []
         for scaling in view_scalings:
-            for roi in rois:
-                offset = np.asarray(roi[:2])
-                size = np.asarray(roi[2:])
-
+            for offset, size in _rois:
                 # We CEIL the offset and FLOOR the size, so that we are always in a fully annotated area.
-                offset = np.ceil(offset).astype(int)
-                size = np.floor(size).astype(int)
+                _offset = np.ceil(offset).astype(int)
+                _size = np.floor(size).astype(int)
 
-                curr_tile_overlap = (np.asarray(tile_size)) * (scaling - 1) / scaling
-                curr_offset = (offset - np.asarray(tile_size) * (scaling - 1) / 2) / scaling
-                curr_grid = Grid.from_tiling(
+                _tile_size = np.asarray(tile_size)
+                _tile_overlap = np.asarray(tile_overlap)
+                curr_tile_overlap = _tile_size * (scaling - 1) / scaling
+                curr_offset = (_offset - _tile_size * (scaling - 1) / 2) / scaling
+                curr_grid: Grid = Grid.from_tiling(
                     curr_offset,
-                    size=size / scaling + curr_tile_overlap,
-                    tile_size=tile_size,
-                    tile_overlap=curr_tile_overlap + np.asarray(tile_overlap) / scaling,
+                    size=_size / scaling + curr_tile_overlap,
+                    tile_size=_tile_size,
+                    tile_overlap=curr_tile_overlap + _tile_overlap / scaling,
                     mode=tile_mode,
                     order=grid_order,
                 )
 
-                grids.append((curr_grid, tile_size, original_mpp * scaling))
+                grids.append((curr_grid, tile_size, float(original_mpp * scaling)))
 
         return cls(
             path,

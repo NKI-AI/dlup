@@ -3,8 +3,6 @@
 
 """Test the datasets facility classes."""
 
-import pathlib
-
 import numpy as np
 
 import dlup

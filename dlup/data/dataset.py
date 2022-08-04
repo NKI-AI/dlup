@@ -4,6 +4,7 @@
 """Datasets helpers to simplify the generation of a dataset made of tiles from a WSI.
 Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 """
+from __future__ import annotations
 
 import bisect
 import collections
@@ -11,7 +12,7 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast, Any
 
 import numpy as np
 import PIL
@@ -186,7 +187,14 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._path = path
         self._crop = crop
         self.regions = regions
-        self.annotations = annotations
+
+        # Bit awkward but intended to make mypy and pytest happy
+        if annotations is None:
+            _annotations: List[Any] = []
+        else:
+            _annotations = [annotations] if not isinstance(annotations, (list, tuple)) else annotations
+
+        self.annotations = _annotations
         self.labels = labels
         self.transform = transform
         self._backend = backend
@@ -244,17 +252,11 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "path": self.path,
             "region_index": region_index,
         }
-
-        annotations = self.annotations
-        if not isinstance(self.annotations, list):
-            annotations = [("annotations", self.annotations)]
-
-        if annotations:
-            sample["annotations"] = {
-                name: annotation.read_region(coordinates, scaling, region_size)
-                for name, annotation in annotations
-                if annotation
-            }
+        print(self.annotations)
+        if self.annotations is not None:
+            sample["annotations"] = []
+            for annotation in self.annotations:
+                sample["annotations"] += annotation.read_region(coordinates, scaling, region_size)
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
@@ -312,7 +314,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
     def __init__(
         self,
         path: pathlib.Path,
-        grids: Iterable[Tuple[Grid, Tuple[int, int], float]],
+        grids: List[Tuple[Grid, Tuple[int, int], float]],
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
@@ -348,7 +350,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
     def from_standard_tiling(
         cls,
         path: pathlib.Path,
-        mpp: float,
+        mpp: float | None,
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.skip,
@@ -356,6 +358,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
+        rois: Optional[Tuple[Tuple[int, ...]]] = None,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
@@ -375,13 +378,15 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_mode :
             "skip", "overflow", or "fit". see `dlup.tiling.TilingMode` for more information
         grid_order : GridOrder
-            Run through the grid either in C order or Fortan order.
+            Run through the grid either in C order or Fortran order.
         crop :
             Whether or not to crop overflowing tiles.
         mask :
             Binary mask used to filter each region toghether with a threshold.
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
+        rois :
+            Regions of interest to restrict the grids to.
         annotations :
             Annotation class
         labels : list
@@ -403,20 +408,28 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         """
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
-        grid = Grid.from_tiling(
-            (0, 0),
-            size=slide_level_size,
-            tile_size=tile_size,
-            tile_overlap=tile_overlap,
-            mode=tile_mode,
-            order=grid_order,
-        )
+            _rois = parse_rois(rois, slide_level_size)
+            slide_mpp = slide_image.mpp
+        grid_mpp = mpp if mpp is not None else slide_mpp
+
+        grids = []
+        for offset, size in _rois:
+            grid = Grid.from_tiling(
+                offset,
+                size=size,
+                tile_size=tile_size,
+                tile_overlap=tile_overlap,
+                mode=tile_mode,
+                order=grid_order,
+            )
+            grids.append((grid, tile_size, grid_mpp))
+
         return cls(
             path,
-            [(grid, tile_size, mpp)],
-            crop,
-            mask,
-            mask_threshold,
+            grids=grids,
+            crop=crop,
+            mask=mask,
+            mask_threshold=mask_threshold,
             annotations=annotations,
             labels=labels,
             transform=transform,
@@ -485,3 +498,16 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
 
     def __len__(self):
         return self._num_tiles
+
+
+def parse_rois(rois, image_size) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
+    if rois is None:
+        return (((0, 0), image_size),)
+    else:
+        # Do some checks whether the ROIs are within the image
+        origin_positive = [np.all(np.asarray(_[:2]) > 0) for _ in rois]
+        image_within_borders = [np.all((np.asarray(_[:2]) + _[2:]) <= image_size) for _ in rois]
+        if not origin_positive or not image_within_borders:
+            raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
+
+    return tuple([(_[:2], _[2:]) for _ in rois])

@@ -19,11 +19,14 @@ Assumed:
 
 Also the ASAP XML data format is supported.
 """
+from __future__ import annotations
+
 import errno
 import json
 import os
 import pathlib
 import xml.etree.ElementTree as ET
+from collections import defaultdict
 from enum import Enum
 from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
@@ -169,11 +172,12 @@ class WsiSingleLabelAnnotation:
         data["label"] = self.label
         return data
 
-    def bounding_boxes(self, scaling=1):
+    @property
+    def bounding_boxes(self):
         def _get_bbox(z):
-            return z.min(axis=0).tolist() + (z.max(axis=0) - z.min(axis=0)).tolist()
+            return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
 
-        data = [np.asarray(annotation.envelope.exterior.coords) * scaling for annotation in self.as_list()]
+        data = [np.asarray(annotation.envelope.exterior.coords) for annotation in self.as_list()]
         return [_get_bbox(_) for _ in data]
 
     def __len__(self) -> int:
@@ -203,8 +207,7 @@ class WsiAnnotations:
     def from_geojson(
         cls: Type[_TWsiAnnotations],
         geojsons: Iterable[PathLike],
-        labels: List[str],
-        mpp: Optional[Union[List[float], float]] = None,
+        mpp: float | None = None,
         label_map: Optional[Dict[str, AnnotationType]] = None,
     ) -> _TWsiAnnotations:
         """
@@ -213,11 +216,10 @@ class WsiAnnotations:
         Parameters
         ----------
         geojsons : Iterable
-            List of geojsons representing objects, where each one is an individual annotation.
-        labels : List
-            Label names for the geojsons
-        mpp : List[float] or float, optional
-            The mpp in which the annotation is defined. If `None`, will assume label 0.
+            List of geojsons representing objects. The properties object must have the name which is the label of this
+            object.
+        mpp : float, optional
+            The mpp in which the annotations are defined. If `None`, will assume level 0.
         label_map : Dict, optional
             A dictionary which can be used to override the annotation type, and not the one parsed by the Shapely.
 
@@ -226,32 +228,26 @@ class WsiAnnotations:
         WsiAnnotations
 
         """
-
-        annotations: List[WsiSingleLabelAnnotation] = []
-        if isinstance(mpp, float):
-            mpp = [mpp] * len(labels)
-
-        for idx, (label, path) in enumerate(zip(labels, geojsons)):
+        data = defaultdict(list)
+        for idx, path in enumerate(geojsons):
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
 
             with open(path, "r", encoding="utf-8") as annotation_file:
-                data = [shape(x) for x in json.load(annotation_file)]
-                # There can be multiple polygons in one file. They are stored at the largest image resolution.
-                annotation_types = [
-                    _infer_shapely_type(polygon.type, None if label_map is None else label_map[label])
-                    for polygon in data
-                ]
-                # In the above line, we make a list of shapely types since there maybe multiple annotations
-                # for a particular label.
-                # However, it is assumed that all annotations corresponding to a particular label are of the same type.
-                # Therefore, in the next line, we assign "type" to the first member of this list
-                curr_mpp = None if mpp is None else mpp[idx]
+                geojson_dict = json.load(annotation_file)["features"]
+                for x in geojson_dict:
+                    data[x["properties"]["classification"]["name"]].append(shape(x["geometry"]))
 
-                annotations.append(
-                    WsiSingleLabelAnnotation(label=label, type=annotation_types[0], coordinates=data, mpp=curr_mpp)
-                )
+        # It is assume that a specific label can only be one type (point or polygon)
+        annotation_types = {
+            k: _infer_shapely_type(data[k][0].type, None if label_map is None else label_map[k]) for k in data.keys()
+        }
+
+        annotations: List[WsiSingleLabelAnnotation] = [
+            WsiSingleLabelAnnotation(label=k, type=annotation_types[k], coordinates=data[k], mpp=mpp)
+            for k in data.keys()
+        ]
 
         return cls(annotations)
 

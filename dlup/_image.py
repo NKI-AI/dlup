@@ -7,6 +7,7 @@ In this module we take care of abstracting the access to whole slide images.
 The main workhorse is SlideImage which takes care of simplifying region extraction
 of discrete-levels pyramidal images in a continuous way, supporting multiple different backends.
 """
+from __future__ import annotations
 
 import errno
 import os
@@ -240,8 +241,10 @@ class SlideImage:
         """Returns the respective mpp from the scaling."""
         return self._min_native_mpp / scaling
 
-    def get_scaling(self, mpp: float) -> float:
+    def get_scaling(self, mpp: float | None) -> float:
         """Inverse of get_mpp()."""
+        if not mpp:
+            return 1.0
         return self._min_native_mpp / mpp
 
     def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
