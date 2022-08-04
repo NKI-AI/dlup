@@ -502,7 +502,7 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
 
 def parse_rois(rois, image_size) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
     if rois is None:
-        return ((0, 0), image_size),
+        return (((0, 0), image_size),)
     else:
         # Do some checks whether the ROIs are within the image
         origin_positive = [np.all(np.asarray(_[:2]) > 0) for _ in rois]
