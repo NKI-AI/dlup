@@ -235,7 +235,7 @@ class WsiAnnotations:
             with open(path, "r", encoding="utf-8") as annotation_file:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
-                    data[x["properties"]["name"]].append(shape(x["geometry"]))
+                    data[x["properties"]["classification"]["name"]].append(shape(x["geometry"]))
 
         # It is assume that a specific label can only be one type (point or polygon)
         annotation_types = {
