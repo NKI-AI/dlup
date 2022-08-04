@@ -19,6 +19,8 @@ Assumed:
 
 Also the ASAP XML data format is supported.
 """
+from __future__ import annotations
+
 import errno
 import json
 import os
