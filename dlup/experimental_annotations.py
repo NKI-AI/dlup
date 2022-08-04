@@ -205,7 +205,7 @@ class WsiAnnotations:
     def from_geojson(
         cls: Type[_TWsiAnnotations],
         geojsons: Iterable[PathLike],
-        mpp: Optional[Union[List[float], float]] = None,
+        mpp: float | None = None,
         label_map: Optional[Dict[str, AnnotationType]] = None,
     ) -> _TWsiAnnotations:
         """

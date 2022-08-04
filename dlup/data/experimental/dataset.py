@@ -48,7 +48,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
     def __init__(
         self,
         path: pathlib.Path,
-        grids: Iterable[Tuple[Grid, Tuple[int, int], float]],
+        grids: List[Tuple[Grid, Tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
@@ -105,30 +105,30 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
 
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp
-            rois = parse_rois(rois, tuple(slide_image.size))
+            _rois = parse_rois(rois, tuple(slide_image.size))
 
         view_scalings = [mpp / original_mpp for mpp in mpps]
         grids = []
         for scaling in view_scalings:
-            for offset, size in rois:
+            for offset, size in _rois:
                 # We CEIL the offset and FLOOR the size, so that we are always in a fully annotated area.
-                offset = np.ceil(offset).astype(int)
-                size = np.floor(size).astype(int)
+                _offset = np.ceil(offset).astype(int)
+                _size = np.floor(size).astype(int)
 
-                tile_size = np.asarray(tile_size)
-                tile_overlap = np.asarray(tile_overlap)
-                curr_tile_overlap = tile_size * (scaling - 1) / scaling
-                curr_offset = (offset - tile_size * (scaling - 1) / 2) / scaling
-                curr_grid = Grid.from_tiling(
+                _tile_size = np.asarray(tile_size)
+                _tile_overlap = np.asarray(tile_overlap)
+                curr_tile_overlap = _tile_size * (scaling - 1) / scaling
+                curr_offset = (_offset - _tile_size * (scaling - 1) / 2) / scaling
+                curr_grid: Grid = Grid.from_tiling(
                     curr_offset,
-                    size=size / scaling + curr_tile_overlap,
-                    tile_size=tile_size,
-                    tile_overlap=curr_tile_overlap + tile_overlap / scaling,
+                    size=_size / scaling + curr_tile_overlap,
+                    tile_size=_tile_size,
+                    tile_overlap=curr_tile_overlap + _tile_overlap / scaling,
                     mode=tile_mode,
                     order=grid_order,
                 )
 
-                grids.append((curr_grid, tile_size, original_mpp * scaling))
+                grids.append((curr_grid, tile_size, float(original_mpp * scaling)))
 
         return cls(
             path,

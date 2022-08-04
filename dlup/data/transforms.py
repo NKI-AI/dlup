@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -18,7 +18,7 @@ def convert_annotations(
     region_size: Tuple[int, int],
     index_map: Dict[str, int],
     roi_name: Optional[str] = None,
-) -> (Dict, np.ndarray, np.ndarray | None):
+) -> Tuple[Dict, np.ndarray, np.ndarray | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
@@ -50,7 +50,7 @@ def convert_annotations(
 
     """
     mask = np.zeros(region_size, dtype=np.int32)
-    points = defaultdict(list)
+    points: Dict[str, List] = defaultdict(list)
 
     roi_mask = np.empty(region_size, dtype=np.int32)
 

@@ -187,10 +187,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._path = path
         self._crop = crop
         self.regions = regions
-        if not isinstance(annotations, (list, tuple)):
-            annotations = [annotations]
 
-        self.annotations = annotations
+        self.annotations = [annotations] if not isinstance(annotations, (list, tuple)) else annotations
         self.labels = labels
         self.transform = transform
         self._backend = backend
@@ -310,7 +308,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
     def __init__(
         self,
         path: pathlib.Path,
-        grids: Iterable[Tuple[Grid, Tuple[int, int], float]],
+        grids: List[Tuple[Grid, Tuple[int, int], float]],
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
@@ -354,7 +352,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
-        rois: Tuple[Tuple[int, ...]] | None = None,
+        rois: Optional[Tuple[Tuple[int, ...]]] = None,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
@@ -404,12 +402,12 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         """
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
-            rois = parse_rois(rois, slide_level_size)
-            if not mpp:
-                mpp = slide_image.mpp
+            _rois = parse_rois(rois, slide_level_size)
+            slide_mpp = slide_image.mpp
+        grid_mpp = mpp if mpp is not None else slide_mpp
 
         grids = []
-        for offset, size in rois:
+        for offset, size in _rois:
             grid = Grid.from_tiling(
                 offset,
                 size=size,
@@ -418,7 +416,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
                 mode=tile_mode,
                 order=grid_order,
             )
-            grids.append((grid, tile_size, mpp))
+            grids.append((grid, tile_size, grid_mpp))
 
         return cls(
             path,
@@ -496,7 +494,7 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
         return self._num_tiles
 
 
-def parse_rois(rois, image_size):
+def parse_rois(rois, image_size) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
     if rois is None:
         rois = ((0, 0), image_size)
     else:
@@ -506,4 +504,4 @@ def parse_rois(rois, image_size):
         if not origin_positive or not image_within_borders:
             raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
-    return [(_[:2], _[2:]) for _ in rois]
+    return tuple([(_[:2], _[2:]) for _ in rois])
