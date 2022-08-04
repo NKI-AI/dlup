@@ -374,7 +374,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_mode :
             "skip", "overflow", or "fit". see `dlup.tiling.TilingMode` for more information
         grid_order : GridOrder
-            Run through the grid either in C order or Fortan order.
+            Run through the grid either in C order or Fortran order.
         crop :
             Whether or not to crop overflowing tiles.
         mask :

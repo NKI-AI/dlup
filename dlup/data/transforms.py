@@ -98,12 +98,14 @@ class ConvertAnnotationsToMask:
             return sample
 
         annotations = sample["annotations"]
-        points, mask, roi = convert_annotations(annotations, sample["image"].size, roi_name="roi", index_map=self._index_map)
-        sample["annotations"] = {
+        points, mask, roi = convert_annotations(
+            annotations, sample["image"].size[::-1], roi_name=self._roi_name, index_map=self._index_map
+        )
+        sample["annotation_data"] = {
             "points": points,
             "mask": mask,
         }
         if roi is not None:
-            sample["annotations"]["roi"] = roi
+            sample["annotation_data"]["roi"] = roi
 
         return sample

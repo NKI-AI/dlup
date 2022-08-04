@@ -170,13 +170,12 @@ class WsiSingleLabelAnnotation:
         data["label"] = self.label
         return data
 
-    def bounding_boxes(self, scaling=1):
-        # TODO: Different output format
-        # TODO: `scaling` is a bit strange here. Should be at native resolution
+    @property
+    def bounding_boxes(self):
         def _get_bbox(z):
-            return z.min(axis=0).tolist() + (z.max(axis=0) - z.min(axis=0)).tolist()
+            return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
 
-        data = [np.asarray(annotation.envelope.exterior.coords) * scaling for annotation in self.as_list()]
+        data = [np.asarray(annotation.envelope.exterior.coords) for annotation in self.as_list()]
         return [_get_bbox(_) for _ in data]
 
     def __len__(self) -> int:
