@@ -252,7 +252,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "path": self.path,
             "region_index": region_index,
         }
-        print(self.annotations)
+
         if self.annotations is not None:
             sample["annotations"] = []
             for annotation in self.annotations:
