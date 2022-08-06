@@ -266,7 +266,6 @@ class WsiAnnotations:
         cls: Type[_TWsiAnnotations],
         geojsons: Iterable[PathLike],
         scaling: float | None = None,
-        label_map: Optional[Dict[str, AnnotationType]] = None,
     ) -> _TWsiAnnotations:
         """
         Constructs an WsiAnnotations object from geojson.
@@ -278,8 +277,6 @@ class WsiAnnotations:
             object.
         scaling : float, optional
             The scaling to apply to the annotations.
-        label_map : Dict, optional
-            A dictionary which can be used to override the annotation type, and not the one parsed by the Shapely.
 
         Returns
         -------
