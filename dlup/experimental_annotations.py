@@ -130,7 +130,7 @@ def shape(coordinates, label):
     if geom_type == "point":
         return Point(coordinates["coordinates"], label=label)
     elif geom_type == "polygon":
-        return Polygon(coordinates["coordinates"][0], coordinates["coordinates"][1:], label=label)
+        return Polygon(coordinates["coordinates"][0], label=label)
     else:
         raise NotImplementedError
 
@@ -302,12 +302,8 @@ class WsiAnnotations:
                     data[_label].append(shape(x["geometry"], label=_label))
 
         # It is assume that a specific label can only be one type (point or polygon)
-        annotation_types = {
-            k: _infer_shapely_type(data[k][0].type, None if label_map is None else label_map[k]) for k in data.keys()
-        }
-
         annotations: List[WsiSingleLabelAnnotation] = [
-            WsiSingleLabelAnnotation(label=k, type=annotation_types[k], coordinates=data[k]) for k in data.keys()
+            WsiSingleLabelAnnotation(label=k, type=data[k][0].type, coordinates=data[k]) for k in data.keys()
         ]
 
         return cls(annotations)
@@ -529,22 +525,6 @@ class WsiAnnotations:
             output += f"{annotation_name} ({len(self._annotations[annotation_name])}, "
 
         return f"{type(self).__name__}(labels={output[:-2]})"
-
-
-def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[AnnotationType] = None) -> AnnotationType:
-    if label:
-        return label
-
-    if shapely_type in ["Polygon", "MultiPolygon"]:
-        return AnnotationType.POLYGON
-    elif shapely_type == "Point":
-        return AnnotationType.POINT
-    else:  # LineString, MultiPoint, MultiLineString
-        raise RuntimeError(f"Not a supported shapely type: {shapely_type}")
-
-
-def _infer_asap_type():
-    pass
 
 
 def _parse_asap_coordinates(
