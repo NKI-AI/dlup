@@ -171,11 +171,11 @@ class WsiSingleLabelAnnotation:
 
     def as_json(self) -> List[Dict[str, Any]]:
         """
-                Return the annotation as json format.
-        .
-                ReturnsP
-                -------
-                Dict
+        Return the annotation as json format.
+
+        Returns
+        -------
+        Dict
         """
         data = [
             {
@@ -338,17 +338,25 @@ class WsiAnnotations:
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
 
-    def as_geojson(self):
-        data = {"type": "FeatureCollection", "features": []}
-        jsons = [self[label].as_json() for label in self.available_labels]
+    def as_geojson(self, split_per_label=False) -> Union[List[Any], Dict[str, Any]]:
+        jsons = [(label, self[label].as_json()) for label in self.available_labels]
+        if split_per_label:
+            per_label_jsons = []
+            for label, json_per_label in jsons:
+                data = {"type": "FeatureCollection", "features": []}
+                for idx, json_dict in enumerate(json_per_label):
+                    data["features"].append(json_dict)
+                    data["idx"] = str(idx)
+                per_label_jsons.append((label, data))
+            return per_label_jsons
 
+        data = {"type": "FeatureCollection", "features": []}
         index = 0
-        for json_list in jsons:
-            for json_dict in json_list:
+        for label, json_per_label in jsons:
+            for json_dict in json_per_label:
                 json_dict["id"] = str(index)
                 data["features"].append(json_dict)
                 index += 1
-
         return data
 
     def read_region(
