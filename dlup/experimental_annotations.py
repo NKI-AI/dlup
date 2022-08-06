@@ -34,7 +34,6 @@ import numpy as np
 import shapely
 import shapely.validation
 from shapely import geometry
-
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
@@ -222,7 +221,11 @@ class WsiSingleLabelAnnotation:
                 Dict
         """
         data = [
-            {"type": "Feature", "properties": {"name": _.label}, "geometry": shapely.geometry.mapping(_)}
+            {
+                "type": "Feature",
+                "properties": {"classification": {"name": _.label}},
+                "geometry": shapely.geometry.mapping(_),
+            }
             for _ in self._annotations
         ]
         return data
@@ -293,9 +296,10 @@ class WsiAnnotations:
             with open(path, "r", encoding="utf-8") as annotation_file:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
-                    _geometry = np.asarray(x["geometry"]) * _scaling
+                    coordinates = np.asarray(x["geometry"]["coordinates"]) * _scaling
+                    x["geometry"]["coordinates"] = coordinates.tolist()
                     _label = x["properties"]["classification"]["name"]
-                    data[_label].append(shape(_geometry, label=_label))
+                    data[_label].append(shape(x["geometry"], label=_label))
 
         # It is assume that a specific label can only be one type (point or polygon)
         annotation_types = {
