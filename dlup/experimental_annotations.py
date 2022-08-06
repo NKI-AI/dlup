@@ -142,49 +142,6 @@ _POSTPROCESSORS = {
 }
 
 
-def _to_geojson_format(list_of_points: list, answers: dict, label: str) -> GeoJsonDict:
-    """
-    Convert a given list of annotations into the GeoJSON standard.
-    Parameters
-    ----------
-    list_of_points: list
-        A list containing annotation shapes or coordinates.
-    answers: Dict
-        slidescore answers per annotation
-    label: str
-        The string identifying the annotation class.
-    """
-
-    feature_collection: GeoJsonDict = {
-        "type": "FeatureCollection",
-        "features": [],
-    }
-
-    features: List[Any] = []
-    properties: Dict[str, Union[str, Dict[str, str]]] = {
-        "object_type": "annotation",
-        "classification": {
-            "name": label,
-        },
-    }
-    idx = 0
-    for index, data in enumerate(list_of_points):
-        if data.type != "Point":
-            modified_on = answers[index]["modifiedOn"]
-        geometry = shapely.geometry.mapping(data)
-        features.append(
-            {
-                "id": str(index),
-                "type": "Feature",
-                "properties": properties,
-                "geometry": geometry,
-            }
-        )
-        idx += 1
-    feature_collection["features"] = features
-    return feature_collection
-
-
 class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
