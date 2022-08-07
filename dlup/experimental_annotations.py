@@ -43,20 +43,20 @@ _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
 
 
+class AnnotationType(Enum):
+    POINT = "point"
+    BOX = "box"
+    POLYGON = "polygon"
+
+
 class GeoJsonDict(TypedDict):
     """
     TypedDict for standard GeoJSON output
     """
 
+    idx: Optional[str]
     type: str
     features: List[Dict[str, Union[str, Dict[str, str]]]]
-
-
-class AnnotationType(Enum):
-    POINT = "point"
-    BOX = "box"
-    POLYGON = "polygon"
-    IMAGELEVEL = "imagelevel"
 
 
 class Point(shapely.geometry.Point):
@@ -338,19 +338,31 @@ class WsiAnnotations:
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
 
-    def as_geojson(self, split_per_label=False) -> Union[List[Any], Dict[str, Any]]:
+    def as_geojson(self, split_per_label=False) -> Union[GeoJsonDict, List[Tuple[str, GeoJsonDict]]]:
+        """
+        Output the annotations as proper geojson.
+
+        Parameters
+        ----------
+        split_per_label : bool
+            If set will return a list of a tuple with str, GeoJSON dict for this specific label.
+
+        Returns
+        -------
+        list or GeoJson
+        """
         jsons = [(label, self[label].as_json()) for label in self.available_labels]
         if split_per_label:
             per_label_jsons = []
             for label, json_per_label in jsons:
-                data = {"type": "FeatureCollection", "features": []}
+                per_label_data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "idx": None}
                 for idx, json_dict in enumerate(json_per_label):
-                    data["features"].append(json_dict)
-                    data["idx"] = str(idx)
-                per_label_jsons.append((label, data))
+                    per_label_data["features"].append(json_dict)
+                    per_label_data["idx"] = str(idx)
+                per_label_jsons.append((label, per_label_data))
             return per_label_jsons
 
-        data = {"type": "FeatureCollection", "features": []}
+        data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "idx": None}
         index = 0
         for label, json_per_label in jsons:
             for json_dict in json_per_label:
@@ -404,8 +416,9 @@ class WsiAnnotations:
         >>> wsi = wsi.read_region(location=(0,0), size=wsi.size)
         >>> annotations = WsiAnnotations.from_geojson([Path("path/to/geojson.json")], labels=["class_name"])
         >>> polygons: list[Polygons] = annotations.read_region(coordinates=(0,0), region_size=wsi.size, scaling=0.01)
-        >>> mask = np.zeros(wsi.size, dtype=np.uint8)
-        >>> mask = rasterize(polygons, out_shape=(wsi.size[1], wsi.size[0]))
+
+        The polygons can be converted to masks using `dlup.data.transforms.convert_annotations` or
+        `dlup.data.transforms.ConvertAnnotationsToMask`.
         """
 
         box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
