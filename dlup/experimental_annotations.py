@@ -444,6 +444,8 @@ class WsiAnnotations:
             crop_func = _POSTPROCESSORS[self[annotation_name].type]
             if crop_func is not None:
                 curr_area = annotation.area
+                # The following function casts this again as a shapely Polygon, so we will need to convert
+                # further down the road back to a dlup Polygon.
                 annotation = crop_func(annotation, query_box)
                 post_area = annotation.area
                 # Remove annotations which had area before (e.g. polygons) but after cropping are a point.
