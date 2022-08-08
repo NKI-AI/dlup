@@ -70,21 +70,19 @@ if __name__ == "__main__":
     tiger_pairs = get_tiger_pairs(annotations_dir=args.TIGER_ANNOTATION_DIR, images_dir=args.TIGER_IMAGES_DIR)
     print(f"Determining mpp's for corresponding TCGA images...")
     tcga_maps = get_tcga_mpps(args.TCGA_IMAGES_DIR, tiger_pairs)
-    args.OUTPUT_DIR.mkdir(exist_ok=True)
     print(f"Writing new annotations...")
 
-    remap_labels = (
-        {
+    remap_labels = {
             "exclude": "ignore",
-            "tumor-associate stroma": "stroma",
+            "tumor-associated stroma": "stroma",
             "invasive tumor": "tumor",
             "inflamed stroma": "inflamed",
             "healthy glands": "irrelevant",
             "necrosis not in-situ": "irrelevant",
             "in-situ tumor": "irrelevant",
             "rest": "rest",
-        },
-    )
+            "roi": "roi"
+        }
 
     for image_id in tqdm(tcga_maps):
         annotation_fn, image_fn = tiger_pairs[image_id]
@@ -92,8 +90,8 @@ if __name__ == "__main__":
             annotation_fn, tiger_image=image_fn, tcga_mpp=tcga_maps[image_id], remap_labels=remap_labels
         )
 
-        write_dir = OUTPUT_DIR / image_id
-        write_dir.mkdir(exist_ok=True)
+        write_dir = args.OUTPUT_DIR / image_id
+        write_dir.mkdir(exist_ok=True, parents=True)
         for label, geojson in geojsons:
             with open(write_dir / f"{label}.json", "w") as json_file:
                 json.dump(geojson, json_file, indent=2)

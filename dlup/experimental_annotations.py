@@ -236,7 +236,8 @@ class WsiAnnotations:
         scaling : float, optional
             The scaling to apply to the annotations.
         remap_labels : dict, optional
-            Dictionary mapping read labels to another label. Multiple labels can map to the same value.
+            Dictionary mapping read labels to another label. Multiple labels can map to the same value. If the
+            label is not in the dictionary this label will be ignored.
 
         Returns
         -------
@@ -283,7 +284,8 @@ class WsiAnnotations:
         asap_xml
         scaling
         remap_labels : dict, optional
-            Dictionary mapping read labels to another label. Multiple labels can map to the same value.
+            Dictionary mapping read labels to another label. Multiple labels can map to the same value. If the
+            label is not in the dictionary this label will be ignored.
 
         Returns
         -------
@@ -310,8 +312,9 @@ class WsiAnnotations:
                 label = child.attrib.get("PartOfGroup").lower().strip()
 
                 # If we have a label map and there is nothing defined, then continue.
-                if label in _remap_labels:
-                    label = _remap_labels[label]
+                if label not in _remap_labels:
+                    continue
+                label = _remap_labels[label]
 
                 annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
                 coordinates = _parse_asap_coordinates(child, annotation_type, scaling=scaling)
