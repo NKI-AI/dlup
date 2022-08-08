@@ -70,8 +70,7 @@ if __name__ == "__main__":
     tiger_pairs = get_tiger_pairs(annotations_dir=args.TIGER_ANNOTATION_DIR, images_dir=args.TIGER_IMAGES_DIR)
     print(f"Determining mpp's for corresponding TCGA images...")
     tcga_maps = get_tcga_mpps(args.TCGA_IMAGES_DIR, tiger_pairs)
-    OUTPUT_DIR = Path("/home/j.teuwen/output")
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    args.OUTPUT_DIR.mkdir(exist_ok=True)
     print(f"Writing new annotations...")
 
     remap_labels = (
