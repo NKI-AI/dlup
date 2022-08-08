@@ -60,11 +60,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Parse TIGER annotations to GeoJSON")
     parser.add_argument(
-        "TIGER_ANNOTATION_DIR", help="Directory pointing to TIGER ASAP XML annotations", type=Path, required=True
+        "TIGER_ANNOTATION_DIR", help="Directory pointing to TIGER ASAP XML annotations", type=Path
     )
-    parser.add_argument("TIGER_IMAGES_DIR", help="Directory pointing to TIGER ASAP tif's", type=Path, required=True)
-    parser.add_argument("TCGA_IMAGES_DIR", help="Directory pointing to TCGA images", type=Path, required=True)
-    parser.add_argument("OUTPUT_DIR", help="Where to write the GeoJSON", type=Path, required=True)
+    parser.add_argument("TIGER_IMAGES_DIR", help="Directory pointing to TIGER ASAP tif's", type=Path)
+    parser.add_argument("TCGA_IMAGES_DIR", help="Directory pointing to TCGA images", type=Path)
+    parser.add_argument("OUTPUT_DIR", help="Where to write the GeoJSON", type=Path)
     args = parser.parse_args()
 
     tiger_pairs = get_tiger_pairs(annotations_dir=args.TIGER_ANNOTATION_DIR, images_dir=args.TIGER_IMAGES_DIR)
