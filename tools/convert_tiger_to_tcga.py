@@ -15,13 +15,13 @@ from dlup.experimental_annotations import WsiAnnotations
 from dlup.experimental_backends import ImageBackends
 
 
-def convert_asap_to_geojson(asap_xml, tiger_image=None, tcga_mpp=None) -> dict:
+def convert_asap_to_geojson(asap_xml, tiger_image=None, tcga_mpp=None, remap_labels=None) -> dict:
     scaling = 1.0
     if tcga_mpp is not None:
         with SlideImage.from_file_path(tiger_image, backend=ImageBackends.PYVIPS) as slide:
             scaling = slide.mpp / tcga_mpp
 
-    annotation = WsiAnnotations.from_asap_xml(asap_xml, scaling=scaling)
+    annotation = WsiAnnotations.from_asap_xml(asap_xml, scaling=scaling, remap_labels=remap_labels)
     return annotation.as_geojson(split_per_label=True)
 
 
@@ -73,9 +73,25 @@ if __name__ == "__main__":
     OUTPUT_DIR = Path("/home/j.teuwen/output")
     OUTPUT_DIR.mkdir(exist_ok=True)
     print(f"Writing new annotations...")
+
+    remap_labels = (
+        {
+            "exclude": "ignore",
+            "tumor-associate stroma": "stroma",
+            "invasive tumor": "tumor",
+            "inflamed stroma": "inflamed",
+            "healthy glands": "irrelevant",
+            "necrosis not in-situ": "irrelevant",
+            "in-situ tumor": "irrelevant",
+            "rest": "rest",
+        },
+    )
+
     for image_id in tqdm(tcga_maps):
         annotation_fn, image_fn = tiger_pairs[image_id]
-        geojsons = convert_asap_to_geojson(annotation_fn, tiger_image=image_fn, tcga_mpp=tcga_maps[image_id])
+        geojsons = convert_asap_to_geojson(
+            annotation_fn, tiger_image=image_fn, tcga_mpp=tcga_maps[image_id], remap_labels=remap_labels
+        )
 
         write_dir = OUTPUT_DIR / image_id
         write_dir.mkdir(exist_ok=True)
