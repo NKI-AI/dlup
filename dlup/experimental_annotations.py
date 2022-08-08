@@ -223,6 +223,7 @@ class WsiAnnotations:
         cls: Type[_TWsiAnnotations],
         geojsons: Iterable[PathLike],
         scaling: float | None = None,
+        remap_labels: Dict[str, str] | None = None,
     ) -> _TWsiAnnotations:
         """
         Constructs an WsiAnnotations object from geojson.
@@ -234,6 +235,9 @@ class WsiAnnotations:
             object.
         scaling : float, optional
             The scaling to apply to the annotations.
+        remap_labels : dict, optional
+            Dictionary mapping read labels to another label. Multiple labels can map to the same value. If the
+            label is not in the dictionary this label will be ignored.
 
         Returns
         -------
@@ -241,6 +245,7 @@ class WsiAnnotations:
 
         """
         data = defaultdict(list)
+        _remap_labels = {} if not remap_labels else remap_labels
         _scaling = 1.0 if not scaling else scaling
         for idx, path in enumerate(geojsons):
             path = pathlib.Path(path)
@@ -253,6 +258,8 @@ class WsiAnnotations:
                     coordinates = np.asarray(x["geometry"]["coordinates"]) * _scaling
                     x["geometry"]["coordinates"] = coordinates.tolist()
                     _label = x["properties"]["classification"]["name"]
+                    if _label in _remap_labels:
+                        _label = _remap_labels[_label]
                     data[_label].append(shape(x["geometry"], label=_label))
 
         # It is assume that a specific label can only be one type (point or polygon)
@@ -263,7 +270,27 @@ class WsiAnnotations:
         return cls(annotations)
 
     @classmethod
-    def from_asap_xml(cls, asap_xml, label_map=None, scaling=None):
+    def from_asap_xml(
+        cls,
+        asap_xml: PathLike,
+        scaling: float | None = None,
+        remap_labels: Dict[str, str] | None = None,
+    ):
+        """
+
+
+        Parameters
+        ----------
+        asap_xml
+        scaling
+        remap_labels : dict, optional
+            Dictionary mapping read labels to another label. Multiple labels can map to the same value. If the
+            label is not in the dictionary this label will be ignored.
+
+        Returns
+        -------
+
+        """
         # ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
         _ASAP_TYPES = {
             "polygon": AnnotationType.POLYGON,
@@ -272,6 +299,7 @@ class WsiAnnotations:
             "spline": AnnotationType.POLYGON,
             "pointset": AnnotationType.POINT,
         }
+        _remap_labels = {} if not remap_labels else remap_labels
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
@@ -284,8 +312,9 @@ class WsiAnnotations:
                 label = child.attrib.get("PartOfGroup").lower().strip()
 
                 # If we have a label map and there is nothing defined, then continue.
-                if label_map is not None and label not in label_map:
+                if label not in _remap_labels:
                     continue
+                label = _remap_labels[label]
 
                 annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
                 coordinates = _parse_asap_coordinates(child, annotation_type, scaling=scaling)
@@ -311,10 +340,7 @@ class WsiAnnotations:
                     coordinates_list = [coordinates]
 
                 for coordinates in coordinates_list:
-                    # If we have a label map function, we apply it to the coordinates.
-                    if label_map is not None and label_map[label] is not None:
-                        coordinates, annotation_type = label_map[label](coordinates)
-
+                    # TODO: There is a cast function
                     if isinstance(coordinates, shapely.geometry.Point):
                         coordinates = Point(coordinates, label=label)
                     elif isinstance(coordinates, shapely.geometry.Polygon):
