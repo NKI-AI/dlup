@@ -28,13 +28,12 @@ import pathlib
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from enum import Enum
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, TypeVar, Union
 
 import numpy as np
 import shapely
 import shapely.validation
 from shapely import geometry
-from shapely.geometry import shape
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
@@ -48,7 +47,16 @@ class AnnotationType(Enum):
     POINT = "point"
     BOX = "box"
     POLYGON = "polygon"
-    IMAGELEVEL = "imagelevel"
+
+
+class GeoJsonDict(TypedDict):
+    """
+    TypedDict for standard GeoJSON output
+    """
+
+    idx: Optional[str]
+    type: str
+    features: List[Dict[str, Union[str, Dict[str, str]]]]
 
 
 class Point(shapely.geometry.Point):
@@ -117,6 +125,16 @@ class Polygon(shapely.geometry.Polygon):
         return f"{self.label}, {self.wkt}"
 
 
+def shape(coordinates, label):
+    geom_type = coordinates.get("type").lower()
+    if geom_type == "point":
+        return Point(coordinates["coordinates"], label=label)
+    elif geom_type == "polygon":
+        return Polygon(coordinates["coordinates"][0], label=label)
+    else:
+        raise NotImplementedError
+
+
 _POSTPROCESSORS = {
     AnnotationType.POINT: lambda x, region: x,
     AnnotationType.BOX: lambda x, region: x.intersection(region),
@@ -127,21 +145,15 @@ _POSTPROCESSORS = {
 class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
-    def __init__(self, label: str, type: AnnotationType, coordinates, mpp: Optional[float] = None):
+    def __init__(self, label: str, type: AnnotationType, coordinates):
         self.__type = type
         self._annotations = coordinates
-        self.__mpp = mpp
         self.__label = label
 
     @property
     def type(self):
         """The type of annotation, e.g. box, polygon or points."""
         return self.__type
-
-    @property
-    def mpp(self):
-        """The mpp used to annotate. Can be None for level 0."""
-        return self.__mpp
 
     @property
     def label(self):
@@ -157,19 +169,22 @@ class WsiSingleLabelAnnotation:
     def as_list(self) -> List:
         return self._annotations
 
-    def as_geojson(self) -> Dict[str, Any]:
+    def as_json(self) -> List[Dict[str, Any]]:
         """
-        Return the annotation as GeoJSON format. Adds additional keys for set mpp and label.
-        **WARNING**: These extra keys are NOT read by the `WsiAnnotations.from_geojson` functions, and are there just
-        for convenience.
+        Return the annotation as json format.
 
         Returns
         -------
         Dict
         """
-        data = shapely.geometry.mapping(self._annotations)
-        data["mpp"] = self.mpp
-        data["label"] = self.label
+        data = [
+            {
+                "type": "Feature",
+                "properties": {"classification": {"name": _.label}},
+                "geometry": shapely.geometry.mapping(_),
+            }
+            for _ in self._annotations
+        ]
         return data
 
     @property
@@ -207,8 +222,7 @@ class WsiAnnotations:
     def from_geojson(
         cls: Type[_TWsiAnnotations],
         geojsons: Iterable[PathLike],
-        mpp: float | None = None,
-        label_map: Optional[Dict[str, AnnotationType]] = None,
+        scaling: float | None = None,
     ) -> _TWsiAnnotations:
         """
         Constructs an WsiAnnotations object from geojson.
@@ -218,10 +232,8 @@ class WsiAnnotations:
         geojsons : Iterable
             List of geojsons representing objects. The properties object must have the name which is the label of this
             object.
-        mpp : float, optional
-            The mpp in which the annotations are defined. If `None`, will assume level 0.
-        label_map : Dict, optional
-            A dictionary which can be used to override the annotation type, and not the one parsed by the Shapely.
+        scaling : float, optional
+            The scaling to apply to the annotations.
 
         Returns
         -------
@@ -229,6 +241,7 @@ class WsiAnnotations:
 
         """
         data = defaultdict(list)
+        _scaling = 1.0 if not scaling else scaling
         for idx, path in enumerate(geojsons):
             path = pathlib.Path(path)
             if not path.exists():
@@ -237,22 +250,20 @@ class WsiAnnotations:
             with open(path, "r", encoding="utf-8") as annotation_file:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
-                    data[x["properties"]["classification"]["name"]].append(shape(x["geometry"]))
+                    coordinates = np.asarray(x["geometry"]["coordinates"]) * _scaling
+                    x["geometry"]["coordinates"] = coordinates.tolist()
+                    _label = x["properties"]["classification"]["name"]
+                    data[_label].append(shape(x["geometry"], label=_label))
 
         # It is assume that a specific label can only be one type (point or polygon)
-        annotation_types = {
-            k: _infer_shapely_type(data[k][0].type, None if label_map is None else label_map[k]) for k in data.keys()
-        }
-
         annotations: List[WsiSingleLabelAnnotation] = [
-            WsiSingleLabelAnnotation(label=k, type=annotation_types[k], coordinates=data[k], mpp=mpp)
-            for k in data.keys()
+            WsiSingleLabelAnnotation(label=k, type=data[k][0].type, coordinates=data[k]) for k in data.keys()
         ]
 
         return cls(annotations)
 
     @classmethod
-    def from_asap_xml(cls, asap_xml, label_map=None, mpp=None):
+    def from_asap_xml(cls, asap_xml, label_map=None, scaling=None):
         # ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
         _ASAP_TYPES = {
             "polygon": AnnotationType.POLYGON,
@@ -277,7 +288,7 @@ class WsiAnnotations:
                     continue
 
                 annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
-                coordinates = _parse_asap_coordinates(child, annotation_type)
+                coordinates = _parse_asap_coordinates(child, annotation_type, scaling=scaling)
 
                 if not coordinates.is_valid:
                     coordinates = shapely.validation.make_valid(coordinates)
@@ -302,11 +313,20 @@ class WsiAnnotations:
                 for coordinates in coordinates_list:
                     # If we have a label map function, we apply it to the coordinates.
                     if label_map is not None and label_map[label] is not None:
-                        coordinates, annotation_type = label_map[label](coordinates, mpp)
+                        coordinates, annotation_type = label_map[label](coordinates)
+
+                    if isinstance(coordinates, shapely.geometry.Point):
+                        coordinates = Point(coordinates, label=label)
+                    elif isinstance(coordinates, shapely.geometry.Polygon):
+                        coordinates = Polygon(coordinates, label=label)
+                    else:
+                        raise NotImplementedError
 
                     if label not in annotations:
                         annotations[label] = WsiSingleLabelAnnotation(
-                            label=label, type=annotation_type, coordinates=[coordinates], mpp=mpp
+                            label=label,
+                            type=annotation_type,
+                            coordinates=[coordinates],
                         )
                     else:
                         annotations[label].append(coordinates)
@@ -317,6 +337,39 @@ class WsiAnnotations:
 
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
+
+    def as_geojson(self, split_per_label=False) -> Union[GeoJsonDict, List[Tuple[str, GeoJsonDict]]]:
+        """
+        Output the annotations as proper geojson.
+
+        Parameters
+        ----------
+        split_per_label : bool
+            If set will return a list of a tuple with str, GeoJSON dict for this specific label.
+
+        Returns
+        -------
+        list or GeoJson
+        """
+        jsons = [(label, self[label].as_json()) for label in self.available_labels]
+        if split_per_label:
+            per_label_jsons = []
+            for label, json_per_label in jsons:
+                per_label_data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "idx": None}
+                for idx, json_dict in enumerate(json_per_label):
+                    per_label_data["features"].append(json_dict)
+                    per_label_data["idx"] = str(idx)
+                per_label_jsons.append((label, per_label_data))
+            return per_label_jsons
+
+        data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "idx": None}
+        index = 0
+        for label, json_per_label in jsons:
+            for json_dict in json_per_label:
+                json_dict["id"] = str(index)
+                data["features"].append(json_dict)
+                index += 1
+        return data
 
     def read_region(
         self,
@@ -363,8 +416,9 @@ class WsiAnnotations:
         >>> wsi = wsi.read_region(location=(0,0), size=wsi.size)
         >>> annotations = WsiAnnotations.from_geojson([Path("path/to/geojson.json")], labels=["class_name"])
         >>> polygons: list[Polygons] = annotations.read_region(coordinates=(0,0), region_size=wsi.size, scaling=0.01)
-        >>> mask = np.zeros(wsi.size, dtype=np.uint8)
-        >>> mask = rasterize(polygons, out_shape=(wsi.size[1], wsi.size[0]))
+
+        The polygons can be converted to masks using `dlup.data.transforms.convert_annotations` or
+        `dlup.data.transforms.ConvertAnnotationsToMask`.
         """
 
         box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
@@ -390,6 +444,8 @@ class WsiAnnotations:
             crop_func = _POSTPROCESSORS[self[annotation_name].type]
             if crop_func is not None:
                 curr_area = annotation.area
+                # The following function casts this again as a shapely Polygon, so we will need to convert
+                # further down the road back to a dlup Polygon.
                 annotation = crop_func(annotation, query_box)
                 post_area = annotation.area
                 # Remove annotations which had area before (e.g. polygons) but after cropping are a point.
@@ -448,23 +504,9 @@ class WsiAnnotations:
         return f"{type(self).__name__}(labels={output[:-2]})"
 
 
-def _infer_shapely_type(shapely_type: Union[list, str], label: Optional[AnnotationType] = None) -> AnnotationType:
-    if label:
-        return label
-
-    if shapely_type in ["Polygon", "MultiPolygon"]:
-        return AnnotationType.POLYGON
-    elif shapely_type == "Point":
-        return AnnotationType.POINT
-    else:  # LineString, MultiPoint, MultiLineString
-        raise RuntimeError(f"Not a supported shapely type: {shapely_type}")
-
-
-def _infer_asap_type():
-    pass
-
-
-def _parse_asap_coordinates(annotation_structure: List, annotation_type: AnnotationType) -> ShapelyTypes:
+def _parse_asap_coordinates(
+    annotation_structure: List, annotation_type: AnnotationType, scaling: float | None
+) -> ShapelyTypes:
     """
     Parse ASAP XML coordinates into Shapely objects.
 
@@ -473,6 +515,8 @@ def _parse_asap_coordinates(annotation_structure: List, annotation_type: Annotat
     annotation_structure : list of strings
     annotation_type : AnnotationType
         The annotation type this structure is representing.
+    scaling : float
+        Scaling to apply to the coordinates
 
     Returns
     -------
@@ -481,11 +525,13 @@ def _parse_asap_coordinates(annotation_structure: List, annotation_type: Annotat
     """
     coordinates = []
     coordinate_structure = annotation_structure[0]
+
+    _scaling = 1.0 if not scaling else scaling
     for coordinate in coordinate_structure:
         coordinates.append(
             (
-                float(coordinate.get("X").replace(",", ".")),
-                float(coordinate.get("Y").replace(",", ".")),
+                float(coordinate.get("X").replace(",", ".")) * _scaling,
+                float(coordinate.get("Y").replace(",", ".")) * _scaling,
             )
         )
 

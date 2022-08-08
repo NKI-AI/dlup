@@ -12,7 +12,7 @@ import functools
 import itertools
 import json
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast, Any
+from typing import Any, Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
