@@ -258,6 +258,7 @@ class WsiAnnotations:
                     coordinates = np.asarray(x["geometry"]["coordinates"]) * _scaling
                     x["geometry"]["coordinates"] = coordinates.tolist()
                     _label = x["properties"]["classification"]["name"]
+
                     if remap_labels and _label in _remap_labels:
                         _label = _remap_labels[_label]
                     data[_label].append(shape(x["geometry"], label=_label))
@@ -278,6 +279,7 @@ class WsiAnnotations:
     ):
         """
         Read annotations as an ASAP XML file.
+        ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
 
         Parameters
         ----------
@@ -291,7 +293,6 @@ class WsiAnnotations:
         -------
 
         """
-        # ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
         _ASAP_TYPES = {
             "polygon": AnnotationType.POLYGON,
             "rectangle": AnnotationType.BOX,
