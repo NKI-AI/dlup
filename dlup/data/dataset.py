@@ -502,12 +502,12 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
 
 def parse_rois(rois, image_size) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
     if rois is None:
-        return (((0, 0), image_size),)
+        return ((0, 0), image_size),
     else:
         # Do some checks whether the ROIs are within the image
-        origin_positive = [np.all(np.asarray(_[:2]) > 0) for _ in rois]
-        image_within_borders = [np.all((np.asarray(_[:2]) + _[2:]) <= image_size) for _ in rois]
+        origin_positive = [np.all(np.asarray(coords) > 0) for coords, size in rois]
+        image_within_borders = [np.all((np.asarray(coords) + size) <= image_size) for coords, size in rois]
         if not origin_positive or not image_within_borders:
             raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
-    return tuple([(_[:2], _[2:]) for _ in rois])
+    return rois
