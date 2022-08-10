@@ -258,7 +258,7 @@ class WsiAnnotations:
                     coordinates = np.asarray(x["geometry"]["coordinates"]) * _scaling
                     x["geometry"]["coordinates"] = coordinates.tolist()
                     _label = x["properties"]["classification"]["name"]
-                    if _label in _remap_labels:
+                    if remap_labels and _label in _remap_labels:
                         _label = _remap_labels[_label]
                     data[_label].append(shape(x["geometry"], label=_label))
 
@@ -277,7 +277,7 @@ class WsiAnnotations:
         remap_labels: Dict[str, str] | None = None,
     ):
         """
-
+        Read annotations as an ASAP XML file.
 
         Parameters
         ----------
@@ -312,9 +312,10 @@ class WsiAnnotations:
                 label = child.attrib.get("PartOfGroup").lower().strip()
 
                 # If we have a label map and there is nothing defined, then continue.
-                if label not in _remap_labels:
-                    continue
-                label = _remap_labels[label]
+                if _remap_labels:
+                    if label not in _remap_labels:
+                        continue
+                    label = _remap_labels[label]
 
                 annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
                 coordinates = _parse_asap_coordinates(child, annotation_type, scaling=scaling)
