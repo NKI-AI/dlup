@@ -309,7 +309,7 @@ class WsiAnnotations:
             for child in parent:
                 if child.tag != "Annotation":
                     continue
-                label = child.attrib.get("PartOfGroup").lower().strip()
+                label = child.attrib.get("PartOfGroup").lower().strip()  # type: ignore
 
                 # If we have a label map and there is nothing defined, then continue.
                 if _remap_labels:
@@ -317,7 +317,8 @@ class WsiAnnotations:
                         continue
                     label = _remap_labels[label]
 
-                annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
+                _type = child.attrib.get("Type").lower()  # type: ignore
+                annotation_type = _ASAP_TYPES[_type]
                 coordinates = _parse_asap_coordinates(child, annotation_type, scaling=scaling)
 
                 if not coordinates.is_valid:
@@ -532,7 +533,7 @@ class WsiAnnotations:
 
 
 def _parse_asap_coordinates(
-    annotation_structure: List, annotation_type: AnnotationType, scaling: float | None
+    annotation_structure: ET.Element, annotation_type: AnnotationType, scaling: float | None
 ) -> ShapelyTypes:
     """
     Parse ASAP XML coordinates into Shapely objects.
@@ -557,8 +558,8 @@ def _parse_asap_coordinates(
     for coordinate in coordinate_structure:
         coordinates.append(
             (
-                float(coordinate.get("X").replace(",", ".")) * _scaling,
-                float(coordinate.get("Y").replace(",", ".")) * _scaling,
+                float(coordinate.get("X").replace(",", ".")) * _scaling,  # type: ignore
+                float(coordinate.get("Y").replace(",", ".")) * _scaling,  # type: ignore
             )
         )
 
