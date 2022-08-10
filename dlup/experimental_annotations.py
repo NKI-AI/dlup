@@ -258,7 +258,8 @@ class WsiAnnotations:
                     coordinates = np.asarray(x["geometry"]["coordinates"]) * _scaling
                     x["geometry"]["coordinates"] = coordinates.tolist()
                     _label = x["properties"]["classification"]["name"]
-                    if _label in _remap_labels:
+
+                    if remap_labels and _label in _remap_labels:
                         _label = _remap_labels[_label]
                     data[_label].append(shape(x["geometry"], label=_label))
 
@@ -277,7 +278,8 @@ class WsiAnnotations:
         remap_labels: Dict[str, str] | None = None,
     ):
         """
-
+        Read annotations as an ASAP XML file.
+        ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
 
         Parameters
         ----------
@@ -291,7 +293,6 @@ class WsiAnnotations:
         -------
 
         """
-        # ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
         _ASAP_TYPES = {
             "polygon": AnnotationType.POLYGON,
             "rectangle": AnnotationType.BOX,
@@ -309,14 +310,16 @@ class WsiAnnotations:
             for child in parent:
                 if child.tag != "Annotation":
                     continue
-                label = child.attrib.get("PartOfGroup").lower().strip()
+                label = child.attrib.get("PartOfGroup").lower().strip()  # type: ignore
 
                 # If we have a label map and there is nothing defined, then continue.
-                if label not in _remap_labels:
-                    continue
-                label = _remap_labels[label]
+                if _remap_labels:
+                    if label not in _remap_labels:
+                        continue
+                    label = _remap_labels[label]
 
-                annotation_type = _ASAP_TYPES[child.attrib.get("Type").lower()]
+                _type = child.attrib.get("Type").lower()  # type: ignore
+                annotation_type = _ASAP_TYPES[_type]
                 coordinates = _parse_asap_coordinates(child, annotation_type, scaling=scaling)
 
                 if not coordinates.is_valid:
@@ -531,7 +534,7 @@ class WsiAnnotations:
 
 
 def _parse_asap_coordinates(
-    annotation_structure: List, annotation_type: AnnotationType, scaling: float | None
+    annotation_structure: ET.Element, annotation_type: AnnotationType, scaling: float | None
 ) -> ShapelyTypes:
     """
     Parse ASAP XML coordinates into Shapely objects.
@@ -556,8 +559,8 @@ def _parse_asap_coordinates(
     for coordinate in coordinate_structure:
         coordinates.append(
             (
-                float(coordinate.get("X").replace(",", ".")) * _scaling,
-                float(coordinate.get("Y").replace(",", ".")) * _scaling,
+                float(coordinate.get("X").replace(",", ".")) * _scaling,  # type: ignore
+                float(coordinate.get("Y").replace(",", ".")) * _scaling,  # type: ignore
             )
         )
 

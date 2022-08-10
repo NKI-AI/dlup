@@ -59,9 +59,7 @@ if __name__ == "__main__":
     # TCGA image example: "gdc_manifest.2021-11-01_diagnostic_breast.txt"
 
     parser = argparse.ArgumentParser(description="Parse TIGER annotations to GeoJSON")
-    parser.add_argument(
-        "TIGER_ANNOTATION_DIR", help="Directory pointing to TIGER ASAP XML annotations", type=Path
-    )
+    parser.add_argument("TIGER_ANNOTATION_DIR", help="Directory pointing to TIGER ASAP XML annotations", type=Path)
     parser.add_argument("TIGER_IMAGES_DIR", help="Directory pointing to TIGER ASAP tif's", type=Path)
     parser.add_argument("TCGA_IMAGES_DIR", help="Directory pointing to TCGA images", type=Path)
     parser.add_argument("OUTPUT_DIR", help="Where to write the GeoJSON", type=Path)
@@ -73,16 +71,16 @@ if __name__ == "__main__":
     print(f"Writing new annotations...")
 
     remap_labels = {
-            "exclude": "ignore",
-            "tumor-associated stroma": "stroma",
-            "invasive tumor": "tumor",
-            "inflamed stroma": "inflamed",
-            "healthy glands": "irrelevant",
-            "necrosis not in-situ": "irrelevant",
-            "in-situ tumor": "irrelevant",
-            "rest": "rest",
-            "roi": "roi"
-        }
+        "exclude": "ignore",
+        "tumor-associated stroma": "stroma",
+        "invasive tumor": "tumor",
+        "inflamed stroma": "inflamed",
+        "healthy glands": "irrelevant",
+        "necrosis not in-situ": "irrelevant",
+        "in-situ tumor": "irrelevant",
+        "rest": "rest",
+        "roi": "roi",
+    }
 
     for image_id in tqdm(tcga_maps):
         annotation_fn, image_fn = tiger_pairs[image_id]
