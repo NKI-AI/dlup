@@ -54,7 +54,7 @@ class GeoJsonDict(TypedDict):
     TypedDict for standard GeoJSON output
     """
 
-    idx: Optional[str]
+    id: Optional[str]
     type: str
     features: List[Dict[str, Union[str, Dict[str, str]]]]
 
@@ -384,14 +384,14 @@ class WsiAnnotations:
         if split_per_label:
             per_label_jsons = []
             for label, json_per_label in jsons:
-                per_label_data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "idx": None}
+                per_label_data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "id": None}
                 for idx, json_dict in enumerate(json_per_label):
                     per_label_data["features"].append(json_dict)
-                    per_label_data["idx"] = str(idx)
+                    per_label_data["id"] = str(idx)
                 per_label_jsons.append((label, per_label_data))
             return per_label_jsons
 
-        data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "idx": None}
+        data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "id": None}
         index = 0
         for label, json_per_label in jsons:
             for json_dict in json_per_label:
