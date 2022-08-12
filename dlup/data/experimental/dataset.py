@@ -105,7 +105,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
 
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp
-            _rois = parse_rois(rois, tuple(slide_image.size))
+            _rois = parse_rois(rois, tuple(slide_image.size), scaling=1)
 
         view_scalings = [mpp / original_mpp for mpp in mpps]
         grids = []

@@ -52,7 +52,7 @@ def convert_annotations(
     mask = np.zeros(region_size, dtype=np.int32)
     points: Dict[str, List] = defaultdict(list)
 
-    roi_mask = np.empty(region_size, dtype=np.int32)
+    roi_mask = np.zeros(region_size, dtype=np.int32)
 
     for curr_annotation in annotations:
         if isinstance(curr_annotation, dlup.experimental_annotations.Point):
