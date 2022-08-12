@@ -221,7 +221,7 @@ class WsiAnnotations:
     @classmethod
     def from_geojson(
         cls: Type[_TWsiAnnotations],
-        geojsons: Iterable[PathLike],
+        geojsons: Union[PathLike, Iterable[PathLike]],
         scaling: float | None = None,
         remap_labels: Dict[str, str] | None = None,
     ) -> _TWsiAnnotations:
@@ -230,7 +230,7 @@ class WsiAnnotations:
 
         Parameters
         ----------
-        geojsons : Iterable
+        geojsons : Iterable, or PathLike
             List of geojsons representing objects. The properties object must have the name which is the label of this
             object.
         scaling : float, optional
@@ -247,7 +247,8 @@ class WsiAnnotations:
         data = defaultdict(list)
         _remap_labels = {} if not remap_labels else remap_labels
         _scaling = 1.0 if not scaling else scaling
-        for idx, path in enumerate(geojsons):
+        _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
+        for idx, path in enumerate(_geojsons):
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))

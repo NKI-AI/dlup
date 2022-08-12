@@ -386,7 +386,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold :
             0 every region is discarded, 1 requires the whole region to be foreground.
         rois :
-            Regions of interest to restrict the grids to.
+            Regions of interest to restrict the grids to. Coordinates should be given at level 0.
         annotations :
             Annotation class
         labels : list
@@ -408,8 +408,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         """
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
-            _rois = parse_rois(rois, slide_level_size)
             slide_mpp = slide_image.mpp
+            _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp)
         grid_mpp = mpp if mpp is not None else slide_mpp
 
         grids = []
@@ -500,7 +500,7 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
         return self._num_tiles
 
 
-def parse_rois(rois, image_size) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
+def parse_rois(rois, image_size, scaling: float) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
     if rois is None:
         return (((0, 0), image_size),)
     else:
@@ -510,4 +510,11 @@ def parse_rois(rois, image_size) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]
         if not origin_positive or not image_within_borders:
             raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
+    rois = [
+        (
+            np.ceil(np.asarray(coords) * scaling).astype(int).tolist(),
+            np.floor(np.asarray(size) * scaling).astype(int).tolist(),
+        )
+        for coords, size in rois
+    ]
     return rois
