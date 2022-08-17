@@ -196,7 +196,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
         self.annotations = _annotations
         self.labels = labels
-        self.transform = transform
+        self.__transform = transform
         self._backend = backend
 
         # Maps from a masked index -> regions index.
@@ -261,8 +261,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
 
-        if self.transform:
-            sample = self.transform(sample)
+        if self.__transform:
+            sample = self.__transform(sample)
         return sample
 
     def __len__(self):
@@ -468,7 +468,7 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
 
         """
         self.path = pathlib.Path(path)
-        self.transform = transform
+        self.__transform = transform
         with open(self.path / "tiles.json") as json_file:
             tiles_data = json.load(json_file)
 
@@ -489,8 +489,8 @@ class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
         # So do not directly compute from the current grid_index
         sample = PretiledDatasetSample(image=tile, grid_index=grid_index, path=self.original_path)
 
-        if self.transform:
-            sample = self.transform(sample)
+        if self.__transform:
+            sample = self.__transform(sample)
         return sample
 
     def __iter__(self):
