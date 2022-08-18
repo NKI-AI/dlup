@@ -93,10 +93,7 @@ class TifffileImageWriter(ImageWriter):
         self._filename = pathlib.Path(filename)
         self._tile_size = tile_size
         self._size = (*size[::-1], 1) if len(size) == 2 else size[::-1]
-
-        if isinstance(mpp, float):
-            mpp = (mpp, mpp)
-        self._mpp: Tuple[float, float] = mpp
+        self._mpp: Tuple[float, float] = (mpp, mpp) if isinstance(mpp, float) else mpp
 
         if not compression:
             compression = TiffCompression.NONE

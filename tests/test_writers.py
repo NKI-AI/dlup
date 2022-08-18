@@ -22,9 +22,7 @@ def test_tiff_writer(shape):
         size = (*pil_image.size, 3)
 
     with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
-        writer = TifffileImageWriter(
-            temp_tiff.name, size=size, mpp=(0.45, 0.45), compression=TiffCompression.NONE
-        )
+        writer = TifffileImageWriter(temp_tiff.name, size=size, mpp=(0.45, 0.45), compression=TiffCompression.NONE)
 
         writer.from_pil(pil_image)
         vips_image = pyvips.Image.new_from_file(temp_tiff.name)
