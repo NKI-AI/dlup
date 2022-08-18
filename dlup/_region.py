@@ -58,7 +58,7 @@ class RegionView(ABC):
         clipped_region_size = clipped_region_size.astype(int)
         region = self._read_region_impl(location + offset, clipped_region_size)
 
-        if self.boundary_mode == BoundaryMode.zero and np.any(location < 0):
+        if self.boundary_mode == BoundaryMode.zero:
             if np.any(size != clipped_region_size) or np.any(location < 0):
                 new_region = PIL.Image.new(str(region.mode), tuple(size))
                 # Now we need to paste the region into the new region.
