@@ -69,6 +69,6 @@ class RegionView(ABC):
         return region
 
     @abstractmethod
-    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> np.ndarray:
+    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
         """Define a method to return an array containing the region."""
         pass
