@@ -92,7 +92,7 @@ class TifffileImageWriter(ImageWriter):
         """
         self._filename = pathlib.Path(filename)
         self._tile_size = tile_size
-        self._size = (*size, 1) if len(size) == 2 else size
+        self._size = (*size[::-1], 1) if len(size) == 2 else size[::-1]
 
         if isinstance(mpp, float):
             mpp = (mpp, mpp)
