@@ -62,7 +62,7 @@ class TifffileImageWriter(ImageWriter):
     def __init__(
         self,
         filename: PathLike,
-        size: Union[Tuple[int, int, int], Tuple[int, int]],
+        size: Union[Tuple[int, int], Tuple[int, int, int]],
         mpp: Union[float, Tuple[float, float]],
         tile_size: Tuple[int, int] = (512, 512),
         pyramid: bool = False,
@@ -92,11 +92,9 @@ class TifffileImageWriter(ImageWriter):
         """
         self._filename = pathlib.Path(filename)
         self._tile_size = tile_size
-        self._size = (*size, 1) if len(size) == 2 else size
 
-        if isinstance(mpp, float):
-            mpp = (mpp, mpp)
-        self._mpp: Tuple[float, float] = mpp
+        self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])  # type: ignore
+        self._mpp: Tuple[float, float] = (mpp, mpp) if isinstance(mpp, float) else mpp
 
         if not compression:
             compression = TiffCompression.NONE

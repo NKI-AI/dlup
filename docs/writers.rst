@@ -23,7 +23,7 @@ Example code
     mask = SlideImage.from_file_path(path, backend=ImageBackends.TIFFFILE)
     writer = TifffileImageWriter(
         filename=output_file,
-        size=(*mask.size[::-1], 3),
+        size=(*mask.size, 3),
         tile_size=(512, 512),
         mpp=mask.mpp,
         compression=TiffCompression.JPEG,
