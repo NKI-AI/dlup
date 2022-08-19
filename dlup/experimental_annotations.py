@@ -425,9 +425,8 @@ class WsiAnnotations:
         None
 
         """
-        self._annotations = {
-            k: v.simplify(tolerance, preserve_topology=preserve_topology) for k, v in self._annotations.items()
-        }
+        for k in self._annotations:
+            self._annotations[k].simplify(tolerance, preserve_topology=preserve_topology)
 
     def read_region(
         self,
