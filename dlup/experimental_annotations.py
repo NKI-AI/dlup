@@ -195,7 +195,7 @@ class WsiSingleLabelAnnotation:
         data = [np.asarray(annotation.envelope.exterior.coords) for annotation in self.as_list()]
         return [_get_bbox(_) for _ in data]
 
-    def simplify(self, tolerance: float, preserve_topology: bool = True):
+    def simplify(self, tolerance: float, *, preserve_topology: bool = True):
         if self.__type != AnnotationType.POLYGON:
             return
         self._annotations = [
@@ -409,7 +409,7 @@ class WsiAnnotations:
                 index += 1
         return data
 
-    def simplify(self, tolerance: float, preserve_topology: bool = True):
+    def simplify(self, tolerance: float, *, preserve_topology: bool = True):
         """Simplify the polygons in the annotation (i.e. reduce points). Other annotations will remain unchanged.
         All points in the resulting polygons object will be in the tolerance distance of the original polygon.
 
