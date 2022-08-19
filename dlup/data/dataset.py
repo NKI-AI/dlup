@@ -256,7 +256,11 @@ class SlideImageDatasetBase(Dataset[T_co]):
         if self.annotations is not None:
             sample["annotations"] = []
             for annotation in self.annotations:
-                sample["annotations"] += annotation.read_region(coordinates, scaling, region_size)
+                region = annotation.read_region(coordinates, scaling, region_size)
+                if isinstance(annotation, SlideImage):
+                    sample["annotations"].append(region)
+                else:  # In this case we have a list of polygons.
+                    sample["annotations"] += region
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
