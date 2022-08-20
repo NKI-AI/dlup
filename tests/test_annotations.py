@@ -83,6 +83,6 @@ class TestAnnotations:
 
         region = annotations.read_region(coordinates, 1.0, size)
         assert len(region) == 1
-        assert region[0].area == scaling ** 2 * area
+        assert region[0].area == scaling**2 * area
         assert region[0].label == "new_label"
         assert isinstance(region[0], Polygon)
