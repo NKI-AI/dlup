@@ -6,7 +6,7 @@ import PIL.Image
 import PIL.ImageColor
 import PIL.ImageDraw
 
-from dlup.experimental_annotations import Point, Polygon
+from dlup.annotations import Point, Polygon
 
 
 def plot_2d(

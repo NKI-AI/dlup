@@ -8,9 +8,9 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import cv2
 import numpy as np
 
-import dlup.experimental_annotations
+import dlup.annotations
 
-_AnnotationsTypes = Union[dlup.experimental_annotations.Point, dlup.experimental_annotations.Polygon]
+_AnnotationsTypes = Union[dlup.annotations.Point, dlup.annotations.Polygon]
 
 
 def convert_annotations(
@@ -55,7 +55,7 @@ def convert_annotations(
     roi_mask = np.zeros(region_size, dtype=np.int32)
 
     for curr_annotation in annotations:
-        if isinstance(curr_annotation, dlup.experimental_annotations.Point):
+        if isinstance(curr_annotation, dlup.annotations.Point):
             points[curr_annotation.label] += tuple(curr_annotation.coords)
 
         if roi_name and curr_annotation.label == roi_name:
@@ -107,5 +107,33 @@ class ConvertAnnotationsToMask:
         }
         if roi is not None:
             sample["annotation_data"]["roi"] = roi
+
+        return sample
+
+
+class MajorityClassToLabel:
+    """Transform which the majority class in the annotations to a label.
+    The ROI key, if present, will be used to mask the image input.
+
+    """
+
+    def __init__(self, roi_name: Optional[str], index_map: Dict[str, int]):
+        """
+        Parameters
+        ----------
+        roi_name : str
+            Name of the ROI key.
+        index_map : dict
+            Dictionary mapping the label to the integer in the output.
+        """
+        self._roi_name = roi_name
+        self._index_map = index_map
+
+    def __call__(self, sample):
+        if "annotations" not in sample:
+            return sample
+
+        annotations = sample["annotations"]
+        _, _, roi = convert_annotations(annotations, sample["image"].size[::-1], roi_name=self._roi_name, index_map={})
 
         return sample
