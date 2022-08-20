@@ -7,6 +7,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
+import PIL.Image
 
 import dlup.annotations
 
@@ -133,7 +134,34 @@ class MajorityClassToLabel:
         if "annotations" not in sample:
             return sample
 
-        annotations = sample["annotations"]
-        _, _, roi = convert_annotations(annotations, sample["image"].size[::-1], roi_name=self._roi_name, index_map={})
+        areas = defaultdict(int)
+        keys = list(self._index_map.keys())
+        if self._roi_name:
+            keys.append(self._roi_name)
 
+        for annotation in sample["annotations"]:
+            if annotation.label in keys:
+                areas[annotation.label] += annotation.area
+
+        tile_area = np.prod(sample["image"].size)
+        roi_non_cover = 0.0
+        if self._roi_name:
+            roi_non_cover = (tile_area - areas[self._roi_name]) / tile_area
+            del areas[self._roi_name]
+
+        max_key = max(areas, key=lambda x: areas[x])
+        max_proportion = areas[max_key] / tile_area
+
+        if roi_non_cover > max_proportion:
+            # In this case we cannot be certain about the label as the non-covering part of the ROI is larger than the
+            # majority class.
+            # In this case we mask the image.
+            _, _, roi = convert_annotations(
+                annotations, sample["image"].size[::-1], roi_name=self._roi_name, index_map={}
+            )
+            sample["image"] = PIL.Image.fromarray(
+                (np.asarray(sample["image"]) * roi).astype(np.uint8), mode=sample["image"].mode
+            )
+
+        sample["labels"] = {"majority_class": self._index_map[max_key]}
         return sample
