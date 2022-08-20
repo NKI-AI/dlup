@@ -9,7 +9,7 @@ import tempfile
 
 import pytest
 
-from dlup.experimental_annotations import WsiAnnotations
+from dlup.annotations import WsiAnnotations
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
 <ASAP_Annotations>
