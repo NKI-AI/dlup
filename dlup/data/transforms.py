@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import cv2
 import numpy as np
 import PIL.Image
+import shapely
 
 import dlup.annotations
 
@@ -163,5 +164,51 @@ class MajorityClassToLabel:
                 (np.asarray(sample["image"]) * roi).astype(np.uint8), mode=sample["image"].mode
             )
 
-        sample["labels"] = {"majority_class": self._index_map[max_key]}
+        label_dict = {"majority_class": self._index_map[max_key]}
+        if "labels" not in sample:
+            sample["labels"] = {}
+        sample["labels"].update(label_dict)
+        return sample
+
+
+class ContainsPolygonToLabel:
+    """Transform which transforms annotations into a sample-level label whether the label is present above a threshold.
+    If a ROI is given, the image is masked on the ROI.
+    """
+
+    def __init__(self, roi_name: Optional[str], label: str, threshold: float):
+        """
+        Parameters
+        ----------
+        roi_name : str
+            Name of the ROI key.
+        label : str
+            Which label to test.
+        threshold : float
+            Threshold as number between 0 and 1 that denotes when we should consider the label to be present.
+        """
+        self._roi_name = roi_name
+        self._label = label
+        self._threshold = threshold
+
+    def __call__(self, sample):
+        if "annotations" not in sample:
+            return sample
+
+        if self._roi_name:
+            roi = shapely.geometry.MultiPolygon([_ for _ in sample["annotations"] if _.label == self._roi_name])
+        else:
+            roi = shapely.geometry.box(0, 0, *(sample["image"].shape[::-1]))
+
+        label_area = (
+            shapely.geometry.MultiPolygon([_ for _ in sample["annotations"] if _.label == self._label])
+            .intersection(roi)
+            .area
+        )
+
+        proportion = label_area / np.prod(sample["image"].size)
+
+        if "labels" not in sample:
+            sample["labels"] = {}
+        sample["labels"].update({f"has {self._label}": proportion >= self._threshold})
         return sample
