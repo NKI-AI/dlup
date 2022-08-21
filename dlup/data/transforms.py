@@ -83,7 +83,7 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, roi_name: str, index_map: Dict[str, int]):
+    def __init__(self, *, roi_name: str, index_map: Dict[str, int]):
         """
         Parameters
         ----------
@@ -115,11 +115,15 @@ class ConvertAnnotationsToMask:
 
 class MajorityClassToLabel:
     """Transform which the majority class in the annotations to a label.
-    The ROI key, if present, will be used to mask the image input.
 
+    The function works as follows:
+    - The total area for each label in the sample is computed, the label with the maximum area is determined.
+    - The total area *not* covered by the ROI is computed.
+    - If the area the roi doesn't cover is larger than the label with the maximum area the image is masked on the ROI.
+    - The label is added to the output dictionary in ["labels"]["majority_label"]
     """
 
-    def __init__(self, roi_name: Optional[str], index_map: Dict[str, int]):
+    def __init__(self, *, roi_name: Optional[str], index_map: Dict[str, int]):
         """
         Parameters
         ----------
@@ -134,6 +138,9 @@ class MajorityClassToLabel:
     def __call__(self, sample):
         if "annotations" not in sample:
             return sample
+
+        if "labels" not in sample:
+            sample["labels"] = {}
 
         areas = defaultdict(int)
         keys = list(self._index_map.keys())
@@ -158,16 +165,12 @@ class MajorityClassToLabel:
             # majority class.
             # In this case we mask the image.
             _, _, roi = convert_annotations(
-                annotations, sample["image"].size[::-1], roi_name=self._roi_name, index_map={}
+                sample["annotations"], sample["image"].size[::-1], roi_name=self._roi_name, index_map={}
             )
-            sample["image"] = PIL.Image.fromarray(
-                (np.asarray(sample["image"]) * roi).astype(np.uint8), mode=sample["image"].mode
-            )
+            masked_image = np.asarray(sample["image"]) * roi[..., np.newaxis]
+            sample["image"] = PIL.Image.fromarray(masked_image.astype(np.uint8), mode=sample["image"].mode)
 
-        label_dict = {"majority_class": self._index_map[max_key]}
-        if "labels" not in sample:
-            sample["labels"] = {}
-        sample["labels"].update(label_dict)
+        sample["labels"].update({"majority_class": self._index_map[max_key]})
         return sample
 
 
