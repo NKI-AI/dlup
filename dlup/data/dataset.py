@@ -357,8 +357,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mpp: float | None,
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
-        tile_mode: TilingMode = TilingMode.skip,
-        grid_order: GridOrder = GridOrder.F,
+        tile_mode: TilingMode = TilingMode.overflow,
+        grid_order: GridOrder = GridOrder.C,
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
@@ -413,7 +413,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
             slide_mpp = slide_image.mpp
-            _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp)
+            _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
         grid_mpp = mpp if mpp is not None else slide_mpp
 
         grids = []
