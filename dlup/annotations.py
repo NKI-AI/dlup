@@ -67,7 +67,7 @@ class Point(shapely.geometry.Point):
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
-    def __init__(self, coord: Union[shapely.geometry.Point, Tuple[float, float]], label: str) -> None:
+    def __init__(self, coord: Union[shapely.geometry.Point, Tuple[float, float]], label: Optional[str] = None) -> None:
         self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property
@@ -100,7 +100,9 @@ class Polygon(shapely.geometry.Polygon):
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
-    def __init__(self, coord: Union[shapely.geometry.Polygon, Tuple[float, float]], label: str) -> None:
+    def __init__(
+        self, coord: Union[shapely.geometry.Polygon, Tuple[float, float]], label: Optional[str] = None
+    ) -> None:
         self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property

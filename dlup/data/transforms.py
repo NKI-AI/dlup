@@ -176,10 +176,13 @@ class MajorityClassToLabel:
 
 class ContainsPolygonToLabel:
     """Transform which transforms annotations into a sample-level label whether the label is present above a threshold.
-    If a ROI is given, the image is masked on the ROI.
+
+    The area of the label within the ROI (if given) is first computed. If the proportion of this label in the
+    image itself is above the threshold, the ["labels"]["has <label>"] is set to True, otherwise False.
+
     """
 
-    def __init__(self, roi_name: Optional[str], label: str, threshold: float):
+    def __init__(self, *, roi_name: Optional[str], label: str, threshold: float):
         """
         Parameters
         ----------
@@ -198,20 +201,17 @@ class ContainsPolygonToLabel:
         if "annotations" not in sample:
             return sample
 
+        if "labels" not in sample:
+            sample["labels"] = {}
+
+        requested_polygons = [_ for _ in sample["annotations"] if _.label == self._label]
+
         if self._roi_name:
             roi = shapely.geometry.MultiPolygon([_ for _ in sample["annotations"] if _.label == self._roi_name])
         else:
             roi = shapely.geometry.box(0, 0, *(sample["image"].shape[::-1]))
 
-        label_area = (
-            shapely.geometry.MultiPolygon([_ for _ in sample["annotations"] if _.label == self._label])
-            .intersection(roi)
-            .area
-        )
-
+        label_area = shapely.geometry.MultiPolygon(requested_polygons).intersection(roi).area
         proportion = label_area / np.prod(sample["image"].size)
-
-        if "labels" not in sample:
-            sample["labels"] = {}
         sample["labels"].update({f"has {self._label}": proportion >= self._threshold})
         return sample
