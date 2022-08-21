@@ -166,7 +166,7 @@ class MajorityClassToLabel:
             # In this case we mask the image.
             _, _, roi = convert_annotations(
                 sample["annotations"], sample["image"].size[::-1], roi_name=self._roi_name, index_map={}
-            )
+            )  # pylint: disable=unsubscriptable-object
             masked_image = np.asarray(sample["image"]) * roi[..., np.newaxis]
             sample["image"] = PIL.Image.fromarray(masked_image.astype(np.uint8), mode=sample["image"].mode)
 
