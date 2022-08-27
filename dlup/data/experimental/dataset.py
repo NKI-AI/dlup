@@ -8,9 +8,9 @@ from typing import Callable, Iterable, List, Optional, Tuple, Union
 import numpy as np
 
 from dlup import SlideImage
+from dlup.annotations import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset, parse_rois
-from dlup.experimental_annotations import WsiAnnotations
-from dlup.experimental_backends import ImageBackends
+from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
@@ -53,10 +53,10 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         crop: bool = True,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[WsiAnnotations] = None,
+        annotations: Optional[_AnnotationTypes] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
-        backend: Callable = ImageBackends.OPENSLIDE,
+        backend: Callable = ImageBackend.PYVIPS,
     ):
         self._grids = grids
         self._num_scales = num_scales
@@ -90,14 +90,14 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mpps: List[float],
         tile_size: Tuple[int, int],
         tile_overlap: Tuple[int, int],
-        tile_mode: TilingMode = TilingMode.skip,
-        grid_order: GridOrder = GridOrder.F,
+        tile_mode: TilingMode = TilingMode.overflow,
+        grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
         mask: Optional[np.ndarray] = None,
         mask_threshold: float = 0.1,
         rois: Optional[Tuple[Tuple[int, ...]]] = None,
         transform: Optional[Callable] = None,
-        backend: Callable = ImageBackends.OPENSLIDE,
+        backend: Callable = ImageBackend.PYVIPS,
     ):
 
         if mpps != sorted(mpps):
