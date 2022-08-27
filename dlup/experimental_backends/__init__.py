@@ -14,10 +14,10 @@ import tifffile
 
 from dlup import UnsupportedSlideError
 
+from .common import AbstractSlideBackend
 from .openslide import OpenSlideSlide
 from .pyvips import PyVipsSlide
 from .tifffile import TifffileSlide
-from .common import AbstractSlideBackend
 
 
 @lru_cache(maxsize=None)
