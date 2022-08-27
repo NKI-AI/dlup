@@ -14,10 +14,10 @@ import tifffile
 
 from dlup import UnsupportedSlideError
 
-from ._openslide import OpenSlideSlide
-from ._pyvips import PyVipsSlide
-from ._tifffile import TifffileSlide
 from .common import AbstractSlideBackend
+from .openslide import OpenSlideSlide
+from .pyvips import PyVipsSlide
+from .tifffile import TifffileSlide
 
 
 @lru_cache(maxsize=None)
@@ -123,7 +123,7 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
         raise UnsupportedSlideError(f"Cannot read {filename} with tifffile.")
 
 
-class ImageBackends(Enum):
+class ImageBackend(Enum):
     """Available image experimental_backends."""
 
     OPENSLIDE: Callable = OpenSlideSlide

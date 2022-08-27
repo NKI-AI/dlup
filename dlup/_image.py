@@ -20,7 +20,7 @@ import PIL
 import PIL.Image  # type: ignore
 
 from dlup import UnsupportedSlideError
-from dlup.experimental_backends import AbstractSlideBackend, ImageBackends
+from dlup.experimental_backends import AbstractSlideBackend, ImageBackend
 from dlup.types import PathLike
 
 from ._region import BoundaryMode, RegionView
@@ -111,12 +111,12 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: Union[str, None] = None,
-        backend: Union[str, Callable] = ImageBackends.OPENSLIDE,
+        backend: Union[str, Callable] = ImageBackend.PYVIPS,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
 
         if isinstance(backend, str):
-            backend = ImageBackends[backend]
+            backend = ImageBackend[backend]
 
         if not wsi_file_path.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
