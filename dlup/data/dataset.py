@@ -22,7 +22,7 @@ from PIL import Image
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import WsiAnnotations
 from dlup.background import is_foreground
-from dlup.experimental_backends import ImageBackends
+from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 
@@ -161,7 +161,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
-        backend: Callable = ImageBackends.OPENSLIDE,
+        backend: Callable = ImageBackend.PYVIPS,
     ):
         """
         Parameters
@@ -188,13 +188,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._crop = crop
         self.regions = regions
 
-        # Bit awkward but intended to make mypy and pytest happy
-        if annotations is None:
-            _annotations: List[Any] = []
-        else:
-            _annotations = [annotations] if not isinstance(annotations, (list, tuple)) else annotations
-
-        self.annotations = _annotations
+        self.annotations = annotations
         self.labels = labels
         self.__transform = transform
         self._backend = backend
@@ -254,13 +248,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         }
 
         if self.annotations is not None:
-            sample["annotations"] = []
-            for annotation in self.annotations:
-                region = annotation.read_region(coordinates, scaling, region_size)
-                if isinstance(annotation, SlideImage):
-                    sample["annotations"].append(region)
-                else:  # In this case we have a list of polygons.
-                    sample["annotations"] += region
+            sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
@@ -322,10 +310,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = True,
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
+        annotations: Optional[_AnnotationTypes] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
-        backend: Callable = ImageBackends.OPENSLIDE,
+        backend: Callable = ImageBackend.PYVIPS,
     ):
         self._grids = grids
         regions = []
@@ -363,10 +351,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask: Optional[Union[SlideImage, np.ndarray]] = None,
         mask_threshold: float = 0.1,
         rois: Optional[Tuple[Tuple[int, ...]]] = None,
-        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
+        annotations: Optional[_AnnotationTypes] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
-        backend: Callable = ImageBackends.OPENSLIDE,
+        backend: Callable = ImageBackend.PYVIPS,
     ):
         """Function to be used to tile a WSI on-the-fly.
         Parameters
@@ -395,7 +383,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             Annotation class
         labels : list
             Image-level labels. Will be added to each individual tile.
-        transform : ImageBackends
+        transform : ImageBackend
             Transform to be applied to the sample.
         backend :
             Backend to use to read the whole slide image.
@@ -451,57 +439,6 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         region_data["grid_index"] = starting_index
         return region_data
 
-
-class PreTiledSlideImageDataset(Dataset[PretiledDatasetSample]):
-    """Dataset class to handle a pretiled WSIs. If you want to combine multiple WSIs, use :class:`ConcatDataset`.
-
-    Examples
-    --------
-    >>> ds = ConcatDataset([_ for _ in self.path.glob("*.svs")]_
-
-    """
-
-    def __init__(self, path: pathlib.Path, transform: Optional[Callable] = None):
-        """
-        Parameters
-        ----------
-        path :
-            Path to the folder containing the tiles and tiles.json.
-        transform :
-            Callable which should be applied after obtaining the sample, e.g. for augmentations.
-
-        """
-        self.path = pathlib.Path(path)
-        self.__transform = transform
-        with open(self.path / "tiles.json") as json_file:
-            tiles_data = json.load(json_file)
-
-        self.original_path = pathlib.Path(tiles_data["original"]["input_file_path"])
-        self.mpp = tiles_data["output"]["mpp"]
-        self.size = tiles_data["output"]["size"]
-        self._num_tiles = tiles_data["output"]["num_tiles"]
-        self._tile_indices = tiles_data["output"]["tile_indices"]
-
-    def __getitem__(self, index):
-        grid_index = self._tile_indices[index]
-        path_to_tile = self.path / "tiles" / f"{'_'.join(map(str, grid_index))}.png"
-        # TODO(jt): Figure out why the mode is RGB
-        tile = PIL.Image.open(path_to_tile).convert("RGB")
-
-        # TODO(jt): do something about the coordinates
-        # Perhaps, they can be inferred in the same way as the original image
-        # So do not directly compute from the current grid_index
-        sample = PretiledDatasetSample(image=tile, grid_index=grid_index, path=self.original_path)
-
-        if self.__transform:
-            sample = self.__transform(sample)
-        return sample
-
-    def __iter__(self):
-        pass
-
-    def __len__(self):
-        return self._num_tiles
 
 
 def parse_rois(rois, image_size, scaling: float) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:

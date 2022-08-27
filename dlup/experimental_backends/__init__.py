@@ -123,7 +123,7 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
         raise UnsupportedSlideError(f"Cannot read {filename} with tifffile.")
 
 
-class ImageBackends(Enum):
+class ImageBackend(Enum):
     """Available image experimental_backends."""
 
     OPENSLIDE: Callable = OpenSlideSlide
