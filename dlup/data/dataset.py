@@ -440,7 +440,6 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-
 def parse_rois(rois, image_size, scaling: float) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
     if rois is None:
         return (((0, 0), image_size),)
