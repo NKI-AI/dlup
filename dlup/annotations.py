@@ -415,8 +415,8 @@ class WsiAnnotations:
         """Simplify the polygons in the annotation (i.e. reduce points). Other annotations will remain unchanged.
         All points in the resulting polygons object will be in the tolerance distance of the original polygon.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         tolerance : float
         preserve_topology : bool
             Preserve the topology, if false, this function will be much faster. Internally the `shapely` simplify
@@ -436,20 +436,20 @@ class WsiAnnotations:
         scaling: float,
         region_size: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
     ) -> List[Union[Polygon, Point]]:
-        """
-        Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
+        """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
         The process is as follows:
-        1. All the annotations which overlap with the requested region of interested are filtered with an STRTree.
-        2. The annotations are filtered by name, and subsequently by area from large to small. The reason this is
-         implemented this way is because sometimes one can annotate a larger region, and the smaller regions should
-         overwrite the previous part. A function `dlup.data.transforms.shapely_to_mask` can be used to convert such
-         outputs to a mask.
-         3. The annotations are cropped to the region-of-interest, or filtered in case of points. Polygons which
-          convert into points after intersection are removed. If it's a image-level label, nothing happens.
-         4. The annotation is rescaled and shifted to the origin to match the local patch coordinate system.
 
-         The final returned data is a list of tuples with `(annotation_name, annotation)`.
+        1.  All the annotations which overlap with the requested region of interested are filtered with an STRTree.
+        2.  The annotations are filtered by name, and subsequently by area from large to small. The reason this is
+            implemented this way is because sometimes one can annotate a larger region, and the smaller regions should
+            overwrite the previous part. A function `dlup.data.transforms.convert_annotations` can be used to convert such
+            outputs to a mask.
+        3.  The annotations are cropped to the region-of-interest, or filtered in case of points. Polygons which
+            convert into points after intersection are removed. If it's a image-level label, nothing happens.
+        4.  The annotation is rescaled and shifted to the origin to match the local patch coordinate system.
+
+        The final returned data is a list of `dlup.annotations.Polygon` or `dlup.annotations.Point`.
 
         Parameters
         ----------

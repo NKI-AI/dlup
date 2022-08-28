@@ -284,8 +284,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
 
     This dataset can be used, for example, to tile your WSI on-the-fly using the `from_standard_tiling` function.
 
-    Example
-    -------
+    Examples
+    --------
     >>>  dlup_dataset = TiledROIsSlideImageDataset.from_standard_tiling(\
             path='/path/to/TCGA-WSI.svs',\
             mpp=0.5,\
@@ -389,8 +389,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         backend :
             Backend to use to read the whole slide image.
 
-        Example
-        -------
+        Examples
+        --------
         See example of usage in the main class docstring
 
         Returns

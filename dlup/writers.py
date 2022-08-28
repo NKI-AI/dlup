@@ -121,7 +121,7 @@ class TifffileImageWriter(ImageWriter):
     def from_tiles_iterator(self, iterator: Iterator[np.ndarray]) -> None:
         """
         Generate the tiff from a tiles iterator. The tiles should be in row-major (C-order) order.
-        The `dlup.tiling.Grid` class has the possibility to generate such grids using `GridOrder.C.
+        The `dlup.tiling.Grid` class has the possibility to generate such grids using `GridOrder.C`.
 
         Parameters
         ----------

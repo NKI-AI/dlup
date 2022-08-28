@@ -176,8 +176,8 @@ class SlideImage:
         np.ndarray
             The extract region.
 
-        Example
-        -------
+        Examples
+        --------
         The locations are defined at the requested scaling (with respect to level 0), so if we want to extract at
         location ``(location_x, location_y)`` of a scaling 0.5 (with respect to level 0), and have resulting tile size of
          ``(tile_size, tile_size)`` with a scaling factor of 0.5, we can use:

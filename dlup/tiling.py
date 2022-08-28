@@ -46,8 +46,8 @@ def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarra
 def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.ndarray:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
-    Example
-    -------
+    Examples
+    --------
 
     .. code-block:: python
 

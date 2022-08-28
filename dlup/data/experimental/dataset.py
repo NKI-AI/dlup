@@ -24,8 +24,8 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
     This dataset can be used, for example, to tile your WSI on-the-fly using the `multiscale_from_tiling` function.
     The output of the dataset will be provided as a list of dictionaries as outputs of `TiledROIsSlideImageDataset`
 
-    Example
-    -------
+    Examples
+    --------
     >>>  dlup_dataset = MultiScaleSlideImageDataset.multiscale_from_tiling(\
             path="/path/to/TCGA-WSI.svs",\
             mpps=[0.0625, 0.125],\

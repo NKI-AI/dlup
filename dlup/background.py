@@ -7,8 +7,9 @@ This module contains a collection of background extraction algorithms specifical
 tailored for histopathology.
 
 Currently implemented:
-- FESI (Foreground Extraction for Histopathological Whole-Slide Imaging).
-- Improved FESI.
+
+-   FESI (Foreground Extraction for Histopathological Whole-Slide Imaging).
+-   Improved FESI.
 
 Check their respective documentations for references.
 """
