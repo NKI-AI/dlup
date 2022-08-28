@@ -330,9 +330,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask_threshold=mask_threshold,
             annotations=annotations,
             labels=labels,
-            transform=transform,
+            transform=None,
             backend=backend,
         )
+        self.__transform = transform
 
     @property
     def grids(self):
@@ -437,6 +438,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
         region_data["grid_local_coordinates"] = grid_local_coordinates
         region_data["grid_index"] = starting_index
+
+        if self.__transform:
+            region_data = self.__transform(region_data)
+
         return region_data
 
 
