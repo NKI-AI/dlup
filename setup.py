@@ -43,7 +43,6 @@ setup(
     install_requires=[
         "numpy>=1.21",
         "scikit-image>=0.19",
-        "shapely @ git+https://github.com/shapely/shapely.git",
         "tifftools",
         "tifffile>=2022.5.4",
         "pyvips>=2.2.1",

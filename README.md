@@ -11,6 +11,9 @@ Whole Slide Images.
 Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more details on how to use dlup.
 
 ## Features
-- command-line utilities
-  * To process whole slide images (metadata, tiling).
 - Dataset classes to handle whole-slide images in a tile-by-tile manner
+- Annotation classes which can load GeoJSON and ASAP formats and convert these to masks.
+
+### Quickstart
+The package can be installed using `pip install dlup`. However, that requires the installation of the beta (upstream)
+version of [shapely](https://github.com/shapely/shapely) using `pip install git+https://github.com/shapely/shapely.git`.
