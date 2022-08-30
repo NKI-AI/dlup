@@ -189,13 +189,14 @@ class WsiSingleLabelAnnotation:
         ]
         return data
 
+    @staticmethod
+    def __get_bbox(z):
+        return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
+
     @property
     def bounding_boxes(self):
-        def _get_bbox(z):
-            return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
-
         data = [np.asarray(annotation.envelope.exterior.coords) for annotation in self.as_list()]
-        return [_get_bbox(_) for _ in data]
+        return [self.__get_bbox(_) for _ in data]
 
     def simplify(self, tolerance: float, *, preserve_topology: bool = True):
         if self.__type != AnnotationType.POLYGON:
@@ -553,6 +554,9 @@ class WsiAnnotations:
             return Polygon(annotation, label=annotation_name)
         else:
             raise RuntimeError(f"Unexpected type. Got {self[annotation_name].type}.")
+
+    def __contains__(self, item):
+        return item in self.available_labels
 
     def __str__(self):
         # Create a string for the labels
