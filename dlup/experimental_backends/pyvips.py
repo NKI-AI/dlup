@@ -10,7 +10,7 @@ import pyvips
 from dlup import UnsupportedSlideError
 from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
-from dlup.utils.image import check_if_mpp_is_isotropic
+from dlup.utils.image import check_if_mpp_is_valid
 
 
 def open_slide(filename: PathLike) -> "PyVipsSlide":
@@ -38,7 +38,6 @@ class PyVipsSlide(AbstractSlideBackend):
             Path to image.
         """
         super().__init__(filename)
-        self.__filename = filename
         # You can have pyvips figure out the reader
         self._images = []
         self._images.append(pyvips.Image.new_from_file(str(filename)))
@@ -72,11 +71,7 @@ class PyVipsSlide(AbstractSlideBackend):
         for idx, image in enumerate(self._images):
             mpp_x = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("xres"))
             mpp_y = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("yres"))
-
-            if mpp_x == 0 or mpp_y == 0:
-                raise UnsupportedSlideError(
-                    f"Attempted to read {self.__filename} using the pyvips tiff reader, but unable to parse resolution."
-                )
+            check_if_mpp_is_valid(mpp_x, mpp_y)
 
             self._spacings.append((mpp_y, mpp_x))
             if idx >= 1:
@@ -115,7 +110,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         mpp_x = float(self._images[0].get("openslide.mpp-x"))
         mpp_y = float(self._images[0].get("openslide.mpp-y"))
-        check_if_mpp_is_isotropic(mpp_x, mpp_y)
+        check_if_mpp_is_valid(mpp_x, mpp_y)
 
         self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
 

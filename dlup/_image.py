@@ -24,7 +24,7 @@ from dlup.experimental_backends import AbstractSlideBackend, ImageBackend
 from dlup.types import PathLike
 
 from ._region import BoundaryMode, RegionView
-from .utils.image import check_if_mpp_is_isotropic
+from .utils.image import check_if_mpp_is_valid
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
@@ -92,7 +92,7 @@ class SlideImage:
         self._wsi = wsi
         self._identifier = identifier
 
-        check_if_mpp_is_isotropic(*self._wsi.spacing)
+        check_if_mpp_is_valid(*self._wsi.spacing)
         self._min_native_mpp = float(self._wsi.spacing[0])
 
     def close(self):
