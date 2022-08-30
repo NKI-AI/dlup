@@ -29,3 +29,5 @@ jobs:
         pip install git+https://github.com/shapely/shapely
     - name: Test with tox
       run: tox
+      env:
+          IS_TOX: 1

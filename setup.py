@@ -4,6 +4,7 @@
 """The setup script."""
 
 import ast
+import os
 from typing import List
 
 from setuptools import find_packages, setup  # type: ignore
@@ -18,6 +19,23 @@ with open("dlup/__init__.py") as f:
 # Get the long description from the README file
 with open("README.md") as f:
     LONG_DESCRIPTION = f.read()
+
+install_requires = [
+    "numpy>=1.21",
+    "scikit-image>=0.19",
+    "tifftools",
+    "tifffile>=2022.5.4",
+    "pyvips>=2.2.1",
+    "tqdm",
+    "pillow>=9.2.0",
+    "openslide-python",
+    "opencv-python>=4.6.0",
+]
+
+# This is a hack as PyPi does not want package installed from github, but tox will fail and we are using
+# the upstream version of shapely
+if os.environ.get("IS_TOX", False):
+    install_requires.append("shapely @ git+https://github.com/shapely/shapely.git")
 
 
 setup(
@@ -40,17 +58,7 @@ setup(
             "dlup=dlup.cli:main",
         ],
     },
-    install_requires=[
-        "numpy>=1.21",
-        "scikit-image>=0.19",
-        "tifftools",
-        "tifffile>=2022.5.4",
-        "pyvips>=2.2.1",
-        "tqdm",
-        "pillow>=9.2.0",
-        "openslide-python",
-        "opencv-python>=4.6.0",
-    ],
+    install_requires=install_requires,
     extras_require={
         "dev": [
             "pytest",
