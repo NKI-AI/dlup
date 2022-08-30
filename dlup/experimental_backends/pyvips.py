@@ -38,6 +38,7 @@ class PyVipsSlide(AbstractSlideBackend):
             Path to image.
         """
         super().__init__(filename)
+        self.__filename = filename
         # You can have pyvips figure out the reader
         self._images = []
         self._images.append(pyvips.Image.new_from_file(str(filename)))
@@ -69,8 +70,13 @@ class PyVipsSlide(AbstractSlideBackend):
         unit_dict = {"cm": 1000, "centimeter": 1000}
         self._downsamples.append(1.0)
         for idx, image in enumerate(self._images):
-            mpp_x = unit_dict[image.get("resolution-unit")] / float(image.get("xres"))
-            mpp_y = unit_dict[image.get("resolution-unit")] / float(image.get("yres"))
+            mpp_x = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("xres"))
+            mpp_y = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("yres"))
+
+            if mpp_x == 0 or mpp_y == 0:
+                raise UnsupportedSlideError(
+                    f"Attempted to read {self.__filename} using the pyvips tiff reader, but unable to parse resolution."
+                )
 
             self._spacings.append((mpp_y, mpp_x))
             if idx >= 1:
