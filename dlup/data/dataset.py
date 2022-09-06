@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast, Dict
+from typing import Callable, Dict, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
@@ -127,8 +127,6 @@ class ConcatDataset(Dataset[T_co]):
         dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
         sample_idx = idx if dataset_idx == 0 else idx - self.cumulative_sizes[dataset_idx - 1]
         return self.datasets[dataset_idx][sample_idx]
-
-
 
 
 LRU_CACHE_SIZE = 32
