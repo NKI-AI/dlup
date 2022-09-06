@@ -511,6 +511,7 @@ class WsiAnnotations:
                 # Remove annotations which had area before (e.g. polygons) but after cropping are a point.
                 if curr_area > 0 and post_area == 0:
                     continue
+
             if annotation:
                 cropped_annotations.append((annotation_name, annotation))
 
@@ -519,6 +520,7 @@ class WsiAnnotations:
         output: List[Union[Polygon, Point]] = []
         for annotation_name, annotation in cropped_annotations:
             annotation = shapely.affinity.affine_transform(annotation, transformation_matrix)
+
             if isinstance(
                 annotation,
                 (geometry.MultiPolygon, geometry.GeometryCollection),
