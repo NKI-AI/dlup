@@ -520,6 +520,10 @@ class WsiAnnotations:
         output: List[Union[Polygon, Point]] = []
         for annotation_name, annotation in cropped_annotations:
             annotation = shapely.affinity.affine_transform(annotation, transformation_matrix)
+            # It can occur that single polygon annotations result in being points after being intersected.
+            # This part is required because shapely operations on the edited polygons lose the label and type.
+            if self[annotation_name].type == AnnotationType.POLYGON and annotation.area == 0:
+                continue
 
             if isinstance(
                 annotation,
