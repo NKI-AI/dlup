@@ -10,9 +10,8 @@ import bisect
 import collections
 import functools
 import itertools
-import json
 import pathlib
-from typing import Any, Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast, Dict
 
 import numpy as np
 import PIL
@@ -96,18 +95,19 @@ class ConcatDataset(Dataset[T_co]):
 
     datasets: List[Dataset[T_co]]
     cumulative_sizes: List[int]
+    wsi_indices: Dict[str, range]
 
     @staticmethod
     def cumsum(sequence):
-        r, s = [], 0
-        for e in sequence:
-            l = len(e)
-            r.append(l + s)
-            s += l
-        return r
+        out_sequence, total = [], 0
+        for item in sequence:
+            length = len(item)
+            out_sequence.append(length + total)
+            total += length
+        return out_sequence
 
     def __init__(self, datasets: Iterable[Dataset]) -> None:
-        super(ConcatDataset, self).__init__()
+        super().__init__()
         # Cannot verify that datasets is Sized
         assert len(datasets) > 0, "datasets should not be an empty iterable"  # type: ignore
         self.datasets = list(datasets)
@@ -125,11 +125,10 @@ class ConcatDataset(Dataset[T_co]):
                 raise ValueError("absolute value of index should not exceed dataset length")
             idx = len(self) + idx
         dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
-        if dataset_idx == 0:
-            sample_idx = idx
-        else:
-            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+        sample_idx = idx if dataset_idx == 0 else idx - self.cumulative_sizes[dataset_idx - 1]
         return self.datasets[dataset_idx][sample_idx]
+
+
 
 
 LRU_CACHE_SIZE = 32

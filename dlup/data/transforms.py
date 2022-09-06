@@ -212,7 +212,11 @@ class ContainsPolygonToLabel:
         else:
             roi = shapely.geometry.box(0, 0, *(sample["image"].size[::-1]))
 
-        label_area = shapely.geometry.MultiPolygon(requested_polygons).intersection(roi).area
+        multi_polygon = shapely.geometry.MultiPolygon(requested_polygons)
+        if not multi_polygon.is_valid:
+            multi_polygon = shapely.make_valid(multi_polygon)
+        label_area = multi_polygon.intersection(roi).area
+
         proportion = label_area / roi.area
         sample["labels"].update({f"has {self._label}": proportion > self._threshold})
         return sample
