@@ -97,7 +97,7 @@ class ConvertAnnotationsToMask:
         self._index_map = index_map
 
     def __call__(self, sample):
-        if "annotations" not in sample:
+        if not sample.get("annotations"):
             return sample
 
         annotations = sample["annotations"]
@@ -137,7 +137,7 @@ class MajorityClassToLabel:
         self._index_map = index_map
 
     def __call__(self, sample):
-        if "annotations" not in sample:
+        if not sample.get("annotations"):
             return sample
 
         if "labels" not in sample:
@@ -199,7 +199,7 @@ class ContainsPolygonToLabel:
         self._threshold = threshold
 
     def __call__(self, sample):
-        if "annotations" not in sample:
+        if not sample.get("annotations"):
             return sample
 
         if "labels" not in sample:
