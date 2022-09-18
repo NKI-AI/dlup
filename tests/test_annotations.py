@@ -91,7 +91,7 @@ class TestAnnotations:
         coordinates, size = (10000, 10000), (5000, 5000)
 
         assert self.annotations.available_labels == ["healthy glands"]
-        self.annotations.relabel(("healthy glands", "healthy glands 2"))
+        self.annotations.relabel((("healthy glands", "healthy glands 2"),))
         assert self.annotations.available_labels == ["healthy glands 2"]
 
         region = self.annotations.read_region(coordinates, 1.0, size)
