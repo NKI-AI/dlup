@@ -24,7 +24,7 @@ class TestTiling:
         tile_size = 10
         (basis,) = tiles_grid_coordinates(size, tile_size, tile_overlap=tile_overlap, mode=mode)
 
-        expected_lengths = {TilingMode.skip: 0, TilingMode.overflow: 1, TilingMode.fit: 0}
+        expected_lengths = {TilingMode.skip: 0, TilingMode.overflow: 1}
 
         assert (basis >= 0).all()
         assert len(basis) == expected_lengths[mode]
@@ -51,12 +51,6 @@ class TestTiling:
         overlap = right - basis
         stride = np.diff(basis)
         tiled_size = basis[-1] + tile_size
-        if mode == TilingMode.fit:
-            # The overlap is always equal or
-            # bigger than the one requested.
-            assert (overlap >= tile_overlap).all()
-            assert np.isclose(tiled_size, size)
-            return
 
         # Grid is uniform
         if len(stride):
