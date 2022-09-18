@@ -346,7 +346,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: Optional[Union[SlideImage, np.ndarray]] = None,
+        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
         mask_threshold: float = 0.1,
         rois: Optional[Tuple[Tuple[int, ...]]] = None,
         annotations: Optional[_AnnotationTypes] = None,
