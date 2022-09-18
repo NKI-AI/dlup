@@ -89,12 +89,13 @@ class TestAnnotations:
 
     def test_relabel(self):
         coordinates, size = (10000, 10000), (5000, 5000)
+        _annotations = self.annotations.copy()
 
-        assert self.annotations.available_labels == ["healthy glands"]
-        self.annotations.relabel((("healthy glands", "healthy glands 2"),))
-        assert self.annotations.available_labels == ["healthy glands 2"]
+        assert _annotations.available_labels == ["healthy glands"]
+        _annotations.relabel((("healthy glands", "healthy glands 2"),))
+        assert _annotations.available_labels == ["healthy glands 2"]
 
-        region = self.annotations.read_region(coordinates, 1.0, size)
+        region = _annotations.read_region(coordinates, 1.0, size)
         for polygon in region:
             assert polygon.label == "healthy glands 2"
 
