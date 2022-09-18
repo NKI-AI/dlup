@@ -106,7 +106,7 @@ class TestAnnotations:
 
     def test_add(self):
         copied_annotations = self.annotations.copy()
-        copied_annotations.relabel(("healthy glands", "healthy glands 2"))
+        copied_annotations.relabel((("healthy glands", "healthy glands 2"),))
 
         new_annotations = copied_annotations + self.annotations
         assert new_annotations.available_labels == ["healthy glands", "healthy glands 2"]
