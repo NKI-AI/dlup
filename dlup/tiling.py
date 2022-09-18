@@ -18,13 +18,10 @@ class TilingMode(str, Enum):
 
     Skip will skip the border tiles if they don't fit the region.
     Overflow counts as last tile even if it's overflowing.
-    Fit will change the overlapping region between tiles to make them fit the region.
-    The grid will then become non-uniform in case of integral values.
     """
 
     skip = "skip"
     overflow = "overflow"
-    fit = "fit"
 
 
 class GridOrder(str, Enum):
@@ -104,19 +101,6 @@ def tiles_grid_coordinates(
     coordinates: List[NDArray[np.float_]] = []
     for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
-
-        if mode == TilingMode.fit:
-            if n < 2:
-                coordinates.append(np.array([]))
-                continue
-
-            # The location of the last tile
-            # should stay fixed at the end
-            tiles_locations[-1] = dsize - dtile_size
-            distribute = doverflow / (n - 1)
-            tiles_locations = tiles_locations.astype(float)
-            tiles_locations[1:-1] -= distribute * (np.arange(n - 2) + 1)
-
         coordinates.append(tiles_locations)
 
     return coordinates

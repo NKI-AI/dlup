@@ -230,7 +230,7 @@ def is_foreground(
         mask_region_view = background_mask.get_scaled_view(background_mask.get_scaling(mpp))
         mask = mask_region_view.read_region((x, y), (w, h)).convert("L")
 
-        return np.asarray(mask).mean() >= threshold
+        return np.asarray(mask).mean() > threshold
 
     mask_size = np.array(background_mask.shape[:2][::-1])
 
@@ -245,7 +245,7 @@ def is_foreground(
     max_dimension_index = max(range(len(background_size)), key=background_size.__getitem__)
     scaling = background_size[max_dimension_index] / region_size[max_dimension_index]
     scaled_region = np.array((x, y, w, h)) * scaling
-    scaled_coordinates, scaled_sizes = scaled_region[:2], scaled_region[2:].astype(int)
+    scaled_coordinates, scaled_sizes = scaled_region[:2], np.ceil(scaled_region[2:]).astype(int)
 
     mask_tile = np.zeros(scaled_sizes)
 
@@ -253,8 +253,14 @@ def is_foreground(
     min_boundary = np.zeros_like(max_boundary)
     box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)  # type: ignore
     clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
-    mask_tile[:clipped_h, :clipped_w] = np.asarray(background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float)  # type: ignore
-    return mask_tile.mean() >= threshold
+
+    if clipped_h == 0 or clipped_w == 0:
+        return False
+
+    mask_tile[:clipped_h, :clipped_w] = np.asarray(
+        background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float  # type: ignore
+    )
+    return mask_tile.mean() > threshold
 
 
 class AvailableMaskFunctions(Enum):

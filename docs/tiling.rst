@@ -27,10 +27,3 @@ Crop
 ^^^^
 This is an additional option that may be included with the :code:`--crop` flag when using :code:`dlup wsi tile`.
 It defines whether overflowing tiles should be cropped (as opposed to zero-padded).
-
-Fit
-***
-This policy adapts the overlap as uniformly as possible, such that the tiles will fit in the image canvas.
-The striding of the tiles might not be uniform.
-
-.. figure:: img/fit.png

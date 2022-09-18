@@ -21,6 +21,7 @@ Also the ASAP XML data format is supported.
 """
 from __future__ import annotations
 
+import copy
 import errno
 import json
 import os
@@ -37,6 +38,7 @@ from shapely import geometry
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
+from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
@@ -162,6 +164,22 @@ class WsiSingleLabelAnnotation:
         """The label name for this annotation."""
         return self.__label
 
+    @label.setter
+    def label(self, label):
+        self.__label = label
+
+        # TODO: We also need to rewrite all the polygons. This cannot yet be set in-place
+        _annotations = []
+        for geometry in self._annotations:
+            if isinstance(geometry, shapely.geometry.Polygon):
+                _annotations.append(Polygon(geometry, label=label))
+            elif isinstance(geometry, shapely.geometry.Point):
+                _annotations.append(Point(geometry, label=label))
+            else:
+                raise AnnotationError(f"Unknown annotation type {type(geometry)}.")
+
+        self._annotations = _annotations
+
     def append(self, sample):
         self._annotations.append(sample)
 
@@ -229,6 +247,58 @@ class WsiAnnotations:
         # Now we have a dict of label: annotations.
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
+    def filter(self, labels: Union[str, Union[List[str], Tuple[str]]]) -> None:
+        """
+        Filter annotations based on the given label list.
+
+        Parameters
+        ----------
+        labels : tuple or list
+            The list or tuple of labels
+
+        Returns
+        -------
+        None
+        """
+        _labels = [labels] if isinstance(labels, str) else labels
+        self.available_labels = [_ for _ in self.available_labels if _ in _labels]
+        self._annotations = {k: v for k, v in self._annotations.items() if k in _labels}
+        self._annotation_trees = {k: v for k, v in self._annotation_trees.items() if k in _labels}
+
+    def relabel(self, labels: Tuple[Tuple[str, str], ...]) -> None:
+        """
+        Rename labels in the class. Preferably use the remapping during initialization of this class.
+
+        Parameters
+        ----------
+        labels : tuple
+            Tuple of tuples of the form (original_label, new_label). Labels which are not present will be kept the same.
+
+        Returns
+        -------
+        None
+        """
+        # Create a dictionary with the mapping
+        mapping = {k: k for k in self.available_labels}
+        for old_label, new_label in labels:
+            if old_label not in self:
+                raise AnnotationError(f"Relabel error. Label {old_label} not currently present.")
+            mapping[old_label] = new_label
+
+        self.available_labels = [mapping[label] for label in self.available_labels]
+
+        _annotations = {}
+        for label in self._annotations:
+            _geometry = self._annotations[label]
+            _geometry.label = mapping[label]
+            _annotations[mapping[label]] = _geometry
+        self._annotations = _annotations
+        self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
+
+    def copy(self) -> WsiAnnotations:
+        """Make a copy of the object."""
+        return copy.deepcopy(self)
+
     @classmethod
     def from_geojson(
         cls: Type[_TWsiAnnotations],
@@ -258,7 +328,7 @@ class WsiAnnotations:
         data = defaultdict(list)
         _remap_labels = {} if not remap_labels else remap_labels
         _scaling = 1.0 if not scaling else scaling
-        _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
+        _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list, Iterable)) else geojsons
         for idx, path in enumerate(_geojsons):
             path = pathlib.Path(path)
             if not path.exists():
@@ -563,6 +633,16 @@ class WsiAnnotations:
 
     def __contains__(self, item):
         return item in self.available_labels
+
+    def __add__(self, other) -> WsiAnnotations:
+        if set(self.available_labels).intersection(other.available_labels) != set():
+            raise AnnotationError(
+                f"Can only add annotations with different labels. Use `.relabel` or relabel during construction of the object."
+            )
+
+        curr_annotations = list(self._annotations.values())
+        curr_annotations += list(other._annotations.values())
+        return WsiAnnotations(curr_annotations)
 
     def __str__(self):
         # Create a string for the labels

@@ -7,9 +7,9 @@ import PIL.Image
 import pytest
 import pyvips
 
-from dlup.utils.pyvips import vips_to_numpy
-from dlup.writers import TiffCompression, TifffileImageWriter
 from dlup import SlideImage
+from dlup.utils.pyvips_utils import vips_to_numpy
+from dlup.writers import TiffCompression, TifffileImageWriter
 
 
 @pytest.mark.parametrize(

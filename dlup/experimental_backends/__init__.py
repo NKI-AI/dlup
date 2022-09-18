@@ -15,9 +15,9 @@ import tifffile
 from dlup import UnsupportedSlideError
 
 from .common import AbstractSlideBackend
-from .openslide import OpenSlideSlide
-from .pyvips import PyVipsSlide
-from .tifffile import TifffileSlide
+from .openslide_backend import OpenSlideSlide
+from .pyvips_backend import PyVipsSlide
+from .tifffile_backend import TifffileSlide
 
 
 @lru_cache(maxsize=None)
