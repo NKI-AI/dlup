@@ -51,7 +51,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         grids: List[Tuple[Grid, Tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
-        mask: Optional[np.ndarray] = None,
+        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[_AnnotationTypes] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,

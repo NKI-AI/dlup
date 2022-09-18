@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from dlup.utils.pyvips import numpy_to_vips, vips_to_numpy
+from dlup.utils.pyvips_utils import numpy_to_vips, vips_to_numpy
 
 
 @pytest.mark.parametrize("shape", [[256, 256, 1], [512, 512, 3]])

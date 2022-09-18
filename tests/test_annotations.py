@@ -86,3 +86,28 @@ class TestAnnotations:
         assert region[0].area == scaling**2 * area
         assert region[0].label == "new_label"
         assert isinstance(region[0], Polygon)
+
+    def test_relabel(self):
+        coordinates, size = (10000, 10000), (5000, 5000)
+        _annotations = self.annotations.copy()
+
+        assert _annotations.available_labels == ["healthy glands"]
+        _annotations.relabel((("healthy glands", "healthy glands 2"),))
+        assert _annotations.available_labels == ["healthy glands 2"]
+
+        region = _annotations.read_region(coordinates, 1.0, size)
+        for polygon in region:
+            assert polygon.label == "healthy glands 2"
+
+    def test_copy(self):
+        copied_annotations = self.annotations.copy()
+        # Now we can change a parameter
+        copied_annotations.filter([""])
+        assert copied_annotations.available_labels != self.annotations.available_labels
+
+    def test_add(self):
+        copied_annotations = self.annotations.copy()
+        copied_annotations.relabel((("healthy glands", "healthy glands 2"),))
+
+        new_annotations = copied_annotations + self.annotations
+        assert new_annotations.available_labels == ["healthy glands", "healthy glands 2"]

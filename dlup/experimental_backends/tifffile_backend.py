@@ -8,7 +8,7 @@ import tifffile
 
 from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
-from dlup.utils.tifffile import get_tile
+from dlup.utils.tifffile_utils import get_tile
 
 
 def open_slide(filename: PathLike) -> "TifffileSlide":

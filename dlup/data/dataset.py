@@ -152,8 +152,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self,
         path: pathlib.Path,
         regions: collections.abc.Sequence,
-        crop: bool = True,
-        mask: Optional[Union[SlideImage, np.ndarray]] = None,
+        crop: bool = False,
+        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
@@ -304,8 +304,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self,
         path: pathlib.Path,
         grids: List[Tuple[Grid, Tuple[int, int], float]],
-        crop: bool = True,
-        mask: Optional[Union[SlideImage, np.ndarray]] = None,
+        crop: bool = False,
+        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
         mask_threshold: float = 0.1,
         annotations: Optional[_AnnotationTypes] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
@@ -345,8 +345,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_overlap: Tuple[int, int],
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
-        crop: bool = True,
-        mask: Optional[Union[SlideImage, np.ndarray]] = None,
+        crop: bool = False,
+        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
         mask_threshold: float = 0.1,
         rois: Optional[Tuple[Tuple[int, ...]]] = None,
         annotations: Optional[_AnnotationTypes] = None,
@@ -366,7 +366,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_overlap :
             Tuple of integers that represents the overlap of tiles in the x and y direction
         tile_mode :
-            "skip", "overflow", or "fit". see `dlup.tiling.TilingMode` for more information
+            "skip" or "overflow". see `dlup.tiling.TilingMode` for more information
         grid_order : GridOrder
             Run through the grid either in C order or Fortran order.
         crop :

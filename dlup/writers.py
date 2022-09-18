@@ -18,8 +18,8 @@ from tifffile import tifffile
 import dlup
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.types import PathLike
-from dlup.utils.pyvips import numpy_to_vips, vips_to_numpy
-from dlup.utils.tifffile import get_tile
+from dlup.utils.pyvips_utils import numpy_to_vips, vips_to_numpy
+from dlup.utils.tifffile_utils import get_tile
 
 
 class TiffCompression(str, Enum):
@@ -94,7 +94,7 @@ class TifffileImageWriter(ImageWriter):
         self._tile_size = tile_size
 
         self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])  # type: ignore
-        self._mpp: Tuple[float, float] = (mpp, mpp) if isinstance(mpp, float) else mpp
+        self._mpp: Tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
 
         if not compression:
             compression = TiffCompression.NONE
