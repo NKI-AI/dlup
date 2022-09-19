@@ -24,7 +24,7 @@ from dlup.writers import TiffCompression, TifffileImageWriter
     ],
 )
 def test_tiff_writer(shape, target_mpp):
-    random_array = np.random.randint(low=0, high=255, size=(1200, 1200, 3), dtype=np.uint8)
+    random_array = np.random.randint(low=0, high=255, size=(*shape, 3), dtype=np.uint8)
     pil_image = PIL.Image.fromarray(random_array)
 
     if pil_image.mode == "L":
