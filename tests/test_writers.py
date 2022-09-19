@@ -15,16 +15,16 @@ from dlup.writers import TiffCompression, TifffileImageWriter
 @pytest.mark.parametrize(
     ["shape", "target_mpp"],
     [
-        [(1024, 1024), 0.45],
-        [(512, 512), 4],
-        [(2048, 2048), 0.25],
+        [(1024, 1024, 3), 0.45],
+        [(512, 512, 3), 4],
+        [(2048, 2048, 3), 0.25],
         [(1024, 1024), 10],
         [(512, 512), 0.8],
         [(2048, 2048), 0.7],
     ],
 )
 def test_tiff_writer(shape, target_mpp):
-    random_array = np.random.randint(low=0, high=255, size=(*shape, 3), dtype=np.uint8)
+    random_array = np.random.randint(low=0, high=255, size=shape, dtype=np.uint8)
     pil_image = PIL.Image.fromarray(random_array)
 
     if pil_image.mode == "L":
