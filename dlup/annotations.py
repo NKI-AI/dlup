@@ -132,11 +132,14 @@ class Polygon(shapely.geometry.Polygon):
 def shape(coordinates, label):
     geom_type = coordinates.get("type").lower()
     if geom_type == "point":
-        return Point(coordinates["coordinates"], label=label)
+        return [Point(coordinates["coordinates"], label=label)]
     elif geom_type == "polygon":
-        return Polygon(coordinates["coordinates"][0], label=label)
+        return [Polygon(coordinates["coordinates"][0], label=label)]
+    elif geom_type == "multipolygon":
+        multi_polygon = shapely.geometry.MultiPolygon([[c[0], c[1:]] for c in coordinates["coordinates"]])
+        return [Polygon(_, label=label) for _ in multi_polygon.geoms]
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f"Not support geom_type {geom_type}")
 
 
 _POSTPROCESSORS = {
@@ -343,7 +346,9 @@ class WsiAnnotations:
 
                     if remap_labels and _label in _remap_labels:
                         _label = _remap_labels[_label]
-                    data[_label].append(shape(x["geometry"], label=_label))
+                    _geometry = shape(x["geometry"], label=_label)
+                    for _ in _geometry:
+                        data[_label].append(_)
 
         # It is assume that a specific label can only be one type (point or polygon)
         annotations: List[WsiSingleLabelAnnotation] = [
