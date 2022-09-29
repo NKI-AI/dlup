@@ -33,6 +33,7 @@ from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, T
 
 import numpy as np
 import shapely
+import shapely.affinity
 import shapely.validation
 from shapely import geometry
 from shapely.strtree import STRtree
