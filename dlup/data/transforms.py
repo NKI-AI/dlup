@@ -60,6 +60,7 @@ def convert_annotations(
     for curr_annotation in annotations:
         if isinstance(curr_annotation, dlup.annotations.Point):
             points[curr_annotation.label] += tuple(curr_annotation.coords)
+            continue
 
         if roi_name and curr_annotation.label == roi_name:
             cv2.fillPoly(
