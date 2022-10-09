@@ -12,7 +12,7 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
-from typing import Callable, Iterable, Optional, Tuple, Type, TypeVar, Union
+from typing import Callable, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
@@ -21,23 +21,19 @@ import PIL.Image  # type: ignore
 
 from dlup import UnsupportedSlideError
 from dlup.experimental_backends import AbstractSlideBackend, ImageBackend
-from dlup.types import PathLike
+from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 
 from ._region import BoundaryMode, RegionView
 from .utils.image import check_if_mpp_is_valid
 
-_GenericNumber = Union[int, float]
-_GenericNumberArray = Union[np.ndarray, Iterable[_GenericNumber]]
-_GenericFloatArray = Union[np.ndarray, Iterable[float]]
-_GenericIntArray = Union[np.ndarray, Iterable[int]]
-_Box = Tuple[_GenericNumber, _GenericNumber, _GenericNumber, _GenericNumber]
+_Box = Tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 
 
 class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: _GenericNumber, boundary_mode: BoundaryMode = None):
+    def __init__(self, wsi: _TSlideImage, scaling: GenericNumber, boundary_mode: BoundaryMode = None):
         """Initialize with a slide image object and the scaling level."""
         # Always call the parent init
         super().__init__(boundary_mode=boundary_mode)
@@ -54,14 +50,14 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image:
         """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: np.ndarray, size: Tuple[_GenericNumber, _GenericNumber]) -> np.ndarray:
+def _clip2size(a: np.ndarray, size: Tuple[GenericNumber, GenericNumber]) -> np.ndarray:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
@@ -127,12 +123,13 @@ class SlideImage:
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
 
+    # @image_cache
     def read_region(
         self,
-        location: Union[np.ndarray, Tuple[_GenericNumber, _GenericNumber]],
+        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
-    ) -> PIL.Image.Image:
+    ) -> PIL.Image:
         """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
@@ -173,7 +170,7 @@ class SlideImage:
 
         Returns
         -------
-        np.ndarray
+        PIL.Image
             The extract region.
 
         Examples
@@ -232,7 +229,7 @@ class SlideImage:
         box = (*fractional_coordinates, *(fractional_coordinates + native_size))
         return region.resize(size, resample=PIL.Image.Resampling.LANCZOS, box=box)
 
-    def get_scaled_size(self, scaling: _GenericNumber) -> Tuple[int, ...]:
+    def get_scaled_size(self, scaling: GenericNumber) -> Tuple[int, ...]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
         return tuple(size.astype(int))
@@ -247,7 +244,7 @@ class SlideImage:
             return 1.0
         return self._min_native_mpp / mpp
 
-    def get_scaled_view(self, scaling: _GenericNumber) -> _SlideImageRegionView:
+    def get_scaled_view(self, scaling: GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
