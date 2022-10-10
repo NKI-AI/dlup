@@ -334,7 +334,10 @@ class WsiAnnotations:
         data = defaultdict(list)
         _remap_labels = {} if not remap_labels else remap_labels
         _scaling = 1.0 if not scaling else scaling
-        _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list, Iterable)) else geojsons
+        if isinstance(geojsons, str):
+            _geojsons = [pathlib.Path(geojsons)]
+
+        _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
         for idx, path in enumerate(_geojsons):
             path = pathlib.Path(path)
             if not path.exists():
