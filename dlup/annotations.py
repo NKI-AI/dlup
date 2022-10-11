@@ -335,7 +335,7 @@ class WsiAnnotations:
         _remap_labels = {} if not remap_labels else remap_labels
         _scaling = 1.0 if not scaling else scaling
         if isinstance(geojsons, str):
-            _geojsons = [pathlib.Path(geojsons)]
+            _geojsons: Union[List[pathlib.Path], Tuple] = [pathlib.Path(geojsons)]
 
         _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
         for idx, path in enumerate(_geojsons):
