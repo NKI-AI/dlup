@@ -130,14 +130,16 @@ class Polygon(shapely.geometry.Polygon):
         return f"{self.label}, {self.wkt}"
 
 
-def shape(coordinates, label):
+def shape(coordinates, label, multiplier: float = 1.0):
     geom_type = coordinates.get("type").lower()
     if geom_type == "point":
-        return [Point(coordinates["coordinates"], label=label)]
+        return [Point(np.asarray(coordinates["coordinates"]) * multiplier, label=label)]
     elif geom_type == "polygon":
-        return [Polygon(coordinates["coordinates"][0], label=label)]
+        return [Polygon(np.asarray(coordinates["coordinates"][0]) * multiplier, label=label)]
     elif geom_type == "multipolygon":
-        multi_polygon = shapely.geometry.MultiPolygon([[c[0], c[1:]] for c in coordinates["coordinates"]])
+        multi_polygon = shapely.geometry.MultiPolygon(
+            [[np.asarray(c[0]) * multiplier, np.asarray(c[1:]) * multiplier] for c in coordinates["coordinates"]]
+        )
         return [Polygon(_, label=label) for _ in multi_polygon.geoms]
     else:
         raise NotImplementedError(f"Not support geom_type {geom_type}")
@@ -332,7 +334,10 @@ class WsiAnnotations:
         data = defaultdict(list)
         _remap_labels = {} if not remap_labels else remap_labels
         _scaling = 1.0 if not scaling else scaling
-        _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list, Iterable)) else geojsons
+        if isinstance(geojsons, str):
+            _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
+
+        _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
         for idx, path in enumerate(_geojsons):
             path = pathlib.Path(path)
             if not path.exists():
@@ -341,13 +346,10 @@ class WsiAnnotations:
             with open(path, "r", encoding="utf-8") as annotation_file:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
-                    coordinates = np.asarray(x["geometry"]["coordinates"]) * _scaling
-                    x["geometry"]["coordinates"] = coordinates.tolist()
                     _label = x["properties"]["classification"]["name"]
-
                     if remap_labels and _label in _remap_labels:
                         _label = _remap_labels[_label]
-                    _geometry = shape(x["geometry"], label=_label)
+                    _geometry = shape(x["geometry"], label=_label, multiplier=_scaling)
                     for _ in _geometry:
                         data[_label].append(_)
 
