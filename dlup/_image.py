@@ -12,6 +12,7 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
+import warnings
 from typing import Callable, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np  # type: ignore
@@ -88,8 +89,12 @@ class SlideImage:
         self._wsi = wsi
         self._identifier = identifier
 
-        check_if_mpp_is_valid(*self._wsi.spacing)
-        self._min_native_mpp = float(self._wsi.spacing[0])
+        if self._wsi.spacing:
+            check_if_mpp_is_valid(*self._wsi.spacing)
+            self._min_native_mpp = float(self._wsi.spacing[0])
+        else:
+            self._min_native_mpp = None
+            warnings.warn(f"{identifier} has an missing mpp value. Overwrite by setting the `.mpp` property.")
 
     def close(self):
         """Close the underlying image."""
@@ -287,6 +292,10 @@ class SlideImage:
     def mpp(self) -> float:
         """Returns the microns per pixel of the high res image."""
         return self._min_native_mpp
+
+    @mpp.setter
+    def mpp(self, value: float):
+        self._min_native_mpp = value
 
     @property
     def magnification(self) -> Optional[float]:

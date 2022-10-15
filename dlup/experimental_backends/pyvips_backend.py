@@ -108,11 +108,14 @@ class PyVipsSlide(AbstractSlideBackend):
         for idx, image in enumerate(self._images):
             self._downsamples.append(float(image.get(f"openslide.level[{idx}].downsample")))
 
-        mpp_x = float(self._images[0].get("openslide.mpp-x"))
-        mpp_y = float(self._images[0].get("openslide.mpp-y"))
-        check_if_mpp_is_valid(mpp_x, mpp_y)
-
-        self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
+        try:
+            mpp_x = float(self._images[0].get("openslide.mpp-x"))
+            mpp_y = float(self._images[0].get("openslide.mpp-y"))
+            check_if_mpp_is_valid(mpp_x, mpp_y)
+            self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
+        except pyvips.Error:
+            # The mpp value cannot be parsed
+            self._spacings = None
 
     @property
     def properties(self):

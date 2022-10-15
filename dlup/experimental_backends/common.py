@@ -52,7 +52,7 @@ class AbstractSlideBackend(abc.ABC):
         self._filename = filename
         self._level_count = 0
         self._downsamples: List[float] = []
-        self._spacings: List[Tuple[Any, ...]] = []  # This is to make mypy shut up
+        self._spacings: Optional[List[Tuple[Any, ...]]] = []  # This is to make mypy shut up
         self._shapes: List[Tuple[int, int]] = []
 
     @property
@@ -83,7 +83,7 @@ class AbstractSlideBackend(abc.ABC):
         return self.level_dimensions[0]
 
     @property
-    def spacing(self) -> Tuple[Any, ...]:
+    def spacing(self) -> Optional[Tuple[Any, ...]]:
         """
         A (mpp_x, mpp_y) tuple for spacing of the base level
 
@@ -91,6 +91,8 @@ class AbstractSlideBackend(abc.ABC):
         -------
         Tuple
         """
+        if not self._spacings:
+            return None
         return self._spacings[0]
 
     @property

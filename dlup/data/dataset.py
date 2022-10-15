@@ -353,6 +353,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackend.PYVIPS,
+        overwrite_mpp: Optional[float] = None,
     ):
         """Function to be used to tile a WSI on-the-fly.
         Parameters
@@ -385,6 +386,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             Transform to be applied to the sample.
         backend :
             Backend to use to read the whole slide image.
+        overwrite_mpp : float
+            In case an mpp value is missing, this value is required to overwrite the mpp value
 
         Examples
         --------
@@ -397,6 +400,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         pre-processing step is not required.
         """
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
+            if overwrite_mpp:
+                slide_image.mpp = overwrite_mpp
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
             slide_mpp = slide_image.mpp
             _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
