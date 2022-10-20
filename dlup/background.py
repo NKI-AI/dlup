@@ -249,7 +249,7 @@ def is_foreground_polygon(
     polygon_region = background_mask.read_region((x, y), scaling, (w, h))
     total_area = sum([_.area for _ in polygon_region])
 
-    if total_area / (w * h) > threshold:
+    if total_area / (w * h) >= threshold:
         return True
 
     return False
@@ -270,7 +270,7 @@ def is_foreground_wsiannotations(
     mask_region_view = background_mask.get_scaled_view(background_mask.get_scaling(mpp))
     mask = mask_region_view.read_region((x, y), (w, h)).convert("L")
 
-    return np.asarray(mask).mean() > threshold
+    return np.asarray(mask).mean() >= threshold
 
 
 def is_foreground_numpy(
@@ -311,7 +311,7 @@ def is_foreground_numpy(
     mask_tile[:clipped_h, :clipped_w] = np.asarray(
         background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float  # type: ignore
     )
-    return mask_tile.mean() > threshold
+    return mask_tile.mean() >= threshold
 
 
 class AvailableMaskFunctions(Enum):
