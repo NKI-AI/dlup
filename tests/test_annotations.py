@@ -76,9 +76,7 @@ class TestAnnotations:
         with tempfile.NamedTemporaryFile(suffix=".json") as geojson_out:
             geojson_out.write(json.dumps(self.annotations.as_geojson()).encode("utf-8"))
             geojson_out.flush()
-            annotations = WsiAnnotations.from_geojson(
-                [pathlib.Path(geojson_out.name)], scaling=scaling
-            )
+            annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)], scaling=scaling)
 
         region = annotations.read_region(coordinates, 1.0, size)
         assert len(region) == 1
