@@ -240,7 +240,7 @@ class WsiSingleLabelAnnotation:
 class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image."""
 
-    def __init__(self, annotations: List[WsiSingleLabelAnnotation]):
+    def __init__(self, annotations: List[WsiSingleLabelAnnotation], remap_labels: Dict[str, str] | None):
         self.available_labels = sorted([annotation.label for annotation in annotations])
         if len(set(self.available_labels)) != len(self.available_labels):
             raise ValueError(
@@ -252,6 +252,25 @@ class WsiAnnotations:
         self._annotations = {annotation.label: annotation for annotation in annotations}
         # Now we have a dict of label: annotations.
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
+
+        self._remap_labels = remap_labels
+
+        _type_conversion = {k: self[k].type for k in self.available_labels}
+        _remapped_types = defaultdict(list)
+        if self._remap_labels is not None:
+            # Verify if the remapping types are the same
+            for original_label, target_label in self._remap_labels:
+                _remapped_types[original_label].append(_remapped_types[target_label])
+            for key in _remapped_types:
+                if len(set(_remapped_types[key])) > 1:
+                    raise AnnotationError("Remapping labels can only work to labels with the same type.")
+
+            # Now we can add the type of one of the new labels
+            _inv_remap_labels = {v: k for k, v in self._remap_labels.items()}
+            for k, v in self._remap_labels.items():
+                if v not in _type_conversion:
+                    _type_conversion[k] = _type_conversion[_inv_remap_labels[k]]
+        self._type_conversion = _type_conversion
 
     def filter(self, labels: Union[str, Union[List[str], Tuple[str]]]) -> None:
         """
@@ -358,7 +377,7 @@ class WsiAnnotations:
             WsiSingleLabelAnnotation(label=k, type=data[k][0].type, coordinates=data[k]) for k in data.keys()
         ]
 
-        return cls(annotations)
+        return cls(annotations, remap_labels=remap_labels)
 
     @classmethod
     def from_asap_xml(
@@ -390,7 +409,6 @@ class WsiAnnotations:
             "spline": AnnotationType.POLYGON,
             "pointset": AnnotationType.POINT,
         }
-        _remap_labels = {} if not remap_labels else remap_labels
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
@@ -401,12 +419,6 @@ class WsiAnnotations:
                 if child.tag != "Annotation":
                     continue
                 label = child.attrib.get("PartOfGroup").lower().strip()  # type: ignore
-
-                # If we have a label map and there is nothing defined, then continue.
-                if _remap_labels:
-                    if label not in _remap_labels:
-                        continue
-                    label = _remap_labels[label]
 
                 _type = child.attrib.get("Type").lower()  # type: ignore
                 annotation_type = _ASAP_TYPES[_type]
@@ -452,7 +464,7 @@ class WsiAnnotations:
 
                     opened_annotations += 1
 
-        return cls(list(annotations.values()))
+        return cls(list(annotations.values()), remap_labels=remap_labels)
 
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
@@ -575,11 +587,17 @@ class WsiAnnotations:
         # Sort on area (largest to smallest)
         filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
 
+        # If remap_labels, then these can be remapped here.
+        # This has to be done at this location otherwise remapped labels can get a different order
+        if self._remap_labels is not None:
+            filtered_annotations = [(self._remap_labels.get(k, k), v) for k, v in filtered_annotations]
+
         cropped_annotations = []
         for annotation_name, annotation in filtered_annotations:
             if annotation.is_valid is False:
                 annotation = make_valid(annotation)
-            crop_func = _POSTPROCESSORS[self[annotation_name].type]
+
+            crop_func = _POSTPROCESSORS[self._type_conversion[annotation_name]]
             if crop_func is not None:
                 curr_area = annotation.area
                 # The following function casts this again as a shapely Polygon, so we will need to convert
