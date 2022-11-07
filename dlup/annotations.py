@@ -259,8 +259,9 @@ class WsiAnnotations:
         _remapped_types: DefaultDict[str, List[AnnotationType]] = defaultdict(list)
         if self._remap_labels is not None:
             # Verify if the remapping types are the same
-            for original_label, target_label in self._remap_labels:
-                _remapped_types[target_label].append(self[original_label].type)
+            for original_label, target_label in self._remap_labels.items():
+                if original_label in self:
+                    _remapped_types[target_label].append(self[original_label].type)
 
             for key in _remapped_types:
                 if len(set(_remapped_types[key])) > 1:
@@ -270,7 +271,7 @@ class WsiAnnotations:
             _inv_remap_labels = {v: k for k, v in self._remap_labels.items()}
             for k, v in self._remap_labels.items():
                 if v not in _type_conversion:
-                    _type_conversion[k] = _type_conversion[_inv_remap_labels[k]]
+                    _type_conversion[k] = _type_conversion[_inv_remap_labels[v]]
         self._type_conversion = _type_conversion
 
     def filter(self, labels: Union[str, Union[List[str], Tuple[str]]]) -> None:
@@ -352,7 +353,6 @@ class WsiAnnotations:
 
         """
         data = defaultdict(list)
-        _remap_labels = {} if not remap_labels else remap_labels
         _scaling = 1.0 if not scaling else scaling
         if isinstance(geojsons, str):
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
@@ -367,8 +367,6 @@ class WsiAnnotations:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
                     _label = x["properties"]["classification"]["name"]
-                    if remap_labels and _label in _remap_labels:
-                        _label = _remap_labels[_label]
                     _geometry = shape(x["geometry"], label=_label, multiplier=_scaling)
                     for _ in _geometry:
                         data[_label].append(_)
