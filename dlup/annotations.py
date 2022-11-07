@@ -253,13 +253,13 @@ class WsiAnnotations:
         # Now we have a dict of label: annotations.
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
-        self._remap_labels = remap_labels
+        self.remap_labels: Dict[str, str] | None = remap_labels
 
         _type_conversion = {k: self[k].type for k in self.available_labels}
         _remapped_types: DefaultDict[str, List[AnnotationType]] = defaultdict(list)
-        if self._remap_labels is not None:
+        if self.remap_labels is not None:
             # Verify if the remapping types are the same
-            for original_label, target_label in self._remap_labels.items():
+            for original_label, target_label in self.remap_labels.items():
                 if original_label in self:
                     _remapped_types[target_label].append(self[original_label].type)
 
@@ -268,8 +268,8 @@ class WsiAnnotations:
                     raise AnnotationError("Remapping labels can only work to labels with the same type.")
 
             # Now we can add the type of one of the new labels
-            _inv_remap_labels = {v: k for k, v in self._remap_labels.items()}
-            for k, v in self._remap_labels.items():
+            _inv_remap_labels = {v: k for k, v in self.remap_labels.items()}
+            for k, v in self.remap_labels.items():
                 if v not in _type_conversion:
                     _type_conversion[k] = _type_conversion[_inv_remap_labels[v]]
         self._type_conversion = _type_conversion
@@ -588,8 +588,8 @@ class WsiAnnotations:
 
         # If remap_labels, then these can be remapped here.
         # This has to be done at this location otherwise remapped labels can get a different order
-        if self._remap_labels is not None:
-            filtered_annotations = [(self._remap_labels.get(k, k), v) for k, v in filtered_annotations]
+        if self.remap_labels is not None:
+            filtered_annotations = [(self.remap_labels.get(k, k), v) for k, v in filtered_annotations]
 
         cropped_annotations = []
         for annotation_name, annotation in filtered_annotations:
@@ -659,15 +659,21 @@ class WsiAnnotations:
     def __contains__(self, item):
         return item in self.available_labels
 
-    def __add__(self, other) -> WsiAnnotations:
+    def __add__(self, other: WsiAnnotations) -> WsiAnnotations:
         if set(self.available_labels).intersection(other.available_labels) != set():
             raise AnnotationError(
-                f"Can only add annotations with different labels. Use `.relabel` or relabel during construction of the object."
+                f"Can only add annotations with different labels. "
+                f"Use `.relabel` or relabel during construction of the object."
             )
+        remap_labels: Dict[str, str] = {}
+        if other.remap_labels is not None:
+            remap_labels.update(other.remap_labels)
+        if self.remap_labels is not None:
+            remap_labels.update(self.remap_labels)
 
         curr_annotations = list(self._annotations.values())
         curr_annotations += list(other._annotations.values())
-        return WsiAnnotations(curr_annotations)
+        return WsiAnnotations(curr_annotations, remap_labels=remap_labels if remap_labels is not {} else None)
 
     def __str__(self):
         # Create a string for the labels
