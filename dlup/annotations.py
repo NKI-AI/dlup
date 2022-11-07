@@ -29,7 +29,7 @@ import pathlib
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from enum import Enum
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, TypeVar, Union
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, TypeVar, Union, DefaultDict
 
 import numpy as np
 import shapely
@@ -256,11 +256,12 @@ class WsiAnnotations:
         self._remap_labels = remap_labels
 
         _type_conversion = {k: self[k].type for k in self.available_labels}
-        _remapped_types = defaultdict(list)
+        _remapped_types: DefaultDict[str, List[AnnotationType]] = defaultdict(list)
         if self._remap_labels is not None:
             # Verify if the remapping types are the same
             for original_label, target_label in self._remap_labels:
-                _remapped_types[original_label].append(_remapped_types[target_label])
+                _remapped_types[target_label].append(self[original_label].type)
+
             for key in _remapped_types:
                 if len(set(_remapped_types[key])) > 1:
                     raise AnnotationError("Remapping labels can only work to labels with the same type.")
