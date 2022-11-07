@@ -240,7 +240,7 @@ class WsiSingleLabelAnnotation:
 class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image."""
 
-    def __init__(self, annotations: List[WsiSingleLabelAnnotation], remap_labels: Dict[str, str] | None):
+    def __init__(self, annotations: List[WsiSingleLabelAnnotation]):
         self.available_labels = sorted([annotation.label for annotation in annotations])
         if len(set(self.available_labels)) != len(self.available_labels):
             raise ValueError(
@@ -252,27 +252,6 @@ class WsiAnnotations:
         self._annotations = {annotation.label: annotation for annotation in annotations}
         # Now we have a dict of label: annotations.
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
-
-        self.remap_labels: Dict[str, str] | None = remap_labels
-
-        _type_conversion = {k: self[k].type for k in self.available_labels}
-        _remapped_types: DefaultDict[str, List[AnnotationType]] = defaultdict(list)
-        if self.remap_labels is not None:
-            # Verify if the remapping types are the same
-            for original_label, target_label in self.remap_labels.items():
-                if original_label in self:
-                    _remapped_types[target_label].append(self[original_label].type)
-
-            for key in _remapped_types:
-                if len(set(_remapped_types[key])) > 1:
-                    raise AnnotationError("Remapping labels can only work to labels with the same type.")
-
-            # Now we can add the type of one of the new labels
-            _inv_remap_labels = {v: k for k, v in self.remap_labels.items()}
-            for k, v in self.remap_labels.items():
-                if v not in _type_conversion:
-                    _type_conversion[k] = _type_conversion[_inv_remap_labels[v]]
-        self._type_conversion = _type_conversion
 
     def filter(self, labels: Union[str, Union[List[str], Tuple[str]]]) -> None:
         """
@@ -294,7 +273,7 @@ class WsiAnnotations:
 
     def relabel(self, labels: Tuple[Tuple[str, str], ...]) -> None:
         """
-        Rename labels in the class. Preferably use the remapping during initialization of this class.
+        Rename labels in the class.
 
         Parameters
         ----------
@@ -331,7 +310,6 @@ class WsiAnnotations:
         cls: Type[_TWsiAnnotations],
         geojsons: Union[PathLike, Iterable[PathLike]],
         scaling: float | None = None,
-        remap_labels: Dict[str, str] | None = None,
     ) -> _TWsiAnnotations:
         """
         Constructs an WsiAnnotations object from geojson.
@@ -343,9 +321,6 @@ class WsiAnnotations:
             object.
         scaling : float, optional
             The scaling to apply to the annotations.
-        remap_labels : dict, optional
-            Dictionary mapping read labels to another label. Multiple labels can map to the same value. If the
-            label is not in the dictionary this label will be ignored.
 
         Returns
         -------
@@ -376,14 +351,13 @@ class WsiAnnotations:
             WsiSingleLabelAnnotation(label=k, type=data[k][0].type, coordinates=data[k]) for k in data.keys()
         ]
 
-        return cls(annotations, remap_labels=remap_labels)
+        return cls(annotations)
 
     @classmethod
     def from_asap_xml(
         cls,
         asap_xml: PathLike,
         scaling: float | None = None,
-        remap_labels: Dict[str, str] | None = None,
     ):
         """
         Read annotations as an ASAP XML file.
@@ -392,14 +366,11 @@ class WsiAnnotations:
         Parameters
         ----------
         asap_xml
-        scaling
-        remap_labels : dict, optional
-            Dictionary mapping read labels to another label. Multiple labels can map to the same value. If the
-            label is not in the dictionary this label will be ignored.
+        scaling : float, optional
 
         Returns
         -------
-
+        WsiAnnotations
         """
         _ASAP_TYPES = {
             "polygon": AnnotationType.POLYGON,
@@ -463,7 +434,7 @@ class WsiAnnotations:
 
                     opened_annotations += 1
 
-        return cls(list(annotations.values()), remap_labels=remap_labels)
+        return cls(list(annotations.values()))
 
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
@@ -586,17 +557,12 @@ class WsiAnnotations:
         # Sort on area (largest to smallest)
         filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
 
-        # If remap_labels, then these can be remapped here.
-        # This has to be done at this location otherwise remapped labels can get a different order
-        if self.remap_labels is not None:
-            filtered_annotations = [(self.remap_labels.get(k, k), v) for k, v in filtered_annotations]
-
         cropped_annotations = []
         for annotation_name, annotation in filtered_annotations:
             if annotation.is_valid is False:
                 annotation = make_valid(annotation)
 
-            crop_func = _POSTPROCESSORS[self._type_conversion[annotation_name]]
+            crop_func = _POSTPROCESSORS[self[annotation_name].type]
             if crop_func is not None:
                 curr_area = annotation.area
                 # The following function casts this again as a shapely Polygon, so we will need to convert
@@ -665,15 +631,10 @@ class WsiAnnotations:
                 f"Can only add annotations with different labels. "
                 f"Use `.relabel` or relabel during construction of the object."
             )
-        remap_labels: Dict[str, str] = {}
-        if other.remap_labels is not None:
-            remap_labels.update(other.remap_labels)
-        if self.remap_labels is not None:
-            remap_labels.update(self.remap_labels)
 
         curr_annotations = list(self._annotations.values())
         curr_annotations += list(other._annotations.values())
-        return WsiAnnotations(curr_annotations, remap_labels=remap_labels if remap_labels is not {} else None)
+        return WsiAnnotations(curr_annotations)
 
     def __str__(self):
         # Create a string for the labels

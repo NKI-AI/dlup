@@ -69,8 +69,7 @@ class TestAnnotations:
             assert region == []
 
     @pytest.mark.parametrize("scaling", [1, 5.0])
-    def test_remap_and_scaling_label(self, scaling):
-        remap_labels = {"healthy glands": "new_label"}
+    def test_and_scaling_label(self, scaling):
         coordinates, size, area = ((10000, 10000), (5000, 5000), 3756.0)
         coordinates = (np.asarray(coordinates) * scaling).tolist()
         size = (np.asarray(size) * scaling).tolist()
@@ -78,13 +77,12 @@ class TestAnnotations:
             geojson_out.write(json.dumps(self.annotations.as_geojson()).encode("utf-8"))
             geojson_out.flush()
             annotations = WsiAnnotations.from_geojson(
-                [pathlib.Path(geojson_out.name)], remap_labels=remap_labels, scaling=scaling
+                [pathlib.Path(geojson_out.name)], scaling=scaling
             )
 
         region = annotations.read_region(coordinates, 1.0, size)
         assert len(region) == 1
         assert region[0].area == scaling**2 * area
-        assert region[0].label == "new_label"
         assert isinstance(region[0], Polygon)
 
     def test_relabel(self):
