@@ -12,6 +12,7 @@ import PIL.Image
 import shapely
 
 import dlup.annotations
+from dlup._exceptions import AnnotationError
 
 _AnnotationsTypes = Union[dlup.annotations.Point, dlup.annotations.Polygon]
 
@@ -112,6 +113,41 @@ class ConvertAnnotationsToMask:
         if roi is not None:
             sample["annotation_data"]["roi"] = roi
 
+        return sample
+
+
+class RenameLabels:
+    """Remap the label names"""
+
+    def __init__(self, remap_labels: Dict[str, str]):
+        """
+
+        Parameters
+        ----------
+        remap_labels : dict
+            Dictionary mapping old name to new name.
+        """
+        self._remap_labels = remap_labels
+
+    def __call__(self, sample):
+        _annotations = sample["annotations"]
+
+        output_annotations = []
+        for annotation in _annotations:
+            label = annotation.label
+            if label not in self._remap_labels:
+                output_annotations.append(annotation)
+                continue
+
+            if isinstance(annotation, dlup.annotations.Polygon):
+                output_annotations.append(dlup.annotations.Polygon(annotation, label=self._remap_labels[label]))
+
+            elif isinstance(annotation, dlup.annotations.Point):
+                output_annotations.append(dlup.annotations.Point(annotation, label=self._remap_labels[label]))
+            else:
+                raise AnnotationError(f"Unsupported annotation type {type(annotation)}")
+
+        sample["annotations"] = output_annotations
         return sample
 
 

@@ -29,7 +29,7 @@ import pathlib
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from enum import Enum
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, TypeVar, Union, DefaultDict
+from typing import Any, ClassVar, DefaultDict, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, TypeVar, Union
 
 import numpy as np
 import shapely
