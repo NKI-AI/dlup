@@ -45,6 +45,7 @@ def convert_annotations(
     annotations
     region_size : Tuple[int, int]
     index_map : Dict[str, int]
+        Map mapping annotation name to index number in the output.
     roi_name : Name of the region-of-interest key.
 
     Returns
@@ -72,7 +73,8 @@ def convert_annotations(
             continue
 
         if not (curr_annotation.label in index_map):
-            continue
+            raise AnnotationError("Each label must be present in the index map. "
+                                  "Consider using `RenameLabels` in case this is unwanted behavior.")
 
         cv2.fillPoly(
             mask,
