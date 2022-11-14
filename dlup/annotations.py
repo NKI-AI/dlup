@@ -29,7 +29,7 @@ import pathlib
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from enum import Enum
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, TypeVar, Union
+from typing import Any, ClassVar, DefaultDict, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, TypeVar, Union
 
 import numpy as np
 import shapely
@@ -273,7 +273,7 @@ class WsiAnnotations:
 
     def relabel(self, labels: Tuple[Tuple[str, str], ...]) -> None:
         """
-        Rename labels in the class. Preferably use the remapping during initialization of this class.
+        Rename labels in the class in-place.
 
         Parameters
         ----------
@@ -310,7 +310,6 @@ class WsiAnnotations:
         cls: Type[_TWsiAnnotations],
         geojsons: Union[PathLike, Iterable[PathLike]],
         scaling: float | None = None,
-        remap_labels: Dict[str, str] | None = None,
     ) -> _TWsiAnnotations:
         """
         Constructs an WsiAnnotations object from geojson.
@@ -322,9 +321,6 @@ class WsiAnnotations:
             object.
         scaling : float, optional
             The scaling to apply to the annotations.
-        remap_labels : dict, optional
-            Dictionary mapping read labels to another label. Multiple labels can map to the same value. If the
-            label is not in the dictionary this label will be ignored.
 
         Returns
         -------
@@ -332,7 +328,6 @@ class WsiAnnotations:
 
         """
         data = defaultdict(list)
-        _remap_labels = {} if not remap_labels else remap_labels
         _scaling = 1.0 if not scaling else scaling
         if isinstance(geojsons, str):
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
@@ -347,8 +342,6 @@ class WsiAnnotations:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
                     _label = x["properties"]["classification"]["name"]
-                    if remap_labels and _label in _remap_labels:
-                        _label = _remap_labels[_label]
                     _geometry = shape(x["geometry"], label=_label, multiplier=_scaling)
                     for _ in _geometry:
                         data[_label].append(_)
@@ -365,7 +358,6 @@ class WsiAnnotations:
         cls,
         asap_xml: PathLike,
         scaling: float | None = None,
-        remap_labels: Dict[str, str] | None = None,
     ):
         """
         Read annotations as an ASAP XML file.
@@ -374,14 +366,11 @@ class WsiAnnotations:
         Parameters
         ----------
         asap_xml
-        scaling
-        remap_labels : dict, optional
-            Dictionary mapping read labels to another label. Multiple labels can map to the same value. If the
-            label is not in the dictionary this label will be ignored.
+        scaling : float, optional
 
         Returns
         -------
-
+        WsiAnnotations
         """
         _ASAP_TYPES = {
             "polygon": AnnotationType.POLYGON,
@@ -390,7 +379,6 @@ class WsiAnnotations:
             "spline": AnnotationType.POLYGON,
             "pointset": AnnotationType.POINT,
         }
-        _remap_labels = {} if not remap_labels else remap_labels
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
@@ -401,12 +389,6 @@ class WsiAnnotations:
                 if child.tag != "Annotation":
                     continue
                 label = child.attrib.get("PartOfGroup").lower().strip()  # type: ignore
-
-                # If we have a label map and there is nothing defined, then continue.
-                if _remap_labels:
-                    if label not in _remap_labels:
-                        continue
-                    label = _remap_labels[label]
 
                 _type = child.attrib.get("Type").lower()  # type: ignore
                 annotation_type = _ASAP_TYPES[_type]
@@ -579,6 +561,7 @@ class WsiAnnotations:
         for annotation_name, annotation in filtered_annotations:
             if annotation.is_valid is False:
                 annotation = make_valid(annotation)
+
             crop_func = _POSTPROCESSORS[self[annotation_name].type]
             if crop_func is not None:
                 curr_area = annotation.area
@@ -642,10 +625,11 @@ class WsiAnnotations:
     def __contains__(self, item):
         return item in self.available_labels
 
-    def __add__(self, other) -> WsiAnnotations:
+    def __add__(self, other: WsiAnnotations) -> WsiAnnotations:
         if set(self.available_labels).intersection(other.available_labels) != set():
             raise AnnotationError(
-                f"Can only add annotations with different labels. Use `.relabel` or relabel during construction of the object."
+                f"Can only add annotations with different labels. "
+                f"Use `.relabel` or relabel during construction of the object."
             )
 
         curr_annotations = list(self._annotations.values())

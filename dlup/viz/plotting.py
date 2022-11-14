@@ -7,11 +7,12 @@ import PIL.ImageColor
 import PIL.ImageDraw
 
 from dlup.annotations import Point, Polygon
+from typing import Optional
 
 
 def plot_2d(
     image: PIL.Image,
-    mask: np.ndarray = None,
+    mask: Optional[np.ndarray] = None,
     mask_colors=None,
     mask_alpha=70,
     geometries=None,

@@ -33,7 +33,7 @@ _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: GenericNumber, boundary_mode: BoundaryMode = None):
+    def __init__(self, wsi: _TSlideImage, scaling: GenericNumber, boundary_mode: Optional[BoundaryMode] = None):
         """Initialize with a slide image object and the scaling level."""
         # Always call the parent init
         super().__init__(boundary_mode=boundary_mode)
