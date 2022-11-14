@@ -273,7 +273,7 @@ class WsiAnnotations:
 
     def relabel(self, labels: Tuple[Tuple[str, str], ...]) -> None:
         """
-        Rename labels in the class.
+        Rename labels in the class in-place.
 
         Parameters
         ----------

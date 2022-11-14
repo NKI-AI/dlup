@@ -73,8 +73,10 @@ def convert_annotations(
             continue
 
         if not (curr_annotation.label in index_map):
-            raise AnnotationError("Each label must be present in the index map. "
-                                  "Consider using `RenameLabels` in case this is unwanted behavior.")
+            raise AnnotationError(
+                "Each label must be present in the index map. "
+                "Consider using `RenameLabels` in case this is unwanted behavior."
+            )
 
         cv2.fillPoly(
             mask,
