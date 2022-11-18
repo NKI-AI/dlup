@@ -22,6 +22,7 @@ def convert_annotations(
     region_size: Tuple[int, int],
     index_map: Dict[str, int],
     roi_name: Optional[str] = None,
+    default_value: int = 0,
 ) -> Tuple[Dict, np.ndarray, np.ndarray | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
@@ -46,7 +47,10 @@ def convert_annotations(
     region_size : Tuple[int, int]
     index_map : Dict[str, int]
         Map mapping annotation name to index number in the output.
-    roi_name : Name of the region-of-interest key.
+    roi_name : str
+        Name of the region-of-interest key.
+    default_value : int
+        The mask will be initialized with this value.
 
     Returns
     -------
@@ -54,7 +58,8 @@ def convert_annotations(
         Dictionary of points, mask and roi_mask.
 
     """
-    mask = np.zeros(region_size, dtype=np.int32)
+    mask = np.empty(region_size, dtype=np.int32)
+    mask[:] = default_value
     points: Dict[str, List] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
@@ -90,7 +95,7 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: Optional[str], index_map: Dict[str, int]):
+    def __init__(self, *, roi_name: Optional[str], index_map: Dict[str, int], default_value: int = 0):
         """
         Parameters
         ----------
@@ -98,17 +103,24 @@ class ConvertAnnotationsToMask:
             Name of the ROI key.
         index_map : dict
             Dictionary mapping the label to the integer in the output.
+        default_value : int
+            The mask will be initialized with this value.
         """
         self._roi_name = roi_name
         self._index_map = index_map
+        self._default_value = default_value
 
     def __call__(self, sample):
         if "annotations" not in sample:
             return sample
 
-        annotations = sample["annotations"]
+        _annotations = sample["annotations"]
         points, mask, roi = convert_annotations(
-            annotations, sample["image"].size[::-1], roi_name=self._roi_name, index_map=self._index_map
+            _annotations,
+            sample["image"].size[::-1],
+            roi_name=self._roi_name,
+            index_map=self._index_map,
+            default_value=self._default_value,
         )
         sample["annotation_data"] = {
             "points": points,
