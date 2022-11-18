@@ -15,5 +15,4 @@ Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more deta
 - Annotation classes which can load GeoJSON and ASAP formats and convert these to masks.
 
 ### Quickstart
-The package can be installed using `pip install dlup`. However, that requires the installation of the beta (upstream)
-version of [shapely](https://github.com/shapely/shapely) using `pip install git+https://github.com/shapely/shapely.git`.
+The package can be installed using `pip install dlup`.

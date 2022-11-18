@@ -4,8 +4,6 @@
 """The setup script."""
 
 import ast
-import os
-from typing import List
 
 from setuptools import find_packages, setup  # type: ignore
 
@@ -30,13 +28,8 @@ install_requires = [
     "pillow>=9.2.0",
     "openslide-python",
     "opencv-python>=4.6.0",
+    "shapely>=2.0b2",
 ]
-
-# This is a hack as PyPi does not want package installed from github, but tox will fail and we are using
-# the upstream version of shapely
-if os.environ.get("IS_TOX", False):
-    install_requires.append("shapely @ git+https://github.com/shapely/shapely.git")
-
 
 setup(
     author="Jonas Teuwen",
