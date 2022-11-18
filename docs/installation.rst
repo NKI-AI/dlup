@@ -20,13 +20,6 @@ install all other required packages.
     See `this GitHub issue`_ for details. This version is automatically compiled in
     the `dlup Dockerfile`_.
 
-.. warning::
-    `shapely`_ version 2.0 or higher is required for dlup to work correctly.
-    This needs to be installed from the development branch of shapely as follows
-    .. code-block:: console
-
-        pip install git+https://github.com/shapely/shapely
-
 
 Build from Source
 -----------------
