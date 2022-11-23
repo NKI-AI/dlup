@@ -3,7 +3,7 @@ import math
 from dlup import UnsupportedSlideError
 
 
-def check_if_mpp_is_valid(mpp_x: float, mpp_y: float, rel_tol: float = 0.015) -> None:
+def check_if_mpp_is_valid(mpp_x: float, mpp_y: float, *, rel_tol: float = 0.015) -> None:
     """
     Checks if the mpp is (nearly) isotropic and defined. The maximum allowed rel_tol
 
