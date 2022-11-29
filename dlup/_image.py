@@ -226,6 +226,7 @@ class SlideImage:
         # the pixel in the right position to retain the right sample weight.
         # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
         fractional_coordinates = native_location - native_location_adapted
+        # TODO: This clipping could be in an error in OpenSlide mirax reader, but it's a minor thing for now
         box = (
             *fractional_coordinates,
             *np.clip((fractional_coordinates + native_size), a_min=0, a_max=np.asarray(region.size)),
