@@ -155,6 +155,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         crop: bool = False,
         mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
         mask_threshold: float = 0.1,
+        output_tile_size: Tuple[int, int] | None = None,
         annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
@@ -171,8 +172,11 @@ class SlideImageDatasetBase(Dataset[T_co]):
             Whether or not to crop overflowing tiles.
         mask :
             Binary mask used to filter each region toghether with a threshold.
-        mask_threshold :
+        mask_threshold : float
             0 every region is discarded, 1 requires the whole region to be foreground.
+        output_tile_size: tuple[int, int], optional
+            If this value is set, this value will be used as the tile size of the output tiles. If this value
+            is different from the underlying grid, this tile will be extracted around the center of the region.
         annotations :
             Annotation classes.
         labels : list
@@ -184,6 +188,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._path = path
         self._crop = crop
         self.regions = regions
+
+        self._output_tile_size = output_tile_size
 
         self.annotations = annotations
         self.labels = labels
@@ -228,11 +234,19 @@ class SlideImageDatasetBase(Dataset[T_co]):
             region_index = index
 
         x, y, w, h, mpp = self.regions[region_index]
-        coordinates: Tuple[int, int] = x, y
+        coordinates: Tuple[int | float, int | float] = x, y
         region_size: Tuple[int, int] = w, h
         scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
+
+        if self._output_tile_size is not None:
+            # If we have an output tile_size, we extract a region around the center of the given region.
+            output_tile_x, output_tile_y = self._output_tile_size
+            coordinates_x = x + w / 2 - output_tile_x / 2
+            coordinates_y = y + h / 2 - output_tile_y / 2
+            coordinates = (coordinates_x, coordinates_y)
+            region_size = self._output_tile_size
 
         region = region_view.read_region(coordinates, region_size)
 
@@ -277,7 +291,7 @@ def _coords_to_region(tile_size, target_mpp, key, coords):
 
 
 class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
-    """Example dataset dataset class that supports multiple ROIs.
+    """Example dataset class that supports multiple ROIs.
 
     This dataset can be used, for example, to tile your WSI on-the-fly using the `from_standard_tiling` function.
 
@@ -307,6 +321,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = False,
         mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
         mask_threshold: float = 0.1,
+        output_tile_size: Tuple[int, int] | None = None,
         annotations: Optional[_AnnotationTypes] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
@@ -327,6 +342,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask_threshold=mask_threshold,
             annotations=annotations,
             labels=labels,
+            output_tile_size=output_tile_size,
             transform=None,
             backend=backend,
         )
@@ -348,6 +364,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = False,
         mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
         mask_threshold: float = 0.1,
+        output_tile_size: Tuple[int, int] | None = None,
         rois: Optional[Tuple[Tuple[int, ...]]] = None,
         annotations: Optional[_AnnotationTypes] = None,
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
@@ -369,12 +386,15 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             "skip" or "overflow". see `dlup.tiling.TilingMode` for more information
         grid_order : GridOrder
             Run through the grid either in C order or Fortran order.
-        crop :
-            Whether or not to crop overflowing tiles.
+        crop : bool
+             If overflowing tiles should be cropped.
         mask :
             Binary mask used to filter each region toghether with a threshold.
-        mask_threshold :
+        mask_threshold : float
             0 every region is discarded, 1 requires the whole region to be foreground.
+        output_tile_size: tuple[int, int], optional
+            If this value is set, this value will be used as the tile size of the output tiles. If this value
+            is different from the underlying grid, this tile will be extracted around the center of the region.
         rois :
             Regions of interest to restrict the grids to. Coordinates should be given at level 0.
         annotations :
@@ -420,6 +440,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             crop=crop,
             mask=mask,
             mask_threshold=mask_threshold,
+            output_tile_size=output_tile_size,
             annotations=annotations,
             labels=labels,
             transform=transform,
