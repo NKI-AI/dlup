@@ -2,7 +2,7 @@
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
-from typing import Any, Tuple, Union
+from typing import Tuple, Union, cast
 
 import numpy as np
 import openslide
@@ -48,23 +48,23 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
             pass
 
     @property
-    def spacing(self) -> Tuple[Any, ...] | None:
+    def spacing(self) -> tuple[float, float] | None:
         if not self._spacings:
             return None
         return self._spacings[0]
 
     @spacing.setter
-    def spacing(self, value: Tuple[Any, ...]) -> None:
+    def spacing(self, value: tuple[float, float]) -> None:
         if not isinstance(value, tuple) and len(value) != 2:
             raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y).")
 
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)
         mpp = np.array([mpp_y, mpp_x])
-        self._spacings = [tuple(mpp * downsample) for downsample in self.level_downsamples]
+        self._spacings = [cast(tuple[float, float], tuple(mpp * downsample)) for downsample in self.level_downsamples]
 
     @property
-    def magnification(self) -> float:
+    def magnification(self) -> float | None:
         """Returns the objective power at which the WSI was sampled."""
         value = self.properties.get(openslide.PROPERTY_NAME_OBJECTIVE_POWER, None)
         if value is not None:
@@ -76,7 +76,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         """Returns the scanner vendor."""
         return self.properties.properties[openslide.PROPERTY_NAME_VENDOR]
 
-    def get_thumbnail(self, size: Union[int, Tuple[int, int]]) -> PIL.Image:
+    def get_thumbnail(self, size: Union[int, Tuple[int, int]]) -> PIL.Image.Image:
         """
         Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
         Aspect ratio is preserved.

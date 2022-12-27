@@ -286,11 +286,11 @@ def is_foreground_numpy(
     mask_size = np.array(background_mask.shape[:2][::-1])
 
     region_view = slide_image.get_scaled_view(slide_image.get_scaling(mpp))
-    background_mask = PIL.Image.fromarray(background_mask)
+    _background_mask = PIL.Image.fromarray(background_mask)
 
     # Type of background_mask is Any here.
     # The scaling should be computed using the longest edge of the image.
-    background_size = (background_mask.width, background_mask.height)  # type: ignore
+    background_size = (_background_mask.width, _background_mask.height)  # type: ignore
 
     region_size = region_view.size
     max_dimension_index = max(range(len(background_size)), key=background_size.__getitem__)
@@ -309,7 +309,7 @@ def is_foreground_numpy(
         return False
 
     mask_tile[:clipped_h, :clipped_w] = np.asarray(
-        background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float  # type: ignore
+        _background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float  # type: ignore
     )
     return mask_tile.mean() >= threshold
 

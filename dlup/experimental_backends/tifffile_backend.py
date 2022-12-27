@@ -88,7 +88,7 @@ class TifffileSlide(AbstractSlideBackend):
         """Cache for tifffile."""
         raise NotImplementedError
 
-    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
+    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 
