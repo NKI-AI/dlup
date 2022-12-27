@@ -1,15 +1,16 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
-from typing import Tuple, Union, Any
+
+from typing import Any, Tuple, Union
 
 import numpy as np
 import openslide
 import PIL.Image
-from dlup.utils.image import check_if_mpp_is_valid
 
 from dlup.experimental_backends.common import AbstractSlideBackend
 from dlup.types import PathLike
+from dlup.utils.image import check_if_mpp_is_valid
 
 
 def open_slide(filename: PathLike) -> "OpenSlideSlide":
@@ -45,6 +46,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
 
         except KeyError:
             pass
+
     @property
     def spacing(self) -> Tuple[Any, ...] | None:
         if not self._spacings:

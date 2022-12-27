@@ -1,6 +1,8 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
+
+import warnings
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -12,7 +14,7 @@ from dlup import UnsupportedSlideError
 from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
-import warnings
+
 
 def open_slide(filename: PathLike) -> "PyVipsSlide":
     """
@@ -119,7 +121,9 @@ class PyVipsSlide(AbstractSlideBackend):
             check_if_mpp_is_valid(mpp_x, mpp_y)
             self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
         else:
-            warnings.warn(f"{path} does not have a parseable spacings property. You can overwrite it with `.mpp = (mpp_x, mpp_y).")
+            warnings.warn(
+                f"{path} does not have a parseable spacings property. You can overwrite it with `.mpp = (mpp_x, mpp_y)."
+            )
 
     @property
     def spacing(self) -> Tuple[Any, ...] | None:
