@@ -1,12 +1,13 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-from typing import Tuple, Union
+from __future__ import annotations
+from typing import Tuple, Union, Any
 
 import numpy as np
 import openslide
 import PIL.Image
+from dlup.utils.image import check_if_mpp_is_valid
 
-from dlup import UnsupportedSlideError
 from dlup.experimental_backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 
@@ -40,17 +41,33 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         try:
             mpp_x = float(self.properties[openslide.PROPERTY_NAME_MPP_X])
             mpp_y = float(self.properties[openslide.PROPERTY_NAME_MPP_Y])
+            self.spacing = (mpp_x, mpp_y)
 
         except KeyError:
-            raise UnsupportedSlideError(f"slide property mpp is not available.", str(filename))
+            pass
+    @property
+    def spacing(self) -> Tuple[Any, ...] | None:
+        if not self._spacings:
+            return None
+        return self._spacings[0]
 
+    @spacing.setter
+    def spacing(self, value: Tuple[Any, ...]) -> None:
+        if not isinstance(value, tuple) and len(value) != 2:
+            raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y).")
+
+        mpp_x, mpp_y = value
+        check_if_mpp_is_valid(mpp_x, mpp_y)
         mpp = np.array([mpp_y, mpp_x])
         self._spacings = [tuple(mpp * downsample) for downsample in self.level_downsamples]
 
     @property
     def magnification(self) -> float:
         """Returns the objective power at which the WSI was sampled."""
-        return int(self.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
+        value = self.properties.get(openslide.PROPERTY_NAME_OBJECTIVE_POWER, None)
+        if value is not None:
+            return int(value)
+        return value
 
     @property
     def vendor(self) -> str:

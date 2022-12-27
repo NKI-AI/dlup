@@ -82,10 +82,13 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: Union[str, None] = None):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: Union[str, None] = None, **kwargs):
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
+
+        if "overwrite_mpp" in kwargs:
+            self._wsi.spacing = kwargs["overwrite_mpp"]
 
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
@@ -107,6 +110,7 @@ class SlideImage:
         wsi_file_path: PathLike,
         identifier: Union[str, None] = None,
         backend: Union[str, Callable] = ImageBackend.PYVIPS,
+        **kwargs,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
 
@@ -120,7 +124,7 @@ class SlideImage:
         except UnsupportedSlideError:
             raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
 
-        return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
+        return cls(wsi, str(wsi_file_path) if identifier is None else identifier, **kwargs)
 
     # @image_cache
     def read_region(

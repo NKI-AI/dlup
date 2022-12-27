@@ -370,6 +370,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackend.PYVIPS,
+        **kwargs,
     ):
         """Function to be used to tile a WSI on-the-fly.
         Parameters
@@ -405,6 +406,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             Transform to be applied to the sample.
         backend :
             Backend to use to read the whole slide image.
+        **kwargs :
+            Gets passed to the SlideImage constructor.
 
         Examples
         --------
@@ -416,7 +419,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         Calling this dataset with an index will return a tile extracted straight from the WSI. This means tiling as
         pre-processing step is not required.
         """
-        with SlideImage.from_file_path(path, backend=backend) as slide_image:
+        with SlideImage.from_file_path(path, backend=backend, **kwargs) as slide_image:
             slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
             slide_mpp = slide_image.mpp
             _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
