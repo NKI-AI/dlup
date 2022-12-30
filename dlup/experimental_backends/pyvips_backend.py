@@ -1,5 +1,8 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+from __future__ import annotations
+
+import warnings
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -108,10 +111,33 @@ class PyVipsSlide(AbstractSlideBackend):
         for idx, image in enumerate(self._images):
             self._downsamples.append(float(image.get(f"openslide.level[{idx}].downsample")))
 
-        mpp_x = float(self._images[0].get("openslide.mpp-x"))
-        mpp_y = float(self._images[0].get("openslide.mpp-y"))
-        check_if_mpp_is_valid(mpp_x, mpp_y)
+        mpp_x, mpp_y = None, None
+        available_fields = self._images[0].get_fields()
+        if "openslide.mpp-x" in available_fields and "openslide.mpp-y" in available_fields:
+            mpp_x = self._images[0].get("openslide.mpp-x")
+            mpp_y = self._images[0].get("openslide.mpp-y")
 
+        if mpp_x is not None and mpp_y is not None:
+            check_if_mpp_is_valid(mpp_x, mpp_y)
+            self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
+        else:
+            warnings.warn(
+                f"{path} does not have a parseable spacings property. You can overwrite it with `.mpp = (mpp_x, mpp_y)."
+            )
+
+    @property
+    def spacing(self) -> tuple[float, float] | None:
+        if not self._spacings:
+            return None
+        return self._spacings[0]
+
+    @spacing.setter
+    def spacing(self, value: tuple[float, float]) -> None:
+        if not isinstance(value, tuple) and len(value) != 2:
+            raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y).")
+
+        mpp_x, mpp_y = value
+        check_if_mpp_is_valid(mpp_x, mpp_y)
         self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
 
     @property
@@ -148,7 +174,7 @@ class PyVipsSlide(AbstractSlideBackend):
     def set_cache(self, cache):
         raise NotImplementedError
 
-    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
+    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 

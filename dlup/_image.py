@@ -12,7 +12,7 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
-from typing import Callable, Optional, Tuple, Type, TypeVar, Union
+from typing import Callable, Optional, Tuple, Type, TypeVar, Union, cast
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
@@ -49,7 +49,7 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
@@ -82,10 +82,18 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: Union[str, None] = None):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: Union[str, None] = None, **kwargs):
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
+
+        if "overwrite_mpp" in kwargs:
+            self._wsi.spacing = kwargs["overwrite_mpp"]
+
+        if self._wsi.spacing is None:
+            raise UnsupportedSlideError(
+                f"The spacing of {identifier} cannot be derived from image and is not explicitly set in the `overwrite_mpp` parameter."
+            )
 
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
@@ -107,6 +115,7 @@ class SlideImage:
         wsi_file_path: PathLike,
         identifier: Union[str, None] = None,
         backend: Union[str, Callable] = ImageBackend.PYVIPS,
+        **kwargs,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
 
@@ -120,7 +129,7 @@ class SlideImage:
         except UnsupportedSlideError:
             raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
 
-        return cls(wsi, str(wsi_file_path) if identifier is None else identifier)
+        return cls(wsi, str(wsi_file_path) if identifier is None else identifier, **kwargs)
 
     # @image_cache
     def read_region(
@@ -128,7 +137,7 @@ class SlideImage:
         location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
         scaling: float,
         size: Union[np.ndarray, Tuple[int, int]],
-    ) -> PIL.Image:
+    ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
@@ -231,6 +240,8 @@ class SlideImage:
             *fractional_coordinates,
             *np.clip((fractional_coordinates + native_size), a_min=0, a_max=np.asarray(region.size)),
         )
+        box = cast(tuple[float, float, float, float], box)
+        size = cast(tuple[int, int], size)
         return region.resize(size, resample=PIL.Image.Resampling.LANCZOS, box=box)
 
     def get_scaled_size(self, scaling: GenericNumber) -> Tuple[int, ...]:
@@ -252,7 +263,7 @@ class SlideImage:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
-    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image:
+    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image.Image:
         """Returns an RGB numpy thumbnail for the current slide.
 
         Parameters
@@ -263,7 +274,7 @@ class SlideImage:
         return self._wsi.get_thumbnail(size)
 
     @property
-    def thumbnail(self) -> PIL.Image:
+    def thumbnail(self) -> PIL.Image.Image:
         """Returns the thumbnail."""
         return self.get_thumbnail()
 

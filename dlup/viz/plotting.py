@@ -1,5 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup Contributors
+from typing import Optional
+
 import numpy as np
 import PIL
 import PIL.Image
@@ -7,17 +9,16 @@ import PIL.ImageColor
 import PIL.ImageDraw
 
 from dlup.annotations import Point, Polygon
-from typing import Optional
 
 
 def plot_2d(
-    image: PIL.Image,
+    image: PIL.Image.Image,
     mask: Optional[np.ndarray] = None,
     mask_colors=None,
     mask_alpha=70,
     geometries=None,
     geometries_color_map=None,
-) -> PIL.Image:
+) -> PIL.Image.Image:
     """
     Plotting utility to overlay masks and geometries (Points, Polygons) on top of the image.
 

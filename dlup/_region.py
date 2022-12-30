@@ -2,7 +2,7 @@
 """Defines the RegionView interface."""
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 import PIL.Image
@@ -40,7 +40,7 @@ class RegionView(ABC):
         """Returns size of the region in U units."""
         pass
 
-    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
+    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image.Image:
         """Returns the requested region as a numpy array."""
         location = np.asarray(location)
         size = np.asarray(size)
@@ -60,15 +60,17 @@ class RegionView(ABC):
 
         if self.boundary_mode == BoundaryMode.zero:
             if np.any(size != clipped_region_size) or np.any(location < 0):
-                new_region = PIL.Image.new(str(region.mode), tuple(size))
+                size = cast(tuple[int, int], size)
+                new_region = PIL.Image.new(str(region.mode), size)
                 # Now we need to paste the region into the new region.
                 # We do some rounding to int.
-                new_region.paste(region, tuple(np.floor(offset).astype(int)))
+                coordinates = cast(tuple[int, int], tuple(np.floor(offset).astype(int)))
+                new_region.paste(region, coordinates)
                 return new_region
 
         return region
 
     @abstractmethod
-    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image:
+    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image.Image:
         """Define a method to return an array containing the region."""
         pass

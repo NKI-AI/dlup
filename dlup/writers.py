@@ -103,7 +103,7 @@ class TifffileImageWriter(ImageWriter):
         self._pyramid = pyramid
         self._quality = quality
 
-    def from_pil(self, pil_image: PIL.Image) -> None:
+    def from_pil(self, pil_image: PIL.Image.Image) -> None:
         """
         Create tiff image from a PIL image
 
@@ -209,7 +209,7 @@ class TifffileImageWriter(ImageWriter):
         )
 
 
-def _tiles_iterator_from_pil_image(pil_image: PIL.Image, tile_size: Tuple[int, int]):
+def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: Tuple[int, int]):
     """
     Given a PIL image return a a tile-iterator.
 

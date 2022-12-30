@@ -1,5 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+from __future__ import annotations
+
 import abc
 from typing import Any, List, Optional, Tuple, Union
 
@@ -9,7 +11,7 @@ import PIL.Image
 from dlup.types import PathLike
 
 
-def numpy_to_pil(tile: np.ndarray) -> PIL.Image:
+def numpy_to_pil(tile: np.ndarray) -> PIL.Image.Image:
     """
     Convert a numpy tile to a PIL image, assuming the last axis is the channels
 
@@ -51,9 +53,9 @@ class AbstractSlideBackend(abc.ABC):
         """
         self._filename = filename
         self._level_count = 0
-        self._downsamples: List[float] = []
-        self._spacings: List[Tuple[Any, ...]] = []  # This is to make mypy shut up
-        self._shapes: List[Tuple[int, int]] = []
+        self._downsamples: list[float] = []
+        self._spacings: list[tuple[float, float]] = []
+        self._shapes: list[tuple[int, int]] = []
 
     @property
     def level_count(self) -> int:
@@ -61,7 +63,7 @@ class AbstractSlideBackend(abc.ABC):
         return self._level_count
 
     @property
-    def level_dimensions(self) -> List[Tuple[int, int]]:
+    def level_dimensions(self) -> list[tuple[int, int]]:
         """A list of (width, height) tuples, one for each level of the image.
         This property level_dimensions[n] contains the dimensions of the image at level n.
 
@@ -73,7 +75,7 @@ class AbstractSlideBackend(abc.ABC):
         return self._shapes
 
     @property
-    def dimensions(self) -> Tuple[int, int]:
+    def dimensions(self) -> tuple[int, int]:
         """A (width, height) tuple for the base level (level 0) of the image.
 
         Returns
@@ -83,7 +85,7 @@ class AbstractSlideBackend(abc.ABC):
         return self.level_dimensions[0]
 
     @property
-    def spacing(self) -> Tuple[Any, ...]:
+    def spacing(self) -> tuple[float, float] | None:
         """
         A (mpp_x, mpp_y) tuple for spacing of the base level
 
@@ -91,10 +93,16 @@ class AbstractSlideBackend(abc.ABC):
         -------
         Tuple
         """
-        return self._spacings[0]
+        if self._spacings is not None:
+            return self._spacings[0]
+        return
+
+    @spacing.setter
+    def spacing(self, value: tuple[float, float]) -> None:
+        """Set the spacing as a (mpp_x, mpp_y) tuple"""
 
     @property
-    def level_spacings(self) -> Tuple[Tuple[Any, ...], ...]:
+    def level_spacings(self) -> tuple[tuple[float, float], ...]:
         """
         A list of (mpp_x, mpp_y) tuples, one for each level of the image.
         This property level_spacings[n] contains the spacings of the image at level n.
@@ -107,7 +115,7 @@ class AbstractSlideBackend(abc.ABC):
         return tuple(self._spacings)
 
     @property
-    def level_downsamples(self) -> Tuple[float, ...]:
+    def level_downsamples(self) -> tuple[float, ...]:
         """A tuple of downsampling factors for each level of the image.
         level_downsample[n] contains the downsample factor of level n."""
         return tuple(self._downsamples)
@@ -132,7 +140,7 @@ class AbstractSlideBackend(abc.ABC):
         number = max(sorted_downsamples, key=difference)
         return self._downsamples.index(number)
 
-    def get_thumbnail(self, size: Union[int, Tuple[int, int]]) -> PIL.Image:
+    def get_thumbnail(self, size: Union[int, Tuple[int, int]]) -> PIL.Image.Image:
         """
         Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
         Aspect ratio is preserved.
@@ -168,7 +176,7 @@ class AbstractSlideBackend(abc.ABC):
         """Properties of slide"""
 
     @abc.abstractmethod
-    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image:
+    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 
