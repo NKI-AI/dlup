@@ -92,7 +92,7 @@ class SlideImage:
 
         if self._wsi.spacing is None:
             raise UnsupportedSlideError(
-                f"{identifier} has not parsable spacing and not explicitly set in the `overwrite_mpp` parameter."
+                f"The spacing of {identifier} cannot be derived from image and is not explicitly set in the `overwrite_mpp` parameter."
             )
 
         check_if_mpp_is_valid(*self._wsi.spacing)

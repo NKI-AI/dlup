@@ -64,7 +64,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         self._spacings = [cast(tuple[float, float], tuple(mpp * downsample)) for downsample in self.level_downsamples]
 
     @property
-    def magnification(self) -> float | None:
+    def magnification(self) -> int | None:
         """Returns the objective power at which the WSI was sampled."""
         value = self.properties.get(openslide.PROPERTY_NAME_OBJECTIVE_POWER, None)
         if value is not None:
