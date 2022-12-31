@@ -114,8 +114,8 @@ class PyVipsSlide(AbstractSlideBackend):
         mpp_x, mpp_y = None, None
         available_fields = self._images[0].get_fields()
         if "openslide.mpp-x" in available_fields and "openslide.mpp-y" in available_fields:
-            mpp_x = self._images[0].get("openslide.mpp-x")
-            mpp_y = self._images[0].get("openslide.mpp-y")
+            mpp_x = float(self._images[0].get("openslide.mpp-x"))
+            mpp_y = float(self._images[0].get("openslide.mpp-y"))
 
         if mpp_x is not None and mpp_y is not None:
             check_if_mpp_is_valid(mpp_x, mpp_y)

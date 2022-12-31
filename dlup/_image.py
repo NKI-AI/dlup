@@ -87,7 +87,7 @@ class SlideImage:
         self._wsi = wsi
         self._identifier = identifier
 
-        if "overwrite_mpp" in kwargs:
+        if kwargs.get("overwrite_mpp", None) is not None:
             self._wsi.spacing = kwargs["overwrite_mpp"]
 
         if self._wsi.spacing is None:
