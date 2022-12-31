@@ -4,7 +4,7 @@
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, List, Sequence, Tuple, Union
+from typing import Iterator, Sequence, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -61,7 +61,7 @@ def tiles_grid_coordinates(
     tile_size: _GenericNumberArray,
     tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
     mode: TilingMode = TilingMode.skip,
-) -> List[np.ndarray]:
+) -> list[np.ndarray]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
     The first tile has the corner located at (0, 0).
@@ -98,7 +98,7 @@ def tiles_grid_coordinates(
         overflow = tiled_size - size
 
     # Let's create our indices list
-    coordinates: List[NDArray[np.float_]] = []
+    coordinates: list[NDArray[np.float_]] = []
     for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
         coordinates.append(tiles_locations)
@@ -109,7 +109,7 @@ def tiles_grid_coordinates(
 class Grid(collections.abc.Sequence):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: List[np.ndarray], order: Union[str, GridOrder] = GridOrder.F):
+    def __init__(self, coordinates: list[np.ndarray], order: Union[str, GridOrder] = GridOrder.F):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
         self.order = order
@@ -134,7 +134,7 @@ class Grid(collections.abc.Sequence):
         return cls(coordinates, order=order)
 
     @property
-    def size(self) -> Tuple[int, ...]:
+    def size(self) -> tuple[int, ...]:
         """Return the size of the generated lattice."""
         return tuple(len(x) for x in self.coordinates)
 

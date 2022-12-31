@@ -1,6 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-from typing import Optional
+from __future__ import annotations
 
 
 class DlupError(Exception):
@@ -8,7 +8,7 @@ class DlupError(Exception):
 
 
 class UnsupportedSlideError(DlupError):
-    def __init__(self, msg: str, identifier: Optional[str] = None):
+    def __init__(self, msg: str, identifier: str | None = None):
         msg = msg if identifier is None else f"slide '{identifier}': " + msg
         super().__init__(self, msg)
 

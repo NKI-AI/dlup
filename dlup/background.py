@@ -16,7 +16,7 @@ Check their respective documentations for references.
 
 from enum import Enum
 from functools import partial
-from typing import Callable, Iterable, List, Tuple, Union
+from typing import Callable, Iterable, Union
 
 import numpy as np
 import PIL.Image
@@ -89,7 +89,7 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
     final_mask = mask.copy()
     maximal_distance = distance.max()
     global_max = distance.max()
-    seeds: List = []
+    seeds: list = []
     while maximal_distance > 0:
         start = np.unravel_index(distance.argmax(), distance.shape)
         if (maximal_distance > 0.6 * global_max) or _is_close(seeds, start[::-1]):
@@ -217,7 +217,7 @@ def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minima
 def is_foreground(
     slide_image: SlideImage,
     background_mask: Union[np.ndarray, SlideImage, WsiAnnotations],
-    region: Tuple[float, float, int, int, float],
+    region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
 
@@ -237,7 +237,7 @@ def is_foreground(
 def is_foreground_polygon(
     slide_image: SlideImage,
     background_mask: WsiAnnotations,
-    region: Tuple[float, float, int, int, float],
+    region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
 
@@ -257,7 +257,7 @@ def is_foreground_polygon(
 
 def is_foreground_wsiannotations(
     background_mask: SlideImage,
-    region: Tuple[float, float, int, int, float],
+    region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
 
@@ -276,7 +276,7 @@ def is_foreground_wsiannotations(
 def is_foreground_numpy(
     slide_image: SlideImage,
     background_mask: np.ndarray,
-    region: Tuple[float, float, int, int, float],
+    region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
 

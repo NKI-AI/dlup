@@ -1,8 +1,10 @@
 # coding=utf-8
 """Defines the RegionView interface."""
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Iterable, Optional, Tuple, Union, cast
+from typing import Iterable, Union, cast
 
 import numpy as np
 import PIL.Image
@@ -31,12 +33,12 @@ class RegionView(ABC):
     subregions instead of a whole level.
     """
 
-    def __init__(self, boundary_mode: Optional[BoundaryMode] = None):
+    def __init__(self, boundary_mode: BoundaryMode | None = None):
         self.boundary_mode = boundary_mode
 
     @property
     @abstractmethod
-    def size(self) -> Tuple[int, ...]:
+    def size(self) -> tuple[int, ...]:
         """Returns size of the region in U units."""
         pass
 

@@ -1,6 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 import numpy as np
 import PIL.Image
@@ -88,7 +88,7 @@ class TifffileSlide(AbstractSlideBackend):
         """Cache for tifffile."""
         raise NotImplementedError
 
-    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 

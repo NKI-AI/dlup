@@ -1,16 +1,17 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+from __future__ import annotations
+
 import datetime
 import logging
 import pathlib
 import sys
-from typing import Optional
 
 from dlup.types import PathLike
 
 
 def setup_logging(
-    filename: Optional[pathlib.Path] = None,
+    filename: pathlib.Path | None = None,
     use_stdout: bool = True,
     log_level: str = "INFO",
     formatter_str: str = "[%(asctime)s | %(name)s | %(levelname)s] - %(message)s",
