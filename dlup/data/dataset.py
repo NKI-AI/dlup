@@ -133,8 +133,8 @@ LRU_CACHE_SIZE = 32
 
 
 @functools.lru_cache(LRU_CACHE_SIZE)
-def _get_cached_slide_image(path: pathlib.Path, backend):
-    return SlideImage.from_file_path(path, backend=backend)
+def _get_cached_slide_image(path: pathlib.Path, backend, **kwargs):
+    return SlideImage.from_file_path(path, backend=backend, **kwargs)
 
 
 class SlideImageDatasetBase(Dataset[T_co]):
@@ -160,6 +160,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackend.PYVIPS,
+        **kwargs,
     ):
         """
         Parameters
@@ -183,6 +184,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
             Image-level labels. Will be added to each individual tile.
         transform :
             Transforming function. To be used for augmentations or other model specific preprocessing.
+        **kwargs :
+            Keyword arguments get passed to the underlying slide image.
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
@@ -195,6 +198,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self.labels = labels
         self.__transform = transform
         self._backend = backend
+        self._kwargs = kwargs
 
         # Maps from a masked index -> regions index.
         # For instance, let's say we have three regions
@@ -220,7 +224,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
     @property
     def slide_image(self):
         """Return the cached slide image instance associated with this dataset."""
-        return _get_cached_slide_image(self.path, self._backend)
+        return _get_cached_slide_image(self.path, self._backend, **self._kwargs)
 
     def __getitem__(self, index):
         slide_image = self.slide_image
@@ -326,6 +330,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
         transform: Optional[Callable] = None,
         backend: Callable = ImageBackend.PYVIPS,
+        **kwargs,
     ):
         self._grids = grids
         regions = []
@@ -345,6 +350,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             output_tile_size=output_tile_size,
             transform=None,
             backend=backend,
+            **kwargs,
         )
         self.__transform = transform
 
@@ -448,6 +454,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             labels=labels,
             transform=transform,
             backend=backend,
+            **kwargs,
         )
 
     def __getitem__(self, index):
