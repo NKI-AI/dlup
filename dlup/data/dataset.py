@@ -156,7 +156,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
         mask_threshold: float = 0.1,
         output_tile_size: tuple[int, int] | None = None,
-        annotations: Union[list[_AnnotationTypes], _AnnotationTypes] = None,
+        annotations: Union[list[_AnnotationTypes], _AnnotationTypes] | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
