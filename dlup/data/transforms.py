@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Union
 
 import cv2
 import numpy as np
@@ -19,11 +19,11 @@ _AnnotationsTypes = Union[dlup.annotations.Point, dlup.annotations.Polygon]
 
 def convert_annotations(
     annotations: Iterable[_AnnotationsTypes],
-    region_size: Tuple[int, int],
+    region_size: tuple[int, int],
     index_map: Dict[str, int],
-    roi_name: Optional[str] = None,
+    roi_name: str | None = None,
     default_value: int = 0,
-) -> Tuple[Dict, np.ndarray, np.ndarray | None]:
+) -> tuple[Dict, np.ndarray, np.ndarray | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
@@ -44,7 +44,7 @@ def convert_annotations(
     Parameters
     ----------
     annotations
-    region_size : Tuple[int, int]
+    region_size : tuple[int, int]
     index_map : Dict[str, int]
         Map mapping annotation name to index number in the output.
     roi_name : str
@@ -60,7 +60,7 @@ def convert_annotations(
     """
     mask = np.empty(region_size, dtype=np.int32)
     mask[:] = default_value
-    points: Dict[str, List] = defaultdict(list)
+    points: Dict[str, list] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
 
@@ -92,7 +92,7 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: Optional[str], index_map: Dict[str, int], default_value: int = 0):
+    def __init__(self, *, roi_name: str | None, index_map: Dict[str, int], default_value: int = 0):
         """
         Parameters
         ----------
@@ -174,7 +174,7 @@ class MajorityClassToLabel:
     - The label is added to the output dictionary in ["labels"]["majority_label"]
     """
 
-    def __init__(self, *, roi_name: Optional[str], index_map: Dict[str, int]):
+    def __init__(self, *, roi_name: str | None, index_map: Dict[str, int]):
         """
         Parameters
         ----------
@@ -233,7 +233,7 @@ class ContainsPolygonToLabel:
 
     """
 
-    def __init__(self, *, roi_name: Optional[str], label: str, threshold: float):
+    def __init__(self, *, roi_name: str | None, label: str, threshold: float):
         """
         Parameters
         ----------

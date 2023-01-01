@@ -1,6 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup Contributors
-from typing import Optional
+from __future__ import annotations
 
 import numpy as np
 import PIL
@@ -13,7 +13,7 @@ from dlup.annotations import Point, Polygon
 
 def plot_2d(
     image: PIL.Image.Image,
-    mask: Optional[np.ndarray] = None,
+    mask: np.ndarray | None = None,
     mask_colors=None,
     mask_alpha=70,
     geometries=None,
@@ -31,7 +31,7 @@ def plot_2d(
         A dictionary mapping the integer value of the mask to a PIL color value.
     mask_alpha : int
         Value between 0-100 defining the transparency of the overlays
-    geometries : List
+    geometries : list
         List of Point or Polygon
     geometries_color_map : dict
         Dictionary mapping label names to the PIL color value

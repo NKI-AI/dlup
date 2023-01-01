@@ -12,7 +12,7 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
-from typing import Callable, Optional, Tuple, Type, TypeVar, Union, cast
+from typing import Callable, Type, TypeVar, Union, cast
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
@@ -25,14 +25,14 @@ from dlup.experimental_backends import AbstractSlideBackend, ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
-_Box = Tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
+_Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 
 
 class _SlideImageRegionView(RegionView):
     """Represents an image view tied to a slide image."""
 
-    def __init__(self, wsi: _TSlideImage, scaling: GenericNumber, boundary_mode: Optional[BoundaryMode] = None):
+    def __init__(self, wsi: _TSlideImage, scaling: GenericNumber, boundary_mode: BoundaryMode | None = None):
         """Initialize with a slide image object and the scaling level."""
         # Always call the parent init
         super().__init__(boundary_mode=boundary_mode)
@@ -45,7 +45,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.mpp / self._scaling
 
     @property
-    def size(self) -> Tuple[int, ...]:
+    def size(self) -> tuple[int, ...]:
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
@@ -56,7 +56,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: np.ndarray, size: Tuple[GenericNumber, GenericNumber]) -> np.ndarray:
+def _clip2size(a: np.ndarray, size: tuple[GenericNumber, GenericNumber]) -> np.ndarray:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
@@ -134,9 +134,9 @@ class SlideImage:
     # @image_cache
     def read_region(
         self,
-        location: Union[np.ndarray, Tuple[GenericNumber, GenericNumber]],
+        location: Union[np.ndarray, tuple[GenericNumber, GenericNumber]],
         scaling: float,
-        size: Union[np.ndarray, Tuple[int, int]],
+        size: Union[np.ndarray, tuple[int, int]],
     ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
@@ -244,7 +244,7 @@ class SlideImage:
         size = cast(tuple[int, int], size)
         return region.resize(size, resample=PIL.Image.Resampling.LANCZOS, box=box)
 
-    def get_scaled_size(self, scaling: GenericNumber) -> Tuple[int, ...]:
+    def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, ...]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
         return tuple(size.astype(int))
@@ -263,7 +263,7 @@ class SlideImage:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
-    def get_thumbnail(self, size: Tuple[int, int] = (512, 512)) -> PIL.Image.Image:
+    def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> PIL.Image.Image:
         """Returns an RGB numpy thumbnail for the current slide.
 
         Parameters
@@ -279,7 +279,7 @@ class SlideImage:
         return self.get_thumbnail()
 
     @property
-    def identifier(self) -> Optional[str]:
+    def identifier(self) -> str | None:
         """Returns a user-defined identifier."""
         return self._identifier
 
@@ -289,12 +289,12 @@ class SlideImage:
         return self._wsi.properties
 
     @property
-    def vendor(self) -> Optional[str]:
+    def vendor(self) -> str | None:
         """Returns the scanner vendor."""
         return self._wsi.vendor
 
     @property
-    def size(self) -> Tuple[int, int]:
+    def size(self) -> tuple[int, int]:
         """Returns the highest resolution image size in pixels. Returns in (width, height)."""
         return self._wsi.dimensions
 
@@ -304,7 +304,7 @@ class SlideImage:
         return self._avg_native_mpp
 
     @property
-    def magnification(self) -> Optional[float]:
+    def magnification(self) -> float | None:
         """Returns the objective power at which the WSI was sampled."""
         return self._wsi.magnification
 

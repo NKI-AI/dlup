@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import openslide
@@ -149,7 +149,7 @@ class PyVipsSlide(AbstractSlideBackend):
         return {key: self._images[0].get_value(key) for key in keys}
 
     @property
-    def magnification(self) -> Optional[float]:
+    def magnification(self) -> float | None:
         """Returns the objective power at which the WSI was sampled."""
         if self._loader == "openslideloader":
             return float(self._images[0].properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
@@ -157,7 +157,7 @@ class PyVipsSlide(AbstractSlideBackend):
             return None
 
     @property
-    def vendor(self) -> Optional[str]:
+    def vendor(self) -> str | None:
         """Returns the scanner vendor."""
         if self._loader == "openslideloader":
             return self._images[0].properties[openslide.PROPERTY_NAME_VENDOR]
@@ -174,7 +174,7 @@ class PyVipsSlide(AbstractSlideBackend):
     def set_cache(self, cache):
         raise NotImplementedError
 
-    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 

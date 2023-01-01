@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Union
 
 import numpy as np
 import PIL.Image
@@ -140,14 +140,14 @@ class AbstractSlideBackend(abc.ABC):
         number = max(sorted_downsamples, key=difference)
         return self._downsamples.index(number)
 
-    def get_thumbnail(self, size: Union[int, Tuple[int, int]]) -> PIL.Image.Image:
+    def get_thumbnail(self, size: Union[int, tuple[int, int]]) -> PIL.Image.Image:
         """
         Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
         Aspect ratio is preserved.
 
         Parameters
         ----------
-        size : int or Tuple[int, int]
+        size : int or tuple[int, int]
             Output size of the thumbnail, will take the maximal value for the output and preserve aspect ratio.
 
         Returns
@@ -176,7 +176,7 @@ class AbstractSlideBackend(abc.ABC):
         """Properties of slide"""
 
     @abc.abstractmethod
-    def read_region(self, coordinates: Tuple[Any, ...], level: int, size: Tuple[Any, ...]) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -197,12 +197,12 @@ class AbstractSlideBackend(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def magnification(self) -> Optional[float]:
+    def magnification(self) -> float | None:
         """Returns the objective power at which the WSI was sampled."""
 
     @property
     @abc.abstractmethod
-    def vendor(self) -> Optional[str]:
+    def vendor(self) -> str | None:
         """Returns the scanner vendor."""
 
     @abc.abstractmethod

@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Callable, Dict, Generic, Iterable, List, Optional, Tuple, TypedDict, TypeVar, Union, cast
+from typing import Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
@@ -28,20 +28,20 @@ from dlup.tools import ConcatSequences, MapSequence
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
-_AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
+_AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
     image: PIL.Image.Image
-    coordinates: Tuple[int, int]
+    coordinates: tuple[int, int]
     mpp: float
     path: pathlib.Path
     region_index: int
 
 
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
-    grid_local_coordinates: Tuple
+    grid_local_coordinates: tuple
     grid_index: int
 
 
@@ -93,9 +93,9 @@ class ConcatDataset(Dataset[T_co]):
 
     """
 
-    datasets: List[Dataset[T_co]]
-    cumulative_sizes: List[int]
-    wsi_indices: Dict[str, range]
+    datasets: list[Dataset[T_co]]
+    cumulative_sizes: list[int]
+    wsi_indices: dict[str, range]
 
     @staticmethod
     def cumsum(sequence):
@@ -133,8 +133,8 @@ LRU_CACHE_SIZE = 32
 
 
 @functools.lru_cache(LRU_CACHE_SIZE)
-def _get_cached_slide_image(path: pathlib.Path, backend):
-    return SlideImage.from_file_path(path, backend=backend)
+def _get_cached_slide_image(path: pathlib.Path, backend, **kwargs):
+    return SlideImage.from_file_path(path, backend=backend, **kwargs)
 
 
 class SlideImageDatasetBase(Dataset[T_co]):
@@ -153,13 +153,14 @@ class SlideImageDatasetBase(Dataset[T_co]):
         path: pathlib.Path,
         regions: collections.abc.Sequence,
         crop: bool = False,
-        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
+        mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
         mask_threshold: float = 0.1,
-        output_tile_size: Tuple[int, int] | None = None,
-        annotations: Optional[Union[List[_AnnotationTypes], _AnnotationTypes]] = None,
-        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
-        transform: Optional[Callable] = None,
+        output_tile_size: tuple[int, int] | None = None,
+        annotations: Union[list[_AnnotationTypes], _AnnotationTypes] | None = None,
+        labels: list[tuple[str, _LabelTypes]] | None = None,
+        transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
+        **kwargs,
     ):
         """
         Parameters
@@ -183,6 +184,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
             Image-level labels. Will be added to each individual tile.
         transform :
             Transforming function. To be used for augmentations or other model specific preprocessing.
+        **kwargs :
+            Keyword arguments get passed to the underlying slide image.
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
@@ -195,6 +198,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self.labels = labels
         self.__transform = transform
         self._backend = backend
+        self._kwargs = kwargs
 
         # Maps from a masked index -> regions index.
         # For instance, let's say we have three regions
@@ -220,7 +224,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
     @property
     def slide_image(self):
         """Return the cached slide image instance associated with this dataset."""
-        return _get_cached_slide_image(self.path, self._backend)
+        return _get_cached_slide_image(self.path, self._backend, **self._kwargs)
 
     def __getitem__(self, index):
         slide_image = self.slide_image
@@ -234,8 +238,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
             region_index = index
 
         x, y, w, h, mpp = self.regions[region_index]
-        coordinates: Tuple[int | float, int | float] = x, y
-        region_size: Tuple[int, int] = w, h
+        coordinates: tuple[int | float, int | float] = x, y
+        region_size: tuple[int, int] = w, h
         scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
@@ -317,15 +321,16 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
     def __init__(
         self,
         path: pathlib.Path,
-        grids: List[Tuple[Grid, Tuple[int, int], float]],
+        grids: list[tuple[Grid, tuple[int, int], float]],
         crop: bool = False,
-        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
+        mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
         mask_threshold: float = 0.1,
-        output_tile_size: Tuple[int, int] | None = None,
-        annotations: Optional[_AnnotationTypes] = None,
-        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
-        transform: Optional[Callable] = None,
+        output_tile_size: tuple[int, int] | None = None,
+        annotations: _AnnotationTypes | None = None,
+        labels: list[tuple[str, _LabelTypes]] | None = None,
+        transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
+        **kwargs,
     ):
         self._grids = grids
         regions = []
@@ -345,6 +350,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             output_tile_size=output_tile_size,
             transform=None,
             backend=backend,
+            **kwargs,
         )
         self.__transform = transform
 
@@ -357,18 +363,18 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         cls,
         path: pathlib.Path,
         mpp: float | None,
-        tile_size: Tuple[int, int],
-        tile_overlap: Tuple[int, int],
+        tile_size: tuple[int, int],
+        tile_overlap: tuple[int, int],
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
+        mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
         mask_threshold: float = 0.1,
-        output_tile_size: Tuple[int, int] | None = None,
-        rois: Optional[Tuple[Tuple[int, ...]]] = None,
-        annotations: Optional[_AnnotationTypes] = None,
-        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
-        transform: Optional[Callable] = None,
+        output_tile_size: tuple[int, int] | None = None,
+        rois: tuple[tuple[int, ...]] | None = None,
+        annotations: _AnnotationTypes | None = None,
+        labels: list[tuple[str, _LabelTypes]] | None = None,
+        transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
         **kwargs,
     ):
@@ -448,6 +454,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             labels=labels,
             transform=transform,
             backend=backend,
+            **kwargs,
         )
 
     def __getitem__(self, index):
@@ -466,7 +473,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois, image_size, scaling: float) -> Tuple[Tuple[Tuple[int, int], Tuple[int, int]], ...]:
+def parse_rois(rois, image_size, scaling: float) -> tuple[tuple[tuple[int, int], tuple[int, int]], ...]:
     if rois is None:
         return (((0, 0), image_size),)
     else:

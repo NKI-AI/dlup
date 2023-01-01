@@ -9,7 +9,7 @@ import pathlib
 import shutil
 import tempfile
 from enum import Enum
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Iterator, Union
 
 import numpy as np
 import PIL.Image
@@ -62,12 +62,12 @@ class TifffileImageWriter(ImageWriter):
     def __init__(
         self,
         filename: PathLike,
-        size: Union[Tuple[int, int], Tuple[int, int, int]],
-        mpp: Union[float, Tuple[float, float]],
-        tile_size: Tuple[int, int] = (512, 512),
+        size: Union[tuple[int, int], tuple[int, int, int]],
+        mpp: Union[float, tuple[float, float]],
+        tile_size: tuple[int, int] = (512, 512),
         pyramid: bool = False,
-        compression: Optional[TiffCompression] = TiffCompression.JPEG,
-        quality: Optional[int] = 100,
+        compression: TiffCompression | None = TiffCompression.JPEG,
+        quality: int | None = 100,
     ):
         """
         Writer based on tifffile.
@@ -76,12 +76,12 @@ class TifffileImageWriter(ImageWriter):
         ----------
         filename : PathLike
             Filename where to write
-        size : Tuple
+        size : tuple
             Size of the image to be written. This is defined as (height, width, num_channels),
             or rather (rows, columns, num_channels) and is important value to get correct.
             In case of a mask with a single channel the value is given by (rows, columns).
-        mpp : int, or Tuple[int, int]
-        tile_size : Tuple[int, int]
+        mpp : int, or tuple[int, int]
+        tile_size : tuple[int, int]
             Tiff tile_size, defined as (height, width).
         pyramid : bool
             Whether to write a pyramidal image.
@@ -94,7 +94,7 @@ class TifffileImageWriter(ImageWriter):
         self._tile_size = tile_size
 
         self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])  # type: ignore
-        self._mpp: Tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
+        self._mpp: tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
 
         if not compression:
             compression = TiffCompression.NONE
@@ -192,7 +192,7 @@ class TifffileImageWriter(ImageWriter):
         tile_iterator: Iterator,
         level: int,
         compression: str | None,
-        shapes: List[Tuple[int, int]],
+        shapes: list[tuple[int, int]],
         is_rgb: bool,
         **options,
     ):
@@ -209,7 +209,7 @@ class TifffileImageWriter(ImageWriter):
         )
 
 
-def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: Tuple[int, int]):
+def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: tuple[int, int]):
     """
     Given a PIL image return a a tile-iterator.
 
@@ -241,7 +241,7 @@ def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: Tuple[
 
 
 def _tile_iterator_from_page(
-    page: tifffile.TiffPage, tile_size: Tuple[int, int], region_size: Tuple[int, int], scale: int, is_rgb: bool = True
+    page: tifffile.TiffPage, tile_size: tuple[int, int], region_size: tuple[int, int], scale: int, is_rgb: bool = True
 ):
     """
     Create an iterator from a tiff page. Useful when writing a pyramidal tiff where the previous page is read to write

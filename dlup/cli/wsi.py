@@ -5,7 +5,7 @@ import argparse
 import json
 import pathlib
 from multiprocessing import Pool
-from typing import Tuple, cast
+from typing import cast
 
 from PIL import Image
 
@@ -21,15 +21,15 @@ def tiling(args: argparse.Namespace):
     """Perform the WSI tiling."""
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
-    tile_size = cast(Tuple[int, int], (args.tile_size,) * 2)
-    tile_overlap = cast(Tuple[int, int], (args.tile_overlap,) * 2)
+    tile_size = cast(tuple[int, int], (args.tile_size,) * 2)
+    tile_overlap = cast(tuple[int, int], (args.tile_overlap,) * 2)
 
     image = SlideImage.from_file_path(input_file_path)
     mask = get_mask(slide=image, mask_func=AvailableMaskFunctions[args.mask_func])
 
     # the nparray and PIL.Image.size height and width order are flipped is as it would be as a PIL.Image.
     # Below [::-1] casts the thumbnail_size to the PIL.Image expected size
-    thumbnail_size = cast(Tuple[int, int], mask.shape[::-1])
+    thumbnail_size = cast(tuple[int, int], mask.shape[::-1])
     thumbnail = image.get_thumbnail(thumbnail_size)
 
     # Prepare output directory.

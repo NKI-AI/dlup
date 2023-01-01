@@ -1,9 +1,10 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 """Experimental dataset functions, might e.g. lack tests, or requires input from users"""
+from __future__ import annotations
 
 import pathlib
-from typing import Callable, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Union
 
 import numpy as np
 
@@ -14,7 +15,7 @@ from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
-_AnnotationTypes = Union[List[Tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
+_AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
 
 
@@ -48,14 +49,14 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
     def __init__(
         self,
         path: pathlib.Path,
-        grids: List[Tuple[Grid, Tuple[int, int], float]],
+        grids: list[tuple[Grid, tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
-        mask: Optional[Union[SlideImage, np.ndarray, WsiAnnotations]] = None,
+        mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
         mask_threshold: float = 0.1,
-        annotations: Optional[_AnnotationTypes] = None,
-        labels: Optional[List[Tuple[str, _LabelTypes]]] = None,
-        transform: Optional[Callable] = None,
+        annotations: _AnnotationTypes | None = None,
+        labels: list[tuple[str, _LabelTypes]] | None = None,
+        transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
     ):
         self._grids = grids
@@ -87,16 +88,16 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
     def multiscale_from_tiling(
         cls,
         path: pathlib.Path,
-        mpps: List[float],
-        tile_size: Tuple[int, int],
-        tile_overlap: Tuple[int, int],
+        mpps: list[float],
+        tile_size: tuple[int, int],
+        tile_overlap: tuple[int, int],
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: Optional[np.ndarray] = None,
+        mask: np.ndarray | None = None,
         mask_threshold: float = 0.1,
-        rois: Optional[Tuple[Tuple[int, ...]]] = None,
-        transform: Optional[Callable] = None,
+        rois: tuple[tuple[int, ...]] | None = None,
+        transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
     ):
 
