@@ -370,7 +370,7 @@ class WsiAnnotations:
                     for _ in _geometry:
                         data[_label].append(_)
 
-        # It is assume that a specific label can only be one type (point or polygon)
+        # It is assumed that a specific label can only be one type (point or polygon)
         annotations: list[WsiSingleLabelAnnotation] = [
             WsiSingleLabelAnnotation(label=k, type=data[k][0].type, coordinates=data[k]) for k in data.keys()
         ]

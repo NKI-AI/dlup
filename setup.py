@@ -28,7 +28,7 @@ install_requires = [
     "pillow>=9.2.0",
     "openslide-python",
     "opencv-python>=4.6.0",
-    "shapely>=2.0b2",
+    "shapely>=2.0.0",
 ]
 
 setup(
