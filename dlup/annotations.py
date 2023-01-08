@@ -319,7 +319,7 @@ class WsiAnnotations:
         output_boxes = []
         # Convert the boxes to a MultiPolygon, so we can easily get the bounding boxes.
         boxes_as_multipolygon = shapely.geometry.MultiPolygon(all_boxes)
-        for curr_geometry in boxes_as_multipolygon:
+        for curr_geometry in boxes_as_multipolygon.geoms:
             min_x, min_y, max_x, max_y = curr_geometry.bounds
             output_boxes.append(((min_x, min_y), (max_x - min_x, max_y - min_y)))
 
