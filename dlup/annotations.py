@@ -299,6 +299,27 @@ class WsiAnnotations:
         self._annotations = _annotations
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
+    @property
+    def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        """
+        Return the bounding box of all annotations.
+
+        Returns
+        -------
+        tuple[tuple[float, float], tuple[float, float]]
+            Bounding box of the form ((x, y), (w, h)).
+        """
+        all_boxes = []
+        for label in self.available_labels:
+            curr_bboxes = self[label].bounding_boxes
+            for box_start, box_size in curr_bboxes:
+                max_x, max_y = box_start[0] + box_size[0], box_start[1] + box_size[1]
+                all_boxes.append(shapely.geometry.box(*box_start, max_x, max_y))
+
+        boxes_as_multipolygon = shapely.geometry.MultiPolygon(all_boxes)
+        min_x, min_y, max_x, max_y = boxes_as_multipolygon.bounds
+        return (min_x, min_y), (max_x - min_x, max_y - min_y)
+
     def copy(self) -> WsiAnnotations:
         """Make a copy of the object."""
         return copy.deepcopy(self)
@@ -344,7 +365,7 @@ class WsiAnnotations:
                     for _ in _geometry:
                         data[_label].append(_)
 
-        # It is assume that a specific label can only be one type (point or polygon)
+        # It is assumed that a specific label can only be one type (point or polygon)
         annotations: list[WsiSingleLabelAnnotation] = [
             WsiSingleLabelAnnotation(label=k, type=data[k][0].type, coordinates=data[k]) for k in data.keys()
         ]
