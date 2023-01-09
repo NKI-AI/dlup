@@ -300,14 +300,14 @@ class WsiAnnotations:
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
     @property
-    def bounding_boxes(self) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """
-        Return the bounding boxes of all annotations.
+        Return the bounding box of all annotations.
 
         Returns
         -------
-        list[tuple[tuple[float, float], tuple[float, float]]]
-            List of bounding boxes of the form ((x, y), (w, h)).
+        tuple[tuple[float, float], tuple[float, float]]
+            Bounding box of the form ((x, y), (w, h)).
         """
         all_boxes = []
         for label in self.available_labels:
@@ -316,14 +316,9 @@ class WsiAnnotations:
                 max_x, max_y = box_start[0] + box_size[0], box_start[1] + box_size[1]
                 all_boxes.append(shapely.geometry.box(*box_start, max_x, max_y))
 
-        output_boxes = []
-        # Convert the boxes to a MultiPolygon, so we can easily get the bounding boxes.
         boxes_as_multipolygon = shapely.geometry.MultiPolygon(all_boxes)
-        for curr_geometry in boxes_as_multipolygon.geoms:
-            min_x, min_y, max_x, max_y = curr_geometry.bounds
-            output_boxes.append(((min_x, min_y), (max_x - min_x, max_y - min_y)))
-
-        return output_boxes
+        min_x, min_y, max_x, max_y = boxes_as_multipolygon.bounds
+        return (min_x, min_y), (max_x - min_x, max_y - min_y)
 
     def copy(self) -> WsiAnnotations:
         """Make a copy of the object."""
