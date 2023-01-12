@@ -140,7 +140,7 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self):
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx):
         """Returns the sample at the given index."""
         dataset, sample_idx = self.index_to_dataset(idx)
         return dataset[sample_idx]
