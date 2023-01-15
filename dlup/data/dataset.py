@@ -116,17 +116,34 @@ class ConcatDataset(Dataset[T_co]):
                 raise ValueError("ConcatDataset requires datasets to be indexable.")
         self.cumulative_sizes = self.cumsum(self.datasets)
 
-    def __len__(self):
-        return self.cumulative_sizes[-1]
+    def index_to_dataset(self, idx: int) -> tuple[Dataset, int]:
+        """Returns the dataset and the index of the sample in the dataset.
 
-    def __getitem__(self, idx):
+        Parameters
+        ----------
+        idx : int
+            Index of the sample in the concatenated dataset.
+
+        Returns
+        -------
+        tuple[Dataset, int]
+            Dataset and index of the sample in the dataset.
+        """
         if idx < 0:
             if -idx > len(self):
                 raise ValueError("absolute value of index should not exceed dataset length")
             idx = len(self) + idx
         dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
         sample_idx = idx if dataset_idx == 0 else idx - self.cumulative_sizes[dataset_idx - 1]
-        return self.datasets[dataset_idx][sample_idx]
+        return self.datasets[dataset_idx], sample_idx
+
+    def __len__(self):
+        return self.cumulative_sizes[-1]
+
+    def __getitem__(self, idx):
+        """Returns the sample at the given index."""
+        dataset, sample_idx = self.index_to_dataset(idx)
+        return dataset[sample_idx]
 
 
 LRU_CACHE_SIZE = 32
