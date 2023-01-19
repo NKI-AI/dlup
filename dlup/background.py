@@ -302,7 +302,7 @@ def is_foreground_numpy(
     slide_image: SlideImage,
     background_mask: np.ndarray,
     region: tuple[float, float, int, int, float],
-    threshold: float | None = 1.0,
+    threshold: float = 1.0,
 ) -> bool:
 
     # Let's get the region view from the slide image.
