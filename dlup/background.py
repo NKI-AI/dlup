@@ -231,15 +231,17 @@ def is_foreground(
     region : tuple[float, float, int, int, float]
         Region to check
     threshold : float or None
-        Threshold to check against. If None anything above 0 is foreground. If 0, anything is foreground. If 1,
-        the region must be completely foreground. Other values are in between, for instance if 0.5,
-        the region must be at least 50% foreground.
+        Threshold to check against. If None anything is foreground. If 1, the region must be completely foreground.
+        Other values are in between, for instance if 0.5, the region must be at least 50% foreground.
 
     Returns
     -------
     bool
 
     """
+    if threshold is None:
+        return True
+
     if isinstance(background_mask, np.ndarray):
         return is_foreground_numpy(slide_image, background_mask, region, threshold)
 
@@ -257,7 +259,7 @@ def is_foreground_polygon(
     slide_image: SlideImage,
     background_mask: WsiAnnotations,
     region: tuple[float, float, int, int, float],
-    threshold: float | None = 1.0,
+    threshold: float = 1.0,
 ) -> bool:
     # Let's get the region view from the slide image.
     x, y, w, h, mpp = region
@@ -267,10 +269,10 @@ def is_foreground_polygon(
     polygon_region = background_mask.read_region((x, y), scaling, (w, h))
     total_area = sum([_.area for _ in polygon_region])
 
-    if threshold is None and total_area > 0:
+    if threshold == 1.0 and total_area == w * h:
         return True
 
-    if total_area / (w * h) >= threshold:
+    if total_area / (w * h) > threshold:
         return True
 
     return False
@@ -279,7 +281,7 @@ def is_foreground_polygon(
 def is_foreground_wsiannotations(
     background_mask: SlideImage,
     region: tuple[float, float, int, int, float],
-    threshold: float | None = 1.0,
+    threshold: float = 1.0,
 ) -> bool:
     # Let's get the region view from the slide image.
     x, y, w, h, mpp = region
@@ -290,10 +292,10 @@ def is_foreground_wsiannotations(
     mask_region_view = background_mask.get_scaled_view(background_mask.get_scaling(mpp))
     mask = mask_region_view.read_region((x, y), (w, h)).convert("L")
 
-    if threshold is None and np.asarray(mask).sum() > 0:
+    if threshold == 1.0 and np.asarray(mask).mean() == 1:
         return True
 
-    return np.asarray(mask).mean() >= threshold
+    return np.asarray(mask).mean() > threshold
 
 
 def is_foreground_numpy(
@@ -335,10 +337,10 @@ def is_foreground_numpy(
         _background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float  # type: ignore
     )
 
-    if threshold is None and mask_tile.sum() > 0:
+    if threshold == 1.0 and mask_tile.mean() == 1.0:
         return True
 
-    return mask_tile.mean() >= threshold
+    return mask_tile.mean() > threshold
 
 
 class AvailableMaskFunctions(Enum):
