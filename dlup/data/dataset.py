@@ -171,7 +171,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         regions: collections.abc.Sequence,
         crop: bool = False,
         mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
-        mask_threshold: float = 0.1,
+        mask_threshold: float | None = 0.1,
         output_tile_size: tuple[int, int] | None = None,
         annotations: Union[list[_AnnotationTypes], _AnnotationTypes] | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
@@ -187,11 +187,13 @@ class SlideImageDatasetBase(Dataset[T_co]):
         regions :
             Sequence of rectangular regions as (x, y, h, w, mpp)
         crop :
-            Whether or not to crop overflowing tiles.
+            Whether to crop overflowing tiles.
         mask :
-            Binary mask used to filter each region toghether with a threshold.
-        mask_threshold : float
-            0 every region is discarded, 1 requires the whole region to be foreground.
+            Binary mask used to filter each region together with a threshold.
+        mask_threshold : float or None
+            Threshold to check against. If None anything above 0 is foreground. If 0, anything is foreground. If 1,
+            the region must be completely foreground. Other values are in between, for instance if 0.5, the region must
+            be at least 50% foreground.
         output_tile_size: tuple[int, int], optional
             If this value is set, this value will be used as the tile size of the output tiles. If this value
             is different from the underlying grid, this tile will be extracted around the center of the region.
@@ -341,7 +343,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         grids: list[tuple[Grid, tuple[int, int], float]],
         crop: bool = False,
         mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
-        mask_threshold: float = 0.1,
+        mask_threshold: float | None = 0.1,
         output_tile_size: tuple[int, int] | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
@@ -386,7 +388,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
         mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
-        mask_threshold: float = 0.1,
+        mask_threshold: float | None = 0.1,
         output_tile_size: tuple[int, int] | None = None,
         rois: tuple[tuple[int, ...]] | None = None,
         annotations: _AnnotationTypes | None = None,
@@ -413,9 +415,11 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop : bool
              If overflowing tiles should be cropped.
         mask :
-            Binary mask used to filter each region toghether with a threshold.
-        mask_threshold : float
-            0 every region is discarded, 1 requires the whole region to be foreground.
+            Binary mask used to filter each region together with a threshold.
+        mask_threshold : float or None
+            Threshold to check against. If None anything above 0 is foreground. If 0, anything is foreground. If 1,
+            the region must be completely foreground. Other values are in between, for instance if 0.5, the region must
+            be at least 50% foreground.
         output_tile_size: tuple[int, int], optional
             If this value is set, this value will be used as the tile size of the output tiles. If this value
             is different from the underlying grid, this tile will be extracted around the center of the region.
