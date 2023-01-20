@@ -131,7 +131,6 @@ class SlideImage:
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier, **kwargs)
 
-    # @image_cache
     def read_region(
         self,
         location: Union[np.ndarray, tuple[GenericNumber, GenericNumber]],

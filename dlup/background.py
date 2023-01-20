@@ -13,7 +13,7 @@ Currently implemented:
 
 Check their respective documentations for references.
 """
-
+from __future__ import annotations
 from enum import Enum
 from functools import partial
 from typing import Callable, Iterable, Union
@@ -218,29 +218,50 @@ def is_foreground(
     slide_image: SlideImage,
     background_mask: Union[np.ndarray, SlideImage, WsiAnnotations],
     region: tuple[float, float, int, int, float],
-    threshold: float = 1.0,
+    threshold: float | None = 1.0,
 ) -> bool:
+    """Check if a region is foreground.
+
+    Parameters
+    ----------
+    slide_image : SlideImage
+        Slide image to check
+    background_mask : np.ndarray or SlideImage or WsiAnnotations
+        Background mask to check against
+    region : tuple[float, float, int, int, float]
+        Region to check
+    threshold : float or None
+        Threshold to check against. The foreground percentage should be strictly larger than threshold.
+        If None anything is foreground. If 1, the region must be completely foreground.
+        Other values are in between, for instance if 0.5, the region must be at least 50% foreground.
+
+    Returns
+    -------
+    bool
+
+    """
+    if threshold is None:
+        return True
 
     if isinstance(background_mask, np.ndarray):
-        return is_foreground_numpy(slide_image, background_mask, region, threshold)
+        return _is_foreground_numpy(slide_image, background_mask, region, threshold)
 
     elif isinstance(background_mask, SlideImage):
-        return is_foreground_wsiannotations(background_mask, region, threshold)
+        return _is_foreground_wsiannotations(background_mask, region, threshold)
 
     elif isinstance(background_mask, WsiAnnotations):
-        return is_foreground_polygon(slide_image, background_mask, region, threshold)
+        return _is_foreground_polygon(slide_image, background_mask, region, threshold)
 
     else:
         raise DlupError(f"Unknown background mask type. Got {type(background_mask)}")
 
 
-def is_foreground_polygon(
+def _is_foreground_polygon(
     slide_image: SlideImage,
     background_mask: WsiAnnotations,
     region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
-
     # Let's get the region view from the slide image.
     x, y, w, h, mpp = region
 
@@ -249,18 +270,20 @@ def is_foreground_polygon(
     polygon_region = background_mask.read_region((x, y), scaling, (w, h))
     total_area = sum([_.area for _ in polygon_region])
 
-    if total_area / (w * h) >= threshold:
+    if threshold == 1.0 and total_area == w * h:
+        return True
+
+    if total_area / (w * h) > threshold:
         return True
 
     return False
 
 
-def is_foreground_wsiannotations(
+def _is_foreground_wsiannotations(
     background_mask: SlideImage,
     region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
-
     # Let's get the region view from the slide image.
     x, y, w, h, mpp = region
 
@@ -270,10 +293,13 @@ def is_foreground_wsiannotations(
     mask_region_view = background_mask.get_scaled_view(background_mask.get_scaling(mpp))
     mask = mask_region_view.read_region((x, y), (w, h)).convert("L")
 
-    return np.asarray(mask).mean() >= threshold
+    if threshold == 1.0 and np.asarray(mask).mean() == 1:
+        return True
+
+    return np.asarray(mask).mean() > threshold
 
 
-def is_foreground_numpy(
+def _is_foreground_numpy(
     slide_image: SlideImage,
     background_mask: np.ndarray,
     region: tuple[float, float, int, int, float],
@@ -311,7 +337,11 @@ def is_foreground_numpy(
     mask_tile[:clipped_h, :clipped_w] = np.asarray(
         _background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float  # type: ignore
     )
-    return mask_tile.mean() >= threshold
+
+    if threshold == 1.0 and mask_tile.mean() == 1.0:
+        return True
+
+    return mask_tile.mean() > threshold
 
 
 class AvailableMaskFunctions(Enum):
