@@ -190,8 +190,9 @@ class SlideImageDatasetBase(Dataset[T_co]):
             Whether to crop overflowing tiles.
         mask :
             Binary mask used to filter each region together with a threshold.
-        mask_threshold : float or None
-            Threshold to check against. If None anything is foreground. If 1, the region must be completely foreground.
+        mask_threshold : float, optional
+            Threshold to check against. The foreground percentage should be strictly larger than threshold.
+            If None anything is foreground. If 1, the region must be completely foreground.
             Other values are in between, for instance if 0.5, the region must be at least 50% foreground.
         output_tile_size: tuple[int, int], optional
             If this value is set, this value will be used as the tile size of the output tiles. If this value
@@ -415,8 +416,9 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
              If overflowing tiles should be cropped.
         mask :
             Binary mask used to filter each region together with a threshold.
-        mask_threshold : float or None
-            Threshold to check against. If None anything is foreground. If 1, the region must be completely foreground.
+        mask_threshold : float, optional
+            Threshold to check against. The foreground percentage should be strictly larger than threshold.
+            If None anything is foreground. If 1, the region must be completely foreground.
             Other values are in between, for instance if 0.5, the region must be at least 50% foreground.
         output_tile_size: tuple[int, int], optional
             If this value is set, this value will be used as the tile size of the output tiles. If this value

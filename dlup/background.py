@@ -231,7 +231,8 @@ def is_foreground(
     region : tuple[float, float, int, int, float]
         Region to check
     threshold : float or None
-        Threshold to check against. If None anything is foreground. If 1, the region must be completely foreground.
+        Threshold to check against. The foreground percentage should be strictly larger than threshold.
+        If None anything is foreground. If 1, the region must be completely foreground.
         Other values are in between, for instance if 0.5, the region must be at least 50% foreground.
 
     Returns
