@@ -243,19 +243,19 @@ def is_foreground(
         return True
 
     if isinstance(background_mask, np.ndarray):
-        return is_foreground_numpy(slide_image, background_mask, region, threshold)
+        return _is_foreground_numpy(slide_image, background_mask, region, threshold)
 
     elif isinstance(background_mask, SlideImage):
-        return is_foreground_wsiannotations(background_mask, region, threshold)
+        return _is_foreground_wsiannotations(background_mask, region, threshold)
 
     elif isinstance(background_mask, WsiAnnotations):
-        return is_foreground_polygon(slide_image, background_mask, region, threshold)
+        return _is_foreground_polygon(slide_image, background_mask, region, threshold)
 
     else:
         raise DlupError(f"Unknown background mask type. Got {type(background_mask)}")
 
 
-def is_foreground_polygon(
+def _is_foreground_polygon(
     slide_image: SlideImage,
     background_mask: WsiAnnotations,
     region: tuple[float, float, int, int, float],
@@ -278,7 +278,7 @@ def is_foreground_polygon(
     return False
 
 
-def is_foreground_wsiannotations(
+def _is_foreground_wsiannotations(
     background_mask: SlideImage,
     region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
@@ -298,7 +298,7 @@ def is_foreground_wsiannotations(
     return np.asarray(mask).mean() > threshold
 
 
-def is_foreground_numpy(
+def _is_foreground_numpy(
     slide_image: SlideImage,
     background_mask: np.ndarray,
     region: tuple[float, float, int, int, float],
