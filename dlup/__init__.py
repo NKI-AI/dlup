@@ -8,6 +8,6 @@ from ._region import BoundaryMode, RegionView
 
 __author__ = """dlup contributors"""
 __email__ = "j.teuwen@nki.nl"
-__version__ = "0.3.20"
+__version__ = "0.3.21-dev0"
 
 __all__ = ("SlideImage", "RegionView", "UnsupportedSlideError", "BoundaryMode")
