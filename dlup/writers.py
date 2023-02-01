@@ -68,6 +68,7 @@ class TifffileImageWriter(ImageWriter):
         pyramid: bool = False,
         compression: TiffCompression | None = TiffCompression.JPEG,
         quality: int | None = 100,
+        metadata: dict[str, str] | None = None,
     ):
         """
         Writer based on tifffile.
@@ -89,6 +90,8 @@ class TifffileImageWriter(ImageWriter):
             Compressor to use.
         quality : int
             Quality in case a lossy compressor is used.
+        metadata : dict[str, str]
+            Metadata to write to the tiff file.
         """
         self._filename = pathlib.Path(filename)
         self._tile_size = tile_size
@@ -102,6 +105,7 @@ class TifffileImageWriter(ImageWriter):
         self._compression = compression
         self._pyramid = pyramid
         self._quality = quality
+        self._metadata = metadata
 
     def from_pil(self, pil_image: PIL.Image.Image) -> None:
         """
@@ -148,6 +152,8 @@ class TifffileImageWriter(ImageWriter):
             "PhysicalSizeY": self._mpp[1],
             "PhysicalSizeYUnit": "µm",
         }
+        if self._metadata is not None:
+            metadata = {**metadata, **self._metadata}
 
         # Convert the compression variable to a tifffile supported one.
         _compression = TIFFFILE_COMPRESSION[self._compression.value]
