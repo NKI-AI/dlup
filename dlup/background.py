@@ -14,6 +14,7 @@ Currently implemented:
 Check their respective documentations for references.
 """
 from __future__ import annotations
+
 from enum import Enum
 from functools import partial
 from typing import Callable, Iterable, Union

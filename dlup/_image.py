@@ -12,6 +12,7 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
+from enum import IntEnum
 from typing import Callable, Type, TypeVar, Union, cast
 
 import numpy as np  # type: ignore
@@ -27,6 +28,15 @@ from dlup.utils.image import check_if_mpp_is_valid
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
+
+
+class Resampling(IntEnum):
+    NEAREST = 0
+    BOX = 4
+    BILINEAR = 2
+    HAMMING = 5
+    BICUBIC = 3
+    LANCZOS = 1
 
 
 class _SlideImageRegionView(RegionView):
@@ -86,6 +96,15 @@ class SlideImage:
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
+
+        if kwargs.get("interpolator", None) is not None:
+            interpolator = kwargs["interpolator"]
+            if isinstance(interpolator, Resampling):
+                interpolator = interpolator.name
+
+            self._interpolator = PIL.Image.Resampling[interpolator]
+        else:
+            self._interpolator = PIL.Image.Resampling.LANCZOS
 
         if kwargs.get("overwrite_mpp", None) is not None:
             self._wsi.spacing = kwargs["overwrite_mpp"]
@@ -241,7 +260,7 @@ class SlideImage:
         )
         box = cast(tuple[float, float, float, float], box)
         size = cast(tuple[int, int], size)
-        return region.resize(size, resample=PIL.Image.Resampling.LANCZOS, box=box)
+        return region.resize(size, resample=self._interpolator, box=box)
 
     def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, ...]:
         """Compute slide image size at specific scaling."""
