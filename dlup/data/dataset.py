@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
+from typing import Callable, Generic, Iterable, TypedDict, TypeVar, cast
 
 import numpy as np
 import PIL
@@ -27,9 +27,9 @@ from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
-_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
-_AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
-_LabelTypes = Union[str, bool, int, float]
+_BaseAnnotationTypes = SlideImage | WsiAnnotations
+_AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
+_LabelTypes = str | bool | int | float
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
@@ -170,10 +170,10 @@ class SlideImageDatasetBase(Dataset[T_co]):
         path: pathlib.Path,
         regions: collections.abc.Sequence,
         crop: bool = False,
-        mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
+        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
-        annotations: Union[list[_AnnotationTypes], _AnnotationTypes] | None = None,
+        annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
@@ -223,7 +223,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         # For instance, let's say we have three regions
         # masked according to the following boolean values: [True, False, True].
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
-        self.masked_indices: Union[NDArray[np.int_], None] = None
+        self.masked_indices: NDArray[np.int_] | None = None
         if mask is not None:
             boolean_mask: NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
             for i, region in enumerate(regions):
@@ -342,7 +342,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         path: pathlib.Path,
         grids: list[tuple[Grid, tuple[int, int], float]],
         crop: bool = False,
-        mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
+        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         annotations: _AnnotationTypes | None = None,
@@ -387,7 +387,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: Union[SlideImage, np.ndarray, WsiAnnotations] | None = None,
+        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         rois: tuple[tuple[int, ...]] | None = None,

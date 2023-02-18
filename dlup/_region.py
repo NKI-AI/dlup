@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Iterable, Union, cast
+from typing import Iterable, cast
 
 import numpy as np
 import PIL.Image
 
-_GenericFloatArray = Union[np.ndarray, Iterable[float]]
-_GenericIntArray = Union[np.ndarray, Iterable[int]]
+_GenericFloatArray = np.ndarray | Iterable[float]
+_GenericIntArray = np.ndarray | Iterable[int]
 
 
 class BoundaryMode(str, Enum):

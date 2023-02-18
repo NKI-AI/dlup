@@ -13,7 +13,7 @@ import errno
 import os
 import pathlib
 from enum import IntEnum
-from typing import Callable, Type, TypeVar, Union, cast
+from typing import Callable, Type, TypeVar, cast
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
@@ -92,7 +92,7 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: Union[str, None] = None, **kwargs):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs):
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
@@ -132,8 +132,8 @@ class SlideImage:
     def from_file_path(
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
-        identifier: Union[str, None] = None,
-        backend: Union[str, Callable] = ImageBackend.PYVIPS,
+        identifier: str | None = None,
+        backend: str | Callable = ImageBackend.PYVIPS,
         **kwargs,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
@@ -152,9 +152,9 @@ class SlideImage:
 
     def read_region(
         self,
-        location: Union[np.ndarray, tuple[GenericNumber, GenericNumber]],
+        location: np.ndarray | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: Union[np.ndarray, tuple[int, int]],
+        size: np.ndarray | tuple[int, int],
     ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 

@@ -112,13 +112,13 @@ def mask_to_polygon(args: argparse.Namespace):
             json.dump(slide_annotations.as_geojson(split_per_label=False), f, indent=2)
     else:
         jsons = slide_annotations.as_geojson(split_per_label=True)
-        for label in jsons:
+        for label, json_dict in jsons:
             suffix = output_filename.suffix
             name = output_filename.with_suffix("").name
             new_name = name + "-" + label
             new_filename = (output_filename.parent / new_name).with_suffix(suffix)
             with open(new_filename, "w") as f:
-                json.dump(jsons[label], f, indent=2)
+                json.dump(json_dict, f, indent=2)
 
 
 def register_parser(parser: argparse._SubParsersAction):

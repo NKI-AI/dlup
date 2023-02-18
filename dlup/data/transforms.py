@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Iterable, Union
+from typing import Iterable
 
 import cv2
 import numpy as np
@@ -14,20 +14,20 @@ import shapely
 import dlup.annotations
 from dlup._exceptions import AnnotationError
 
-_AnnotationsTypes = Union[dlup.annotations.Point, dlup.annotations.Polygon]
+_AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
 
 def convert_annotations(
     annotations: Iterable[_AnnotationsTypes],
     region_size: tuple[int, int],
-    index_map: Dict[str, int],
+    index_map: dict[str, int],
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[Dict, np.ndarray, np.ndarray | None]:
+) -> tuple[dict, np.ndarray, np.ndarray | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
-    - In case of polygons these are converted into a mask according to segmentation_index_map.
+    - In case of polygons these are converted into a mask according to `index_map`.
 
     *BE AWARE*: the polygon annotations are processed sequentially and later annotations can overwrite earlier ones.
     This is for instance useful when you would annotate "tumor associated stroma" on top of "stroma".
@@ -44,7 +44,7 @@ def convert_annotations(
     ----------
     annotations
     region_size : tuple[int, int]
-    index_map : Dict[str, int]
+    index_map : dict[str, int]
         Map mapping annotation name to index number in the output.
     roi_name : str
         Name of the region-of-interest key.
@@ -59,7 +59,7 @@ def convert_annotations(
     """
     mask = np.empty(region_size, dtype=np.int32)
     mask[:] = default_value
-    points: Dict[str, list] = defaultdict(list)
+    points: dict[str, list] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
 
@@ -91,7 +91,7 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: str | None, index_map: Dict[str, int], default_value: int = 0):
+    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
         """
         Parameters
         ----------
@@ -131,7 +131,7 @@ class ConvertAnnotationsToMask:
 class RenameLabels:
     """Remap the label names"""
 
-    def __init__(self, remap_labels: Dict[str, str]):
+    def __init__(self, remap_labels: dict[str, str]):
         """
 
         Parameters
@@ -173,7 +173,7 @@ class MajorityClassToLabel:
     - The label is added to the output dictionary in ["labels"]["majority_label"]
     """
 
-    def __init__(self, *, roi_name: str | None, index_map: Dict[str, int]):
+    def __init__(self, *, roi_name: str | None, index_map: dict[str, int]):
         """
         Parameters
         ----------

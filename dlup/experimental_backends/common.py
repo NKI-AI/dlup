@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 import PIL.Image
@@ -69,7 +69,7 @@ class AbstractSlideBackend(abc.ABC):
 
         Returns
         -------
-        List
+        list
 
         """
         return self._shapes
@@ -140,7 +140,7 @@ class AbstractSlideBackend(abc.ABC):
         number = max(sorted_downsamples, key=difference)
         return self._downsamples.index(number)
 
-    def get_thumbnail(self, size: Union[int, tuple[int, int]]) -> PIL.Image.Image:
+    def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
         """
         Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
         Aspect ratio is preserved.

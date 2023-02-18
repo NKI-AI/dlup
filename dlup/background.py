@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Callable, Iterable, Union
+from typing import Callable, Iterable
 
 import numpy as np
 import PIL.Image
@@ -32,7 +32,7 @@ from dlup import SlideImage
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
 
-_GenericIntArray = Union[np.ndarray, Iterable[int]]
+_GenericIntArray = np.ndarray | Iterable[int]
 
 
 def _is_close(_seeds, _start) -> bool:
@@ -217,7 +217,7 @@ def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minima
 
 def is_foreground(
     slide_image: SlideImage,
-    background_mask: Union[np.ndarray, SlideImage, WsiAnnotations],
+    background_mask: np.ndarray | SlideImage | WsiAnnotations,
     region: tuple[float, float, int, int, float],
     threshold: float | None = 1.0,
 ) -> bool:

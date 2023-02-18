@@ -1,6 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import PIL.Image
@@ -64,7 +64,7 @@ class TifffileSlide(AbstractSlideBackend):
                 self._downsamples.append(downsample)
 
     @property
-    def properties(self) -> Dict:
+    def properties(self) -> dict:
         """Metadata about the image as given by tifffile."""
 
         properties = {}

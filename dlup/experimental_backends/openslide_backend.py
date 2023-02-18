@@ -2,7 +2,7 @@
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
-from typing import Union, cast
+from typing import cast
 
 import numpy as np
 import openslide
@@ -76,7 +76,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         """Returns the scanner vendor."""
         return self.properties.properties[openslide.PROPERTY_NAME_VENDOR]
 
-    def get_thumbnail(self, size: Union[int, tuple[int, int]]) -> PIL.Image.Image:
+    def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
         """
         Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
         Aspect ratio is preserved.
