@@ -37,7 +37,6 @@ def convert_annotations(
     TODO
     ----
     - Convert segmentation index map to an Enum
-    - Replace opencv with pyvips (convert shapely to svg) or anything else available - and perhaps a cython function.
     - Do we need to return PIL images here? If we load a tif mask the mask will be returned as a PIL image, so
       for consistency it might be relevant to do the same here.
 

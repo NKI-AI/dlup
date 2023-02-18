@@ -7,11 +7,11 @@ from multiprocessing import Pool
 from typing import cast
 
 import numpy as np
-import shapely
 from shapely.ops import unary_union
 from tqdm import tqdm
 
 from dlup._image import Resampling
+from dlup.annotations import AnnotationType, Polygon, WsiAnnotations, WsiSingleLabelAnnotation
 from dlup.cli import file_path
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackend
@@ -19,30 +19,36 @@ from dlup.tiling import TilingMode
 from dlup.utils.mask import generate_polygons
 
 
-def dataset_to_polygon(dataset, num_workers=0, scaling=1.0, show_progress=True):
-    polygons = []
+def dataset_to_polygon(dataset, index_map, num_workers=0, scaling=1.0, show_progress=True):
+    output_polygons: dict[str, list[Polygon]] = {v: [] for v in index_map.values()}
 
-    def get_sample(idx):
-        sample = dataset[idx]
+    def get_sample(index):
+        output = {}
+        sample = dataset[index]
         _mask = np.asarray(sample["image"])
-        if _mask.sum() == 0:
-            return None
-        return generate_polygons(_mask, offset=sample["coordinates"], scaling=scaling)
+        for index in index_map:
+            curr_mask = (_mask == index).astype(np.uint8)
+            if curr_mask.sum() == 0:
+                continue
+            output[index_map[index]] = generate_polygons(_mask, offset=sample["coordinates"], scaling=scaling)
+        return output
 
     if num_workers <= 0:
         for idx in tqdm(range(len(dataset)), disable=not show_progress):
-            polygon = get_sample(idx)
-            if polygon is not None:
-                polygons.append(polygon)
+            curr_polygons = get_sample(idx)
+            for polygon_name in output_polygons:
+                if polygon_name in curr_polygons:
+                    output_polygons[polygon_name] += curr_polygons[polygon_name]
     else:
         with Pool(num_workers) as pool:
             with tqdm(total=len(dataset), disable=not show_progress) as pbar:
-                for polygon in pool.imap(get_sample, range(len(dataset))):
+                for curr_polygons in pool.imap(get_sample, range(len(dataset))):
                     pbar.update()
-                    if polygon is not None:
-                        polygons.append(polygon)
+                    for polygon_name in output_polygons:
+                        if polygon_name in curr_polygons:
+                            output_polygons[polygon_name] += curr_polygons[polygon_name]
 
-    geometry = unary_union(polygons)
+    geometry = {k: unary_union(polygons) for k, polygons in output_polygons.items()}
     return geometry
 
 
@@ -72,11 +78,47 @@ def mask_to_polygon(args: argparse.Namespace):
     else:
         scaling = dataset.slide_image.get_scaling(target_mpp=target_mpp)
 
-    polygon = dataset_to_polygon(dataset, num_workers=args.num_workers, scaling=scaling)
-    json_dict = shapely.geometry.mapping(polygon)
+    # Parse the labels
+    if args.labels is None:
+        index_map = {1: "label"}
+    else:
+        index_map = {}
+        for pair in args.labels.split(","):
+            name, index = pair.split("=")
+            if not index.isnumeric():
+                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
+            index = float(index)
+            if not index.is_integer():
+                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
+            index = int(index)
+            if index == 0:
+                raise argparse.ArgumentTypeError(f"0 is not a proper index. Needs to be at least 1.")
+            index_map[index] = name.strip()
 
-    with open(output_filename, "w") as f:
-        json.dump(json_dict, f, indent=2)
+    polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
+    wsi_annotations = [
+        WsiSingleLabelAnnotation(
+            label=label,
+            type=AnnotationType.POLYGON,
+            coordinates=[Polygon(polygons[label], label=label)],
+        )
+        for label in polygons
+    ]
+
+    slide_annotations = WsiAnnotations(wsi_annotations)
+
+    if not args.separate:
+        with open(output_filename, "w") as f:
+            json.dump(slide_annotations.as_geojson(split_per_label=False), f, indent=2)
+    else:
+        jsons = slide_annotations.as_geojson(split_per_label=True)
+        for label in jsons:
+            suffix = output_filename.suffix
+            name = output_filename.with_suffix("").name
+            new_name = name + "-" + label
+            new_filename = (output_filename.parent / new_name).with_suffix(suffix)
+            with open(new_filename, "w") as f:
+                json.dump(jsons[label], f, indent=2)
 
 
 def register_parser(parser: argparse._SubParsersAction):
@@ -93,22 +135,27 @@ def register_parser(parser: argparse._SubParsersAction):
     mask_parser.add_argument(
         "MASK_FN",
         type=file_path,
-        help="Filename of the mask.",
+        help="Filename of the mask. If `--separate` is set, will create a label <MASK_FN>-<label>.json",
     )
     mask_parser.add_argument(
         "OUTPUT_FN",
         type=lambda x: file_path(x, need_exists=False),
         help="Output filename. Will create all parent directories if needed.",
     )
-    # mask_parser.add_argument(
-    #     "--labels",
-    #     type=str,
-    #     help="Comma-separated integer value in the mask, name. E.g. specimen=1,tumor=2,...",
-    # )
+    mask_parser.add_argument(
+        "--labels",
+        type=str,
+        help="Comma-separated integer value in the mask, name. E.g. specimen=1,tumor=2,...",
+    )
     mask_parser.add_argument(
         "--silent",
         action="store_true",
         help="If set, will not show progress bar.",
+    )
+    mask_parser.add_argument(
+        "--separate",
+        action="store_true",
+        help="If set, save labels separately.",
     )
     mask_parser.add_argument(
         "--tile-size",
