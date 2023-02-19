@@ -17,32 +17,36 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import TilingMode
 from dlup.utils.mask import generate_polygons
+from functools import partial
+
+
+def _get_sample(index, dataset, index_map, scaling):
+    output = {}
+    sample = dataset[index]
+    _mask = np.asarray(sample["image"])
+    for index in index_map:
+        curr_mask = (_mask == index).astype(np.uint8)
+        if curr_mask.sum() == 0:
+            continue
+        output[index_map[index]] = generate_polygons(_mask, offset=sample["coordinates"], scaling=scaling)
+    return output
 
 
 def dataset_to_polygon(dataset, index_map, num_workers=0, scaling=1.0, show_progress=True):
     output_polygons: dict[str, list[Polygon]] = {v: [] for v in index_map.values()}
 
-    def get_sample(index):
-        output = {}
-        sample = dataset[index]
-        _mask = np.asarray(sample["image"])
-        for index in index_map:
-            curr_mask = (_mask == index).astype(np.uint8)
-            if curr_mask.sum() == 0:
-                continue
-            output[index_map[index]] = generate_polygons(_mask, offset=sample["coordinates"], scaling=scaling)
-        return output
+    sample_function = partial(_get_sample, dataset=dataset, index_map=index_map, scaling=scaling)
 
     if num_workers <= 0:
         for idx in tqdm(range(len(dataset)), disable=not show_progress):
-            curr_polygons = get_sample(idx)
+            curr_polygons = sample_function(idx)
             for polygon_name in output_polygons:
                 if polygon_name in curr_polygons:
                     output_polygons[polygon_name] += curr_polygons[polygon_name]
     else:
         with Pool(num_workers) as pool:
             with tqdm(total=len(dataset), disable=not show_progress) as pbar:
-                for curr_polygons in pool.imap(get_sample, range(len(dataset))):
+                for curr_polygons in pool.imap(sample_function, range(len(dataset))):
                     pbar.update()
                     for polygon_name in output_polygons:
                         if polygon_name in curr_polygons:
