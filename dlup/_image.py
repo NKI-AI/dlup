@@ -282,7 +282,7 @@ class SlideImage:
         return _SlideImageRegionView(self, scaling)
 
     def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> PIL.Image.Image:
-        """Returns an RGB numpy thumbnail for the current slide.
+        """Returns an RGB `PIL.Image.Image` thumbnail for the current slide.
 
         Parameters
         ----------
