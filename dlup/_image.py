@@ -286,8 +286,13 @@ class SlideImage:
 
         Parameters
         ----------
-        size :
+        size : tuple[int, int]
             Maximum bounding box for the thumbnail expressed as (width, height).
+
+        Returns
+        -------
+        PIL.Image.Image
+            The thumbnail as a PIL image.
         """
         return self._wsi.get_thumbnail(size)
 
