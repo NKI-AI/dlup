@@ -29,7 +29,7 @@ def _DFS(polygons, contours, hierarchy, sibling_id, is_outer, siblings, offset=(
         sibling_id = hierarchy[sibling_id][0]
 
 
-def generate_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling: float = 1.0) -> list[Polygon]:
+def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling: float = 1.0) -> list[Polygon]:
     # Adapted From: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
 
     """Generates a list of Shapely polygons from the contours hierarchy returned by cv2.find_contours().
@@ -49,7 +49,7 @@ def generate_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scalin
     list
         The list of generated Shapely polygons
     """
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP,  cv2.CHAIN_APPROX_SIMPLE)
 
     hierarchy = hierarchy[0]
     polygons = []

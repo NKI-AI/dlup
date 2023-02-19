@@ -64,6 +64,7 @@ def convert_annotations(
     roi_mask = np.zeros(region_size, dtype=np.int32)
 
     for curr_annotation in annotations:
+        holes_mask = None
         if isinstance(curr_annotation, dlup.annotations.Point):
             points[curr_annotation.label] += tuple(curr_annotation.coords)
             continue
@@ -79,11 +80,21 @@ def convert_annotations(
         if not (curr_annotation.label in index_map):
             continue
 
+        original_values = None
+        interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
+        if interiors is not []:
+            original_values = mask.copy()
+            holes_mask = np.zeros(region_size, dtype=np.int32)
+            # Get a mask where the holes are
+            cv2.fillPoly(holes_mask, interiors, 1)
+
         cv2.fillPoly(
             mask,
             [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
             index_map[curr_annotation.label],
         )
+        if interiors is not []:
+            mask = np.where(holes_mask == 1, original_values, mask)
 
     return dict(points), mask, roi_mask if roi_name else None
 

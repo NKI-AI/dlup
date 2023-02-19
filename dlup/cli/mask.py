@@ -16,7 +16,7 @@ from dlup.cli import file_path
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import TilingMode
-from dlup.utils.mask import generate_polygons
+from dlup.utils.mask import mask_to_polygons
 from functools import partial
 
 
@@ -28,7 +28,7 @@ def _get_sample(index, dataset, index_map, scaling):
         curr_mask = (_mask == index).astype(np.uint8)
         if curr_mask.sum() == 0:
             continue
-        output[index_map[index]] = generate_polygons(_mask, offset=sample["coordinates"], scaling=scaling)
+        output[index_map[index]] = mask_to_polygons(_mask, offset=sample["coordinates"], scaling=scaling)
     return output
 
 
