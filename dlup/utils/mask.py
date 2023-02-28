@@ -49,7 +49,7 @@ def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling
     list
         The list of generated Shapely polygons
     """
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP,  cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
     hierarchy = hierarchy[0]
     polygons = []

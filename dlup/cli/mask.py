@@ -3,10 +3,12 @@
 """CLI utilities to handle masks"""
 import argparse
 import json
+from functools import partial
 from multiprocessing import Pool
 from typing import cast
 
 import numpy as np
+import shapely
 from shapely.ops import unary_union
 from tqdm import tqdm
 
@@ -17,7 +19,6 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import TilingMode
 from dlup.utils.mask import mask_to_polygons
-from functools import partial
 
 
 def _get_sample(index, dataset, index_map, scaling):
@@ -28,7 +29,7 @@ def _get_sample(index, dataset, index_map, scaling):
         curr_mask = (_mask == index).astype(np.uint8)
         if curr_mask.sum() == 0:
             continue
-        output[index_map[index]] = mask_to_polygons(_mask, offset=sample["coordinates"], scaling=scaling)
+        output[index_map[index]] = mask_to_polygons(curr_mask, offset=sample["coordinates"], scaling=scaling)
     return output
 
 
@@ -100,16 +101,24 @@ def mask_to_polygon(args: argparse.Namespace):
             index_map[index] = name.strip()
 
     polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
-    wsi_annotations = [
-        WsiSingleLabelAnnotation(
-            label=label,
-            type=AnnotationType.POLYGON,
-            coordinates=[Polygon(polygons[label], label=label)],
+    wsi_annotations = []
+    for label in polygons:
+        if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
+            coordinates = [Polygon(coords, label=label) for coords in polygons[label].geoms if not coords.is_empty]
+        else:
+            coordinates = [Polygon(polygons[label], label=label)]
+
+        wsi_annotations.append(
+            WsiSingleLabelAnnotation(
+                label=label,
+                type=AnnotationType.POLYGON,
+                coordinates=coordinates,
+            )
         )
-        for label in polygons
-    ]
 
     slide_annotations = WsiAnnotations(wsi_annotations)
+    if args.simplify is not None:
+        slide_annotations.simplify(tolerance=args.simplify)
 
     if not args.separate:
         with open(output_filename, "w") as f:
@@ -186,6 +195,13 @@ def register_parser(parser: argparse._SubParsersAction):
         required=False,
         help="Microns per pixel the resulting polygon should be converted to, e.g.,"
         " to rescale to level 0 of and image. If not set, will pick the mask mpp (so no scaling).",
+    )
+    mask_parser.add_argument(
+        "--simplify",
+        type=float,
+        help="The maximum allowed geometry displacement. "
+             "The higher this value, the smaller the number of vertices in the resulting geometry. "
+             "By default this is disabled",
     )
     mask_parser.add_argument(
         "--num-workers",
