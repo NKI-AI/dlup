@@ -204,8 +204,10 @@ class WsiSingleLabelAnnotation:
         data = [
             {
                 "type": "Feature",
-                "properties": {"classification": {"name": _.label}},
-                "color": None,
+                "properties": {
+                    "classification": {"name": _.label},
+                    "color": None,
+                },
                 "geometry": shapely.geometry.mapping(_),
             }
             for _ in self._annotations

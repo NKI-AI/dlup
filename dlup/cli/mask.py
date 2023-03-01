@@ -200,8 +200,8 @@ def register_parser(parser: argparse._SubParsersAction):
         "--simplify",
         type=float,
         help="The maximum allowed geometry displacement. "
-             "The higher this value, the smaller the number of vertices in the resulting geometry. "
-             "By default this is disabled",
+        "The higher this value, the smaller the number of vertices in the resulting geometry. "
+        "By default this is disabled",
     )
     mask_parser.add_argument(
         "--num-workers",
