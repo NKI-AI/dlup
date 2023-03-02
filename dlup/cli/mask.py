@@ -3,58 +3,17 @@
 """CLI utilities to handle masks"""
 import argparse
 import json
-from functools import partial
-from multiprocessing import Pool
 from typing import cast
 
-import numpy as np
 import shapely
-from shapely.ops import unary_union
-from tqdm import tqdm
 
 from dlup._image import Resampling
-from dlup.annotations import AnnotationType, Polygon, WsiAnnotations, WsiSingleLabelAnnotation
+from dlup.annotations import AnnotationType, GeoJsonDict, Polygon, WsiAnnotations, WsiSingleLabelAnnotation
 from dlup.cli import file_path
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import TilingMode
-from dlup.utils.mask import mask_to_polygons
-
-
-def _get_sample(index, dataset, index_map, scaling):
-    output = {}
-    sample = dataset[index]
-    _mask = np.asarray(sample["image"])
-    for index in index_map:
-        curr_mask = (_mask == index).astype(np.uint8)
-        if curr_mask.sum() == 0:
-            continue
-        output[index_map[index]] = mask_to_polygons(curr_mask, offset=sample["coordinates"], scaling=scaling)
-    return output
-
-
-def dataset_to_polygon(dataset, index_map, num_workers=0, scaling=1.0, show_progress=True):
-    output_polygons: dict[str, list[Polygon]] = {v: [] for v in index_map.values()}
-
-    sample_function = partial(_get_sample, dataset=dataset, index_map=index_map, scaling=scaling)
-
-    if num_workers <= 0:
-        for idx in tqdm(range(len(dataset)), disable=not show_progress):
-            curr_polygons = sample_function(idx)
-            for polygon_name in output_polygons:
-                if polygon_name in curr_polygons:
-                    output_polygons[polygon_name] += curr_polygons[polygon_name]
-    else:
-        with Pool(num_workers) as pool:
-            with tqdm(total=len(dataset), disable=not show_progress) as pbar:
-                for curr_polygons in pool.imap(sample_function, range(len(dataset))):
-                    pbar.update()
-                    for polygon_name in output_polygons:
-                        if polygon_name in curr_polygons:
-                            output_polygons[polygon_name] += curr_polygons[polygon_name]
-
-    geometry = {k: unary_union(polygons) for k, polygons in output_polygons.items()}
-    return geometry
+from dlup.utils.mask import dataset_to_polygon
 
 
 def mask_to_polygon(args: argparse.Namespace):
@@ -103,7 +62,7 @@ def mask_to_polygon(args: argparse.Namespace):
     polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
     wsi_annotations = []
     for label in polygons:
-        if polygons[label].isempty:
+        if polygons[label].is_empty:
             continue
 
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
@@ -128,6 +87,8 @@ def mask_to_polygon(args: argparse.Namespace):
             json.dump(slide_annotations.as_geojson(split_per_label=False), f, indent=2)
     else:
         jsons = slide_annotations.as_geojson(split_per_label=True)
+        if not type(jsons) == list[tuple[str, GeoJsonDict]]:
+            raise ValueError("Expected a list of tuples")
         for label, json_dict in jsons:
             suffix = output_filename.suffix
             name = output_filename.with_suffix("").name

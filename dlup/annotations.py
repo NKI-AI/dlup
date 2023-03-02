@@ -43,7 +43,7 @@ from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
-ShapelyTypes = shapely.geometry.Point | shapely.geometry.MultiPolygon, shapely.geometry.Polygon
+ShapelyTypes = shapely.geometry.Point | shapely.geometry.MultiPolygon | shapely.geometry.Polygon
 
 
 class AnnotationType(Enum):
