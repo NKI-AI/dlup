@@ -205,8 +205,10 @@ class WsiSingleLabelAnnotation:
             {
                 "type": "Feature",
                 "properties": {
-                    "classification": {"name": _.label},
-                    "color": None,
+                    "classification": {
+                        "name": _.label,
+                        "color": None,
+                    },
                 },
                 "geometry": shapely.geometry.mapping(_),
             }

@@ -103,6 +103,9 @@ def mask_to_polygon(args: argparse.Namespace):
     polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
     wsi_annotations = []
     for label in polygons:
+        if polygons[label].isempty:
+            continue
+
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
             coordinates = [Polygon(coords, label=label) for coords in polygons[label].geoms if not coords.is_empty]
         else:
