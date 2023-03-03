@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10"]
+        python-version: ["3.10", "3.11"]
 
     steps:
     - name: Install minimal dependencies
@@ -28,5 +28,4 @@ jobs:
         pip install tox tox-gh-actions
     - name: Test with tox
       run: tox
-      env:
-          IS_TOX: 1
+
