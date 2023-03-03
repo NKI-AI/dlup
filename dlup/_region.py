@@ -6,11 +6,12 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Iterable, cast
 
+import numpy.typing as npt
 import numpy as np
 import PIL.Image
 
-_GenericFloatArray = np.ndarray | Iterable[float]
-_GenericIntArray = np.ndarray | Iterable[int]
+_GenericFloatArray = npt.NDArray | Iterable[float]
+_GenericIntArray = npt.NDArray | Iterable[int]
 
 
 class BoundaryMode(str, Enum):
