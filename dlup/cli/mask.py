@@ -40,7 +40,7 @@ def mask_to_polygon(args: argparse.Namespace):
     if target_mpp is None:
         scaling = 1.0
     else:
-        scaling = dataset.slide_image.get_scaling(target_mpp=target_mpp)
+        scaling = dataset.slide_image.get_scaling(mpp=target_mpp)
 
     # Parse the labels
     if args.labels is None:
