@@ -15,7 +15,16 @@ from tqdm import tqdm
 from dlup.data.dataset import TiledROIsSlideImageDataset
 
 
-def _DFS(polygons, contours, hierarchy, sibling_id, is_outer, siblings, offset: tuple[int, int]=(0, 0), scaling:float=1.0) -> None:
+def _DFS(
+    polygons,
+    contours,
+    hierarchy,
+    sibling_id,
+    is_outer,
+    siblings,
+    offset: tuple[int, int] = (0, 0),
+    scaling: float = 1.0,
+) -> None:
     # Adapted FROM: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
     while sibling_id != -1:
         contour = contours[sibling_id].squeeze(axis=1)

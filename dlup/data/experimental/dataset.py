@@ -100,7 +100,6 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
     ):
-
         if mpps != sorted(mpps):
             raise ValueError(f"The mpp values should be in increasing order.")
 

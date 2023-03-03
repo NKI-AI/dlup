@@ -306,7 +306,6 @@ def _is_foreground_numpy(
     region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
-
     # Let's get the region view from the slide image.
     x, y, w, h, mpp = region
 
