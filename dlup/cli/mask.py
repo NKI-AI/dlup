@@ -18,7 +18,7 @@ from dlup.utils.mask import dataset_to_polygon
 
 def mask_to_polygon(args: argparse.Namespace):
     """Perform the mask conversion to polygon."""
-    mask_filename = args.MASK_FN
+    mask_filename = args.MASK_FILENAME
     output_filename = args.OUTPUT_FN
     tile_size = cast(tuple[int, int], (args.tile_size,) * 2)
     tile_overlap = cast(tuple[int, int], (args.tile_overlap,) * 2)
@@ -107,12 +107,12 @@ def register_parser(parser: argparse._SubParsersAction):
 
     # Tile a slide and save the tiles in an output folder.
     mask_parser = wsi_subparsers.add_parser(
-        "mask-to-polygon", help="Convert a WSI defining a mask to a GeoJSON polygon."
+        "mask-to-polygon", help="Convert a TIFF defining a mask to a GeoJSON polygon."
     )
     mask_parser.add_argument(
-        "MASK_FN",
+        "MASK_FILENAME",
         type=file_path,
-        help="Filename of the mask. If `--separate` is set, will create a label <MASK_FN>-<label>.json",
+        help="Filename of the mask. If `--separate` is set, will create a label <MASK_FILENAME>-<label>.json",
     )
     mask_parser.add_argument(
         "OUTPUT_FN",

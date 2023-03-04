@@ -33,6 +33,7 @@ def convert_annotations(
     This is for instance useful when you would annotate "tumor associated stroma" on top of "stroma".
     The dlup Annotation classes return the polygons with area from large to small.
 
+    When the polygon has holes, the previous written annotation is used to fill the holes.
 
     TODO
     ----
