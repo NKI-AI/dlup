@@ -29,7 +29,7 @@ import pathlib
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from enum import Enum
-from typing import Any, ClassVar, Dict, Iterable, Type, TypedDict, TypeVar, Union
+from typing import Any, ClassVar, Iterable, Type, TypedDict, TypeVar, Union
 
 import numpy as np
 import shapely
@@ -59,18 +59,18 @@ class GeoJsonDict(TypedDict):
 
     id: str | None
     type: str
-    features: list[Dict[str, Union[str, Dict[str, str]]]]
+    features: list[dict[str, str | dict[str, str]]]
 
 
 class Point(shapely.geometry.Point):
     # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
-    _id_to_attrs: ClassVar[Dict[str, Any]] = {}
+    _id_to_attrs: ClassVar[dict[str, Any]] = {}
     __slots__ = (
         shapely.geometry.Point.__slots__
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
-    def __init__(self, coord: Union[shapely.geometry.Point, tuple[float, float]], label: str | None = None) -> None:
+    def __init__(self, coord: shapely.geometry.Point | tuple[float, float], label: str | None = None) -> None:
         self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property
@@ -97,13 +97,13 @@ class Point(shapely.geometry.Point):
 
 class Polygon(shapely.geometry.Polygon):
     # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
-    _id_to_attrs: ClassVar[Dict[str, Any]] = {}
+    _id_to_attrs: ClassVar[dict[str, Any]] = {}
     __slots__ = (
         shapely.geometry.Polygon.__slots__
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
-    def __init__(self, coord: Union[shapely.geometry.Polygon, tuple[float, float]], label: str | None = None) -> None:
+    def __init__(self, coord: shapely.geometry.Polygon | tuple[float, float], label: str | None = None) -> None:
         self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property
@@ -193,18 +193,23 @@ class WsiSingleLabelAnnotation:
     def as_list(self) -> list:
         return self._annotations
 
-    def as_json(self) -> list[Dict[str, Any]]:
+    def as_json(self) -> list[dict[str, Any]]:
         """
         Return the annotation as json format.
 
         Returns
         -------
-        Dict
+        dict
         """
         data = [
             {
                 "type": "Feature",
-                "properties": {"classification": {"name": _.label}},
+                "properties": {
+                    "classification": {
+                        "name": _.label,
+                        "color": None,
+                    },
+                },
                 "geometry": shapely.geometry.mapping(_),
             }
             for _ in self._annotations
@@ -251,7 +256,7 @@ class WsiAnnotations:
         # Now we have a dict of label: annotations.
         self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
 
-    def filter(self, labels: Union[str, Union[list[str], tuple[str]]]) -> None:
+    def filter(self, labels: str | list[str] | tuple[str]) -> None:
         """
         Filter annotations based on the given label list.
 
@@ -327,7 +332,7 @@ class WsiAnnotations:
     @classmethod
     def from_geojson(
         cls: Type[_TWsiAnnotations],
-        geojsons: Union[PathLike, Iterable[PathLike]],
+        geojsons: PathLike | Iterable[PathLike],
         scaling: float | None = None,
     ) -> _TWsiAnnotations:
         """
@@ -401,7 +406,7 @@ class WsiAnnotations:
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
-        annotations: Dict[str, WsiSingleLabelAnnotation] = dict()
+        annotations: dict[str, WsiSingleLabelAnnotation] = dict()
         opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
@@ -458,7 +463,7 @@ class WsiAnnotations:
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
 
-    def as_geojson(self, split_per_label=False) -> Union[GeoJsonDict, list[tuple[str, GeoJsonDict]]]:
+    def as_geojson(self, split_per_label=False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
         """
         Output the annotations as proper geojson.
 
@@ -512,10 +517,10 @@ class WsiAnnotations:
 
     def read_region(
         self,
-        coordinates: Union[np.ndarray, tuple[GenericNumber, GenericNumber]],
+        coordinates: np.ndarray | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        region_size: Union[np.ndarray, tuple[GenericNumber, GenericNumber]],
-    ) -> list[Union[Polygon, Point]]:
+        region_size: np.ndarray | tuple[GenericNumber, GenericNumber],
+    ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
         The process is as follows:
@@ -597,7 +602,7 @@ class WsiAnnotations:
 
         transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0], -coordinates[1]]
 
-        output: list[Union[Polygon, Point]] = []
+        output: list[Polygon | Point] = []
         for annotation_name, annotation in cropped_annotations:
             annotation = shapely.affinity.affine_transform(annotation, transformation_matrix)
             # It can occur that single polygon annotations result in being points after being intersected.
@@ -620,7 +625,7 @@ class WsiAnnotations:
                 output.append(self.__cast(annotation_name, annotation))
         return output
 
-    def __cast(self, annotation_name: str, annotation: ShapelyTypes) -> Union[Point, Polygon]:
+    def __cast(self, annotation_name: str, annotation: ShapelyTypes) -> Point | Polygon:
         """
         Cast the shapely object with annotation_name to internal format.
 
@@ -631,7 +636,7 @@ class WsiAnnotations:
 
         Returns
         -------
-        Union[Point, Polygon]
+        Point or Polygon
 
         """
         if self[annotation_name].type == AnnotationType.POINT:

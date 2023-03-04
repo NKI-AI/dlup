@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Iterable, Union
+from typing import Iterable
 
 import cv2
 import numpy as np
@@ -14,30 +14,30 @@ import shapely
 import dlup.annotations
 from dlup._exceptions import AnnotationError
 
-_AnnotationsTypes = Union[dlup.annotations.Point, dlup.annotations.Polygon]
+_AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
 
 def convert_annotations(
     annotations: Iterable[_AnnotationsTypes],
     region_size: tuple[int, int],
-    index_map: Dict[str, int],
+    index_map: dict[str, int],
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[Dict, np.ndarray, np.ndarray | None]:
+) -> tuple[dict, np.ndarray, np.ndarray | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
-    - In case of polygons these are converted into a mask according to segmentation_index_map.
+    - In case of polygons these are converted into a mask according to `index_map`.
 
     *BE AWARE*: the polygon annotations are processed sequentially and later annotations can overwrite earlier ones.
     This is for instance useful when you would annotate "tumor associated stroma" on top of "stroma".
     The dlup Annotation classes return the polygons with area from large to small.
 
+    When the polygon has holes, the previous written annotation is used to fill the holes.
 
     TODO
     ----
     - Convert segmentation index map to an Enum
-    - Replace opencv with pyvips (convert shapely to svg) or anything else available - and perhaps a cython function.
     - Do we need to return PIL images here? If we load a tif mask the mask will be returned as a PIL image, so
       for consistency it might be relevant to do the same here.
 
@@ -45,7 +45,7 @@ def convert_annotations(
     ----------
     annotations
     region_size : tuple[int, int]
-    index_map : Dict[str, int]
+    index_map : dict[str, int]
         Map mapping annotation name to index number in the output.
     roi_name : str
         Name of the region-of-interest key.
@@ -60,11 +60,12 @@ def convert_annotations(
     """
     mask = np.empty(region_size, dtype=np.int32)
     mask[:] = default_value
-    points: Dict[str, list] = defaultdict(list)
+    points: dict[str, list] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
 
     for curr_annotation in annotations:
+        holes_mask = None
         if isinstance(curr_annotation, dlup.annotations.Point):
             points[curr_annotation.label] += tuple(curr_annotation.coords)
             continue
@@ -80,11 +81,22 @@ def convert_annotations(
         if not (curr_annotation.label in index_map):
             continue
 
+        original_values = None
+        interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
+        if interiors is not []:
+            original_values = mask.copy()
+            holes_mask = np.zeros(region_size, dtype=np.int32)
+            # Get a mask where the holes are
+            cv2.fillPoly(holes_mask, interiors, 1)
+
         cv2.fillPoly(
             mask,
             [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
             index_map[curr_annotation.label],
         )
+        if interiors is not []:
+            # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
+            mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
 
     return dict(points), mask, roi_mask if roi_name else None
 
@@ -92,7 +104,7 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: str | None, index_map: Dict[str, int], default_value: int = 0):
+    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
         """
         Parameters
         ----------
@@ -132,7 +144,7 @@ class ConvertAnnotationsToMask:
 class RenameLabels:
     """Remap the label names"""
 
-    def __init__(self, remap_labels: Dict[str, str]):
+    def __init__(self, remap_labels: dict[str, str]):
         """
 
         Parameters
@@ -174,7 +186,7 @@ class MajorityClassToLabel:
     - The label is added to the output dictionary in ["labels"]["majority_label"]
     """
 
-    def __init__(self, *, roi_name: str | None, index_map: Dict[str, int]):
+    def __init__(self, *, roi_name: str | None, index_map: dict[str, int]):
         """
         Parameters
         ----------

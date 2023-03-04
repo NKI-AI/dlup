@@ -1,13 +1,15 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+from __future__ import annotations
+
 import os
-from typing import Iterable, Union
+from typing import Iterable
 
 import numpy as np
 
 string_classes = (str, bytes)
-PathLike = Union[str, os.PathLike]
-GenericNumber = Union[int, float]
-GenericNumberArray = Union[np.ndarray, Iterable[GenericNumber]]
-GenericFloatArray = Union[np.ndarray, Iterable[float]]
-GenericIntArray = Union[np.ndarray, Iterable[int]]
+PathLike = str | os.PathLike
+GenericNumber = int | float
+GenericNumberArray = np.ndarray | Iterable[GenericNumber]
+GenericFloatArray = np.ndarray | Iterable[float]
+GenericIntArray = np.ndarray | Iterable[int]

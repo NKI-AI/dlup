@@ -12,7 +12,8 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
-from typing import Callable, Type, TypeVar, Union, cast
+from enum import IntEnum
+from typing import Callable, Type, TypeVar, cast
 
 import numpy as np  # type: ignore
 import openslide  # type: ignore
@@ -27,6 +28,15 @@ from dlup.utils.image import check_if_mpp_is_valid
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
+
+
+class Resampling(IntEnum):
+    NEAREST = 0
+    BOX = 4
+    BILINEAR = 2
+    HAMMING = 5
+    BICUBIC = 3
+    LANCZOS = 1
 
 
 class _SlideImageRegionView(RegionView):
@@ -82,10 +92,19 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: Union[str, None] = None, **kwargs):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs):
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
+
+        if kwargs.get("interpolator", None) is not None:
+            interpolator = kwargs["interpolator"]
+            if isinstance(interpolator, Resampling):
+                interpolator = interpolator.name
+
+            self._interpolator = PIL.Image.Resampling[interpolator]
+        else:
+            self._interpolator = PIL.Image.Resampling.LANCZOS
 
         if kwargs.get("overwrite_mpp", None) is not None:
             self._wsi.spacing = kwargs["overwrite_mpp"]
@@ -113,8 +132,8 @@ class SlideImage:
     def from_file_path(
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
-        identifier: Union[str, None] = None,
-        backend: Union[str, Callable] = ImageBackend.PYVIPS,
+        identifier: str | None = None,
+        backend: str | Callable = ImageBackend.PYVIPS,
         **kwargs,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
@@ -133,9 +152,9 @@ class SlideImage:
 
     def read_region(
         self,
-        location: Union[np.ndarray, tuple[GenericNumber, GenericNumber]],
+        location: np.ndarray | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: Union[np.ndarray, tuple[int, int]],
+        size: np.ndarray | tuple[int, int],
     ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
@@ -241,7 +260,7 @@ class SlideImage:
         )
         box = cast(tuple[float, float, float, float], box)
         size = cast(tuple[int, int], size)
-        return region.resize(size, resample=PIL.Image.Resampling.LANCZOS, box=box)
+        return region.resize(size, resample=self._interpolator, box=box)
 
     def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, ...]:
         """Compute slide image size at specific scaling."""
@@ -263,12 +282,17 @@ class SlideImage:
         return _SlideImageRegionView(self, scaling)
 
     def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> PIL.Image.Image:
-        """Returns an RGB numpy thumbnail for the current slide.
+        """Returns an RGB `PIL.Image.Image` thumbnail for the current slide.
 
         Parameters
         ----------
-        size :
+        size : tuple[int, int]
             Maximum bounding box for the thumbnail expressed as (width, height).
+
+        Returns
+        -------
+        PIL.Image.Image
+            The thumbnail as a PIL image.
         """
         return self._wsi.get_thumbnail(size)
 

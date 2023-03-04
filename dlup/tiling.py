@@ -1,16 +1,17 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+from __future__ import annotations
 
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, Sequence, Union
+from typing import Iterator, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
 
-_GenericNumber = Union[int, float]
-_GenericNumberArray = Union[np.ndarray, Sequence[_GenericNumber]]
+_GenericNumber = int | float
+_GenericNumberArray = np.ndarray | Sequence[_GenericNumber]
 
 
 class TilingMode(str, Enum):
@@ -35,7 +36,7 @@ class GridOrder(str, Enum):
     F = "F"
 
 
-def _flattened_array(a: Union[_GenericNumberArray, _GenericNumber]) -> np.ndarray:
+def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> np.ndarray:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
 
@@ -59,7 +60,7 @@ def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.nd
 def tiles_grid_coordinates(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
-    tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
+    tile_overlap: _GenericNumberArray | _GenericNumber = 0,
     mode: TilingMode = TilingMode.skip,
 ) -> list[np.ndarray]:
     """Generate a list of coordinates for each dimension representing a tile location.
@@ -109,7 +110,7 @@ def tiles_grid_coordinates(
 class Grid(collections.abc.Sequence):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: list[np.ndarray], order: Union[str, GridOrder] = GridOrder.F):
+    def __init__(self, coordinates: list[np.ndarray], order: str | GridOrder = GridOrder.F):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
         self.order = order
@@ -124,7 +125,7 @@ class Grid(collections.abc.Sequence):
         offset: _GenericNumberArray,
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
-        tile_overlap: Union[_GenericNumberArray, _GenericNumber] = 0,
+        tile_overlap: _GenericNumberArray | _GenericNumber = 0,
         mode: TilingMode = TilingMode.skip,
         order: GridOrder = GridOrder.F,
     ):

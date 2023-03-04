@@ -85,7 +85,7 @@ def tiling(args: argparse.Namespace):
     tile_saver = TileSaver(dataset, tiles_output_directory_path, do_not_save_tiles=args.do_not_save_tiles)
 
     with Pool(args.num_workers) as pool:
-        for (grid_local_coordinates, idx) in pool.imap(tile_saver.save_tile, range(num_tiles)):
+        for grid_local_coordinates, idx in pool.imap(tile_saver.save_tile, range(num_tiles)):
             indices[idx] = grid_local_coordinates
 
     output["output"]["num_tiles"] = num_tiles

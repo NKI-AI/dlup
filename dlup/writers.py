@@ -9,7 +9,7 @@ import pathlib
 import shutil
 import tempfile
 from enum import Enum
-from typing import Iterator, Union
+from typing import Iterator
 
 import numpy as np
 import PIL.Image
@@ -62,8 +62,8 @@ class TifffileImageWriter(ImageWriter):
     def __init__(
         self,
         filename: PathLike,
-        size: Union[tuple[int, int], tuple[int, int, int]],
-        mpp: Union[float, tuple[float, float]],
+        size: tuple[int, int] | tuple[int, int, int],
+        mpp: float | tuple[float, float],
         tile_size: tuple[int, int] = (512, 512),
         pyramid: bool = False,
         compression: TiffCompression | None = TiffCompression.JPEG,
