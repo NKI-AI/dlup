@@ -81,7 +81,7 @@ def _get_sample(index, dataset, index_map, scaling):
     _mask = np.asarray(sample["image"])
     for index in index_map:
         curr_mask = (_mask == index).astype(np.uint8)
-        if curr_mask.sum() == 0:
+        if curr_mask.any():
             continue
         output[index_map[index]] = mask_to_polygons(curr_mask, offset=sample["coordinates"], scaling=scaling)
     return output
