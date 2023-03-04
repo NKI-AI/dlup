@@ -29,7 +29,7 @@ import pathlib
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from enum import Enum
-from typing import Any, ClassVar, Iterable, Type, TypedDict, TypeVar
+from typing import Any, ClassVar, Iterable, Type, TypedDict, TypeVar, Union
 
 import numpy as np
 import shapely
@@ -43,7 +43,7 @@ from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
-ShapelyTypes = shapely.geometry.Point | shapely.geometry.MultiPolygon | shapely.geometry.Polygon
+ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
 
 
 class AnnotationType(Enum):

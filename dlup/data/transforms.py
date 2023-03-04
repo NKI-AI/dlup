@@ -94,7 +94,8 @@ def convert_annotations(
             index_map[curr_annotation.label],
         )
         if interiors is not []:
-            mask = np.where(holes_mask == 1, original_values, mask)
+            # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
+            mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
 
     return dict(points), mask, roi_mask if roi_name else None
 
