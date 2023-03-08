@@ -265,7 +265,7 @@ class SlideImage:
     def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, int]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
-        return cast(tuple(size.astype(int)), tuple[int, int])
+        return cast(tuple[int, int], tuple(size.astype(int)))
 
     def get_mpp(self, scaling: float) -> float:
         """Returns the respective mpp from the scaling."""

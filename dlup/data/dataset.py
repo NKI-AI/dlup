@@ -30,7 +30,7 @@ T = TypeVar("T")
 _BaseAnnotationTypes = SlideImage | WsiAnnotations
 _AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
 _LabelTypes = str | bool | int | float
-_ROIType = list[tuple[tuple[int, int], tuple[int, int]]]
+ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
@@ -391,7 +391,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
-        rois: tuple[tuple[int, ...]] | None = None,
+        rois: ROIType | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
@@ -460,8 +460,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
                     raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
                 offset, bounds = slide_image.slide_bounds
                 offset = tuple((np.asarray(offset) * scaling).astype(int))
-                slide_level_size = tuple((np.asarray(bounds) * scaling).astype(int) - offset)
-                _rois = ((offset, slide_level_size),)
+                size = int(bounds[0] * scaling) - offset[0], int(bounds[1] * scaling) - offset[1]
+                _rois = ((offset, size),)
 
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling)
@@ -510,7 +510,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois: _ROIType, image_size: tuple[int, int], scaling: float = 1.0) -> _ROIType:
+def parse_rois(rois: ROIType | None, image_size: tuple[int, int], scaling: float = 1.0) -> ROIType:
     if rois is None:
         return (((0, 0), image_size),)
     else:
@@ -520,11 +520,12 @@ def parse_rois(rois: _ROIType, image_size: tuple[int, int], scaling: float = 1.0
         if not origin_positive or not image_within_borders:
             raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
-    rois = [
+    _rois = [
         (
             (np.ceil(np.asarray(coords) * scaling).astype(int)).tolist(),
             np.floor(np.asarray(size) * scaling).astype(int).tolist(),
         )
         for coords, size in rois
     ]
+    rois = cast(ROIType, tuple(_rois))
     return rois
