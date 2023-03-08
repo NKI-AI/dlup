@@ -262,10 +262,10 @@ class SlideImage:
         size = cast(tuple[int, int], size)
         return region.resize(size, resample=self._interpolator, box=box)
 
-    def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, ...]:
+    def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, int]:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
-        return tuple(size.astype(int))
+        return cast(tuple(size.astype(int)), tuple[int, int])
 
     def get_mpp(self, scaling: float) -> float:
         """Returns the respective mpp from the scaling."""

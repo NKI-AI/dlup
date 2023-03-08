@@ -30,6 +30,7 @@ T = TypeVar("T")
 _BaseAnnotationTypes = SlideImage | WsiAnnotations
 _AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
 _LabelTypes = str | bool | int | float
+_ROIType = list[tuple[tuple[int, int], tuple[int, int]]]
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
@@ -395,6 +396,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
+        limit_bounds: bool = True,
         **kwargs,
     ):
         """Function to be used to tile a WSI on-the-fly.
@@ -429,10 +431,13 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             Annotation class
         labels : list
             Image-level labels. Will be added to each individual tile.
-        transform : ImageBackend
+        transform : Callable
             Transform to be applied to the sample.
-        backend :
+        backend : ImageBackend
             Backend to use to read the whole slide image.
+        limit_bounds : bool
+            If the bounds of the grid should be limited to the bounds of the slide given in the `slide_bounds` property
+            of the `SlideImage` class.
         **kwargs :
             Gets passed to the SlideImage constructor.
 
@@ -447,11 +452,22 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         pre-processing step is not required.
         """
         with SlideImage.from_file_path(path, backend=backend, **kwargs) as slide_image:
-            slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
+            scaling = slide_image.get_scaling(mpp)
             slide_mpp = slide_image.mpp
-            _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
-        grid_mpp = mpp if mpp is not None else slide_mpp
 
+            if limit_bounds:
+                if rois is not None:
+                    raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
+                offset, bounds = slide_image.slide_bounds
+                offset = tuple((np.asarray(offset) * scaling).astype(int))
+                slide_level_size = tuple((np.asarray(bounds) * scaling).astype(int) - offset)
+                _rois = ((offset, slide_level_size),)
+
+            else:
+                slide_level_size = slide_image.get_scaled_size(scaling)
+                _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
+
+        grid_mpp = mpp if mpp is not None else slide_mpp
         grids = []
         for offset, size in _rois:
             grid = Grid.from_tiling(
@@ -494,7 +510,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois, image_size, scaling: float) -> tuple[tuple[tuple[int, int], tuple[int, int]], ...]:
+def parse_rois(rois: _ROIType, image_size: tuple[int, int], scaling: float = 1.0) -> _ROIType:
     if rois is None:
         return (((0, 0), image_size),)
     else:
@@ -506,7 +522,7 @@ def parse_rois(rois, image_size, scaling: float) -> tuple[tuple[tuple[int, int],
 
     rois = [
         (
-            np.ceil(np.asarray(coords) * scaling).astype(int).tolist(),
+            (np.ceil(np.asarray(coords) * scaling).astype(int)).tolist(),
             np.floor(np.asarray(size) * scaling).astype(int).tolist(),
         )
         for coords, size in rois

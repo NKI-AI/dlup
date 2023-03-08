@@ -76,6 +76,19 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         """Returns the scanner vendor."""
         return self.properties.properties[openslide.PROPERTY_NAME_VENDOR]
 
+    @property
+    def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """Returns the bounds of the slide. These can be smaller than the image itself."""
+
+        offset = int(self.properties.get(openslide.PROPERTY_NAME_BOUNDS_X, 0)), int(
+            self.properties.get(openslide.PROPERTY_NAME_BOUNDS_Y, 0)
+        )
+        size = int(self.properties.get(openslide.PROPERTY_NAME_BOUNDS_WIDTH, self.dimensions[0])), int(
+            self.properties.get(openslide.PROPERTY_NAME_BOUNDS_HEIGHT, self.dimensions[1])
+        )
+
+        return offset, size
+
     def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
         """
         Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
