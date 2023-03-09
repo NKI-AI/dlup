@@ -10,7 +10,7 @@ import numpy as np
 
 from dlup import SlideImage
 from dlup.annotations import WsiAnnotations
-from dlup.data.dataset import TiledROIsSlideImageDataset, parse_rois, ROIType
+from dlup.data.dataset import ROIType, TiledROIsSlideImageDataset, parse_rois
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 

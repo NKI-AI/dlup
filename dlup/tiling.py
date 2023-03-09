@@ -5,13 +5,13 @@ from __future__ import annotations
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, Sequence
+from typing import Iterator, Sequence, Union
 
 import numpy as np
-from numpy.typing import NDArray
+import numpy.typing as npt
 
-_GenericNumber = int | float
-_GenericNumberArray = np.ndarray | Sequence[_GenericNumber]
+_GenericNumber = Union[int, float]
+_GenericNumberArray = Union[npt.NDArray, Sequence[_GenericNumber]]
 
 
 class TilingMode(str, Enum):

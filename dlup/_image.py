@@ -337,6 +337,11 @@ class SlideImage:
         width, height = self.size
         return width / height
 
+    @property
+    def slide_bounds(self):
+        """Returns the bounds of the slide. These can be smaller than the image itself."""
+        return self._wsi.slide_bounds
+
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
         props = ("identifier", "vendor", "mpp", "magnification", "size")

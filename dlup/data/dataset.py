@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Callable, Generic, Iterable, TypedDict, TypeVar, cast
+from typing import Any, Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
@@ -27,9 +27,9 @@ from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
-_BaseAnnotationTypes = SlideImage | WsiAnnotations
-_AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
-_LabelTypes = str | bool | int | float
+_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
+_AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
+_LabelTypes = Union[str, bool, int, float]
 ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
 
 
