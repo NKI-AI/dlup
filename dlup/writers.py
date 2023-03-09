@@ -322,7 +322,7 @@ def _tile_iterator_from_page(
         size = np.clip(region_end, 0, region_size) - coordinates
 
         tile = get_tile(page, coordinates[::-1], size[::-1])[0]
-        vips_tile = numpy_to_vips(tile).resize(scale=1 / scale, kernel=INTERPOLATOR_TO_VIPS[interpolator.value])
+        vips_tile = numpy_to_vips(tile).resize(1 / scale, kernel=INTERPOLATOR_TO_VIPS[interpolator.value])
         output = vips_to_numpy(vips_tile)
         if not is_rgb:
             output = output[..., 0]
