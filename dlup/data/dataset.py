@@ -510,7 +510,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois: ROIType | None, image_size: tuple[int, int], scaling: float = 1.0) -> ROIType:
+def parse_rois(rois: ROIType | None, image_size, scaling: float = 1.0):
     if rois is None:
         return (((0, 0), image_size),)
     else:
@@ -527,5 +527,5 @@ def parse_rois(rois: ROIType | None, image_size: tuple[int, int], scaling: float
         )
         for coords, size in rois
     ]
-    rois = cast(ROIType, tuple(_rois))
+
     return rois
