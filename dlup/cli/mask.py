@@ -8,7 +8,8 @@ import cv2
 import numpy as np
 import shapely
 import shapely.affinity
-from shapely.geometry import Polygon
+import shapely.validation
+from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import unary_union
 from tqdm import tqdm
 
@@ -35,6 +36,8 @@ def _DFS(
 
             if is_outer:
                 polygon = Polygon(contour, holes=children)
+                if polygon.area == 0:
+                    continue
                 if offset is not None and offset != (0, 0):
                     transformation_matrix = [scaling, 0, 0, scaling, offset[0], offset[1]]
                     polygon = shapely.affinity.affine_transform(polygon, transformation_matrix)
@@ -67,12 +70,15 @@ def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling
         The list of generated Shapely polygons
     """
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-
     hierarchy = hierarchy[0]
     polygons: list[Polygon] = []
     _DFS(polygons, contours, hierarchy, 0, True, [], offset=offset, scaling=scaling)
 
-    return polygons
+    _polygon = MultiPolygon(polygons)
+    _polygon = shapely.validation.make_valid(_polygon)
+    _filtered_polygon = [p for p in _polygon.geoms if p.area > 0]
+
+    return _filtered_polygon
 
 
 def _get_sample(index, dataset, index_map, scaling):
@@ -101,6 +107,8 @@ def dataset_to_polygon(
 
     if num_workers <= 0:
         for idx in tqdm(range(len(dataset)), disable=not show_progress):
+            if idx > 500:
+                break
             curr_polygons = sample_function(idx)
             for polygon_name in output_polygons:
                 if polygon_name in curr_polygons:
@@ -114,5 +122,5 @@ def dataset_to_polygon(
                         if polygon_name in curr_polygons:
                             output_polygons[polygon_name] += curr_polygons[polygon_name]
 
-    geometry = {k: unary_union(polygons) for k, polygons in output_polygons.items()}
+    geometry = {k: unary_union(v) for k, v in output_polygons.items()}
     return geometry
