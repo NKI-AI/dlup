@@ -11,7 +11,7 @@ import shapely.affinity
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 from tqdm import tqdm
-
+import shapely.validation
 from dlup.data.dataset import TiledROIsSlideImageDataset
 
 
@@ -35,6 +35,8 @@ def _DFS(
 
             if is_outer:
                 polygon = Polygon(contour, holes=children)
+                if polygon.area == 0:
+                    continue
                 if offset is not None and offset != (0, 0):
                     transformation_matrix = [scaling, 0, 0, scaling, offset[0], offset[1]]
                     polygon = shapely.affinity.affine_transform(polygon, transformation_matrix)
@@ -67,7 +69,6 @@ def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling
         The list of generated Shapely polygons
     """
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-
     hierarchy = hierarchy[0]
     polygons: list[Polygon] = []
     _DFS(polygons, contours, hierarchy, 0, True, [], offset=offset, scaling=scaling)
@@ -81,7 +82,7 @@ def _get_sample(index, dataset, index_map, scaling):
     _mask = np.asarray(sample["image"])
     for index in index_map:
         curr_mask = (_mask == index).astype(np.uint8)
-        if curr_mask.any():
+        if not curr_mask.any():
             continue
         output[index_map[index]] = mask_to_polygons(curr_mask, offset=sample["coordinates"], scaling=scaling)
     return output
@@ -114,5 +115,25 @@ def dataset_to_polygon(
                         if polygon_name in curr_polygons:
                             output_polygons[polygon_name] += curr_polygons[polygon_name]
 
-    geometry = {k: unary_union(polygons) for k, polygons in output_polygons.items()}
+    geometry = {}
+    for key, polygons in output_polygons.items():
+        curr_polygons = []
+        for polygon in polygons:
+            if polygon.area == 0:
+                continue
+
+            geometry = shapely.validation.make_valid(polygon)
+            if hasattr(geometry, "geoms"):
+                for p in geometry.geoms:
+                    if p.area == 0:
+                        continue
+                    curr_polygons.append(p)
+
+            else:
+                if geometry.area == 0:
+                    continue
+                curr_polygons.append(polygon)
+
+        geometry[key] = unary_union(curr_polygons)
+
     return geometry
