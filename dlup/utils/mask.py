@@ -8,10 +8,11 @@ import cv2
 import numpy as np
 import shapely
 import shapely.affinity
-from shapely.geometry import Polygon
+from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import unary_union
 from tqdm import tqdm
 import shapely.validation
+
 from dlup.data.dataset import TiledROIsSlideImageDataset
 
 
@@ -73,6 +74,11 @@ def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling
     polygons: list[Polygon] = []
     _DFS(polygons, contours, hierarchy, 0, True, [], offset=offset, scaling=scaling)
 
+    _polygon = MultiPolygon(polygons)
+    _polygon = shapely.validation.make_valid(_polygon)
+
+    polygons = [polygon for polygon in _polygon.geoms if polygon.area > 0]
+
     return polygons
 
 
@@ -102,6 +108,8 @@ def dataset_to_polygon(
 
     if num_workers <= 0:
         for idx in tqdm(range(len(dataset)), disable=not show_progress):
+            if idx > 500:
+                break
             curr_polygons = sample_function(idx)
             for polygon_name in output_polygons:
                 if polygon_name in curr_polygons:
@@ -115,25 +123,5 @@ def dataset_to_polygon(
                         if polygon_name in curr_polygons:
                             output_polygons[polygon_name] += curr_polygons[polygon_name]
 
-    geometry = {}
-    for key, polygons in output_polygons.items():
-        curr_polygons = []
-        for polygon in polygons:
-            if polygon.area == 0:
-                continue
-
-            geometry = shapely.validation.make_valid(polygon)
-            if hasattr(geometry, "geoms"):
-                for p in geometry.geoms:
-                    if p.area == 0:
-                        continue
-                    curr_polygons.append(p)
-
-            else:
-                if geometry.area == 0:
-                    continue
-                curr_polygons.append(polygon)
-
-        geometry[key] = unary_union(curr_polygons)
-
+    geometry = {k: unary_union(v) for k, v in output_polygons.items()}
     return geometry
