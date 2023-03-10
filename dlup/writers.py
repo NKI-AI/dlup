@@ -117,10 +117,10 @@ class TifffileImageWriter(ImageWriter):
         self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])  # type: ignore
         self._mpp: tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
 
-        if not compression:
+        if compression is not None:
             compression = TiffCompression.NONE
 
-        if not interpolator:
+        if interpolator is not None:
             interpolator = Resampling.LANCZOS
 
         if interpolator.value not in INTERPOLATOR_TO_VIPS:
