@@ -34,7 +34,7 @@ _LabelTypes = str | bool | int | float
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
     image: PIL.Image.Image
-    coordinates: tuple[int, int]
+    coordinates: tuple[int | float, int | float]
     mpp: float
     path: pathlib.Path
     region_index: int
@@ -173,7 +173,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
-        annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
+        annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
@@ -197,7 +197,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         output_tile_size: tuple[int, int], optional
             If this value is set, this value will be used as the tile size of the output tiles. If this value
             is different from the underlying grid, this tile will be extracted around the center of the region.
-        annotations :
+        annotations : _BaseAnnotationTypes
             Annotation classes.
         labels : list
             Image-level labels. Will be added to each individual tile.
@@ -345,7 +345,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
-        annotations: _AnnotationTypes | None = None,
+        annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
@@ -391,7 +391,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         rois: tuple[tuple[int, ...]] | None = None,
-        annotations: _AnnotationTypes | None = None,
+        annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,

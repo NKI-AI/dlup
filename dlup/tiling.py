@@ -140,7 +140,10 @@ class Grid(collections.abc.Sequence):
         return tuple(len(x) for x in self.coordinates)
 
     def __getitem__(self, key):
-        order = "F" if self.order.value == "C" else "C"
+        if isinstance(self.order, str):
+            order = "F" if self.order == "C" else "C"
+        else:
+            order = "F" if self.order.value == "C" else "C"
         index = np.unravel_index(key, self.size, order=order)
         return np.array([c[i] for c, i in zip(self.coordinates, index)])
 

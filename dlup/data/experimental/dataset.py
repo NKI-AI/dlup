@@ -54,7 +54,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         crop: bool = True,
         mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
-        annotations: _AnnotationTypes | None = None,
+        annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,

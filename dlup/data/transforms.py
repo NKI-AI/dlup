@@ -205,7 +205,7 @@ class MajorityClassToLabel:
         if "labels" not in sample:
             sample["labels"] = {}
 
-        areas = defaultdict(int)
+        areas: dict[str, int] = defaultdict(int)
         keys = list(self._index_map.keys())
         if self._roi_name:
             keys.append(self._roi_name)
