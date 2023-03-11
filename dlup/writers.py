@@ -13,9 +13,11 @@ from typing import Iterator
 
 import numpy as np
 import PIL.Image
+from pyvips.enums import Kernel
 from tifffile import tifffile
 
 import dlup
+from dlup._image import Resampling
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.types import PathLike
 from dlup.utils.pyvips_utils import numpy_to_vips, vips_to_numpy
@@ -51,6 +53,14 @@ TIFFFILE_COMPRESSION = {
     "png": "png",
 }
 
+# Mapping to map TiffCompression to their respective values in VIPS.
+INTERPOLATOR_TO_VIPS: dict[int, Kernel] = {
+    0: Kernel.NEAREST,
+    2: Kernel.LINEAR,
+    3: Kernel.CUBIC,
+    1: Kernel.LANCZOS3,
+}
+
 
 class ImageWriter:
     """Base writer class"""
@@ -67,6 +77,8 @@ class TifffileImageWriter(ImageWriter):
         tile_size: tuple[int, int] = (512, 512),
         pyramid: bool = False,
         compression: TiffCompression | None = TiffCompression.JPEG,
+        interpolator: Resampling | None = Resampling.LANCZOS,
+        anti_aliasing: bool = False,
         quality: int | None = 100,
         metadata: dict[str, str] | None = None,
     ):
@@ -88,6 +100,12 @@ class TifffileImageWriter(ImageWriter):
             Whether to write a pyramidal image.
         compression : TiffCompression
             Compressor to use.
+        interpolator : Resampling, optional
+            Interpolator to use when downsampling. For masks you should select nearest, as the interpolation
+            could otherwise lead to unexpected results (i.e. add values which are actually not there!). By
+            default the Lanczos interpolator is used.
+        anti_aliasing : bool, optional
+            Whether to use anti-aliasing when downsampling. By default this is set to False.
         quality : int
             Quality in case a lossy compressor is used.
         metadata : dict[str, str]
@@ -99,10 +117,23 @@ class TifffileImageWriter(ImageWriter):
         self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])  # type: ignore
         self._mpp: tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
 
-        if not compression:
+        if compression is None:
             compression = TiffCompression.NONE
 
+        if interpolator is None:
+            interpolator = Resampling.LANCZOS
+
+        if interpolator.value not in INTERPOLATOR_TO_VIPS:
+            raise ValueError(f"Invalid interpolator: {interpolator.name}")
+
+        if anti_aliasing and interpolator == Resampling.NEAREST:
+            raise ValueError("Anti-aliasing cannot be used with nearest neighbor interpolation.")
+        elif anti_aliasing:
+            raise NotImplementedError("Anti-aliasing is not yet implemented.")
+
+        self._anti_aliasing = anti_aliasing
         self._compression = compression
+        self._interpolator = interpolator
         self._pyramid = pyramid
         self._quality = quality
         self._metadata = metadata
@@ -177,7 +208,9 @@ class TifffileImageWriter(ImageWriter):
             for level in range(0, n_subresolutions):
                 tiff_reader = tifffile.TiffReader(temp_filename)
                 page = tiff_reader.pages[level]
-                tile_iterator = _tile_iterator_from_page(page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb)
+                tile_iterator = _tile_iterator_from_page(
+                    page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb, interpolator=self._interpolator
+                )
                 self._write_page(
                     tiff_writer,
                     tile_iterator=tile_iterator,
@@ -247,7 +280,12 @@ def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: tuple[
 
 
 def _tile_iterator_from_page(
-    page: tifffile.TiffPage, tile_size: tuple[int, int], region_size: tuple[int, int], scale: int, is_rgb: bool = True
+    page: tifffile.TiffPage,
+    tile_size: tuple[int, int],
+    region_size: tuple[int, int],
+    scale: int,
+    is_rgb: bool = True,
+    interpolator: Resampling = Resampling.NEAREST,
 ):
     """
     Create an iterator from a tiff page. Useful when writing a pyramidal tiff where the previous page is read to write
@@ -262,6 +300,8 @@ def _tile_iterator_from_page(
         Scale between the two pages
     is_rgb : bool
         Whether color image or mask
+    interpolator : Resampling
+        Interpolation method, see `TiffImageWriter` for more details.
 
     Yields
     ------
@@ -282,7 +322,7 @@ def _tile_iterator_from_page(
         size = np.clip(region_end, 0, region_size) - coordinates
 
         tile = get_tile(page, coordinates[::-1], size[::-1])[0]
-        vips_tile = numpy_to_vips(tile).resize(1 / scale)
+        vips_tile = numpy_to_vips(tile).resize(1 / scale, kernel=INTERPOLATOR_TO_VIPS[interpolator.value])
         output = vips_to_numpy(vips_tile)
         if not is_rgb:
             output = output[..., 0]
