@@ -22,8 +22,8 @@ from PIL import Image
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import WsiAnnotations
 from dlup.background import is_foreground
-from dlup.experimental_backends import ImageBackend
 from dlup.data.transforms import DlupTransform
+from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 

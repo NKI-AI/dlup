@@ -12,8 +12,8 @@ import numpy.typing as npt
 from dlup import SlideImage
 from dlup.annotations import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset, parse_rois
-from dlup.experimental_backends import ImageBackend
 from dlup.data.transforms import DlupTransform
+from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 
 _BaseAnnotationTypes = SlideImage | WsiAnnotations
@@ -142,7 +142,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
             transform=transform,
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> dict[str, Any]:
         indices = [_[index] for _ in self._index_ranges]
         sample = [TiledROIsSlideImageDataset.__getitem__(self, _) for _ in indices]
         if self.__transform:

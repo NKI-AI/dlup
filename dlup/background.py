@@ -35,7 +35,7 @@ from dlup.annotations import WsiAnnotations
 _GenericIntArray = np.ndarray | Iterable[int]
 
 
-def _is_close(_seeds: list, _start: list) -> bool:
+def _is_close(_seeds: list[tuple[int, int]], _start: list[tuple[npt.NDArray[np.int_]]]) -> bool:
     """
     Helper function for the FESI algorithms.
 
@@ -186,7 +186,7 @@ def get_mask(
     slide: dlup.SlideImage,
     mask_func: Callable[[npt.NDArray[np.int_]], npt.NDArray[np.int_ | np.bool_]] = improved_fesi,
     minimal_size: int = 512,
-) -> npt.NDArray[npt.int_]:
+) -> npt.NDArray[np.int_]:
     """
     Compute a tissue mask for a Slide object.
 
@@ -366,5 +366,5 @@ class AvailableMaskFunctions(Enum):
     fesi = partial(fesi)
     improved_fesi = partial(improved_fesi)
 
-    def __call__(self, *args):
+    def __call__(self, *args) -> Callable:
         return self.value(*args)
