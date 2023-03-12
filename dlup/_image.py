@@ -120,7 +120,7 @@ class SlideImage:
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying image."""
         self._wsi.close()
 

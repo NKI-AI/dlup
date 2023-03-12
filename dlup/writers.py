@@ -9,7 +9,7 @@ import pathlib
 import shutil
 import tempfile
 from enum import Enum
-from typing import Iterator
+from typing import Iterator, Generator
 
 import numpy as np
 import numpy.typing as npt
@@ -235,7 +235,7 @@ class TifffileImageWriter(ImageWriter):
         shapes: list[tuple[int, int]],
         is_rgb: bool,
         **options,
-    ):
+    ) -> None:
         native_resolution = 1 / np.array(self._mpp) * 10000
         tiff_writer.write(
             tile_iterator,  # noqa
@@ -249,7 +249,7 @@ class TifffileImageWriter(ImageWriter):
         )
 
 
-def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: tuple[int, int]):
+def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: tuple[int, int]) -> Generator[npt.NDArray[np.int_]]:
     """
     Given a PIL image return a a tile-iterator.
 
@@ -287,7 +287,7 @@ def _tile_iterator_from_page(
     scale: int,
     is_rgb: bool = True,
     interpolator: Resampling = Resampling.NEAREST,
-):
+) -> Generator[npt.NDArray[np.int_]]:
     """
     Create an iterator from a tiff page. Useful when writing a pyramidal tiff where the previous page is read to write
     the new page. Each tile will be the downsampled version from the previous version.

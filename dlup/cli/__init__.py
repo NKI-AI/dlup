@@ -41,7 +41,7 @@ def file_path(path: str, need_exists=True) -> pathlib.Path:
     return _path
 
 
-def main():
+def main() -> None:
     """
     Console script for dlup.
     """

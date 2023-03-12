@@ -17,7 +17,7 @@ from dlup.utils import ArrayEncoder
 from dlup.viz.plotting import plot_2d
 
 
-def tiling(args: argparse.Namespace):
+def tiling(args: argparse.Namespace) -> None:
     """Perform the WSI tiling."""
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
@@ -118,7 +118,7 @@ class TileSaver:
         return grid_local_coordinates, index
 
 
-def info(args: argparse.Namespace):
+def info(args: argparse.Namespace) -> None:
     """Return available slide properties."""
     slide = SlideImage.from_file_path(args.slide_file_path)
     props = slide.properties
@@ -130,7 +130,7 @@ def info(args: argparse.Namespace):
         print(f"{k}\t{v}")
 
 
-def register_parser(parser: argparse._SubParsersAction):
+def register_parser(parser: argparse._SubParsersAction) -> None:
     """Register wsi commands to a root parser."""
     wsi_parser = parser.add_parser("wsi", help="WSI parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI subparser")

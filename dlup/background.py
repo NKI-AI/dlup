@@ -301,7 +301,7 @@ def _is_foreground_wsiannotations(
     if threshold == 1.0 and np.asarray(mask).mean() == 1:
         return True
 
-    return np.asarray(mask).mean() > threshold
+    return bool(np.asarray(mask).mean() > threshold)
 
 
 def _is_foreground_numpy(
@@ -345,7 +345,7 @@ def _is_foreground_numpy(
     if threshold == 1.0 and mask_tile.mean() == 1.0:
         return True
 
-    return mask_tile.mean() > threshold
+    return bool(mask_tile.mean() > threshold)
 
 
 class AvailableMaskFunctions(Enum):

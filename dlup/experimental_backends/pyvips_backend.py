@@ -82,7 +82,7 @@ class PyVipsSlide(AbstractSlideBackend):
                 self._downsamples.append(downsample)
             self._shapes.append((image.get("width"), image.get("height")))
 
-    def _read_as_openslide(self, path: PathLike):
+    def _read_as_openslide(self, path: PathLike) -> None:
         """
         Read all other pages except the first using the openslide backend of pyvips.
 
@@ -141,7 +141,7 @@ class PyVipsSlide(AbstractSlideBackend):
         self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
 
     @property
-    def properties(self):
+    def properties(self) -> dict[str, str]:
         """Metadata about the image as given by pyvips,
         which includes openslide tags in case openslide is the selected reader."""
 
@@ -164,7 +164,7 @@ class PyVipsSlide(AbstractSlideBackend):
         return None
 
     @property
-    def associated_images(self):
+    def associated_images(self) -> dict[str, PIL.Image.Image]:
         """Images associated with this whole-slide image."""
         if not self._loader == "openslideload":
             return {}
@@ -203,7 +203,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         return numpy_to_pil(region)
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying slide"""
         del self._regions
         del self._images

@@ -151,7 +151,7 @@ LRU_CACHE_SIZE = 32
 
 
 @functools.lru_cache(LRU_CACHE_SIZE)
-def _get_cached_slide_image(path: pathlib.Path, backend, **kwargs):
+def _get_cached_slide_image(path: pathlib.Path, backend, **kwargs) -> SlideImage:
     return SlideImage.from_file_path(path, backend=backend, **kwargs)
 
 
@@ -232,17 +232,17 @@ class SlideImageDatasetBase(Dataset[T_co]):
             self.masked_indices = np.argwhere(boolean_mask).flatten()
 
     @property
-    def path(self):
+    def path(self) -> pathlib.Path:
         """Path of whole slide image"""
         return self._path
 
     @property
-    def crop(self):
+    def crop(self) -> bool:
         """Returns true the regions will be cropped at the boundaries."""
         return self._crop
 
     @property
-    def slide_image(self):
+    def slide_image(self) -> SlideImage:
         """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path, self._backend, **self._kwargs)
 
@@ -375,7 +375,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self.__transform = transform
 
     @property
-    def grids(self):
+    def grids(self) -> list[tuple[Grid, tuple[int, int], float]]:
         return self._grids
 
     @classmethod
@@ -397,7 +397,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
         **kwargs,
-    ):
+    ) -> "TiledROIsSlideImageDataset":
         """Function to be used to tile a WSI on-the-fly.
         Parameters
         ----------

@@ -72,9 +72,9 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         return value
 
     @property
-    def vendor(self) -> str:
+    def vendor(self) -> str | None:
         """Returns the scanner vendor."""
-        return self.properties.properties[openslide.PROPERTY_NAME_VENDOR]
+        return self.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
 
     def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
         """

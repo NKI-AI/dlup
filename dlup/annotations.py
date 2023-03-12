@@ -75,7 +75,7 @@ class Point(shapely.geometry.Point):
         self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property
-    def type(self):
+    def type(self) -> AnnotationType:
         return AnnotationType.POINT
 
     def __new__(cls, coord: tuple[float, float], *args, **kwargs) -> "Point":
@@ -108,7 +108,7 @@ class Polygon(shapely.geometry.Polygon):
         self._id_to_attrs[str(id(self))] = dict(label=label)
 
     @property
-    def type(self):
+    def type(self) -> AnnotationType:
         return AnnotationType.POLYGON
 
     def __new__(cls, coord: tuple[float, float], *args, **kwargs) -> "Point":
@@ -129,7 +129,7 @@ class Polygon(shapely.geometry.Polygon):
         return f"{self.label}, {self.wkt}"
 
 
-def shape(coordinates, label, multiplier: float = 1.0):
+def shape(coordinates, label, multiplier: float = 1.0) -> list[Point | Polygon]:
     geom_type = coordinates.get("type").lower()
     if geom_type == "point":
         return [Point(np.asarray(coordinates["coordinates"]) * multiplier, label=label)]
@@ -160,12 +160,12 @@ class WsiSingleLabelAnnotation:
         self.__label = label
 
     @property
-    def type(self):
+    def type(self) -> AnnotationType:
         """The type of annotation, e.g. box, polygon or points."""
         return self.__type
 
     @property
-    def label(self):
+    def label(self) -> str:
         """The label name for this annotation."""
         return self.__label
 
@@ -191,7 +191,7 @@ class WsiSingleLabelAnnotation:
     def as_strtree(self) -> STRtree:
         return STRtree(self._annotations)
 
-    def as_list(self) -> list:
+    def as_list(self):
         return self._annotations
 
     def as_json(self) -> list[dict[str, Any]]:
@@ -218,15 +218,15 @@ class WsiSingleLabelAnnotation:
         return data
 
     @staticmethod
-    def __get_bbox(z):
+    def __get_bbox(z) -> (tuple[int, int], tuple[int, int]):
         return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
 
     @property
-    def bounding_boxes(self):
+    def bounding_boxes(self) -> list[tuple[tuple[int, int], tuple[int, int]]]:
         data = [np.asarray(annotation.envelope.exterior.coords) for annotation in self.as_list()]
         return [self.__get_bbox(_) for _ in data]
 
-    def simplify(self, tolerance: float, *, preserve_topology: bool = True):
+    def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:
         if self.__type != AnnotationType.POLYGON:
             return
         self._annotations = [
@@ -383,7 +383,7 @@ class WsiAnnotations:
         cls,
         asap_xml: PathLike,
         scaling: float | None = None,
-    ):
+    ) -> "WsiAnnotations":
         """
         Read annotations as an ASAP XML file.
         ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
@@ -497,7 +497,7 @@ class WsiAnnotations:
                 index += 1
         return data
 
-    def simplify(self, tolerance: float, *, preserve_topology: bool = True):
+    def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:
         """Simplify the polygons in the annotation (i.e. reduce points). Other annotations will remain unchanged.
         All points in the resulting polygons object will be in the tolerance distance of the original polygon.
 

@@ -129,7 +129,7 @@ class Grid(collections.abc.Sequence):
         tile_overlap: _GenericNumberArray | _GenericNumber = 0,
         mode: TilingMode = TilingMode.skip,
         order: GridOrder = GridOrder.F,
-    ):
+    ) -> "Grid":
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
         coordinates = [c + o for c, o in zip(coordinates, offset)]

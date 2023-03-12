@@ -173,7 +173,7 @@ class AbstractSlideBackend(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def properties(self):
+    def properties(self) -> dict[str, str | int | float]:
         """Properties of slide"""
 
     @abc.abstractmethod
@@ -207,7 +207,7 @@ class AbstractSlideBackend(abc.ABC):
         """Returns the scanner vendor."""
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         """Close the underlying slide"""
 
     def __repr__(self) -> str:

@@ -126,6 +126,6 @@ class TifffileSlide(AbstractSlideBackend):
         """Returns the objective power at which the WSI was sampled. For tiff's this is unknown."""
         return None
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying slide"""
         self._image.close()
