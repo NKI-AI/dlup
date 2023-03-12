@@ -124,12 +124,12 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
 
 
 class ImageBackend(Enum):
-    """Available image experimental_backends."""
+    """Available image backends."""
 
     OPENSLIDE: Callable = OpenSlideSlide
     PYVIPS: Callable = PyVipsSlide
     TIFFFILE: Callable = TifffileSlide
     AUTODETECT: Callable = autodetect_backend
 
-    def __call__(self, *args):
+    def __call__(self, *args) -> AbstractSlideBackend:
         return self.value(*args)

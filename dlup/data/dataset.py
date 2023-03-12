@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Callable, Generic, Iterable, TypedDict, TypeVar, cast
+from typing import Any, Callable, Generic, Iterable, TypedDict, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -23,6 +23,7 @@ from dlup import BoundaryMode, SlideImage
 from dlup.annotations import WsiAnnotations
 from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend
+from dlup.data.transforms import DlupTransform
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 
@@ -99,7 +100,7 @@ class ConcatDataset(Dataset[T_co]):
     wsi_indices: dict[str, range]
 
     @staticmethod
-    def cumsum(sequence):
+    def cumsum(sequence) -> list[int]:
         out_sequence, total = [], 0
         for item in sequence:
             length = len(item)
@@ -176,8 +177,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         output_tile_size: tuple[int, int] | None = None,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: DlupTransform | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
         **kwargs,
     ):
         """
@@ -299,13 +300,13 @@ class SlideImageDatasetBase(Dataset[T_co]):
         """
         return len(self.regions) if self.masked_indices is None else len(self.masked_indices)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[dict[str, Any]]:
         for i in range(len(self)):
             yield self[i]
 
 
 class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSample]):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
 
@@ -348,8 +349,8 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         output_tile_size: tuple[int, int] | None = None,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: DlupTransform | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
         **kwargs,
     ):
         self._grids = grids
@@ -388,14 +389,14 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: SlideImage | npt.NDarray[np.int_] | WsiAnnotations | None = None,
+        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         rois: tuple[tuple[int, ...]] | None = None,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: DlupTransform | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
         **kwargs,
     ) -> "TiledROIsSlideImageDataset":
         """Function to be used to tile a WSI on-the-fly.
@@ -479,7 +480,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             **kwargs,
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int):
         data = super().__getitem__(index)
         region_data: RegionFromSlideDatasetSample = cast(RegionFromSlideDatasetSample, data)
         region_index = data["region_index"]

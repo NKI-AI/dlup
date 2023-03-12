@@ -5,8 +5,8 @@
 
 import bisect
 import collections
-import functools
 import itertools
+from typing import Iterable, Sequence
 
 
 class MapSequence(collections.abc.Sequence):
@@ -16,17 +16,17 @@ class MapSequence(collections.abc.Sequence):
     an iterator, a sequence object is returned instead.
     """
 
-    def __init__(self, function, sequence):
+    def __init__(self, function, sequence) -> None:
         self._function = function
         self._sequence = sequence
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._sequence)
 
     def __getitem__(self, key):
         return self._function(key, self._sequence[key])
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable:
         for i in range(len(self)):
             yield self[i]
 
@@ -44,7 +44,7 @@ class IndexSequence(collections.abc.Sequence):
     def __len__(self):
         return len(self._indices)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable:
         for i in range(len(self)):
             yield self[i]
 
@@ -52,7 +52,7 @@ class IndexSequence(collections.abc.Sequence):
 class ConcatSequences(collections.abc.Sequence):
     """Concatenate two or more sequences."""
 
-    def __init__(self, sequences):
+    def __init__(self, sequences: Sequence):
         self._sequences = sequences
         cumsum = list(itertools.accumulate([len(s) for s in sequences]))
         self._starting_indices = [0] + cumsum[:-1]

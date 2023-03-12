@@ -35,7 +35,7 @@ from dlup.annotations import WsiAnnotations
 _GenericIntArray = np.ndarray | Iterable[int]
 
 
-def _is_close(_seeds, _start) -> bool:
+def _is_close(_seeds: list, _start: list) -> bool:
     """
     Helper function for the FESI algorithms.
 
@@ -105,7 +105,7 @@ def _fesi_common(image: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_]:
     return final_mask.astype(bool)
 
 
-def improved_fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[npt.int_]:
+def improved_fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     """Combination of original and improved FESI algorithms.
 
     Extract foreground from background from H&E WSIs combining the original
@@ -173,13 +173,13 @@ def fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     return np.asarray(_fesi_common(gray))
 
 
-def next_power_of_2(x):
+def next_power_of_2(x: int) -> int:
     """Returns the smallest greater than x, power of 2 value.
 
     https://stackoverflow.com/a/14267557/576363
     """
     x = int(x)
-    return 1 if x == 0 else 2 ** (x - 1).bit_length()
+    return 1 if x == 0 else int(2 ** (x - 1).bit_length())
 
 
 def get_mask(
@@ -320,7 +320,7 @@ def _is_foreground_numpy(
 
     # Type of background_mask is Any here.
     # The scaling should be computed using the longest edge of the image.
-    background_size = (_background_mask.width, _background_mask.height)  # type: ignore
+    background_size = (_background_mask.width, _background_mask.height)
 
     region_size = region_view.size
     max_dimension_index = max(range(len(background_size)), key=background_size.__getitem__)
@@ -332,14 +332,14 @@ def _is_foreground_numpy(
 
     max_boundary = np.tile(mask_size, 2)
     min_boundary = np.zeros_like(max_boundary)
-    box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)  # type: ignore
+    box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)
     clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
 
     if clipped_h == 0 or clipped_w == 0:
         return False
 
     mask_tile[:clipped_h, :clipped_w] = np.asarray(
-        _background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float  # type: ignore
+        _background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float
     )
 
     if threshold == 1.0 and mask_tile.mean() == 1.0:

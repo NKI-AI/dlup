@@ -13,7 +13,7 @@ import errno
 import os
 import pathlib
 from enum import IntEnum
-from typing import Callable, Type, TypeVar, cast
+from typing import Any, Callable, Type, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -124,10 +124,10 @@ class SlideImage:
         """Close the underlying image."""
         self._wsi.close()
 
-    def __enter__(self):
+    def __enter__(self) -> "SlideImage":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         self.close()
         return False
 
@@ -137,7 +137,7 @@ class SlideImage:
         wsi_file_path: PathLike,
         identifier: str | None = None,
         backend: str | Callable = ImageBackend.PYVIPS,
-        **kwargs,
+        **kwargs: dict[str, Any],
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
 

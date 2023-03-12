@@ -17,12 +17,12 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 
 
 def _DFS(
-    polygons,
-    contours,
-    hierarchy,
-    sibling_id,
-    is_outer,
-    siblings,
+    polygons: list[Polygon],
+    contours: list[npt.NDArray[np.int_]],
+    hierarchy: list,
+    sibling_id: int,
+    is_outer: bool,
+    siblings: list[npt.NDArray[np.int_]],
     offset: tuple[int, int] = (0, 0),
     scaling: float = 1.0,
 ) -> None:
@@ -78,7 +78,9 @@ def mask_to_polygons(
     return polygons
 
 
-def _get_sample(index, dataset, index_map, scaling):
+def _get_sample(
+    index: int, dataset: TiledROIsSlideImageDataset, index_map: dict[int, str], scaling: float
+) -> dict[str, list[Polygon]]:
     output = {}
     sample = dataset[index]
     _mask = np.asarray(sample["image"])

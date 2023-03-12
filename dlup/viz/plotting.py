@@ -15,10 +15,10 @@ from dlup.annotations import Point, Polygon
 def plot_2d(
     image: PIL.Image.Image,
     mask: npt.NDArray[np.int_] | None = None,
-    mask_colors=None,
-    mask_alpha=70,
-    geometries=None,
-    geometries_color_map=None,
+    mask_colors: dict[int, str] | None = None,
+    mask_alpha: int = 70,
+    geometries: list[Point, Polygon] | None = None,
+    geometries_color_map: dict[str, str] | None = None,
 ) -> PIL.Image.Image:
     """
     Plotting utility to overlay masks and geometries (Points, Polygons) on top of the image.

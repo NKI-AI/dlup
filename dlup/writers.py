@@ -9,7 +9,7 @@ import pathlib
 import shutil
 import tempfile
 from enum import Enum
-from typing import Iterator, Generator
+from typing import Any, Generator, Iterator
 
 import numpy as np
 import numpy.typing as npt
@@ -234,7 +234,7 @@ class TifffileImageWriter(ImageWriter):
         compression: str | None,
         shapes: list[tuple[int, int]],
         is_rgb: bool,
-        **options,
+        **options: dict[str, Any],
     ) -> None:
         native_resolution = 1 / np.array(self._mpp) * 10000
         tiff_writer.write(
@@ -249,7 +249,9 @@ class TifffileImageWriter(ImageWriter):
         )
 
 
-def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: tuple[int, int]) -> Generator[npt.NDArray[np.int_]]:
+def _tiles_iterator_from_pil_image(
+    pil_image: PIL.Image.Image, tile_size: tuple[int, int]
+) -> Generator[npt.NDArray[np.int_]]:
     """
     Given a PIL image return a a tile-iterator.
 

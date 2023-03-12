@@ -42,7 +42,7 @@ def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> npt.NDArray[np.
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> npt.NDArray[np.int_ | np.float_]:
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing: str = "ij") -> npt.NDArray[np.int_ | np.float_]:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Examples

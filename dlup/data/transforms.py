@@ -3,8 +3,9 @@
 # pylint: disable=unsubscriptable-object
 from __future__ import annotations
 
+import abc
 from collections import defaultdict
-from typing import Iterable
+from typing import Any, Iterable
 
 import cv2
 import numpy as np
@@ -24,7 +25,7 @@ def convert_annotations(
     index_map: dict[str, int],
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[dict, npt.NDArray, npt.NDArray | None]:
+) -> tuple[dict[str, list[tuple[int, int]]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
@@ -61,7 +62,7 @@ def convert_annotations(
     """
     mask = np.empty(region_size, dtype=np.int32)
     mask[:] = default_value
-    points: dict[str, list] = defaultdict(list)
+    points: dict[str, list[tuple[int, int]]] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
 
@@ -102,7 +103,16 @@ def convert_annotations(
     return dict(points), mask, roi_mask if roi_name else None
 
 
-class ConvertAnnotationsToMask:
+class DlupTransform(abc.ABC):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Constructor"""
+
+    @abc.abstractmethod
+    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
+        """Generic call"""
+
+
+class ConvertAnnotationsToMask(DlupTransform):
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
     def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
@@ -120,7 +130,7 @@ class ConvertAnnotationsToMask:
         self._index_map = index_map
         self._default_value = default_value
 
-    def __call__(self, sample):
+    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
         if "annotations" not in sample:
             return sample
 
@@ -142,7 +152,7 @@ class ConvertAnnotationsToMask:
         return sample
 
 
-class RenameLabels:
+class RenameLabels(DlupTransform):
     """Remap the label names"""
 
     def __init__(self, remap_labels: dict[str, str]):
@@ -155,7 +165,7 @@ class RenameLabels:
         """
         self._remap_labels = remap_labels
 
-    def __call__(self, sample):
+    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
         _annotations = sample["annotations"]
 
         output_annotations = []
@@ -177,7 +187,7 @@ class RenameLabels:
         return sample
 
 
-class MajorityClassToLabel:
+class MajorityClassToLabel(DlupTransform):
     """Transform which the majority class in the annotations to a label.
 
     The function works as follows:
@@ -199,7 +209,7 @@ class MajorityClassToLabel:
         self._roi_name = roi_name
         self._index_map = index_map
 
-    def __call__(self, sample):
+    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
         if "annotations" not in sample:
             return sample
 
@@ -241,7 +251,7 @@ class MajorityClassToLabel:
         return sample
 
 
-class ContainsPolygonToLabel:
+class ContainsPolygonToLabel(DlupTransform):
     """Transform which transforms annotations into a sample-level label whether the label is present above a threshold.
 
     The area of the label within the ROI (if given) is first computed. If the proportion of this label in the
@@ -264,7 +274,7 @@ class ContainsPolygonToLabel:
         self._label = label
         self._threshold = threshold
 
-    def __call__(self, sample):
+    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
         if "annotations" not in sample:
             return sample
 

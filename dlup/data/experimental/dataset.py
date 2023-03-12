@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 import numpy.typing as npt
@@ -13,6 +13,7 @@ from dlup import SlideImage
 from dlup.annotations import WsiAnnotations
 from dlup.data.dataset import TiledROIsSlideImageDataset, parse_rois
 from dlup.experimental_backends import ImageBackend
+from dlup.data.transforms import DlupTransform
 from dlup.tiling import Grid, GridOrder, TilingMode
 
 _BaseAnnotationTypes = SlideImage | WsiAnnotations
@@ -57,8 +58,8 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mask_threshold: float | None = 0.0,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: DlupTransform | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
     ):
         self._grids = grids
         self._num_scales = num_scales
@@ -82,7 +83,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         )
         self.__transform = transform
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._step_size
 
     @classmethod
@@ -98,8 +99,8 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mask: npt.NDArray[np.int_] | None = None,
         mask_threshold: float | None = 0.0,
         rois: tuple[tuple[int, ...]] | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: DlupTransform | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
     ) -> "MultiScaleSlideImageDataset":
         if mpps != sorted(mpps):
             raise ValueError(f"The mpp values should be in increasing order.")

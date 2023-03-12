@@ -97,12 +97,14 @@ def tiling(args: argparse.Namespace) -> None:
 
 
 class TileSaver:
-    def __init__(self, dataset, output_directory_path, do_not_save_tiles=False):
+    def __init__(
+        self, dataset: TiledROIsSlideImageDataset, output_directory_path: pathlib.Path, do_not_save_tiles: bool = False
+    ) -> None:
         self.dataset = dataset
         self.output_directory_path = output_directory_path
         self.do_not_save_tiles = do_not_save_tiles
 
-    def save_tile(self, index):
+    def save_tile(self, index: int):
         tile_dict = self.dataset[index]
         tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
