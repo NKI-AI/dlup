@@ -14,6 +14,7 @@ import pathlib
 from typing import Callable, Generic, Iterable, TypedDict, TypeVar, cast
 
 import numpy as np
+import numpy.typing as npt
 import PIL
 from numpy.typing import NDArray
 from PIL import Image
@@ -170,7 +171,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         path: pathlib.Path,
         regions: collections.abc.Sequence,
         crop: bool = False,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         annotations: _BaseAnnotationTypes | None = None,
@@ -342,7 +343,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         path: pathlib.Path,
         grids: list[tuple[Grid, tuple[int, int], float]],
         crop: bool = False,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         annotations: _BaseAnnotationTypes | None = None,
@@ -387,7 +388,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: SlideImage | npt.NDarray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         rois: tuple[tuple[int, ...]] | None = None,

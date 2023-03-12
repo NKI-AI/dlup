@@ -1,6 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import numpy as np
+import numpy.typing as npt
 import pyvips
 
 NUMPY_DTYPE_TO_VIPS_FORMAT = {
@@ -29,7 +30,7 @@ VIPS_FORMAT_TO_NUMPY_DTYPE = {
 }
 
 
-def numpy_to_vips(data: np.ndarray) -> pyvips.Image:
+def numpy_to_vips(data: npt.NDArray[np.int_]) -> pyvips.Image:
     """
     Convert a numpy array to a pyvips image.
 
@@ -54,7 +55,7 @@ def numpy_to_vips(data: np.ndarray) -> pyvips.Image:
     return vips_image
 
 
-def vips_to_numpy(vips_image: pyvips.Image) -> np.ndarray:
+def vips_to_numpy(vips_image: pyvips.Image) -> npt.NDArray[np.int_]:
     """
     Convert a pyvips image to a numpy array.
 

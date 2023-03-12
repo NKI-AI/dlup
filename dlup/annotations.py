@@ -32,6 +32,7 @@ from enum import Enum
 from typing import Any, ClassVar, Iterable, Type, TypedDict, TypeVar, Union
 
 import numpy as np
+import numpy.typing as npt
 import shapely
 import shapely.affinity
 import shapely.validation
@@ -517,9 +518,9 @@ class WsiAnnotations:
 
     def read_region(
         self,
-        coordinates: np.ndarray | tuple[GenericNumber, GenericNumber],
+        coordinates: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        region_size: np.ndarray | tuple[GenericNumber, GenericNumber],
+        region_size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
     ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 

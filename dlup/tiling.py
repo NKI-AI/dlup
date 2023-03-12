@@ -5,9 +5,10 @@ from __future__ import annotations
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, Sequence
+from typing import Iterable, Iterator, Sequence
 
 import numpy as np
+import numpy.typing as npt
 from numpy.typing import NDArray
 
 _GenericNumber = int | float
@@ -36,12 +37,12 @@ class GridOrder(str, Enum):
     F = "F"
 
 
-def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> np.ndarray:
+def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> npt.NDArray[np.int_ | np.float_]:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.ndarray:
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> npt.NDArray[np.int_ | np.float_]:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Examples
@@ -62,7 +63,7 @@ def tiles_grid_coordinates(
     tile_size: _GenericNumberArray,
     tile_overlap: _GenericNumberArray | _GenericNumber = 0,
     mode: TilingMode = TilingMode.skip,
-) -> list[np.ndarray]:
+) -> list[npt.NDArray[np.int_ | np.float_]]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
     The first tile has the corner located at (0, 0).
@@ -139,7 +140,7 @@ class Grid(collections.abc.Sequence):
         """Return the size of the generated lattice."""
         return tuple(len(x) for x in self.coordinates)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> npt.NDArray[np.int_]:
         if isinstance(self.order, str):
             order = "F" if self.order == "C" else "C"
         else:
@@ -151,7 +152,7 @@ class Grid(collections.abc.Sequence):
         """Return the total number of points in the grid."""
         return functools.reduce(lambda value, size: value * size, self.size, 1)
 
-    def __iter__(self) -> Iterator[np.ndarray]:
+    def __iter__(self) -> Iterator[npt.NDArray[np.int_]]:
         """Iterate through every tile."""
         for i in range(len(self)):
             yield self[i]

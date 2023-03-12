@@ -6,6 +6,7 @@ from multiprocessing import Pool
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import shapely
 import shapely.affinity
 from shapely.geometry import Polygon
@@ -46,7 +47,9 @@ def _DFS(
         sibling_id = hierarchy[sibling_id][0]
 
 
-def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling: float = 1.0) -> list[Polygon]:
+def mask_to_polygons(
+    mask: npt.NDArray[np.int_], offset: tuple[int, int] = (0, 0), scaling: float = 1.0
+) -> list[Polygon]:
     # Adapted From: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
 
     """Generates a list of Shapely polygons from the contours hierarchy returned by cv2.find_contours().

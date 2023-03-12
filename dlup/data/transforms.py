@@ -8,6 +8,7 @@ from typing import Iterable
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 import shapely
 
@@ -23,7 +24,7 @@ def convert_annotations(
     index_map: dict[str, int],
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[dict, np.ndarray, np.ndarray | None]:
+) -> tuple[dict, npt.NDArray, npt.NDArray | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
@@ -230,6 +231,9 @@ class MajorityClassToLabel:
             _, _, roi = convert_annotations(
                 sample["annotations"], sample["image"].size[::-1], roi_name=self._roi_name, index_map={}
             )
+
+            if roi is None:
+                roi = np.ones(sample["image"].size[::-1], dtype=np.uint8)
             masked_image = np.asarray(sample["image"]) * roi[..., np.newaxis]
             sample["image"] = PIL.Image.fromarray(masked_image.astype(np.uint8), mode=sample["image"].mode)
 

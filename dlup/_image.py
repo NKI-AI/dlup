@@ -15,10 +15,10 @@ import pathlib
 from enum import IntEnum
 from typing import Callable, Type, TypeVar, cast
 
-import numpy as np  # type: ignore
-import openslide  # type: ignore
+import numpy as np
+import numpy.typing as npt
 import PIL
-import PIL.Image  # type: ignore
+import PIL.Image
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
@@ -66,9 +66,12 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: np.ndarray, size: tuple[GenericNumber, GenericNumber]) -> np.ndarray:
+def _clip2size(
+    a: npt.NDArray[np.int_ | np.float_], size: tuple[GenericNumber, GenericNumber]
+) -> npt.NDArray[np.int_ | np.float_]:
     """Clip values from 0 to size boundaries."""
-    return np.clip(a, (0, 0), size)
+    # The casting to array is required as np.clip is returning "Any".
+    return np.asarray(np.clip(a, (0, 0), size))
 
 
 class SlideImage:
@@ -152,9 +155,9 @@ class SlideImage:
 
     def read_region(
         self,
-        location: np.ndarray | tuple[GenericNumber, GenericNumber],
+        location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: np.ndarray | tuple[int, int],
+        size: npt.NDArray[np.int_] | tuple[int, int],
     ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 

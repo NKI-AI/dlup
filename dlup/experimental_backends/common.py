@@ -6,12 +6,13 @@ import abc
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 
 from dlup.types import PathLike
 
 
-def numpy_to_pil(tile: np.ndarray) -> PIL.Image.Image:
+def numpy_to_pil(tile: npt.NDArray[np.int_]) -> PIL.Image.Image:
     """
     Convert a numpy tile to a PIL image, assuming the last axis is the channels
 

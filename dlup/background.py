@@ -20,13 +20,13 @@ from functools import partial
 from typing import Callable, Iterable
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 import scipy.ndimage as ndi
 import skimage.filters
 import skimage.morphology
 import skimage.segmentation
 
-import dlup
 import dlup.tiling
 from dlup import SlideImage
 from dlup._exceptions import DlupError
@@ -57,7 +57,7 @@ def _is_close(_seeds, _start) -> bool:
     return False
 
 
-def _fesi_common(image: np.ndarray) -> np.ndarray:
+def _fesi_common(image: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_]:
     """
     Common functionality for FESI and Improved FESI.
 
@@ -87,7 +87,7 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
     mask[mask > 0] = 255
     distance = ndi.distance_transform_edt(mask)
 
-    final_mask = mask.copy()
+    final_mask = np.asarray(mask.copy())
     maximal_distance = distance.max()
     global_max = distance.max()
     seeds: list = []
@@ -105,7 +105,7 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
     return final_mask.astype(bool)
 
 
-def improved_fesi(image: np.ndarray) -> np.ndarray:
+def improved_fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[npt.int_]:
     """Combination of original and improved FESI algorithms.
 
     Extract foreground from background from H&E WSIs combining the original
@@ -150,7 +150,7 @@ def improved_fesi(image: np.ndarray) -> np.ndarray:
     return _fesi_common(tissue_rgb_hsv_1)
 
 
-def fesi(image: np.ndarray) -> np.ndarray:
+def fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     """
     Extract foreground from background from H&E WSIs using the FESI algorithm [1].
 
@@ -169,8 +169,8 @@ def fesi(image: np.ndarray) -> np.ndarray:
     .. [1] https://www.lfb.rwth-aachen.de/bibtexupload/pdf/BUG15fesi.pdf
     """
     gray = skimage.color.rgb2gray(image)
-    gray = np.abs(skimage.filters.laplace(gray, ksize=3))
-    return _fesi_common(gray)
+    gray = np.abs(skimage.filters.laplace(gray, ksize=3)).astype(np.int_)
+    return np.asarray(_fesi_common(gray))
 
 
 def next_power_of_2(x):
@@ -182,7 +182,11 @@ def next_power_of_2(x):
     return 1 if x == 0 else 2 ** (x - 1).bit_length()
 
 
-def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512) -> np.ndarray:
+def get_mask(
+    slide: dlup.SlideImage,
+    mask_func: Callable[[npt.NDArray[np.int_]], npt.NDArray[np.int_ | np.bool_]] = improved_fesi,
+    minimal_size: int = 512,
+) -> npt.NDArray[npt.int_]:
     """
     Compute a tissue mask for a Slide object.
 
@@ -217,7 +221,7 @@ def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minima
 
 def is_foreground(
     slide_image: SlideImage,
-    background_mask: np.ndarray | SlideImage | WsiAnnotations,
+    background_mask: npt.NDArray[np.int_] | SlideImage | WsiAnnotations,
     region: tuple[float, float, int, int, float],
     threshold: float | None = 1.0,
 ) -> bool:
@@ -302,7 +306,7 @@ def _is_foreground_wsiannotations(
 
 def _is_foreground_numpy(
     slide_image: SlideImage,
-    background_mask: np.ndarray,
+    background_mask: npt.NDArray[np.int_],
     region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:

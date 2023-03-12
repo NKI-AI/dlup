@@ -7,6 +7,7 @@ import pathlib
 from typing import Callable
 
 import numpy as np
+import numpy.typing as npt
 
 from dlup import SlideImage
 from dlup.annotations import WsiAnnotations
@@ -52,7 +53,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         grids: list[tuple[Grid, tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
@@ -94,7 +95,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: np.ndarray | None = None,
+        mask: npt.NDArray[np.int_] | None = None,
         mask_threshold: float | None = 0.0,
         rois: tuple[tuple[int, ...]] | None = None,
         transform: Callable | None = None,

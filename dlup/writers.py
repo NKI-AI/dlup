@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Iterator
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 from pyvips.enums import Kernel
 from tifffile import tifffile
@@ -153,7 +154,7 @@ class TifffileImageWriter(ImageWriter):
         iterator = _tiles_iterator_from_pil_image(pil_image, self._tile_size)
         self.from_tiles_iterator(iterator)
 
-    def from_tiles_iterator(self, iterator: Iterator[np.ndarray]) -> None:
+    def from_tiles_iterator(self, iterator: Iterator[npt.NDArray[np.int_]]) -> None:
         """
         Generate the tiff from a tiles iterator. The tiles should be in row-major (C-order) order.
         The `dlup.tiling.Grid` class has the possibility to generate such grids using `GridOrder.C`.
