@@ -63,7 +63,7 @@ def tiles_grid_coordinates(
     tile_size: _GenericNumberArray,
     tile_overlap: _GenericNumberArray | _GenericNumber = 0,
     mode: TilingMode = TilingMode.skip,
-) -> list[npt.NDArray[np.int_ | np.float_]]:
+) -> list[npt.NDArray[np.int_ | np.float_] | float]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
     The first tile has the corner located at (0, 0).

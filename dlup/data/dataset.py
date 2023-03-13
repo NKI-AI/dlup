@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Any, Generic, Iterator, Sequence, TypedDict, TypeVar, cast, Iterable
+from typing import Any, Generic, Iterable, Iterator, Sequence, TypedDict, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -26,7 +26,7 @@ from dlup.data.transforms import DlupTransform
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
-from dlup.types import ROI, Size
+from dlup.types import ROI, Coordinates, Size
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -44,7 +44,7 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
 
 
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
-    grid_local_coordinates: tuple
+    grid_local_coordinates: Coordinates
     grid_index: int
 
 

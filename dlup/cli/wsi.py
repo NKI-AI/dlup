@@ -6,7 +6,7 @@ import argparse
 import json
 import pathlib
 from multiprocessing import Pool
-from typing import Any, cast
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
@@ -16,6 +16,7 @@ from dlup import SlideImage
 from dlup.background import AvailableMaskFunctions, get_mask
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.tiling import TilingMode
+from dlup.types import Coordinates
 from dlup.utils import ArrayEncoder
 from dlup.viz.plotting import plot_2d
 
@@ -107,7 +108,7 @@ class TileSaver:
         self.output_directory_path = output_directory_path
         self.do_not_save_tiles = do_not_save_tiles
 
-    def save_tile(self, index: int) -> tuple[tuple[npt.NDArray[np.int_]], int]:
+    def save_tile(self, index: int) -> tuple[Coordinates, int]:
         tile_dict = self.dataset[index]
         tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]

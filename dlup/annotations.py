@@ -218,12 +218,14 @@ class WsiSingleLabelAnnotation:
         return data
 
     @staticmethod
-    def __get_bbox(z: tuple[npt.NDArray[np.int_]]) -> tuple[Size, Size]:
-        return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
+    def __get_bbox(data: list[list[int | float]]) -> tuple[Size, Size]:
+        z = np.asarray(data)
+        offset, size = z.min(axis=0).tolist(), (z.max(axis=0) - z.min(axis=0)).tolist()
+        return (offset[0], offset[1]), (size[0], size[1])
 
     @property
-    def bounding_boxes(self) -> list[tuple[tuple[int, int], tuple[int, int]]]:
-        data = [np.asarray(annotation.envelope.exterior.coords) for annotation in self.as_list()]
+    def bounding_boxes(self) -> list[tuple[Size, Size]]:
+        data = [list(annotation.envelope.exterior.coords) for annotation in self.as_list()]
         return [self.__get_bbox(_) for _ in data]
 
     def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:

@@ -26,7 +26,6 @@ def _DFS(
     offset: tuple[int, int] = (0, 0),
     scaling: float = 1.0,
 ) -> None:
-
     # Adapted FROM: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
     while sibling_id != -1:
         contour = contours[sibling_id].squeeze(axis=1)

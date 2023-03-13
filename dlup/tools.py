@@ -26,7 +26,7 @@ class MapSequence(collections.abc.Sequence):
     def __len__(self) -> int:
         return len(self._sequence)
 
-    def __getitem__(self, key: int) -> "MapSequence":
+    def __getitem__(self, key: int) -> "dlup.tiling.Grid":
         return self._function(key, self._sequence[key])
 
     def __iter__(self) -> Iterator[Any]:

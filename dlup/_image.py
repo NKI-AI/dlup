@@ -16,7 +16,6 @@ import types
 from enum import IntEnum
 from typing import Any, Callable, Type, TypeVar, cast
 
-from dlup.types import Size
 import numpy as np
 import numpy.typing as npt
 import PIL
@@ -25,7 +24,7 @@ import PIL.Image
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
 from dlup.experimental_backends import AbstractSlideBackend, ImageBackend
-from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
+from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike, Size
 from dlup.utils.image import check_if_mpp_is_valid
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
