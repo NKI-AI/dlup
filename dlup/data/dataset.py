@@ -12,12 +12,13 @@ import functools
 import itertools
 import pathlib
 from typing import Any, Generic, Iterable, Iterator, Sequence, TypeVar, cast
-from typing_extensions import TypedDict, NotRequired
+
 import numpy as np
 import numpy.typing as npt
 import PIL
 from numpy.typing import NDArray
 from PIL import Image
+from typing_extensions import NotRequired, TypedDict
 
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import WsiAnnotations
@@ -44,6 +45,7 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
     # FIXME: better typing
     annotations: NotRequired[Any]
     labels: NotRequired[Any]
+
 
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
     grid_local_coordinates: Coordinates

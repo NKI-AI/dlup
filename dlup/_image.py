@@ -14,7 +14,7 @@ import os
 import pathlib
 import types
 from enum import IntEnum
-from typing import Any, Callable, Type, TypeVar, cast, Literal
+from typing import Any, Callable, Literal, Type, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt

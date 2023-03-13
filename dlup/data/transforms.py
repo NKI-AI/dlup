@@ -6,7 +6,7 @@ from __future__ import annotations
 import abc
 from collections import defaultdict
 from typing import Any, Iterable
-from dlup.data.dataset import RegionFromSlideDatasetSample
+
 import cv2
 import numpy as np
 import numpy.typing as npt
@@ -15,6 +15,7 @@ import shapely
 
 import dlup.annotations
 from dlup._exceptions import AnnotationError
+from dlup.data.dataset import RegionFromSlideDatasetSample
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 

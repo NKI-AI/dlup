@@ -14,8 +14,9 @@ import shapely.affinity
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 from tqdm import tqdm
-from dlup.types import Coordinates
+
 from dlup.data.dataset import TiledROIsSlideImageDataset
+from dlup.types import Coordinates
 
 
 def _DFS(
@@ -51,9 +52,7 @@ def _DFS(
         sibling_id = hierarchy[sibling_id][0]
 
 
-def mask_to_polygons(
-    mask: npt.NDArray[np.int_], offset: Coordinates = (0, 0), scaling: float = 1.0
-) -> list[Polygon]:
+def mask_to_polygons(mask: npt.NDArray[np.int_], offset: Coordinates = (0, 0), scaling: float = 1.0) -> list[Polygon]:
     # Adapted From: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
 
     """Generates a list of Shapely polygons from the contours hierarchy returned by cv2.find_contours().
