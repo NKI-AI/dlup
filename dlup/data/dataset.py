@@ -11,8 +11,8 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Any, Generic, Iterable, Iterator, Sequence, TypedDict, TypeVar, cast
-
+from typing import Any, Generic, Iterable, Iterator, Sequence, TypeVar, cast
+from typing_extensions import TypedDict, NotRequired
 import numpy as np
 import numpy.typing as npt
 import PIL
@@ -41,7 +41,9 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
     mpp: float
     path: pathlib.Path
     region_index: int
-
+    # FIXME: better typing
+    annotations: NotRequired[Any]
+    labels: NotRequired[Any]
 
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
     grid_local_coordinates: Coordinates
@@ -143,7 +145,7 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self) -> int:
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, idx: int) -> dict[str, Any]:
+    def __getitem__(self, idx: int) -> T_co:
         """Returns the sample at the given index."""
         dataset, sample_idx = self.index_to_dataset(idx)
         return dataset[sample_idx]
@@ -490,7 +492,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
         grid_index = region_index - self._starting_indices[starting_index]
         grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
-        region_data["grid_local_coordinates"] = grid_local_coordinates
+        region_data["grid_local_coordinates"] = int(grid_local_coordinates[0]), int(grid_local_coordinates[1])
         region_data["grid_index"] = starting_index
 
         if self.__transform:
@@ -502,18 +504,19 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
 def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float) -> tuple[ROI]:
     if rois is None:
         return (((0, 0), image_size),)
-    else:
-        # Do some checks whether the ROIs are within the image
-        origin_positive = [np.all(np.asarray(coords) > 0) for coords, size in rois]
-        image_within_borders = [np.all((np.asarray(coords) + size) <= image_size) for coords, size in rois]
-        if not origin_positive or not image_within_borders:
-            raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
-    rois = [
-        (
-            np.ceil(np.asarray(coords) * scaling).astype(int).tolist(),
-            np.floor(np.asarray(size) * scaling).astype(int).tolist(),
-        )
-        for coords, size in rois
-    ]
+    # Do some checks whether the ROIs are within the image
+    origin_positive = [np.all(np.asarray(coords) > 0) for coords, size in rois]
+    image_within_borders = [np.all((np.asarray(coords) + size) <= image_size) for coords, size in rois]
+    if not origin_positive or not image_within_borders:
+        raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
+
+    # Rois is a shape [[x, y], [w, h]] and we want [ROI]
+    def build_coords(coords: Coordinates, size: Size) -> ROI:
+        _coords = np.ceil(np.asarray(coords) * scaling).astype(int).tolist()
+        _size = np.floor(np.asarray(size) * scaling).astype(int).tolist()
+
+        return (_coords[0], _coords[1]), (_size[0], _size[1])
+
+    rois = tuple([build_coords(coords, size) for coords, size in rois])
     return rois

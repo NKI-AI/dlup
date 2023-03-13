@@ -348,7 +348,7 @@ def _is_foreground_numpy(
     return bool(mask_tile.mean() > threshold)
 
 
-class AvailableMaskFunctions(Enum, Callable):
+class AvailableMaskFunctions(Enum):
     """
     Class that maps strngs to the currently implemented mask functions as defined in dlup/background.py
 

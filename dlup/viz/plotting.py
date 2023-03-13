@@ -17,7 +17,7 @@ def plot_2d(
     mask: npt.NDArray[np.int_] | None = None,
     mask_colors: dict[int, str] | None = None,
     mask_alpha: int = 70,
-    geometries: list[Point, Polygon] | None = None,
+    geometries: list[Point | Polygon] | None = None,
     geometries_color_map: dict[str, str] | None = None,
 ) -> PIL.Image.Image:
     """
@@ -49,7 +49,10 @@ def plot_2d(
         for idx in unique_vals:
             if idx == 0:
                 continue
-            color = PIL.ImageColor.getcolor(mask_colors[idx], "RGBA")
+            if mask_colors is not None:
+                color = PIL.ImageColor.getcolor(mask_colors[idx], "RGBA")
+            else:
+                raise ValueError(f"If mask is given, `mask_colors` are required")
             curr_mask = PIL.Image.fromarray(((mask == idx)[..., np.newaxis] * color).astype(np.uint8), mode="RGBA")
             alpha_channel = PIL.Image.fromarray(
                 ((mask == idx) * int(mask_alpha * 255 / 100)).astype(np.uint8), mode="L"
@@ -64,7 +67,10 @@ def plot_2d(
                 r = 10
                 x, y = data.coords[0]
                 _points = [(x - r, y - r), (x + r, y + r)]
-                draw.ellipse(_points, outline=geometries_color_map[data.label], width=3)
+                if geometries_color_map is not None:
+                    draw.ellipse(_points, outline=geometries_color_map[data.label], width=3)
+                else:
+                    raise ValueError(f"If geometries are defined, you need to define `geometries_color_map`.")
 
             elif isinstance(data, Polygon):
                 coordinates = data.exterior.coords

@@ -6,7 +6,7 @@ from __future__ import annotations
 import abc
 from collections import defaultdict
 from typing import Any, Iterable
-
+from dlup.data.dataset import RegionFromSlideDatasetSample
 import cv2
 import numpy as np
 import numpy.typing as npt
@@ -108,7 +108,7 @@ class DlupTransform(abc.ABC):
         """Constructor"""
 
     @abc.abstractmethod
-    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
+    def __call__(self, sample: RegionFromSlideDatasetSample) -> RegionFromSlideDatasetSample:
         """Generic call"""
 
 
