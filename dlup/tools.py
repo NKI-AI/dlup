@@ -12,14 +12,14 @@ import numpy as np
 import dlup.tiling
 
 
-class MapSequence(collections.abc.Sequence):
+class MapSequence:
     """Wraps the __getitem__ function of a sequence.
 
     It's similar to the built-in map(), although instead of returning
     an iterator, a sequence object is returned instead.
     """
 
-    def __init__(self, function: Callable[[Any], dlup.tiling.Grid], sequence: dlup.tiling.Grid) -> None:
+    def __init__(self, function: Callable[[int, Any], dlup.tiling.Grid], sequence: dlup.tiling.Grid) -> None:
         self._function = function
         self._sequence = sequence
 

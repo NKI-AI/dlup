@@ -173,7 +173,7 @@ class AbstractSlideBackend(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def properties(self) -> dict[str, str | int | float]:
+    def properties(self) -> dict[str, str | int | float | bool]:
         """Properties of slide"""
 
     @abc.abstractmethod

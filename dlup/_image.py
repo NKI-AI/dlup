@@ -14,7 +14,7 @@ import os
 import pathlib
 import types
 from enum import IntEnum
-from typing import Any, Callable, Type, TypeVar, cast
+from typing import Any, Callable, Type, TypeVar, cast, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -130,7 +130,7 @@ class SlideImage:
 
     def __exit__(
         self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None
-    ) -> bool:
+    ) -> Literal[False]:
         self.close()
         return False
 

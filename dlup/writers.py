@@ -253,7 +253,7 @@ def _tiles_iterator_from_pil_image(
     pil_image: PIL.Image.Image, tile_size: tuple[int, int]
 ) -> Generator[npt.NDArray[np.int_]]:
     """
-    Given a PIL image return a a tile-iterator.
+    Given a PIL image return a tile-iterator.
 
     Parameters
     ----------

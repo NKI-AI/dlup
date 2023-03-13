@@ -1,6 +1,8 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 """Utilities to work with binary masks"""
+from __future__ import annotations
+
 from functools import partial
 from multiprocessing import Pool
 
@@ -12,7 +14,7 @@ import shapely.affinity
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 from tqdm import tqdm
-
+from dlup.types import Coordinates
 from dlup.data.dataset import TiledROIsSlideImageDataset
 
 
@@ -22,8 +24,8 @@ def _DFS(
     hierarchy: list[npt.NDArray[np.int_]],
     sibling_id: int,
     is_outer: bool,
-    siblings: list[npt.NDArray[np.int_]],
-    offset: tuple[int, int] = (0, 0),
+    siblings: list[npt.NDArray[np.int_]] | None,
+    offset: Coordinates = (0, 0),
     scaling: float = 1.0,
 ) -> None:
     # Adapted FROM: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
@@ -31,7 +33,7 @@ def _DFS(
         contour = contours[sibling_id].squeeze(axis=1)
         if len(contour) >= 3:
             first_child_id = hierarchy[sibling_id][2]
-            children: list | None = [] if is_outer else None
+            children: list[npt.NDArray[np.int_]] | None = [] if is_outer else None
             _DFS(polygons, contours, hierarchy, first_child_id, not is_outer, children)
 
             if is_outer:
@@ -42,13 +44,15 @@ def _DFS(
 
                 polygons.append(polygon)
             else:
-                siblings.append(contour)
+                # This is basically only a mypy check. `siblings` should be a list here
+                if siblings is not None:
+                    siblings.append(contour)
 
         sibling_id = hierarchy[sibling_id][0]
 
 
 def mask_to_polygons(
-    mask: npt.NDArray[np.int_], offset: tuple[int, int] = (0, 0), scaling: float = 1.0
+    mask: npt.NDArray[np.int_], offset: Coordinates = (0, 0), scaling: float = 1.0
 ) -> list[Polygon]:
     # Adapted From: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
 

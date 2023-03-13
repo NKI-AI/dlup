@@ -5,7 +5,7 @@ from __future__ import annotations
 import collections
 import functools
 from enum import Enum
-from typing import Iterable, Iterator, Sequence
+from typing import Literal, Iterator, Sequence
 
 import numpy as np
 import numpy.typing as npt
@@ -42,7 +42,7 @@ def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> npt.NDArray[np.
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing: str = "ij") -> npt.NDArray[np.int_ | np.float_]:
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing: Literal["xy", "ij"] = "ij") -> npt.NDArray[np.int_ | np.float_]:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Examples
@@ -63,7 +63,7 @@ def tiles_grid_coordinates(
     tile_size: _GenericNumberArray,
     tile_overlap: _GenericNumberArray | _GenericNumber = 0,
     mode: TilingMode = TilingMode.skip,
-) -> list[npt.NDArray[np.int_ | np.float_] | float]:
+) -> Sequence[npt.NDArray[np.int_ | np.float_] | float]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
     The first tile has the corner located at (0, 0).
@@ -108,7 +108,7 @@ def tiles_grid_coordinates(
     return coordinates
 
 
-class Grid(collections.abc.Sequence):
+class Grid:
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
     def __init__(self, coordinates: list[np.ndarray], order: str | GridOrder = GridOrder.F):

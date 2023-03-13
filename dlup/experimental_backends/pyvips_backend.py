@@ -141,7 +141,7 @@ class PyVipsSlide(AbstractSlideBackend):
         self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
 
     @property
-    def properties(self) -> dict[str, str]:
+    def properties(self) -> dict[str, str | int | float | bool]:
         """Metadata about the image as given by pyvips,
         which includes openslide tags in case openslide is the selected reader."""
 
@@ -168,7 +168,7 @@ class PyVipsSlide(AbstractSlideBackend):
         """Images associated with this whole-slide image."""
         if not self._loader == "openslideload":
             return {}
-        associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
+        associated_images = self.properties["slide-associated-images"]
         raise NotImplementedError
 
     def set_cache(self, cache: Any) -> None:
