@@ -50,6 +50,7 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
     grid_local_coordinates: Coordinates
     grid_index: int
+    annotation_data: NotRequired[Any]
 
 
 class PretiledDatasetSample(TypedDict):

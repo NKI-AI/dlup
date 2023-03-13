@@ -14,8 +14,8 @@ import PIL.Image
 import shapely
 
 import dlup.annotations
+import dlup.data.dataset
 from dlup._exceptions import AnnotationError
-from dlup.data.dataset import RegionFromSlideDatasetSample
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
@@ -109,7 +109,9 @@ class DlupTransform(abc.ABC):
         """Constructor"""
 
     @abc.abstractmethod
-    def __call__(self, sample: RegionFromSlideDatasetSample) -> RegionFromSlideDatasetSample:
+    def __call__(
+        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
+    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
         """Generic call"""
 
 
@@ -131,7 +133,9 @@ class ConvertAnnotationsToMask(DlupTransform):
         self._index_map = index_map
         self._default_value = default_value
 
-    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
+    def __call__(
+        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
+    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
         if "annotations" not in sample:
             return sample
 
@@ -166,7 +170,9 @@ class RenameLabels(DlupTransform):
         """
         self._remap_labels = remap_labels
 
-    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
+    def __call__(
+        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
+    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
         _annotations = sample["annotations"]
 
         output_annotations = []
@@ -210,7 +216,9 @@ class MajorityClassToLabel(DlupTransform):
         self._roi_name = roi_name
         self._index_map = index_map
 
-    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
+    def __call__(
+        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
+    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
         if "annotations" not in sample:
             return sample
 
@@ -275,7 +283,9 @@ class ContainsPolygonToLabel(DlupTransform):
         self._label = label
         self._threshold = threshold
 
-    def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
+    def __call__(
+        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
+    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
         if "annotations" not in sample:
             return sample
 
