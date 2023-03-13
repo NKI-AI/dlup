@@ -3,7 +3,7 @@
 """CLI utilities to handle masks"""
 import argparse
 import json
-from typing import cast
+from typing import Any, cast
 
 import shapely
 
@@ -98,7 +98,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
                 json.dump(json_dict, f, indent=2)
 
 
-def register_parser(parser: argparse._SubParsersAction) -> None:
+def register_parser(parser: argparse._SubParsersAction[Any]) -> None:
     """Register mask commands to a root parser."""
     wsi_parser = parser.add_parser("mask", help="WSI mask parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI mask subparser")

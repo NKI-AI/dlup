@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 import numpy as np
 import numpy.typing as npt
@@ -366,5 +366,5 @@ class AvailableMaskFunctions(Enum):
     fesi = partial(fesi)
     improved_fesi = partial(improved_fesi)
 
-    def __call__(self, *args) -> Callable:
+    def __call__(self, *args: Any) -> Callable:
         return self.value(*args)

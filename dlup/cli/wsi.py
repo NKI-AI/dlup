@@ -1,12 +1,15 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+from __future__ import annotations
 
 import argparse
 import json
 import pathlib
 from multiprocessing import Pool
-from typing import cast
+from typing import Any, cast
 
+import numpy as np
+import numpy.typing as npt
 from PIL import Image
 
 from dlup import SlideImage
@@ -76,7 +79,7 @@ def tiling(args: argparse.Namespace) -> None:
         },
     }
 
-    indices = [None for _ in range(num_tiles)]
+    indices: list[tuple[npt.NDArray[np.int_]] | None] = [None for _ in range(num_tiles)]
 
     # Iterate through the tiles (and save them in the provided location)
     tiles_output_directory_path = output_directory_path / "tiles"
@@ -104,7 +107,7 @@ class TileSaver:
         self.output_directory_path = output_directory_path
         self.do_not_save_tiles = do_not_save_tiles
 
-    def save_tile(self, index: int):
+    def save_tile(self, index: int) -> tuple[tuple[npt.NDArray[np.int_]], int]:
         tile_dict = self.dataset[index]
         tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
@@ -132,7 +135,7 @@ def info(args: argparse.Namespace) -> None:
         print(f"{k}\t{v}")
 
 
-def register_parser(parser: argparse._SubParsersAction) -> None:
+def register_parser(parser: argparse._SubParsersAction[Any]) -> None:
     """Register wsi commands to a root parser."""
     wsi_parser = parser.add_parser("wsi", help="WSI parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI subparser")

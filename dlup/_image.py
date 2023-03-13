@@ -12,6 +12,7 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
+import types
 from enum import IntEnum
 from typing import Any, Callable, Type, TypeVar, cast
 
@@ -95,7 +96,7 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs: dict[str, Any]) -> None:
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
@@ -127,7 +128,9 @@ class SlideImage:
     def __enter__(self) -> "SlideImage":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(
+        self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None
+    ) -> bool:
         self.close()
         return False
 

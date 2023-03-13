@@ -41,7 +41,7 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
-from dlup.types import GenericNumber, PathLike
+from dlup.types import Coordinates, GenericNumber, PathLike, PointOrPolygon, Shape
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -78,7 +78,7 @@ class Point(shapely.geometry.Point):
     def type(self) -> AnnotationType:
         return AnnotationType.POINT
 
-    def __new__(cls, coord: tuple[float, float], *args, **kwargs) -> "Point":
+    def __new__(cls, coord: tuple[float, float], *args: Any, **kwargs: dict[str, Any]) -> "Point":
         point = super().__new__(cls, coord)
         point.__class__ = cls
         return point
@@ -111,7 +111,7 @@ class Polygon(shapely.geometry.Polygon):
     def type(self) -> AnnotationType:
         return AnnotationType.POLYGON
 
-    def __new__(cls, coord: tuple[float, float], *args, **kwargs) -> "Point":
+    def __new__(cls, coord: Coordinates, *args: Any, **kwargs: dict[str, Any]) -> "Point":
         point = super().__new__(cls, coord)
         point.__class__ = cls
         return point
@@ -129,7 +129,7 @@ class Polygon(shapely.geometry.Polygon):
         return f"{self.label}, {self.wkt}"
 
 
-def shape(coordinates, label, multiplier: float = 1.0) -> list[Point | Polygon]:
+def shape(coordinates: ShapelyTypes, label: str, multiplier: float = 1.0) -> list[PointOrPolygon]:
     geom_type = coordinates.get("type").lower()
     if geom_type == "point":
         return [Point(np.asarray(coordinates["coordinates"]) * multiplier, label=label)]
@@ -154,9 +154,9 @@ _POSTPROCESSORS = {
 class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
-    def __init__(self, label: str, type: AnnotationType, coordinates):
+    def __init__(self, label: str, type: AnnotationType, annotations: list[PointOrPolygon]):
         self.__type = type
-        self._annotations = coordinates
+        self._annotations = annotations
         self.__label = label
 
     @property
@@ -170,7 +170,7 @@ class WsiSingleLabelAnnotation:
         return self.__label
 
     @label.setter
-    def label(self, label):
+    def label(self, label: str) -> None:
         self.__label = label
 
         # TODO: We also need to rewrite all the polygons. This cannot yet be set in-place
@@ -185,13 +185,13 @@ class WsiSingleLabelAnnotation:
 
         self._annotations = _annotations
 
-    def append(self, sample):
+    def append(self, sample: PointOrPolygon) -> None:
         self._annotations.append(sample)
 
     def as_strtree(self) -> STRtree:
         return STRtree(self._annotations)
 
-    def as_list(self):
+    def as_list(self) -> list:
         return self._annotations
 
     def as_json(self) -> list[dict[str, Any]]:
@@ -218,7 +218,7 @@ class WsiSingleLabelAnnotation:
         return data
 
     @staticmethod
-    def __get_bbox(z) -> (tuple[int, int], tuple[int, int]):
+    def __get_bbox(z: tuple[npt.NDArray[np.int_]]) -> tuple[Shape, Shape]:
         return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
 
     @property
@@ -373,7 +373,7 @@ class WsiAnnotations:
 
         # It is assumed that a specific label can only be one type (point or polygon)
         annotations: list[WsiSingleLabelAnnotation] = [
-            WsiSingleLabelAnnotation(label=k, type=data[k][0].type, coordinates=data[k]) for k in data.keys()
+            WsiSingleLabelAnnotation(label=k, type=data[k][0].type, annotations=data[k]) for k in data.keys()
         ]
 
         return cls(annotations)
@@ -452,7 +452,7 @@ class WsiAnnotations:
                         annotations[label] = WsiSingleLabelAnnotation(
                             label=label,
                             type=annotation_type,
-                            coordinates=[coordinates],
+                            annotations=[coordinates],
                         )
                     else:
                         annotations[label].append(coordinates)
@@ -464,7 +464,7 @@ class WsiAnnotations:
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]
 
-    def as_geojson(self, split_per_label=False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
+    def as_geojson(self, split_per_label: bool = False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
         """
         Output the annotations as proper geojson.
 
@@ -647,7 +647,7 @@ class WsiAnnotations:
         else:
             raise RuntimeError(f"Unexpected type. Got {self[annotation_name].type}.")
 
-    def __contains__(self, item):
+    def __contains__(self, item: str) -> bool:
         return item in self.available_labels
 
     def __add__(self, other: WsiAnnotations) -> WsiAnnotations:
@@ -661,7 +661,7 @@ class WsiAnnotations:
         curr_annotations += list(other._annotations.values())
         return WsiAnnotations(curr_annotations)
 
-    def __str__(self):
+    def __str__(self) -> str:
         # Create a string for the labels
         output = ""
         for annotation_name in self._annotations:

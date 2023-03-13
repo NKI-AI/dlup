@@ -140,7 +140,7 @@ class Grid(collections.abc.Sequence):
         """Return the size of the generated lattice."""
         return tuple(len(x) for x in self.coordinates)
 
-    def __getitem__(self, key) -> npt.NDArray[np.int_]:
+    def __getitem__(self, key: int) -> npt.NDArray[np.int_]:
         if isinstance(self.order, str):
             order = "F" if self.order == "C" else "C"
         else:

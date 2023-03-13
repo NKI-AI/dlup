@@ -4,7 +4,7 @@ import os
 import pathlib
 from enum import Enum
 from functools import lru_cache
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 import openslide
@@ -131,5 +131,6 @@ class ImageBackend(Enum):
     TIFFFILE: Callable = TifffileSlide
     AUTODETECT: Callable = autodetect_backend
 
-    def __call__(self, *args) -> AbstractSlideBackend:
+    # FIXME: Any is overly broad
+    def __call__(self, *args: Any) -> AbstractSlideBackend:
         return self.value(*args)

@@ -84,7 +84,7 @@ class TifffileSlide(AbstractSlideBackend):
 
         return properties
 
-    def set_cache(self, cache):
+    def set_cache(self, cache: Any) -> None:
         """Cache for tifffile."""
         raise NotImplementedError
 

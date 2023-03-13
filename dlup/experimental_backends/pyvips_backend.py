@@ -171,7 +171,8 @@ class PyVipsSlide(AbstractSlideBackend):
         associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
         raise NotImplementedError
 
-    def set_cache(self, cache):
+    def set_cache(self, cache: Any) -> None:
+        # FIXME: This needs to be implemented, and a CacheHandler defined.
         raise NotImplementedError
 
     def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
