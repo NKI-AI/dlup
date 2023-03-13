@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Any, Generic, Iterable, Sequence, TypedDict, TypeVar, cast
+from typing import Any, Generic, Iterator, Sequence, TypedDict, TypeVar, cast, Iterable
 
 import numpy as np
 import numpy.typing as npt
@@ -26,7 +26,7 @@ from dlup.data.transforms import DlupTransform
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
-from dlup.types import ROI, Shape
+from dlup.types import ROI, Size
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -153,7 +153,7 @@ LRU_CACHE_SIZE = 32
 
 
 @functools.lru_cache(LRU_CACHE_SIZE)
-def _get_cached_slide_image(path: pathlib.Path, backend: ImageBackend, **kwargs: dict[str, Any]) -> SlideImage:
+def _get_cached_slide_image(path: pathlib.Path, backend: ImageBackend, **kwargs: Any) -> SlideImage:
     return SlideImage.from_file_path(path, backend=backend, **kwargs)
 
 
@@ -175,12 +175,12 @@ class SlideImageDatasetBase(Dataset[T_co]):
         crop: bool = False,
         mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
-        output_tile_size: Shape | None = None,
+        output_tile_size: Size | None = None,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: DlupTransform | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
-        **kwargs: dict[str, Any],
+        **kwargs: Any,
     ):
         """
         Parameters
@@ -261,7 +261,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
         x, y, w, h, mpp = self.regions[region_index]
         coordinates: tuple[int | float, int | float] = x, y
-        region_size: Shape = w, h
+        region_size: Size = w, h
         scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
@@ -301,18 +301,18 @@ class SlideImageDatasetBase(Dataset[T_co]):
         """
         return len(self.regions) if self.masked_indices is None else len(self.masked_indices)
 
-    def __iter__(self) -> Iterable[dict[str, Any]]:
+    def __iter__(self) -> Iterator[Any]:
         for i in range(len(self)):
             yield self[i]
 
 
 class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSample]):
-    def __init__(self, *args: Any, **kwargs: dict[str, Any]) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
 
 # FIXME: overly broad coords typing
-def _coords_to_region(tile_size: Shape, target_mpp: float, key: Any, coords: Any) -> Any:
+def _coords_to_region(tile_size: Size, target_mpp: float, key: Any, coords: Any) -> Any:
     """Return the necessary tuple that represents a region."""
     return *coords, *tile_size, target_mpp
 
@@ -344,16 +344,16 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
     def __init__(
         self,
         path: pathlib.Path,
-        grids: list[tuple[Grid, Shape, float]],
+        grids: list[tuple[Grid, Size, float]],
         crop: bool = False,
         mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
-        output_tile_size: Shape | None = None,
+        output_tile_size: Size | None = None,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: DlupTransform | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
-        **kwargs: dict[str, Any],
+        **kwargs: Any,
     ):
         self._grids = grids
         regions = []
@@ -378,7 +378,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self.__transform = transform
 
     @property
-    def grids(self) -> list[tuple[Grid, Shape, float]]:
+    def grids(self) -> list[tuple[Grid, Size, float]]:
         return self._grids
 
     @classmethod
@@ -386,22 +386,23 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         cls,
         path: pathlib.Path,
         mpp: float | None,
-        tile_size: Shape,
-        tile_overlap: Shape,
+        tile_size: Size,
+        tile_overlap: Size,
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
         mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
-        output_tile_size: Shape | None = None,
+        output_tile_size: Size | None = None,
         rois: tuple[ROI] | None = None,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: DlupTransform | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
-        **kwargs: dict[str, Any],
+        **kwargs: Any,
     ) -> "TiledROIsSlideImageDataset":
         """Function to be used to tile a WSI on-the-fly.
+
         Parameters
         ----------
         path :
@@ -498,7 +499,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois: tuple[ROI] | None, image_size: Shape, scaling: float) -> tuple[ROI]:
+def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float) -> tuple[ROI]:
     if rois is None:
         return (((0, 0), image_size),)
     else:

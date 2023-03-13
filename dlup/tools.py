@@ -5,7 +5,7 @@
 import bisect
 import collections
 import itertools
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Iterator, Sequence
 
 import numpy as np
 
@@ -29,7 +29,7 @@ class MapSequence(collections.abc.Sequence):
     def __getitem__(self, key: int) -> "MapSequence":
         return self._function(key, self._sequence[key])
 
-    def __iter__(self) -> Iterable:
+    def __iter__(self) -> Iterator[Any]:
         for i in range(len(self)):
             yield self[i]
 
@@ -51,6 +51,6 @@ class ConcatSequences(collections.abc.Sequence):
     def __len__(self) -> int:
         return self._len
 
-    def __iter__(self) -> Iterable[Any]:
+    def __iter__(self) -> Iterator[Any]:
         for i in range(len(self)):
             yield self[i]

@@ -234,7 +234,7 @@ class TifffileImageWriter(ImageWriter):
         compression: str | None,
         shapes: list[tuple[int, int]],
         is_rgb: bool,
-        **options: dict[str, Any],
+        **options: Any,
     ) -> None:
         native_resolution = 1 / np.array(self._mpp) * 10000
         tiff_writer.write(

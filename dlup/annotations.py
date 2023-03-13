@@ -41,7 +41,7 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
-from dlup.types import Coordinates, GenericNumber, PathLike, PointOrPolygon, Shape
+from dlup.types import Coordinates, GenericNumber, PathLike, PointOrPolygon, Size
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -78,7 +78,7 @@ class Point(shapely.geometry.Point):
     def type(self) -> AnnotationType:
         return AnnotationType.POINT
 
-    def __new__(cls, coord: tuple[float, float], *args: Any, **kwargs: dict[str, Any]) -> "Point":
+    def __new__(cls, coord: tuple[float, float], *args: Any, **kwargs: Any) -> "Point":
         point = super().__new__(cls, coord)
         point.__class__ = cls
         return point
@@ -111,7 +111,7 @@ class Polygon(shapely.geometry.Polygon):
     def type(self) -> AnnotationType:
         return AnnotationType.POLYGON
 
-    def __new__(cls, coord: Coordinates, *args: Any, **kwargs: dict[str, Any]) -> "Point":
+    def __new__(cls, coord: Coordinates, *args: Any, **kwargs: Any) -> "Point":
         point = super().__new__(cls, coord)
         point.__class__ = cls
         return point
@@ -218,7 +218,7 @@ class WsiSingleLabelAnnotation:
         return data
 
     @staticmethod
-    def __get_bbox(z: tuple[npt.NDArray[np.int_]]) -> tuple[Shape, Shape]:
+    def __get_bbox(z: tuple[npt.NDArray[np.int_]]) -> tuple[Size, Size]:
         return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
 
     @property

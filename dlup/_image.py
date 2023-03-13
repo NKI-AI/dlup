@@ -16,6 +16,7 @@ import types
 from enum import IntEnum
 from typing import Any, Callable, Type, TypeVar, cast
 
+from dlup.types import Size
 import numpy as np
 import numpy.typing as npt
 import PIL
@@ -56,7 +57,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.mpp / self._scaling
 
     @property
-    def size(self) -> tuple[int, ...]:
+    def size(self) -> Size:
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
@@ -96,7 +97,7 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs: dict[str, Any]) -> None:
+    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs: Any) -> None:
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
@@ -140,7 +141,7 @@ class SlideImage:
         wsi_file_path: PathLike,
         identifier: str | None = None,
         backend: str | Callable = ImageBackend.PYVIPS,
-        **kwargs: dict[str, Any],
+        **kwargs: Any,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
 
@@ -160,7 +161,7 @@ class SlideImage:
         self,
         location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: npt.NDArray[np.int_] | tuple[int, int],
+        size: npt.NDArray[np.int_] | Size,
     ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
@@ -268,10 +269,10 @@ class SlideImage:
         size = cast(tuple[int, int], size)
         return region.resize(size, resample=self._interpolator, box=box)
 
-    def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, ...]:
+    def get_scaled_size(self, scaling: GenericNumber) -> Size:
         """Compute slide image size at specific scaling."""
         size = np.array(self.size) * scaling
-        return tuple(size.astype(int))
+        return int(size[0]), int(size[1])
 
     def get_mpp(self, scaling: float) -> float:
         """Returns the respective mpp from the scaling."""
@@ -287,7 +288,7 @@ class SlideImage:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
-    def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> PIL.Image.Image:
+    def get_thumbnail(self, size: Size = (512, 512)) -> PIL.Image.Image:
         """Returns an RGB `PIL.Image.Image` thumbnail for the current slide.
 
         Parameters
@@ -323,7 +324,7 @@ class SlideImage:
         return self._wsi.vendor
 
     @property
-    def size(self) -> tuple[int, int]:
+    def size(self) -> Size:
         """Returns the highest resolution image size in pixels. Returns in (width, height)."""
         return self._wsi.dimensions
 

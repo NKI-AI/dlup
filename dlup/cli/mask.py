@@ -3,7 +3,7 @@
 """CLI utilities to handle masks"""
 import argparse
 import json
-from typing import Any, cast
+from typing import cast
 
 import shapely
 
@@ -66,15 +66,15 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
             continue
 
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
-            coordinates = [Polygon(coords, label=label) for coords in polygons[label].geoms if not coords.is_empty]
+            annotations = [Polygon(coords, label=label) for coords in polygons[label].geoms if not coords.is_empty]
         else:
-            coordinates = [Polygon(polygons[label], label=label)]
+            annotations = [Polygon(polygons[label], label=label)]
 
         wsi_annotations.append(
             WsiSingleLabelAnnotation(
                 label=label,
                 type=AnnotationType.POLYGON,
-                coordinates=coordinates,
+                annotations=annotations,
             )
         )
 
@@ -98,7 +98,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
                 json.dump(json_dict, f, indent=2)
 
 
-def register_parser(parser: argparse._SubParsersAction[Any]) -> None:
+def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore
     """Register mask commands to a root parser."""
     wsi_parser = parser.add_parser("mask", help="WSI mask parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI mask subparser")

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -15,6 +15,7 @@ from dlup.data.dataset import TiledROIsSlideImageDataset, parse_rois
 from dlup.data.transforms import DlupTransform
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
+from dlup.types import ROI
 
 _BaseAnnotationTypes = SlideImage | WsiAnnotations
 _AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
@@ -98,7 +99,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         crop: bool = False,
         mask: npt.NDArray[np.int_] | None = None,
         mask_threshold: float | None = 0.0,
-        rois: tuple[tuple[int, ...]] | None = None,
+        rois: tuple[ROI] | None = None,
         transform: DlupTransform | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
     ) -> "MultiScaleSlideImageDataset":
@@ -107,7 +108,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
 
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp
-            _rois = parse_rois(rois, tuple(slide_image.size), scaling=1)
+            _rois = parse_rois(rois, slide_image.size, scaling=1)
 
         view_scalings = [mpp / original_mpp for mpp in mpps]
         grids = []
