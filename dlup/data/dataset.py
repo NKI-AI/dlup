@@ -520,7 +520,7 @@ def parse_rois(rois: ROIType | None, image_size, scaling: float = 1.0):
         if not origin_positive or not image_within_borders:
             raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
-    _rois = [
+    rois = [
         (
             (np.ceil(np.asarray(coords) * scaling).astype(int)).tolist(),
             np.floor(np.asarray(size) * scaling).astype(int).tolist(),
