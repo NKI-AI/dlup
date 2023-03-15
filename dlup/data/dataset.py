@@ -461,7 +461,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
                 if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
                     raise ValueError(
                         f"Cannot use AutoDetect as backend and use limit_bounds at the same time. This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
-                    ) 
+                    )
 
                 offset, bounds = slide_image.slide_bounds
                 offset = tuple((np.asarray(offset) * scaling).astype(int))
