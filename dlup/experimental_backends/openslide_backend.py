@@ -78,7 +78,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
 
     @property
     def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
-        """Returns the bounds of the slide. These can be smaller than the image itself."""
+        """Returns the bounds of the slide as ((x,y), (width, height)). These can be smaller than the image itself."""
 
         offset = int(self.properties.get(openslide.PROPERTY_NAME_BOUNDS_X, 0)), int(
             self.properties.get(openslide.PROPERTY_NAME_BOUNDS_Y, 0)
