@@ -460,7 +460,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
                     raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
                 offset, bounds = slide_image.slide_bounds
                 offset = tuple((np.asarray(offset) * scaling).astype(int))
-                size = int(bounds[0] * scaling) - offset[0], int(bounds[1] * scaling) - offset[1]
+                size = int(bounds[0] * scaling), int(bounds[1] * scaling)
                 _rois = ((offset, size),)
 
             else:
