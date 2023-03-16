@@ -26,7 +26,6 @@ import scipy.ndimage as ndi
 import skimage.filters
 import skimage.morphology
 import skimage.segmentation
-import skimage.util
 from scipy.signal import argrelextrema
 
 import dlup
