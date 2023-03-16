@@ -10,6 +10,7 @@ Currently implemented:
 
 -   FESI (Foreground Extraction for Histopathological Whole-Slide Imaging).
 -   Improved FESI.
+-   EntropyMasker (non-official implementation)
 
 Check their respective documentations for references.
 """
@@ -17,7 +18,7 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Union
 
 import numpy as np
 import PIL.Image
@@ -25,6 +26,8 @@ import scipy.ndimage as ndi
 import skimage.filters
 import skimage.morphology
 import skimage.segmentation
+import skimage.util
+from scipy.signal import argrelextrema
 
 import dlup
 import dlup.tiling
@@ -172,6 +175,59 @@ def fesi(image: np.ndarray) -> np.ndarray:
     gray = np.abs(skimage.filters.laplace(gray, ksize=3))
     return _fesi_common(gray)
 
+def entropy_masker(
+    image: np.ndarray,
+    footprint: Union[np.ndarray, tuple, None] = None,
+    bins: int = 30,
+    threshold_bounds: tuple[int, int] = (1, 4),
+) -> np.ndarray:
+    """
+    Extract foreground from background from H&E WSIs and HHG images using the EntropyMasker algorithm [1].
+
+    Parameters
+    ----------
+    image : np.ndarray
+        2D RGB image, with color channels at the last axis.
+    footprint : np.ndarray, tuple, default=`skimage.morphology.disk(3)`
+        Footprint to use with `skimage.filters.rank.entropy`.
+    bins : int
+        Number of bins for the entropy histogram.
+    threshold_bounds : tuple[int, int], default=(1, 4)
+        Lower and upper threshold for the binned entropy minimum.
+    
+    Returns
+    -------
+    np.ndarray
+        Tissue mask
+    
+    References
+    ----------
+    .. [1] https://doi.org/10.1038/s41598-023-29638-1
+    """
+    gray = skimage.color.rgb2gray(image)
+
+    if footprint is None:
+        footprint = skimage.morphology.disk(3)
+
+    # Tissue has structural information that background does not have.
+    # The entropy in tissue is assumed to be bigger.
+    ent = skimage.filters.rank.entropy(gray, footprint)
+
+    # Get the local minimum of the entropy histogram.
+    # Corresponding entropy is the threshold below which
+    # data is considere background.
+    hist, bin_edges = np.histogram(ent, bins)
+    minimum = argrelextrema(hist, np.less)
+    for threshold in bin_edges[minimum]:
+        if threshold_bounds[0] < threshold < threshold_bounds[1]:
+            mask = ent > threshold
+            break
+    else:
+        # If no threshold threshold was within bounds,
+        # return full image.
+        mask = np.ones_like(gray, dtype=np.bool_)
+    
+    return mask
 
 def next_power_of_2(x):
     """Returns the smallest greater than x, power of 2 value.
@@ -361,6 +417,7 @@ class AvailableMaskFunctions(Enum):
 
     fesi = partial(fesi)
     improved_fesi = partial(improved_fesi)
+    entropy_masker = partial(entropy_masker)
 
     def __call__(self, *args):
         return self.value(*args)
