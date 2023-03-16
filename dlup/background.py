@@ -175,6 +175,7 @@ def fesi(image: np.ndarray) -> np.ndarray:
     gray = np.abs(skimage.filters.laplace(gray, ksize=3))
     return _fesi_common(gray)
 
+
 def entropy_masker(
     image: np.ndarray,
     footprint: Union[np.ndarray, None] = None,
@@ -194,12 +195,12 @@ def entropy_masker(
         Number of bins for the entropy histogram.
     threshold_bounds : tuple[int, int], default=(1, 4)
         Lower and upper threshold for the binned entropy minimum.
-    
+
     Returns
     -------
     np.ndarray
         Tissue mask
-    
+
     References
     ----------
     .. [1] https://doi.org/10.1038/s41598-023-29638-1
@@ -226,8 +227,9 @@ def entropy_masker(
         # If no threshold threshold was within bounds,
         # return full image.
         mask = np.ones_like(gray, dtype=np.bool_)
-    
+
     return mask
+
 
 def next_power_of_2(x):
     """Returns the smallest greater than x, power of 2 value.
