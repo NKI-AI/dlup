@@ -207,7 +207,7 @@ def entropy_masker(
     gray = skimage.color.rgb2gray(image)
 
     if footprint is None:
-        footprint = skimage.morphology.disk(3)
+        footprint = skimage.morphology.disk(5)
 
     # Tissue has structural information that background does not have.
     # The entropy in tissue is assumed to be bigger.
