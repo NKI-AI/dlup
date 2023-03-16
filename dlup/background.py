@@ -188,7 +188,7 @@ def entropy_masker(
     ----------
     image : np.ndarray
         2D RGB image, with color channels at the last axis.
-    footprint : np.ndarray, default=`skimage.morphology.disk(3)`
+    footprint : np.ndarray, default=`skimage.morphology.disk(5)`
         Footprint to use with `skimage.filters.rank.entropy`.
     bins : int
         Number of bins for the entropy histogram.
