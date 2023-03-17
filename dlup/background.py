@@ -21,9 +21,11 @@ from functools import partial
 from typing import Callable, Iterable, Union
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 import scipy.ndimage as ndi
 import skimage.filters
+import skimage.measure
 import skimage.morphology
 import skimage.segmentation
 from scipy.signal import argrelextrema
@@ -175,14 +177,63 @@ def fesi(image: np.ndarray) -> np.ndarray:
     return _fesi_common(gray)
 
 
+def _connected_components(
+    image: npt.NDArray,
+    connectivity: Union[int, None] = None,
+    num_largest_components: Union[int, None] = None,
+) -> np.ndarray[bool]:
+    """
+    Connected component analysis used by entropy_masker.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        2D RGB image, with color channels at the last axis.
+    connectivity : int, default=None
+        Connectivity of the connected components analysis.
+        If None, pick all components.
+    num_largest_components : int, default=None
+        Pick the `num_largest_components` largest components.
+        If None, pick all components.
+
+    Returns
+    -------
+    np.ndarray
+        Binary mask of connected components.
+    """
+    # Pick the largest image component using connected components.
+    labels, num = skimage.morphology.label(image, connectivity=connectivity, return_num=True)
+
+    # Finding the largest component is not needed if there is only one component.
+    if num == 1:
+        return image
+
+    label_props: list[skimage.measure._regionprops.RegionProperties] = skimage.measure.regionprops(labels)
+    areas = [label_prop.area for label_prop in label_props]
+    if num_largest_components is None or num_largest_components < 1:
+        num_largest_components = len(areas)
+    else:
+        num_largest_components = min(len(areas), num_largest_components)
+
+    # Get the indices of the num_largest_components largest components.
+    max_area_indices = np.argpartition(areas, -num_largest_components)[-num_largest_components:]
+
+    # Background is labelled 0
+    largest_component_mask = np.isin(labels, max_area_indices + 1)
+
+    return largest_component_mask
+
+
 def entropy_masker(
     image: np.ndarray,
     footprint: Union[np.ndarray, None] = None,
     bins: int = 30,
     threshold_bounds: tuple[int, int] = (1, 4),
-) -> np.ndarray:
+    connectivity: Union[int, None] = None,
+    num_largest_components: Union[int, None] = None,
     """
     Extract foreground from background from H&E WSIs and HHG images using the EntropyMasker algorithm [1].
+    Connected component analysis to select the largest component(s) is optional.
 
     Parameters
     ----------
@@ -194,6 +245,14 @@ def entropy_masker(
         Number of bins for the entropy histogram.
     threshold_bounds : tuple[int, int], default=(1, 4)
         Lower and upper threshold for the binned entropy minimum.
+    connectivity : int, default=None
+        Connectivity of the connected components analysis.
+        If None, pick all components.
+        `num_largest_components` must to be specified.
+    num_largest_components : int, default=None
+        Pick the `num_largest_components` largest components.
+        If None or <1, pick all components.
+        `connectivity` must be specified.
 
     Returns
     -------
@@ -225,7 +284,9 @@ def entropy_masker(
     else:
         # If no threshold threshold was within bounds,
         # return full image.
-        mask = np.ones_like(gray, dtype=np.bool_)
+
+    if connectivity and num_largest_components:
+        return _connected_components(mask, connectivity, num_largest_components)
 
     return mask
 
