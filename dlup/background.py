@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Callable, Iterable, Union, Any
+from typing import Any, Callable, Iterable, Union
 
 import numpy as np
 import numpy.typing as npt
