@@ -24,11 +24,11 @@ import numpy as np
 import numpy.typing as npt
 import PIL.Image
 import scipy.ndimage as ndi
+import scipy.signal
 import skimage.filters
 import skimage.measure
 import skimage.morphology
 import skimage.segmentation
-from scipy.signal import argrelextrema
 
 import dlup
 import dlup.tiling
@@ -274,15 +274,15 @@ def entropy_masker(
 
     # Get the local minimum of the entropy histogram.
     # Corresponding entropy is the threshold below which
-    # data is considere background.
+    # data is considered background.
     hist, bin_edges = np.histogram(ent, bins)
-    minimum = argrelextrema(hist, np.less)
+    minimum = scipy.signal.argrelmin(hist)
     for threshold in bin_edges[minimum]:
         if threshold_bounds[0] < threshold < threshold_bounds[1]:
             mask = ent > threshold
             break
     else:
-        # If no threshold threshold was within bounds,
+        # If no threshold was within bounds,
         # return full image.
 
     if connectivity and num_largest_components:
