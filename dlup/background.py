@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Callable, Iterable, Union
+from typing import Callable, Iterable, Union, Any
 
 import numpy as np
 import numpy.typing as npt
@@ -181,7 +181,7 @@ def _connected_components(
     image: npt.NDArray,
     connectivity: Union[int, None] = None,
     num_largest_components: Union[int, None] = None,
-) -> np.ndarray[bool]:
+) -> np.ndarray[Any, np.dtype[np.bool_]]:
     """
     Connected component analysis used by entropy_masker.
 
@@ -225,12 +225,13 @@ def _connected_components(
 
 
 def entropy_masker(
-    image: np.ndarray,
+    image: npt.NDArray,
     footprint: Union[np.ndarray, None] = None,
     bins: int = 30,
     threshold_bounds: tuple[int, int] = (1, 4),
     connectivity: Union[int, None] = None,
     num_largest_components: Union[int, None] = None,
+) -> np.ndarray[Any, np.dtype[np.bool_]]:
     """
     Extract foreground from background from H&E WSIs and HHG images using the EntropyMasker algorithm [1].
     Connected component analysis to select the largest component(s) is optional.
@@ -284,6 +285,7 @@ def entropy_masker(
     else:
         # If no threshold was within bounds,
         # return full image.
+        mask = np.ones_like(gray, dtype=np.bool_)
 
     if connectivity and num_largest_components:
         return _connected_components(mask, connectivity, num_largest_components)
