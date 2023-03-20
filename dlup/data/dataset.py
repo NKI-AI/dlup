@@ -458,9 +458,14 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             if limit_bounds:
                 if rois is not None:
                     raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
+                if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
+                    raise ValueError(
+                        f"Cannot use AutoDetect as backend and use limit_bounds at the same time. This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
+                    )
+
                 offset, bounds = slide_image.slide_bounds
                 offset = tuple((np.asarray(offset) * scaling).astype(int))
-                size = int(bounds[0] * scaling) - offset[0], int(bounds[1] * scaling) - offset[1]
+                size = int(bounds[0] * scaling), int(bounds[1] * scaling)
                 _rois = ((offset, size),)
 
             else:
@@ -526,6 +531,6 @@ def parse_rois(rois: ROIType | None, image_size, scaling: float = 1.0):
             np.floor(np.asarray(size) * scaling).astype(int).tolist(),
         )
         for coords, size in rois
-    ]
+    ]  # preceding _ used to circumvent mypy complaining about type casting
 
-    return rois
+    return _rois
