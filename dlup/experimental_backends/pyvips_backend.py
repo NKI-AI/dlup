@@ -47,6 +47,8 @@ class PyVipsSlide(AbstractSlideBackend):
 
         self._loader = self._images[0].get("vips-loader")
 
+        self.__slide_bounds = (0, 0), (0, 0)
+
         if self._loader == "tiffload":
             self._read_as_tiff(filename)
         elif self._loader == "openslideload":
@@ -81,6 +83,8 @@ class PyVipsSlide(AbstractSlideBackend):
                 downsample = mpp_x / self._spacings[0][0]
                 self._downsamples.append(downsample)
             self._shapes.append((image.get("width"), image.get("height")))
+
+        self.__slide_bounds = (0, 0), self._shapes[0]
 
     def _read_as_openslide(self, path: PathLike):
         """
@@ -124,6 +128,25 @@ class PyVipsSlide(AbstractSlideBackend):
             warnings.warn(
                 f"{path} does not have a parseable spacings property. You can overwrite it with `.mpp = (mpp_x, mpp_y)."
             )
+
+        if "openslide.bounds-x" in available_fields and "openslide.bounds-y" in available_fields:
+            offset = int(self._images[0].get("openslide.bounds-x")), int(self._images[0].get("openslide.bounds-y"))
+        else:
+            offset = (0, 0)
+
+        if "openslide.bounds-width" in available_fields and "openslide.bounds-height" in available_fields:
+            size = int(self._images[0].get("openslide.bounds-width")), int(
+                self._images[0].get("openslide.bounds-height")
+            )
+        else:
+            size = self._shapes[0]
+
+        self.__slide_bounds = offset, size
+
+    @property
+    def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """Returns the bounds of the slide as ((x,y), (width, height)). These can be smaller than the image itself."""
+        return self.__slide_bounds
 
     @property
     def spacing(self) -> tuple[float, float] | None:

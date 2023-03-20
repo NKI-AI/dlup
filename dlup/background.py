@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Callable, Iterable
+from typing import Callable
 
 import numpy as np
 import PIL.Image
@@ -26,13 +26,10 @@ import skimage.filters
 import skimage.morphology
 import skimage.segmentation
 
-import dlup
 import dlup.tiling
 from dlup import SlideImage
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
-
-_GenericIntArray = np.ndarray | Iterable[int]
 
 
 def _is_close(_seeds, _start) -> bool:

@@ -108,6 +108,10 @@ class OpenSlideImageMock(openslide.ImageSlide):
         return self.properties.get("openslide.mpp-x", None), self.properties.get("openslide.mpp-y", None)
 
     @property
+    def slide_bounds(self):
+        return (0, 0), self.dimensions
+
+    @property
     def vendor(self):
         return self.properties.get("openslide.vendor", None)
 

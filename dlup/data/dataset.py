@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Callable, Generic, Iterable, TypedDict, TypeVar, cast
+from typing import Any, Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
@@ -27,9 +27,10 @@ from dlup.tools import ConcatSequences, MapSequence
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
-_BaseAnnotationTypes = SlideImage | WsiAnnotations
-_AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
-_LabelTypes = str | bool | int | float
+_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
+_AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
+_LabelTypes = Union[str, bool, int, float]
+ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
@@ -390,11 +391,12 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
-        rois: tuple[tuple[int, ...]] | None = None,
+        rois: ROIType | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
+        limit_bounds: bool = True,
         **kwargs,
     ):
         """Function to be used to tile a WSI on-the-fly.
@@ -429,10 +431,13 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             Annotation class
         labels : list
             Image-level labels. Will be added to each individual tile.
-        transform : ImageBackend
+        transform : Callable
             Transform to be applied to the sample.
-        backend :
+        backend : ImageBackend
             Backend to use to read the whole slide image.
+        limit_bounds : bool
+            If the bounds of the grid should be limited to the bounds of the slide given in the `slide_bounds` property
+            of the `SlideImage` class.
         **kwargs :
             Gets passed to the SlideImage constructor.
 
@@ -447,11 +452,27 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         pre-processing step is not required.
         """
         with SlideImage.from_file_path(path, backend=backend, **kwargs) as slide_image:
-            slide_level_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
+            scaling = slide_image.get_scaling(mpp)
             slide_mpp = slide_image.mpp
-            _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
-        grid_mpp = mpp if mpp is not None else slide_mpp
 
+            if limit_bounds:
+                if rois is not None:
+                    raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
+                if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
+                    raise ValueError(
+                        f"Cannot use AutoDetect as backend and use limit_bounds at the same time. This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
+                    )
+
+                offset, bounds = slide_image.slide_bounds
+                offset = tuple((np.asarray(offset) * scaling).astype(int))
+                size = int(bounds[0] * scaling), int(bounds[1] * scaling)
+                _rois = ((offset, size),)
+
+            else:
+                slide_level_size = slide_image.get_scaled_size(scaling)
+                _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
+
+        grid_mpp = mpp if mpp is not None else slide_mpp
         grids = []
         for offset, size in _rois:
             grid = Grid.from_tiling(
@@ -494,7 +515,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois, image_size, scaling: float) -> tuple[tuple[tuple[int, int], tuple[int, int]], ...]:
+def parse_rois(rois: ROIType | None, image_size, scaling: float = 1.0):
     if rois is None:
         return (((0, 0), image_size),)
     else:
@@ -504,11 +525,12 @@ def parse_rois(rois, image_size, scaling: float) -> tuple[tuple[tuple[int, int],
         if not origin_positive or not image_within_borders:
             raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
-    rois = [
+    _rois = [
         (
-            np.ceil(np.asarray(coords) * scaling).astype(int).tolist(),
+            (np.ceil(np.asarray(coords) * scaling).astype(int)).tolist(),
             np.floor(np.asarray(size) * scaling).astype(int).tolist(),
         )
         for coords, size in rois
-    ]
-    return rois
+    ]  # preceding _ used to circumvent mypy complaining about type casting
+
+    return _rois
