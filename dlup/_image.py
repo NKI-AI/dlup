@@ -339,7 +339,9 @@ class SlideImage:
 
     @property
     def slide_bounds(self):
-        """Returns the bounds of the slide. These can be smaller than the image itself."""
+        """Returns the bounds of the slide. These can be smaller than the image itself.
+        These bounds are in the format (x, y), (width, height), and are defined at level 0 of the image.
+        """
         return self._wsi.slide_bounds
 
     def __repr__(self) -> str:
