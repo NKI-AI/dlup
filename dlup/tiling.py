@@ -11,8 +11,8 @@ import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
 
-_GenericNumber = int | float
-_GenericNumberArray = np.ndarray | Sequence[_GenericNumber]
+_GenericNumber = Union[int, float]
+_GenericNumberArray = Union[npt.NDArray, Sequence[_GenericNumber]]
 
 
 class TilingMode(str, Enum):
@@ -102,7 +102,7 @@ def tiles_grid_coordinates(
         overflow = tiled_size - size
 
     # Let's create our indices list
-    coordinates: list[NDArray[np.float_]] = []
+    coordinates: list[npt.NDArray[np.float_]] = []
     for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
         coordinates.append(tiles_locations)

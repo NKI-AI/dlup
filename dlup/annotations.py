@@ -133,6 +133,8 @@ def shape(coordinates: ShapelyTypes, label: str, multiplier: float = 1.0) -> lis
     geom_type = coordinates.get("type").lower()
     if geom_type == "point":
         return [Point(np.asarray(coordinates["coordinates"]) * multiplier, label=label)]
+    elif geom_type == "multipoint":
+        return [Point(np.asarray(c) * multiplier, label=label) for c in coordinates["coordinates"]]
     elif geom_type == "polygon":
         return [Polygon(np.asarray(coordinates["coordinates"][0]) * multiplier, label=label)]
     elif geom_type == "multipolygon":

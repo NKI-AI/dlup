@@ -172,6 +172,11 @@ class AbstractSlideBackend(abc.ABC):
         return thumbnail
 
     @property
+    def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """Returns the bounds of the slide. These can be smaller than the image itself."""
+        return (0, 0), self.dimensions
+
+    @property
     @abc.abstractmethod
     def properties(self) -> dict[str, str | int | float | bool]:
         """Properties of slide"""

@@ -32,8 +32,6 @@ from dlup import SlideImage
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
 
-_GenericIntArray = np.ndarray | Iterable[int]
-
 
 def _is_close(_seeds: list[tuple[int, int]], _start: list[tuple[npt.NDArray[np.int_]]]) -> bool:
     """
