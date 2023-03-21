@@ -18,11 +18,12 @@ import numpy.typing as npt
 import PIL
 import PIL.Image
 from numpy.typing import NDArray
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import WsiAnnotations
 from dlup.background import is_foreground
+from dlup.data import RegionFromSlideDatasetSample
 from dlup.data.transforms import DlupTransform
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
@@ -35,25 +36,6 @@ _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
 ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
-
-
-class _StandardTilingFromSlideDatasetSample(TypedDict):
-    image: PIL.Image.Image
-    coordinates: tuple[int | float, int | float]
-    mpp: float
-    path: pathlib.Path
-    region_index: int
-    # FIXME: better typing
-    annotations: NotRequired[Any]
-    labels: NotRequired[Any]
-
-
-class RegionFromSlideDatasetSample(_StandardTilingFromSlideDatasetSample):
-    """A sample from a :class:`RegionFromSlideDataset`."""
-
-    grid_local_coordinates: NotRequired[Coordinates]
-    grid_index: NotRequired[int]
-    annotation_data: NotRequired[Any]
 
 
 class PretiledDatasetSample(TypedDict):

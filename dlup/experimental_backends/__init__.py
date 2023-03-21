@@ -11,7 +11,7 @@ import PIL
 import pyvips
 import tifffile
 
-from dlup import UnsupportedSlideError
+from dlup._exceptions import UnsupportedSlideError
 from dlup.types import PathLike
 
 from .common import AbstractSlideBackend

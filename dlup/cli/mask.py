@@ -9,10 +9,10 @@ import shapely
 
 from dlup._image import Resampling
 from dlup.annotations import AnnotationType, GeoJsonDict, Polygon, WsiAnnotations, WsiSingleLabelAnnotation
-from dlup.cli import file_path
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import TilingMode
+from dlup.utils.cli import file_path
 from dlup.utils.mask import dataset_to_polygon
 
 

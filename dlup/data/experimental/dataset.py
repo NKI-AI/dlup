@@ -8,15 +8,16 @@ import pathlib
 import numpy as np
 import numpy.typing as npt
 
-from dlup import SlideImage
+import dlup
 from dlup.annotations import WsiAnnotations
-from dlup.data.dataset import RegionFromSlideDatasetSample, TiledROIsSlideImageDataset, parse_rois
+from dlup.data import RegionFromSlideDatasetSample
+from dlup.data.dataset import TiledROIsSlideImageDataset, parse_rois
 from dlup.data.transforms import DlupTransform
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.types import ROI
 
-_BaseAnnotationTypes = SlideImage | WsiAnnotations
+_BaseAnnotationTypes = dlup.SlideImage | WsiAnnotations
 _AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
 _LabelTypes = str | bool | int | float
 
@@ -54,7 +55,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         grids: list[tuple[Grid, tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
-        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
+        mask: dlup.SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         annotations: _BaseAnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
@@ -146,7 +147,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         if mpps != sorted(mpps):
             raise ValueError(f"The mpp values should be in increasing order. Got {mpps}.")
 
-        with SlideImage.from_file_path(path, backend=backend) as slide_image:
+        with dlup.SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp
             _rois = parse_rois(rois, slide_image.size, scaling=1)
 

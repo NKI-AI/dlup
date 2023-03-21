@@ -21,7 +21,7 @@ import numpy.typing as npt
 import PIL
 import PIL.Image
 
-from dlup import UnsupportedSlideError
+from dlup._exceptions import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
 from dlup.experimental_backends import ImageBackend
 from dlup.experimental_backends.common import AbstractSlideBackend

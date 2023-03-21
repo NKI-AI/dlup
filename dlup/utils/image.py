@@ -5,7 +5,7 @@
 
 import math
 
-from dlup import UnsupportedSlideError
+from dlup._exceptions import UnsupportedSlideError
 
 
 def check_if_mpp_is_valid(mpp_x: float, mpp_y: float, *, rel_tol: float = 0.015) -> None:

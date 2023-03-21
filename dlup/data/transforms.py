@@ -13,9 +13,9 @@ import numpy.typing as npt
 import PIL.Image
 import shapely
 
+import dlup._exceptions
 import dlup.annotations
-import dlup.data.dataset
-from dlup._exceptions import AnnotationError
+import dlup.data
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
@@ -133,9 +133,7 @@ class ConvertAnnotationsToMask(DlupTransform):
         self._index_map = index_map
         self._default_value = default_value
 
-    def __call__(
-        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
-    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
+    def __call__(self, sample: dlup.data.RegionFromSlideDatasetSample) -> dlup.data.RegionFromSlideDatasetSample:
         if "annotations" not in sample:
             return sample
 
@@ -170,9 +168,7 @@ class RenameLabels(DlupTransform):
         """
         self._remap_labels = remap_labels
 
-    def __call__(
-        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
-    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
+    def __call__(self, sample: dlup.data.RegionFromSlideDatasetSample) -> dlup.data.RegionFromSlideDatasetSample:
         _annotations = sample["annotations"]
 
         output_annotations = []
@@ -188,7 +184,7 @@ class RenameLabels(DlupTransform):
             elif isinstance(annotation, dlup.annotations.Point):
                 output_annotations.append(dlup.annotations.Point(annotation, label=self._remap_labels[label]))
             else:
-                raise AnnotationError(f"Unsupported annotation type {type(annotation)}")
+                raise dlup._exceptions.AnnotationError(f"Unsupported annotation type {type(annotation)}")
 
         sample["annotations"] = output_annotations
         return sample
@@ -217,9 +213,7 @@ class MajorityClassToLabel(DlupTransform):
         self._roi_name = roi_name
         self._index_map = index_map
 
-    def __call__(
-        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
-    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
+    def __call__(self, sample: dlup.data.RegionFromSlideDatasetSample) -> dlup.data.RegionFromSlideDatasetSample:
         if "annotations" not in sample:
             return sample
 
@@ -285,9 +279,7 @@ class ContainsPolygonToLabel(DlupTransform):
         self._label = label
         self._threshold = threshold
 
-    def __call__(
-        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
-    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
+    def __call__(self, sample: dlup.data.RegionFromSlideDatasetSample) -> dlup.data.RegionFromSlideDatasetSample:
         if "annotations" not in sample:
             return sample
 
