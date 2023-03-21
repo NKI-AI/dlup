@@ -109,7 +109,7 @@ class DlupTransform(abc.ABC):
         """Constructor"""
 
     @abc.abstractmethod
-    def __call__(self, sample):
+    def __call__(self, sample: Any) -> Any:
         """Generic call"""
 
 

@@ -37,7 +37,8 @@ _LabelTypes = Union[str, bool, int, float]
 ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
 
 
-class StandardTilingFromSlideDatasetSample(TypedDict):
+
+class _StandardTilingFromSlideDatasetSample(TypedDict):
     image: PIL.Image.Image
     coordinates: tuple[int | float, int | float]
     mpp: float
@@ -48,9 +49,9 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
     labels: NotRequired[Any]
 
 
-class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
-    grid_local_coordinates: Coordinates
-    grid_index: int
+class RegionFromSlideDatasetSample(_StandardTilingFromSlideDatasetSample):
+    grid_local_coordinates: NotRequired[Coordinates]
+    grid_index: NotRequired[int]
     annotation_data: NotRequired[Any]
 
 
@@ -282,7 +283,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
         region = region_view.read_region(coordinates, region_size)
 
-        sample: StandardTilingFromSlideDatasetSample = {
+        sample: RegionFromSlideDatasetSample = {
             "image": region,
             "coordinates": coordinates,
             "mpp": mpp,
@@ -312,7 +313,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
             yield self[i]
 
 
-class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSample]):
+class SlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 

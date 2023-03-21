@@ -4,7 +4,7 @@ import os
 import pathlib
 from enum import Enum
 from functools import lru_cache
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import numpy as np
 import openslide
@@ -122,6 +122,7 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
     except tifffile.tifffile.TiffFileError:
         raise UnsupportedSlideError(f"Cannot read {filename} with tifffile.")
 
+BackendLiteral = Literal["OPENSLIDE", "PYVIPS", "TIFFFILE", "AUTODETECT"]
 
 class ImageBackend(Enum):
     """Available image backends."""

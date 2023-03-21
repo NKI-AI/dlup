@@ -135,7 +135,7 @@ class AbstractSlideBackend(abc.ABC):
         """
         sorted_downsamples = sorted(self._downsamples, reverse=True)
 
-        def difference(sorted_list):
+        def difference(sorted_list) -> float:
             return float(np.clip(0, None, downsample - sorted_list))
 
         number = max(sorted_downsamples, key=difference)

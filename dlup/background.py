@@ -56,7 +56,7 @@ def _is_close(_seeds, _start) -> bool:
 
 
 # TODO: -> npt.NDArray[np.bool_]
-def _fesi_common(image):
+def _fesi_common(image: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_]:
     """
     Common functionality for FESI and Improved FESI.
 
@@ -104,6 +104,7 @@ def _fesi_common(image):
     return final_mask.astype(bool)
 
 
+# TODO: Does output need to be np.bool_?
 def improved_fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     """Combination of original and improved FESI algorithms.
 
@@ -145,8 +146,7 @@ def improved_fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     gray_bgr = (gray_bgr >= np.mean(gray_bgr)) * 1.0
 
     tissue_rgb_hsv_1 = tissue_bgr * img_hsv[..., 1] * gray_bgr
-
-    return _fesi_common(tissue_rgb_hsv_1)
+    return _fesi_common(tissue_rgb_hsv_1).astype(int)
 
 
 def fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
