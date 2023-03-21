@@ -35,7 +35,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
             mpps=[0.0625, 0.125],\
             tile_size=(1024, 1024),\
             tile_overlap=(512, 512),\
-            tile_mode=TilingMode.skip,\
+            tile_mode=TilingMode.SKIP,\
             crop=False,\
             mask=None,\
             mask_threshold=0.5,\
@@ -94,7 +94,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mpps: list[float],
         tile_size: tuple[int, int],
         tile_overlap: tuple[int, int],
-        tile_mode: TilingMode = TilingMode.overflow,
+        tile_mode: TilingMode = TilingMode.OVERFLOW,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
         mask: npt.NDArray[np.int_] | None = None,

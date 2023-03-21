@@ -103,6 +103,7 @@ def tiling(args: argparse.Namespace) -> None:
 
 
 class TileSaver:
+    """Class to save tiles to disk."""
     def __init__(
         self, dataset: TiledROIsSlideImageDataset, output_directory_path: pathlib.Path, do_not_save_tiles: bool = False
     ) -> None:
@@ -175,7 +176,7 @@ def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore
     tiling_parser.add_argument(
         "--mode",
         type=TilingMode,
-        default=TilingMode.skip,
+        default=TilingMode.SKIP,
         choices=TilingMode.__members__,
         help="Policy to handle verflowing tiles.",
     )

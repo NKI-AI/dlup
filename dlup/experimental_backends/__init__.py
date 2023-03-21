@@ -1,5 +1,10 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""Backends for reading slides. Currently implemented:
+- pyvips
+- openslide
+- tifffile
+"""
 import pathlib
 from enum import Enum
 from functools import lru_cache

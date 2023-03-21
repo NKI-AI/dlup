@@ -268,7 +268,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         region_size: Size = width, height
         scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
-        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
+        region_view.boundary_mode = BoundaryMode.CROP if self.crop else BoundaryMode.ZERO
 
         if self._output_tile_size is not None:
             # If we have an output tile_size, we extract a region around the center of the given region.
@@ -393,7 +393,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mpp: float | None,
         tile_size: Size,
         tile_overlap: Size,
-        tile_mode: TilingMode = TilingMode.overflow,
+        tile_mode: TilingMode = TilingMode.OVERFLOW,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
         mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,

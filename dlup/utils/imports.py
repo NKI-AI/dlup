@@ -14,7 +14,7 @@ def _module_available(module_path: str) -> bool:
 
     Adapted from: https://github.com/PyTorchLightning/pytorch-lightning/blob/ef7d41692ca04bb9877da5c743f80fceecc6a100/pytorch_lightning/utilities/imports.py#L27
     Under Apache 2.0 license.
-    """
+    """ # noqa
     try:
         return find_spec(module_path) is not None
     except ModuleNotFoundError:

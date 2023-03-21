@@ -10,7 +10,7 @@ from dlup.tiling import Grid, TilingMode, indexed_ndmesh, tiles_grid_coordinates
 
 
 class TestTiling:
-    @pytest.mark.parametrize("mode", [TilingMode.skip])
+    @pytest.mark.parametrize("mode", [TilingMode.SKIP])
     def test_all_zero(self, mode):
         """If all the arguments are zero, an exception should be raised."""
         with pytest.raises(ValueError):
@@ -24,7 +24,7 @@ class TestTiling:
         tile_size = 10
         (basis,) = tiles_grid_coordinates(size, tile_size, tile_overlap=tile_overlap, mode=mode)
 
-        expected_lengths = {TilingMode.skip: 0, TilingMode.overflow: 1}
+        expected_lengths = {TilingMode.SKIP: 0, TilingMode.OVERFLOW: 1}
 
         assert (basis >= 0).all()
         assert len(basis) == expected_lengths[mode]
@@ -59,10 +59,10 @@ class TestTiling:
         if np.isclose(tiled_size, size):
             return
 
-        if mode == TilingMode.skip:
+        if mode == TilingMode.SKIP:
             assert tiled_size < size
 
-        if mode == TilingMode.overflow:
+        if mode == TilingMode.OVERFLOW:
             assert tiled_size > size
 
     def test_spanned_basis_multiple_dims(self):

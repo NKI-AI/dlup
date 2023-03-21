@@ -274,7 +274,7 @@ def _tiles_iterator_from_pil_image(
         size=pil_image.size[::-1],
         tile_size=tile_size,
         tile_overlap=(0, 0),
-        mode=TilingMode.overflow,
+        mode=TilingMode.OVERFLOW,
         order=GridOrder.F,
     )
     for tile_coordinates in grid:
@@ -321,7 +321,7 @@ def _tile_iterator_from_page(  # pylint: disable=too-many-arguments
         size=region_size,
         tile_size=resized_tile_size,
         tile_overlap=(0, 0),
-        mode=TilingMode.overflow,
+        mode=TilingMode.OVERFLOW,
     )
     for coordinates in grid:
         # The tile size must be cropped to image bounds

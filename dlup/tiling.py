@@ -20,8 +20,8 @@ class TilingMode(str, Enum):
     Overflow counts as last tile even if it's overflowing.
     """
 
-    skip = "skip"
-    overflow = "overflow"
+    SKIP = "skip"
+    OVERFLOW = "overflow"
 
 
 class GridOrder(str, Enum):
@@ -62,7 +62,7 @@ def tiles_grid_coordinates(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
     tile_overlap: _GenericNumberArray | _GenericNumber = 0,
-    mode: TilingMode = TilingMode.skip,
+    mode: TilingMode = TilingMode.SKIP,
 ) -> Sequence[npt.NDArray[np.int_ | np.float_] | float]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
@@ -91,13 +91,10 @@ def tiles_grid_coordinates(
     # specified stride.
     num_tiles = (size - tile_size) / stride + 1
 
-    if mode == TilingMode.skip:
+    if mode == TilingMode.SKIP:
         num_tiles = np.floor(num_tiles).astype(int)
-        overflow = np.zeros_like(size)
     else:
         num_tiles = np.ceil(num_tiles).astype(int)
-        tiled_size = (num_tiles - 1) * stride + tile_size
-        overflow = tiled_size - size
 
     # Let's create our indices list
     coordinates: list[npt.NDArray[np.float_]] = []
@@ -127,7 +124,7 @@ class Grid:
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
         tile_overlap: _GenericNumberArray | _GenericNumber = 0,
-        mode: TilingMode = TilingMode.skip,
+        mode: TilingMode = TilingMode.SKIP,
         order: GridOrder = GridOrder.F,
     ) -> "Grid":
         """Generate a grid from a set of tiling parameters."""

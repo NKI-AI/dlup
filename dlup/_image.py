@@ -64,9 +64,9 @@ class _SlideImageRegionView(RegionView):
 
     def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Returns a region of the level associated to the view."""
-        x, y = location
-        w, h = size
-        return self._wsi.read_region((x, y), self._scaling, (w, h))
+        x_coord, y_coord = location
+        width, height = size
+        return self._wsi.read_region((x_coord, y_coord), self._scaling, (width, height))
 
 
 def _clip2size(

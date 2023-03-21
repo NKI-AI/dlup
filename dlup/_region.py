@@ -15,8 +15,8 @@ from dlup.types import GenericFloatArray, GenericIntArray
 class BoundaryMode(str, Enum):
     """Define the policy to sample outside the region."""
 
-    crop = "crop"
-    zero = "zero"
+    CROP = "crop"
+    ZERO = "zero"
 
 
 class RegionView(ABC):
@@ -39,7 +39,7 @@ class RegionView(ABC):
     @abstractmethod
     def size(self) -> tuple[int, ...]:
         """Returns size of the region in U units."""
-        pass
+
 
     def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Returns the requested region as a numpy array."""
@@ -59,7 +59,7 @@ class RegionView(ABC):
         clipped_region_size = clipped_region_size.astype(int)
         region = self._read_region_impl(location + offset, clipped_region_size)
 
-        if self.boundary_mode == BoundaryMode.zero:
+        if self.boundary_mode == BoundaryMode.ZERO:
             if np.any(size != clipped_region_size) or np.any(location < 0):
                 size = tuple(size)
                 new_region = PIL.Image.new(str(region.mode), size)
@@ -74,4 +74,3 @@ class RegionView(ABC):
     @abstractmethod
     def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Define a method to return an array containing the region."""
-        pass

@@ -32,7 +32,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         tile_size=tile_size,
         tile_overlap=tile_overlap,
         mpp=None,
-        tile_mode=TilingMode.overflow,
+        tile_mode=TilingMode.OVERFLOW,
         crop=False,
         backend=ImageBackend.TIFFFILE,
         interpolator=Resampling.NEAREST,
@@ -60,7 +60,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         wsi_annotations.append(
             WsiSingleLabelAnnotation(
                 label=label,
-                type=AnnotationType.POLYGON,
+                annotation_type=AnnotationType.POLYGON,
                 annotations=annotations,
             )
         )
@@ -96,18 +96,18 @@ def _parse_labels(labels: str) -> dict[int, str]:
             name, index = pair.split("=")
             if not index.isnumeric():
                 raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
-            index = float(index)
-            if not index.is_integer():
+            _index = float(index)
+            if not _index.is_integer():
                 raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
-            index = int(index)
-            if index == 0:
+            _index = int(_index)
+            if _index == 0:
                 raise argparse.ArgumentTypeError("0 is not a proper index. Needs to be at least 1.")
-            index_map[index] = name.strip()
+            index_map[_index] = name.strip()
     return index_map
 
 
 def _write_to_json(
-    separate, output_filename: pathlib.Path, wsi_annotations: list[WsiSingleLabelAnnotation], simplify
+    separate: bool, output_filename: pathlib.Path, wsi_annotations: list[WsiSingleLabelAnnotation], simplify: float
 ) -> None:
     """Write the annotations to a json file.
 
@@ -137,7 +137,7 @@ def _write_to_json(
             json.dump(slide_annotations.as_geojson(split_per_label=False), file, indent=2)
     else:
         jsons = slide_annotations.as_geojson(split_per_label=True)
-        if not type(jsons) == list[tuple[str, GeoJsonDict]]:
+        if not type(jsons) == list[tuple[str, GeoJsonDict]]:  # pylint: disable=unidiomatic-typecheck
             raise ValueError("Expected a list of tuples")
         for label, json_dict in jsons:
             suffix = output_filename.suffix

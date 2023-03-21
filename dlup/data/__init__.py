@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""Data module for dlup."""
 from __future__ import annotations
 
 import pathlib

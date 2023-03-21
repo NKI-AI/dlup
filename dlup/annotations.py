@@ -115,8 +115,8 @@ class Point(shapely.geometry.Point):  # type: ignore
     def __getattr__(self, name: str) -> Any:
         try:
             return Point._id_to_attrs[str(id(self))][name]
-        except KeyError as e:
-            raise AttributeError(str(e)) from None
+        except KeyError as exception:
+            raise AttributeError(str(exception)) from None
 
     def __str__(self) -> str:
         return f"{self.label}, {self.wkt}"
@@ -176,17 +176,16 @@ def shape(coordinates: ShapelyTypes, label: str, multiplier: float = 1.0) -> lis
     geom_type = coordinates.get("type").lower()
     if geom_type == "point":
         return [Point(np.asarray(coordinates["coordinates"]) * multiplier, label=label)]
-    elif geom_type == "multipoint":
+    if geom_type == "multipoint":
         return [Point(np.asarray(c) * multiplier, label=label) for c in coordinates["coordinates"]]
-    elif geom_type == "polygon":
+    if geom_type == "polygon":
         return [Polygon(np.asarray(coordinates["coordinates"][0]) * multiplier, label=label)]
-    elif geom_type == "multipolygon":
+    if geom_type == "multipolygon":
         multi_polygon = shapely.geometry.MultiPolygon(
             [[np.asarray(c[0]) * multiplier, np.asarray(c[1:]) * multiplier] for c in coordinates["coordinates"]]
         )
         return [Polygon(_, label=label) for _ in multi_polygon.geoms]
-    else:
-        raise NotImplementedError(f"Not support geom_type {geom_type}")
+    raise NotImplementedError(f"Not support geom_type {geom_type}")
 
 
 _POSTPROCESSORS = {
@@ -199,8 +198,8 @@ _POSTPROCESSORS = {
 class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
-    def __init__(self, label: str, type: AnnotationType, annotations: list[PointOrPolygon]):
-        self.__type = type
+    def __init__(self, label: str, annotation_type: AnnotationType, annotations: list[PointOrPolygon]):
+        self.__type = annotation_type
         self._annotations = annotations
         self.__label = label
 
@@ -220,13 +219,13 @@ class WsiSingleLabelAnnotation:
 
         # TODO: We also need to rewrite all the polygons. This cannot yet be set in-place
         _annotations = []
-        for geometry in self._annotations:
-            if isinstance(geometry, shapely.geometry.Polygon):
-                _annotations.append(Polygon(geometry, label=label))
-            elif isinstance(geometry, shapely.geometry.Point):
-                _annotations.append(Point(geometry, label=label))
+        for _geometry in self._annotations:
+            if isinstance(_geometry, shapely.geometry.Polygon):
+                _annotations.append(Polygon(_geometry, label=label))
+            elif isinstance(_geometry, shapely.geometry.Point):
+                _annotations.append(Point(_geometry, label=label))
             else:
-                raise AnnotationError(f"Unknown annotation type {type(geometry)}.")
+                raise AnnotationError(f"Unknown annotation type {type(_geometry)}.")
 
         self._annotations = _annotations
 
@@ -268,8 +267,8 @@ class WsiSingleLabelAnnotation:
     @staticmethod
     def __get_bbox(data: list[list[int | float]]) -> tuple[Size, Size]:
         """Get the bounding box of a list of coordinates."""
-        z = np.asarray(data)
-        offset, size = z.min(axis=0).tolist(), (z.max(axis=0) - z.min(axis=0)).tolist()
+        data_arr = np.asarray(data)
+        offset, size = data_arr.min(axis=0).tolist(), (data_arr.max(axis=0) - data_arr.min(axis=0)).tolist()
         return (offset[0], offset[1]), (size[0], size[1])
 
     @property
@@ -424,22 +423,22 @@ class WsiAnnotations:
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
 
         _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
-        for idx, path in enumerate(_geojsons):
+        for path in _geojsons:
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
 
             with open(path, "r", encoding="utf-8") as annotation_file:
                 geojson_dict = json.load(annotation_file)["features"]
-                for x in geojson_dict:
-                    _label = x["properties"]["classification"]["name"]
-                    _geometry = shape(x["geometry"], label=_label, multiplier=_scaling)
+                for curr_dict in geojson_dict:
+                    _label = curr_dict["properties"]["classification"]["name"]
+                    _geometry = shape(curr_dict["geometry"], label=_label, multiplier=_scaling)
                     for _ in _geometry:
                         data[_label].append(_)
 
         # It is assumed that a specific label can only be one type (point or polygon)
         annotations: list[WsiSingleLabelAnnotation] = [
-            WsiSingleLabelAnnotation(label=k, type=data[k][0].type, annotations=data[k]) for k in data.keys()
+            WsiSingleLabelAnnotation(label=k, annotation_type=data[k][0].type, annotations=data[k]) for k in data.keys()
         ]
 
         return cls(annotations)
@@ -466,7 +465,7 @@ class WsiAnnotations:
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
-        annotations: dict[str, WsiSingleLabelAnnotation] = dict()
+        annotations: dict[str, WsiSingleLabelAnnotation] = {}
         opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
@@ -510,7 +509,7 @@ class WsiAnnotations:
                     if label not in annotations:
                         annotations[label] = WsiSingleLabelAnnotation(
                             label=label,
-                            type=annotation_type,
+                            annotation_type=annotation_type,
                             annotations=[coordinates],
                         )
                     else:
@@ -630,11 +629,11 @@ class WsiAnnotations:
         query_box = geometry.box(*box)
 
         filtered_annotations = []
-        for k in self.available_labels:
-            curr_indices = self._annotation_trees[k].query(query_box)
-            curr_annotations = self._annotation_trees[k].geometries[curr_indices]
-            for v in curr_annotations:
-                filtered_annotations.append((k, v))
+        for key in self.available_labels:
+            curr_indices = self._annotation_trees[key].query(query_box)
+            curr_annotations = self._annotation_trees[key].geometries[curr_indices]
+            for value in curr_annotations:
+                filtered_annotations.append((key, value))
 
         # Sort on name
         filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0])
@@ -701,7 +700,8 @@ class WsiAnnotations:
         """
         if self[annotation_name].type == AnnotationType.POINT:
             return Point(annotation, label=annotation_name)
-        elif self[annotation_name].type == AnnotationType.POLYGON:
+
+        if self[annotation_name].type == AnnotationType.POLYGON:
             return Polygon(annotation, label=annotation_name)
         else:
             raise RuntimeError(f"Unexpected type. Got {self[annotation_name].type}.")
