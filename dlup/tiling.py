@@ -2,14 +2,12 @@
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
-import collections
 import functools
 from enum import Enum
-from typing import Iterator, Literal, Sequence, Union
+from typing import Iterator, Literal, Sequence, Union, Any
 
 import numpy as np
 import numpy.typing as npt
-from numpy.typing import NDArray
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[npt.NDArray[np.int_ | np.float_], Sequence[_GenericNumber]]
@@ -113,7 +111,7 @@ def tiles_grid_coordinates(
 class Grid:
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates, order: str | GridOrder = GridOrder.F):
+    def __init__(self, coordinates: Any, order: str | GridOrder = GridOrder.F):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
         self.order = order

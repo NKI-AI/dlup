@@ -43,7 +43,7 @@ class ConcatSequences(collections.abc.Sequence[Any]):
         self._starting_indices = [0] + cumsum[:-1]
         self._len = cumsum[-1]
 
-    def __getitem__(self, key: Any) -> list[np.int_]:
+    def __getitem__(self, key: Any) -> Any:
         starting_index = bisect.bisect_right(self._starting_indices, key) - 1
         sequence_index = key - self._starting_indices[starting_index]
         return self._sequences[starting_index][sequence_index]

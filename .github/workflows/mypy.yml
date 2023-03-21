@@ -25,4 +25,4 @@ jobs:
         python -m pip install -e ".[dev]"
     - name: mypy
       run: |
-        mypy dlup
+        mypy dlup --strict

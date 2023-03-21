@@ -136,5 +136,5 @@ class ImageBackend(Enum):
     AUTODETECT: Callable[[Any], Any] = autodetect_backend
 
     # FIXME: Any is overly broad
-    def __call__(self, *args: Any) -> AbstractSlideBackend:
+    def __call__(self, *args: Any) -> Any:
         return self.value(*args)

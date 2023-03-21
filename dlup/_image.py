@@ -315,7 +315,7 @@ class SlideImage:
         return self._identifier
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> dict[str, Any]:
         """Returns any extra associated properties with the image."""
         return self._wsi.properties
 

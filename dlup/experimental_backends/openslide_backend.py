@@ -25,7 +25,7 @@ def open_slide(filename: PathLike) -> "OpenSlideSlide":
     return OpenSlideSlide(filename)
 
 
-class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
+class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):  # type: ignore
     """
     Backend for openslide.
     """

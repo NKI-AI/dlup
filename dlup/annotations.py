@@ -81,7 +81,7 @@ class GeoJsonDict(TypedDict):
     features: list[dict[str, str | dict[str, str]]]
 
 
-class Point(shapely.geometry.Point):
+class Point(shapely.geometry.Point):  # type: ignore
     # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
     _id_to_attrs: ClassVar[dict[str, Any]] = {}
     __slots__ = (
@@ -99,7 +99,7 @@ class Point(shapely.geometry.Point):
     def __new__(cls, coord: tuple[float, float], *args: Any, **kwargs: Any) -> "Point":
         point = super().__new__(cls, coord)
         point.__class__ = cls
-        return point
+        return point  # type: ignore
 
     def __del__(self) -> None:
         del self._id_to_attrs[str(id(self))]
@@ -114,7 +114,7 @@ class Point(shapely.geometry.Point):
         return f"{self.label}, {self.wkt}"
 
 
-class Polygon(shapely.geometry.Polygon):
+class Polygon(shapely.geometry.Polygon):  # type: ignore
     # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
     _id_to_attrs: ClassVar[dict[str, Any]] = {}
     __slots__ = (
@@ -602,7 +602,7 @@ class WsiAnnotations:
         # Sort on name
         filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0])
         # Sort on area (largest to smallest)
-        filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
+        filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)  # type: ignore
 
         cropped_annotations = []
         for annotation_name, annotation in filtered_annotations:
@@ -614,7 +614,7 @@ class WsiAnnotations:
                 curr_area = annotation.area
                 # The following function casts this again as a shapely Polygon, so we will need to convert
                 # further down the road back to a dlup Polygon.
-                annotation = crop_func(annotation, query_box)
+                annotation = crop_func(annotation, query_box)  # type: ignore
                 post_area = annotation.area
                 # Remove annotations which had area before (e.g. polygons) but after cropping are a point.
                 if curr_area > 0 and post_area == 0:

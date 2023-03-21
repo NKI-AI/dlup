@@ -64,7 +64,7 @@ class TifffileSlide(AbstractSlideBackend):
                 self._downsamples.append(downsample)
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> dict[str, Any]:
         """Metadata about the image as given by tifffile."""
 
         properties = {}
