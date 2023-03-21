@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""PyVips backend for reading slides."""
 from __future__ import annotations
 
 import warnings
@@ -102,7 +103,7 @@ class PyVipsSlide(AbstractSlideBackend):
                 int(image.get(f"openslide.level[{idx}].height")),
             )
             pyvips_shape = (image.width, image.height)
-            if not openslide_shape == pyvips_shape:
+            if openslide_shape != pyvips_shape:
                 raise dlup._exceptions.UnsupportedSlideError(
                     f"Reading {path} failed as openslide metadata reports different shapes than pyvips. "
                     f"Got {openslide_shape} and {pyvips_shape}."

@@ -40,7 +40,6 @@ class RegionView(ABC):
     def size(self) -> tuple[int, ...]:
         """Returns size of the region in U units."""
 
-
     def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Returns the requested region as a numpy array."""
         location = np.asarray(location)

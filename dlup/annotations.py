@@ -90,6 +90,7 @@ class GeoJsonDict(TypedDict):
 
 
 class Point(shapely.geometry.Point):  # type: ignore
+    """Dlup Point class. Derives from shapely, but adds a label and color attribute"""
     # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
     _id_to_attrs: ClassVar[dict[str, Any]] = {}
     __slots__ = (
@@ -123,6 +124,7 @@ class Point(shapely.geometry.Point):  # type: ignore
 
 
 class Polygon(shapely.geometry.Polygon):  # type: ignore
+    """Dlup Polygon class. Derives from shapely, but adds a label and color attribute"""
     # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
     _id_to_attrs: ClassVar[dict[str, Any]] = {}
     __slots__ = (
@@ -438,7 +440,8 @@ class WsiAnnotations:
 
         # It is assumed that a specific label can only be one type (point or polygon)
         annotations: list[WsiSingleLabelAnnotation] = [
-            WsiSingleLabelAnnotation(label=k, annotation_type=data[k][0].type, annotations=data[k]) for k in data.keys()
+            WsiSingleLabelAnnotation(label=k, annotation_type=data[k][0].type, annotations=data[k])
+            for k in data.keys()
         ]
 
         return cls(annotations)

@@ -71,6 +71,8 @@ class Dataset(Generic[T_co], collections.abc.Sequence[T_co]):
     def __getitem__(self, index: int) -> T_co:  # type: ignore
         raise IndexError
 
+    def __len__(self) -> int:
+        raise NotImplementedError
 
 class ConcatDataset(Dataset[T_co]):
     """Dataset as a concatenation of multiple datasets.

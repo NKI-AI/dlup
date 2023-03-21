@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""Utilities for dlup."""
 import json
 import warnings
 from typing import Any
@@ -13,6 +14,7 @@ if _PYTORCH_AVAILABLE:
 
 
 class ArrayEncoder(json.JSONEncoder):
+    """A JSON encoder that can handle numpy arrays and torch tensors."""
     def default(self, o: Any) -> Any:
         if _PYTORCH_AVAILABLE and isinstance(o, torch.Tensor):
             o = o.numpy()

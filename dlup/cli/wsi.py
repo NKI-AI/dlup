@@ -104,6 +104,7 @@ def tiling(args: argparse.Namespace) -> None:
 
 class TileSaver:
     """Class to save tiles to disk."""
+
     def __init__(
         self, dataset: TiledROIsSlideImageDataset, output_directory_path: pathlib.Path, do_not_save_tiles: bool = False
     ) -> None:

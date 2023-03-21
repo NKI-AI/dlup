@@ -112,6 +112,8 @@ class DlupTransform(abc.ABC):
     @abc.abstractmethod
     def __call__(self, sample: Any) -> Any:
         """Generic call"""
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
 
 
 class ConvertAnnotationsToMask(DlupTransform):

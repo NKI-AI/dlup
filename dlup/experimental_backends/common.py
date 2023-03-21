@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""Common code for slide backends."""
 from __future__ import annotations
 
 import abc
@@ -96,7 +97,7 @@ class AbstractSlideBackend(abc.ABC):
         """
         if self._spacings is not None:
             return self._spacings[0]
-        return
+        return None
 
     @spacing.setter
     def spacing(self, value: tuple[float, float]) -> None:
