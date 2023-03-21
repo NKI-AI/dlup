@@ -55,6 +55,7 @@ class RegionFromSlideDatasetSample(_StandardTilingFromSlideDatasetSample):
 
 
 class PretiledDatasetSample(TypedDict):
+    """A sample from a :class:`PretiledDataset`."""
     image: PIL.Image.Image
     grid_index: int
     path: pathlib.Path
@@ -325,6 +326,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
 
 class SlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 

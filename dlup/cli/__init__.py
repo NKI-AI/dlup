@@ -1,5 +1,7 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+# pylint: disable=import-outside-toplevel
+
 """DLUP Command-line interface. This is the file which builds the main parser."""
 import argparse
 import pathlib

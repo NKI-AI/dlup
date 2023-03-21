@@ -13,19 +13,19 @@ if _PYTORCH_AVAILABLE:
 
 
 class ArrayEncoder(json.JSONEncoder):
-    def default(self, obj: Any) -> Any:
-        if _PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):
-            obj = obj.numpy()
+    def default(self, o: Any) -> Any:
+        if _PYTORCH_AVAILABLE and isinstance(o, torch.Tensor):
+            o = o.numpy()
 
-        if isinstance(obj, np.ndarray):
-            if obj.size > 10e4:
+        if isinstance(o, np.ndarray):
+            if o.size > 10e4:
                 warnings.warn(
                     "Trying to JSON serialize a very large array of size {obj.size}. "
                     "Consider doing this differently"
                 )
-            return obj.tolist()
+            return o.tolist()
 
-        if isinstance(obj, (np.int32, np.int64)):
-            return int(obj)
+        if isinstance(o, (np.int32, np.int64)):
+            return int(o)
 
         return json.JSONEncoder.default(self, obj)

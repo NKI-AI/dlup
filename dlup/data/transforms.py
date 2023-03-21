@@ -106,6 +106,7 @@ def convert_annotations(
 
 class DlupTransform(abc.ABC):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__()
         """Constructor"""
 
     @abc.abstractmethod
@@ -127,6 +128,7 @@ class ConvertAnnotationsToMask(DlupTransform):
         default_value : int
             The mask will be initialized with this value.
         """
+        super().__init__()
         self._roi_name = roi_name
         self._index_map = index_map
         self._default_value = default_value
@@ -211,6 +213,7 @@ class MajorityClassToLabel(DlupTransform):
         index_map : dict
             Dictionary mapping the label to the integer in the output.
         """
+        super().__init__()
         self._roi_name = roi_name
         self._index_map = index_map
 
@@ -277,6 +280,7 @@ class ContainsPolygonToLabel(DlupTransform):
         threshold : float
             Threshold as number between 0 and 1 that denotes when we should consider the label to be present.
         """
+        super().__init__()
         self._roi_name = roi_name
         self._label = label
         self._threshold = threshold
