@@ -41,7 +41,24 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
-from dlup.types import Coordinates, GenericNumber, PathLike, PointOrPolygon, Size
+PointOrPolygon = Union["dlup.annotations.Point", "dlup.annotations.Polygon"]
+
+
+
+string_classes = (str, bytes)
+PathLike = str | os.PathLike
+GenericNumber = int | float
+GenericNumberArray = npt.NDArray | Iterable[GenericNumber]
+GenericFloatArray = npt.NDArray | Iterable[float]
+GenericIntArray = npt.NDArray | Iterable[int]
+Size = tuple[int, int]
+FloatSize = tuple[float, float]
+Coordinates = tuple[GenericNumber, GenericNumber]
+
+Box = tuple[Coordinates, Coordinates]
+
+
+ROI = tuple[Coordinates, Size]
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]

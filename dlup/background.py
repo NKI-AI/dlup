@@ -33,7 +33,7 @@ from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
 
 
-def _is_close(_seeds: list[tuple[int, int]], _start: list[tuple[npt.NDArray[np.int_]]]) -> bool:
+def _is_close(_seeds, _start) -> bool:
     """
     Helper function for the FESI algorithms.
 
@@ -54,8 +54,8 @@ def _is_close(_seeds: list[tuple[int, int]], _start: list[tuple[npt.NDArray[np.i
             return True
     return False
 
-
-def _fesi_common(image: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_]:
+# TODO: -> npt.NDArray[np.bool_]
+def _fesi_common(image):
     """
     Common functionality for FESI and Improved FESI.
 
@@ -180,9 +180,10 @@ def next_power_of_2(x: int) -> int:
     return 1 if x == 0 else int(2 ** (x - 1).bit_length())
 
 
+# TODO: What about mask_func Callable[[npt.NDArray[np.int_]], npt.NDArray[np.int_ | np.bool_]] =
 def get_mask(
     slide: dlup.SlideImage,
-    mask_func: Callable[[npt.NDArray[np.int_]], npt.NDArray[np.int_ | np.bool_]] = improved_fesi,
+    mask_func = improved_fesi,
     minimal_size: int = 512,
 ) -> npt.NDArray[np.int_]:
     """
@@ -207,7 +208,7 @@ def get_mask(
         Tissue mask of thumbnail
     """
     max_slide = max(slide.size)
-    size = max_slide * slide.mpp / 10  # Size is 10 mpp
+    size = int(max_slide * slide.mpp / 10)  # Size is 10 mpp
     # Max sure it is at least max_slide and a power of 2.
     # TODO: maybe this power is not needed
     size = int(max([next_power_of_2(size), min([minimal_size, max_slide])]))
@@ -364,5 +365,5 @@ class AvailableMaskFunctions(Enum):
     fesi = partial(fesi)
     improved_fesi = partial(improved_fesi)
 
-    def __call__(self, *args: Any) -> Callable:
+    def __call__(self, *args: Any) -> Any:
         return self.value(*args)

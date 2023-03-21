@@ -28,6 +28,7 @@ from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.types import ROI, Coordinates, Size
+from typing import Union
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -149,7 +150,7 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self) -> int:
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, idx: int) -> T_co:
+    def __getitem__(self, idx): # FIXME: -> T_co
         """Returns the sample at the given index."""
         dataset, sample_idx = self.index_to_dataset(idx)
         return dataset[sample_idx]
@@ -254,7 +255,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path, self._backend, **self._kwargs)
 
-    def __getitem__(self, index: int) -> StandardTilingFromSlideDatasetSample:
+    def __getitem__(self, index):
         slide_image = self.slide_image
 
         # If there's a mask, we consider the index as a sub-sequence index.
@@ -405,6 +406,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: DlupTransform | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
+        limit_bounds: bool | None = None,
         **kwargs: Any,
     ) -> "TiledROIsSlideImageDataset":
         """Function to be used to tile a WSI on-the-fly.
@@ -508,7 +510,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             **kwargs,
         )
 
-    def __getitem__(self, index: int) -> RegionFromSlideDatasetSample:
+    def __getitem__(self, index):
         data = super().__getitem__(index)
         region_data: RegionFromSlideDatasetSample = cast(RegionFromSlideDatasetSample, data)
         region_index = data["region_index"]
@@ -524,7 +526,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float) -> tuple[ROI]:
+def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float):
     if rois is None:
         return (((0, 0), image_size),)
 
@@ -541,5 +543,4 @@ def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float) -> tup
 
         return (_coords[0], _coords[1]), (_size[0], _size[1])
 
-    rois = tuple([build_coords(coords, size) for coords, size in rois])
-    return rois
+    return tuple([build_coords(coords, size) for coords, size in rois])

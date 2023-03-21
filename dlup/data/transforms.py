@@ -109,9 +109,7 @@ class DlupTransform(abc.ABC):
         """Constructor"""
 
     @abc.abstractmethod
-    def __call__(
-        self, sample: dlup.data.dataset.RegionFromSlideDatasetSample
-    ) -> dlup.data.dataset.RegionFromSlideDatasetSample:
+    def __call__(self, sample):
         """Generic call"""
 
 

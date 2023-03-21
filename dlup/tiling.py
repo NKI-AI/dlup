@@ -10,7 +10,7 @@ from typing import Iterator, Literal, Sequence
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
-
+from typing import Union
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[npt.NDArray, Sequence[_GenericNumber]]
 
@@ -113,7 +113,7 @@ def tiles_grid_coordinates(
 class Grid:
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: list[np.ndarray], order: str | GridOrder = GridOrder.F):
+    def __init__(self, coordinates, order: str | GridOrder = GridOrder.F):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
         self.order = order
@@ -147,7 +147,7 @@ class Grid:
             order = "F" if self.order == "C" else "C"
         else:
             order = "F" if self.order.value == "C" else "C"
-        index = np.unravel_index(key, self.size, order=order)
+        index = np.unravel_index(key, self.size, order=order)  # type: ignore
         return np.array([c[i] for c, i in zip(self.coordinates, index)])
 
     def __len__(self) -> int:

@@ -62,15 +62,15 @@ def plot_2d(
 
     if geometries is not None:
         draw = PIL.ImageDraw.Draw(image)
+        if geometries_color_map is None:
+            raise ValueError(f"If geometries are defined, you need to define `geometries_color_map`.")
+
         for data in geometries:
             if isinstance(data, Point):
                 r = 10
                 x, y = data.coords[0]
                 _points = [(x - r, y - r), (x + r, y + r)]
-                if geometries_color_map is not None:
-                    draw.ellipse(_points, outline=geometries_color_map[data.label], width=3)
-                else:
-                    raise ValueError(f"If geometries are defined, you need to define `geometries_color_map`.")
+                draw.ellipse(_points, outline=geometries_color_map[data.label], width=3)
 
             elif isinstance(data, Polygon):
                 coordinates = data.exterior.coords

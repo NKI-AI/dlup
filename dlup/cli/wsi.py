@@ -88,9 +88,10 @@ def tiling(args: argparse.Namespace) -> None:
         tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
     tile_saver = TileSaver(dataset, tiles_output_directory_path, do_not_save_tiles=args.do_not_save_tiles)
 
+    # FIXME: typing
     with Pool(args.num_workers) as pool:
         for grid_local_coordinates, idx in pool.imap(tile_saver.save_tile, range(num_tiles)):
-            indices[idx] = grid_local_coordinates
+            indices[idx] = grid_local_coordinates  # type: ignore
 
     output["output"]["num_tiles"] = num_tiles
     output["output"]["tile_indices"] = indices
