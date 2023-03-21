@@ -5,12 +5,12 @@ from __future__ import annotations
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, Literal, Sequence
+from typing import Iterator, Literal, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
-from typing import Union
+
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[npt.NDArray, Sequence[_GenericNumber]]
 

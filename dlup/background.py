@@ -54,6 +54,7 @@ def _is_close(_seeds, _start) -> bool:
             return True
     return False
 
+
 # TODO: -> npt.NDArray[np.bool_]
 def _fesi_common(image):
     """
@@ -183,7 +184,7 @@ def next_power_of_2(x: int) -> int:
 # TODO: What about mask_func Callable[[npt.NDArray[np.int_]], npt.NDArray[np.int_ | np.bool_]] =
 def get_mask(
     slide: dlup.SlideImage,
-    mask_func = improved_fesi,
+    mask_func=improved_fesi,
     minimal_size: int = 512,
 ) -> npt.NDArray[np.int_]:
     """

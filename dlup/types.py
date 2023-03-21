@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import os
 from typing import Iterable, Union
-import dlup.annotations
 
 import numpy.typing as npt
+
+import dlup.annotations
 
 string_classes = (str, bytes)
 PathLike = str | os.PathLike

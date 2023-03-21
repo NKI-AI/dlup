@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Any, Generic, Iterable, Iterator, Sequence, TypeVar, cast
+from typing import Any, Generic, Iterable, Iterator, Sequence, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -28,7 +28,6 @@ from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.types import ROI, Coordinates, Size
-from typing import Union
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -150,7 +149,7 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self) -> int:
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, idx): # FIXME: -> T_co
+    def __getitem__(self, idx):  # FIXME: -> T_co
         """Returns the sample at the given index."""
         dataset, sample_idx = self.index_to_dataset(idx)
         return dataset[sample_idx]
