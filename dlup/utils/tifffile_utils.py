@@ -34,8 +34,8 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
         Extracted crop.
 
     """
-    x0, y0 = coordinates
-    w, h = size
+    x_0, y_0 = coordinates
+    width, height = size
 
     if not page.is_tiled:
         raise ValueError("Input page must be tiled.")
@@ -43,17 +43,17 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
     image_width = page.imagewidth
     image_height = page.imagelength
 
-    if h < 1 or w < 1:
-        raise ValueError("h and w must be strictly positive.")
+    if height < 1 or width < 1:
+        raise ValueError("height and width must be strictly positive.")
 
-    if y0 < 0 or x0 < 0 or y0 + h > image_height or x0 + w > image_width:
+    if y_0 < 0 or x_0 < 0 or y_0 + height > image_height or x_0 + width > image_width:
         raise ValueError("Requested crop area is out of image bounds.")
 
     tile_width, tile_height = page.tilewidth, page.tilelength
-    y1, x1 = y0 + h, x0 + w
+    y_1, x_1 = y_0 + height, x_0 + width
 
-    tile_y0, tile_x0 = y0 // tile_height, x0 // tile_width
-    tile_y1, tile_x1 = np.ceil([y1 / tile_height, x1 / tile_width]).astype(int)
+    tile_y0, tile_x0 = y_0 // tile_height, x_0 // tile_width
+    tile_y1, tile_x1 = np.ceil([y_1 / tile_height, x_1 / tile_width]).astype(int)
 
     tile_per_line = int(np.ceil(image_width / tile_width))
 
@@ -62,7 +62,7 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
         dtype=page.dtype,
     )
 
-    fh = page.parent.filehandle
+    file_handle = page.parent.filehandle
 
     jpeg_tables = page.tags.get("JPEGTables", None)
     if jpeg_tables is not None:
@@ -79,15 +79,15 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
             if not bytecount:
                 continue
 
-            fh.seek(offset)
-            data = fh.read(bytecount)
+            file_handle.seek(offset)
+            data = file_handle.read(bytecount)
             tile, _, _ = page.decode(data, index, jpegtables=jpeg_tables)
 
             image_y = (idx_y - tile_y0) * tile_height
             image_x = (idx_x - tile_x0) * tile_width
             out[:, image_y : image_y + tile_height, image_x : image_x + tile_width, :] = tile
 
-    image_y0 = y0 - tile_y0 * tile_height
-    image_x0 = x0 - tile_x0 * tile_width
+    image_y0 = y_0 - tile_y0 * tile_height
+    image_x0 = x_0 - tile_x0 * tile_width
 
-    return out[:, image_y0 : image_y0 + h, image_x0 : image_x0 + w, :]
+    return out[:, image_y0 : image_y0 + height, image_x0 : image_x0 + width, :]

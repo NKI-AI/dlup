@@ -229,12 +229,12 @@ class PyVipsSlide(AbstractSlideBackend):
         """
         image = self._regions[level]
         ratio = self._downsamples[level]
-        x, y = coordinates
+        x_coord, y_coord = coordinates
         height, width = size
 
-        region = np.asarray(image.fetch(int(x // ratio), int(y // ratio), int(height), int(width))).reshape(
-            int(width), int(height), -1
-        )
+        region = np.asarray(
+            image.fetch(int(x_coord // ratio), int(y_coord // ratio), int(height), int(width))
+        ).reshape(int(width), int(height), -1)
 
         return numpy_to_pil(region)
 

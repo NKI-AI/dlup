@@ -136,8 +136,8 @@ class ConcatDataset(Dataset[T_co]):
         # Cannot verify that datasets is Sized
         assert len(datasets) > 0, "datasets should not be an empty iterable"  # type: ignore
         self.datasets = list(datasets)
-        for d in self.datasets:
-            if not hasattr(d, "__getitem__"):
+        for dataset in self.datasets:
+            if not hasattr(dataset, "__getitem__"):
                 raise ValueError("ConcatDataset requires datasets to be indexable.")
         self.cumulative_sizes = self.cumsum(self.datasets)
 

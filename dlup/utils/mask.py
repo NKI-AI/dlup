@@ -19,7 +19,7 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.types import Coordinates
 
 
-def _DFS(  # pylint: disable=too-many-arguments
+def _depth_first_search(  # pylint: disable=too-many-arguments
     polygons: list[Polygon],
     contours: list[npt.NDArray[np.int_]],
     hierarchy: list[npt.NDArray[np.int_]],
@@ -35,7 +35,7 @@ def _DFS(  # pylint: disable=too-many-arguments
         if len(contour) >= 3:
             first_child_id = hierarchy[sibling_id][2]
             children: list[npt.NDArray[np.int_]] | None = [] if is_outer else None
-            _DFS(polygons, contours, hierarchy, first_child_id, not is_outer, children)
+            _depth_first_search(polygons, contours, hierarchy, first_child_id, not is_outer, children)
 
             if is_outer:
                 polygon = Polygon(contour, holes=children)
@@ -76,7 +76,7 @@ def mask_to_polygons(mask: npt.NDArray[np.int_], offset: Coordinates = (0, 0), s
 
     hierarchy = hierarchy[0]
     polygons: list[Polygon] = []
-    _DFS(polygons, contours, hierarchy, 0, True, [], offset=offset, scaling=scaling)
+    _depth_first_search(polygons, contours, hierarchy, 0, True, [], offset=offset, scaling=scaling)
 
     return polygons
 
