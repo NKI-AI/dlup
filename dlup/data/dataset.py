@@ -37,7 +37,6 @@ _LabelTypes = Union[str, bool, int, float]
 ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
 
 
-
 class _StandardTilingFromSlideDatasetSample(TypedDict):
     image: PIL.Image.Image
     coordinates: tuple[int | float, int | float]
@@ -61,7 +60,7 @@ class PretiledDatasetSample(TypedDict):
     path: pathlib.Path
 
 
-class Dataset(Generic[T_co], collections.abc.Sequence):
+class Dataset(Generic[T_co], collections.abc.Sequence[T_co]):
     """An abstract class representing a :class:`Dataset`.
 
     All datasets that represent a map from keys to data samples should subclass
@@ -108,7 +107,7 @@ class ConcatDataset(Dataset[T_co]):
     wsi_indices: dict[str, range]
 
     @staticmethod
-    def cumsum(sequence: Sequence) -> list[int]:
+    def cumsum(sequence: Sequence[Any]) -> list[int]:
         out_sequence, total = [], 0
         for item in sequence:
             length = len(item)
@@ -116,7 +115,7 @@ class ConcatDataset(Dataset[T_co]):
             total += length
         return out_sequence
 
-    def __init__(self, datasets: Iterable[Dataset]) -> None:
+    def __init__(self, datasets: Iterable[Dataset[T_co]]) -> None:
         super().__init__()
         # Cannot verify that datasets is Sized
         assert len(datasets) > 0, "datasets should not be an empty iterable"  # type: ignore
@@ -126,7 +125,7 @@ class ConcatDataset(Dataset[T_co]):
                 raise ValueError("ConcatDataset requires datasets to be indexable.")
         self.cumulative_sizes = self.cumsum(self.datasets)
 
-    def index_to_dataset(self, idx: int) -> tuple[Dataset, int]:
+    def index_to_dataset(self, idx: int) -> tuple[Dataset[T_co], int]:
         """Returns the dataset and the index of the sample in the dataset.
 
         Parameters
@@ -150,7 +149,7 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self) -> int:
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, idx):  # FIXME: -> T_co
+    def __getitem__(self, idx: Any) -> Any:  # FIXME: -> T_co
         """Returns the sample at the given index."""
         dataset, sample_idx = self.index_to_dataset(idx)
         return dataset[sample_idx]
@@ -178,7 +177,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
     def __init__(
         self,
         path: pathlib.Path,
-        regions: collections.abc.Sequence,
+        regions: collections.abc.Sequence[Any],
         crop: bool = False,
         mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
@@ -255,7 +254,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path, self._backend, **self._kwargs)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: Any) -> Any:
         slide_image = self.slide_image
 
         # If there's a mask, we consider the index as a sub-sequence index.
@@ -469,15 +468,16 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             if limit_bounds:
                 if rois is not None:
                     raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
-                if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
+                # FIXME
+                if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT": # type: ignore
                     raise ValueError(
                         f"Cannot use AutoDetect as backend and use limit_bounds at the same time. This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
                     )
 
                 offset, bounds = slide_image.slide_bounds
-                offset = tuple((np.asarray(offset) * scaling).astype(int))
+                _offset = tuple((np.asarray(offset) * scaling).astype(int))
                 size = int(bounds[0] * scaling), int(bounds[1] * scaling)
-                _rois = ((offset, size),)
+                _rois = (((_offset[0], _offset[1]), size),)
 
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling)
@@ -510,7 +510,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             **kwargs,
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: Any) -> Any:
         data = super().__getitem__(index)
         region_data: RegionFromSlideDatasetSample = cast(RegionFromSlideDatasetSample, data)
         region_index = data["region_index"]
@@ -526,15 +526,19 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float):
-    if rois is None:
-        return (((0, 0), image_size),)
-
+def _validate_roi(rois: Any, image_size: Size) -> None:
     # Do some checks whether the ROIs are within the image
     origin_positive = [np.all(np.asarray(coords) > 0) for coords, size in rois]
     image_within_borders = [np.all((np.asarray(coords) + size) <= image_size) for coords, size in rois]
     if not origin_positive or not image_within_borders:
         raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
+
+
+def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float) -> Any:
+    if rois is None:
+        return (((0, 0), image_size),)
+
+    _validate_roi(rois, image_size)
 
     # Rois is a shape [[x, y], [w, h]] and we want [ROI]
     def build_coords(coords: Coordinates, size: Size) -> ROI:

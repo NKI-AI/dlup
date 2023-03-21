@@ -13,15 +13,15 @@ import pyvips
 import tifffile
 
 from dlup import UnsupportedSlideError
-
 from .common import AbstractSlideBackend
 from .openslide_backend import OpenSlideSlide
 from .pyvips_backend import PyVipsSlide
 from .tifffile_backend import TifffileSlide
 
+from dlup.types import PathLike
 
 @lru_cache(maxsize=None)
-def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
+def autodetect_backend(filename: PathLike) -> AbstractSlideBackend:
     """
     Try to read the file in consecutive order of pyvips, openslide, tifffile,
     by trying to a tile at the lowest resolution.
@@ -60,7 +60,7 @@ def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or openslide.")
 
 
-def _try_openslide(filename: os.PathLike) -> OpenSlideSlide:
+def _try_openslide(filename: PathLike) -> OpenSlideSlide:
     """
     Attempt to read the slide with openslide. Will open the slide and extract a region at the highest level.
 
@@ -81,7 +81,7 @@ def _try_openslide(filename: os.PathLike) -> OpenSlideSlide:
         raise UnsupportedSlideError(f"Cannot read {filename} with openslide.")
 
 
-def _try_pyvips(filename: os.PathLike) -> PyVipsSlide:
+def _try_pyvips(filename: PathLike) -> PyVipsSlide:
     """
     Attempt to read the slide with pyvips. Will open the slide and extract a region at the highest level.
 
@@ -102,7 +102,7 @@ def _try_pyvips(filename: os.PathLike) -> PyVipsSlide:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips.")
 
 
-def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
+def _try_tifffile(filename: PathLike) -> TifffileSlide:
     """
     Attempt to read the slide with tifffile. Will open the slide and extract a region at the highest level.
 
@@ -122,15 +122,18 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
     except tifffile.tifffile.TiffFileError:
         raise UnsupportedSlideError(f"Cannot read {filename} with tifffile.")
 
+
 BackendLiteral = Literal["OPENSLIDE", "PYVIPS", "TIFFFILE", "AUTODETECT"]
+
+
 
 class ImageBackend(Enum):
     """Available image backends."""
 
-    OPENSLIDE: Callable = OpenSlideSlide
-    PYVIPS: Callable = PyVipsSlide
-    TIFFFILE: Callable = TifffileSlide
-    AUTODETECT: Callable = autodetect_backend
+    OPENSLIDE: Callable[[Any], Any] = OpenSlideSlide
+    PYVIPS: Callable[[Any], Any] = PyVipsSlide
+    TIFFFILE: Callable[[Any], Any] = TifffileSlide
+    AUTODETECT: Callable[[Any], Any] = autodetect_backend
 
     # FIXME: Any is overly broad
     def __call__(self, *args: Any) -> AbstractSlideBackend:

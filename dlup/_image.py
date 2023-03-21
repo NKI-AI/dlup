@@ -23,11 +23,13 @@ import PIL.Image
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
-from dlup.experimental_backends import AbstractSlideBackend, ImageBackend
+from dlup.experimental_backends import ImageBackend
+from dlup.experimental_backends.common import AbstractSlideBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike, Size
 from dlup.utils.image import check_if_mpp_is_valid
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
+IntBox = tuple[tuple[int, int], tuple[int, int]]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 
 
@@ -139,7 +141,7 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: str | Callable = ImageBackend.PYVIPS,
+        backend: str | Callable[[Any], Any] = ImageBackend.PYVIPS,
         **kwargs: Any,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
@@ -344,7 +346,7 @@ class SlideImage:
         return width / height
 
     @property
-    def slide_bounds(self):
+    def slide_bounds(self) -> IntBox:
         """Returns the bounds of the slide. These can be smaller than the image itself.
         These bounds are in the format (x, y), (width, height), and are defined at level 0 of the image.
         """

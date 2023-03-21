@@ -12,7 +12,7 @@ import numpy.typing as npt
 from numpy.typing import NDArray
 
 _GenericNumber = Union[int, float]
-_GenericNumberArray = Union[npt.NDArray, Sequence[_GenericNumber]]
+_GenericNumberArray = Union[npt.NDArray[np.int_ | np.float_], Sequence[_GenericNumber]]
 
 
 class TilingMode(str, Enum):

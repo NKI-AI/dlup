@@ -34,16 +34,16 @@ class MapSequence:
             yield self[i]
 
 
-class ConcatSequences(collections.abc.Sequence):
+class ConcatSequences(collections.abc.Sequence[Any]):
     """Concatenate two or more sequences."""
 
-    def __init__(self, sequences: Sequence):
+    def __init__(self, sequences: Sequence[Any]):
         self._sequences = sequences
         cumsum = list(itertools.accumulate([len(s) for s in sequences]))
         self._starting_indices = [0] + cumsum[:-1]
         self._len = cumsum[-1]
 
-    def __getitem__(self, key) -> list[np.int_]:
+    def __getitem__(self, key: Any) -> list[np.int_]:
         starting_index = bisect.bisect_right(self._starting_indices, key) - 1
         sequence_index = key - self._starting_indices[starting_index]
         return self._sequences[starting_index][sequence_index]

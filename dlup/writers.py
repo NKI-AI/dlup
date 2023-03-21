@@ -229,7 +229,7 @@ class TifffileImageWriter(ImageWriter):
     def _write_page(
         self,
         tiff_writer: tifffile.TiffWriter,
-        tile_iterator: Iterator,
+        tile_iterator: Iterator[npt.NDArray[np.int_]],
         level: int,
         compression: str | None,
         shapes: list[tuple[int, int]],

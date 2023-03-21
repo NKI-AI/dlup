@@ -4,17 +4,16 @@ from __future__ import annotations
 
 import os
 from typing import Iterable, Union
-
+import numpy as np
 import numpy.typing as npt
 
-import dlup.annotations
 
 string_classes = (str, bytes)
 PathLike = str | os.PathLike
 GenericNumber = int | float
-GenericNumberArray = npt.NDArray | Iterable[GenericNumber]
-GenericFloatArray = npt.NDArray | Iterable[float]
-GenericIntArray = npt.NDArray | Iterable[int]
+GenericNumberArray = npt.NDArray[np.int_ | np.float_] | Iterable[GenericNumber]
+GenericFloatArray = npt.NDArray[np.float_] | Iterable[float]
+GenericIntArray = npt.NDArray[np.int_] | Iterable[int]
 Size = tuple[int, int]
 FloatSize = tuple[float, float]
 Coordinates = tuple[GenericNumber, GenericNumber]

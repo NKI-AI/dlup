@@ -32,8 +32,9 @@ from dlup import SlideImage
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
 
+_MaskFunc = Callable[[npt.NDArray[np.int_]], npt.NDArray[np.int_]]
 
-def _is_close(_seeds, _start) -> bool:
+def _is_close(_seeds: Any, _start: Any) -> bool:
     """
     Helper function for the FESI algorithms.
 
@@ -89,7 +90,7 @@ def _fesi_common(image: npt.NDArray[np.int_]) -> npt.NDArray[np.bool_]:
     final_mask = np.asarray(mask.copy())
     maximal_distance = distance.max()
     global_max = distance.max()
-    seeds: list = []
+    seeds: list[Any] = []
     while maximal_distance > 0:
         start = np.unravel_index(distance.argmax(), distance.shape)
         if (maximal_distance > 0.6 * global_max) or _is_close(seeds, start[::-1]):
@@ -181,10 +182,9 @@ def next_power_of_2(x: int) -> int:
     return 1 if x == 0 else int(2 ** (x - 1).bit_length())
 
 
-# TODO: What about mask_func Callable[[npt.NDArray[np.int_]], npt.NDArray[np.int_ | np.bool_]] =
 def get_mask(
     slide: dlup.SlideImage,
-    mask_func=improved_fesi,
+    mask_func: _MaskFunc = improved_fesi,
     minimal_size: int = 512,
 ) -> npt.NDArray[np.int_]:
     """

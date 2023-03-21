@@ -40,17 +40,18 @@ from shapely import geometry
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
-from dlup._exceptions import AnnotationError
 import dlup.annotations
+from dlup._exceptions import AnnotationError
+
 PointOrPolygon = Union["dlup.annotations.Point", "dlup.annotations.Polygon"]
 
 
 string_classes = (str, bytes)
 PathLike = str | os.PathLike
 GenericNumber = int | float
-GenericNumberArray = npt.NDArray | Iterable[GenericNumber]
-GenericFloatArray = npt.NDArray | Iterable[float]
-GenericIntArray = npt.NDArray | Iterable[int]
+GenericNumberArray = npt.NDArray[np.int_ | np.float_] | Iterable[GenericNumber]
+GenericFloatArray = npt.NDArray[np.float_] | Iterable[float]
+GenericIntArray = npt.NDArray[np.int_] | Iterable[int]
 Size = tuple[int, int]
 FloatSize = tuple[float, float]
 Coordinates = tuple[GenericNumber, GenericNumber]
@@ -128,7 +129,7 @@ class Polygon(shapely.geometry.Polygon):
     def type(self) -> AnnotationType:
         return AnnotationType.POLYGON
 
-    def __new__(cls, coord: Coordinates, *args: Any, **kwargs: Any) -> "Point":
+    def __new__(cls, coord: Coordinates, *args: Any, **kwargs: Any) -> Any:
         point = super().__new__(cls, coord)
         point.__class__ = cls
         return point
@@ -210,7 +211,7 @@ class WsiSingleLabelAnnotation:
     def as_strtree(self) -> STRtree:
         return STRtree(self._annotations)
 
-    def as_list(self) -> list:
+    def as_list(self) -> list[PointOrPolygon]:
         return self._annotations
 
     def as_json(self) -> list[dict[str, Any]]:
