@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -65,7 +64,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         self._grids = grids
         self._num_scales = num_scales
         if len(list(grids)) % num_scales != 0:
-            raise ValueError(f"In a multiscale dataset the grids needs to be divisible by the number of scales.")
+            raise ValueError("In a multiscale dataset the grids needs to be divisible by the number of scales.")
 
         self._step_size = len(list(grids)[0][0])
         self._index_ranges = [
@@ -103,8 +102,49 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         transform: DlupTransform | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
     ) -> "MultiScaleSlideImageDataset":
+        """Create a multiscale dataset from a WSI using a tiling approach.
+
+        Parameters
+        ----------
+        path : pathlib.Path
+            Path to the WSI file.
+        mpps : list[float]
+            The mpp values to use for the different scales.
+        tile_size : tuple[int, int]
+            The size of the tiles to use.
+        tile_overlap : tuple[int, int]
+            The overlap of the tiles.
+        tile_mode : TilingMode, optional
+            The tiling mode to use, by default `TilingMode.overflow`, so all border tiles will be included, no
+            matter the size.
+        grid_order : GridOrder, optional
+            The order of the tiles, by default `GridOrder.C`, so the tiles will be ordered in C-style.
+        crop : bool, optional
+            Whether to crop the border tiles to the image, when they partly overflow. By default False.
+        mask : npt.NDArray[np.int_], optional
+            A mask to use to filter the tiles, by default None.
+        mask_threshold : float, optional
+            The threshold to use for the mask, by default 0.0, which includes all tiles that have at least one pixel
+            in the mask. If set to None, the mask will be ignored and all tiles included.
+        rois : tuple[ROI], optional
+            The ROIs to use, by default None, which will use the whole image to create a grid.
+        transform : DlupTransform, optional
+            The transform to apply to the output of the dataset, by default None.
+        backend : ImageBackend, optional
+            The backend to use for reading the WSI, by default `ImageBackend.PYVIPS`.
+
+
+        Returns
+        -------
+        MultiScaleSlideImageDataset
+            The multiscale dataset.
+
+
+
+
+        """
         if mpps != sorted(mpps):
-            raise ValueError(f"The mpp values should be in increasing order.")
+            raise ValueError(f"The mpp values should be in increasing order. Got {mpps}.")
 
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp

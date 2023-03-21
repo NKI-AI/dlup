@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""Openslide backend for SlideImage"""
 from __future__ import annotations
 
 from typing import cast
@@ -56,7 +57,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):  # type: ignore
     @spacing.setter
     def spacing(self, value: tuple[float, float]) -> None:
         if not isinstance(value, tuple) and len(value) != 2:
-            raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y).")
+            raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y). Got {value} instead.")
 
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)

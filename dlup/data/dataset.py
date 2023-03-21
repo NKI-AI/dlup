@@ -16,8 +16,8 @@ from typing import Any, Generic, Iterable, Iterator, Sequence, TypeVar, Union, c
 import numpy as np
 import numpy.typing as npt
 import PIL
+import PIL.Image
 from numpy.typing import NDArray
-from PIL import Image
 from typing_extensions import NotRequired, TypedDict
 
 from dlup import BoundaryMode, SlideImage
@@ -108,6 +108,18 @@ class ConcatDataset(Dataset[T_co]):
 
     @staticmethod
     def cumsum(sequence: Sequence[Any]) -> list[int]:
+        """Returns the cumulative sum of the elements in the given sequence.
+
+        Parameters
+        ----------
+        sequence : Sequence[Any]
+            Sequence of elements to compute the cumulative sum of.
+
+        Returns
+        -------
+        list[int]
+            Cumulative sum of the elements in the given sequence.
+        """
         out_sequence, total = [], 0
         for item in sequence:
             length = len(item)
@@ -265,9 +277,9 @@ class SlideImageDatasetBase(Dataset[T_co]):
         else:
             region_index = index
 
-        x, y, w, h, mpp = self.regions[region_index]
-        coordinates: tuple[int | float, int | float] = x, y
-        region_size: Size = w, h
+        x_coord, y_coord, width, height, mpp = self.regions[region_index]
+        coordinates: tuple[int | float, int | float] = x_coord, y_coord
+        region_size: Size = width, height
         scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
@@ -275,8 +287,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         if self._output_tile_size is not None:
             # If we have an output tile_size, we extract a region around the center of the given region.
             output_tile_x, output_tile_y = self._output_tile_size
-            coordinates_x = x + w / 2 - output_tile_x / 2
-            coordinates_y = y + h / 2 - output_tile_y / 2
+            coordinates_x = x_coord + width / 2 - output_tile_x / 2
+            coordinates_y = y_coord + height / 2 - output_tile_y / 2
             coordinates = (coordinates_x, coordinates_y)
             region_size = self._output_tile_size
 
@@ -385,6 +397,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
 
     @property
     def grids(self) -> list[tuple[Grid, Size, float]]:
+        """Returns the grids of the dataset."""
         return self._grids
 
     @classmethod
@@ -467,11 +480,11 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
 
             if limit_bounds:
                 if rois is not None:
-                    raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
+                    raise ValueError("Cannot use both `rois` and `limit_bounds` at the same time.")
                 # FIXME
-                if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT": # type: ignore
+                if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":  # type: ignore
                     raise ValueError(
-                        f"Cannot use AutoDetect as backend and use limit_bounds at the same time. This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
+                        "Cannot use AutoDetect as backend and use limit_bounds at the same time. This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
                     )
 
                 offset, bounds = slide_image.slide_bounds
@@ -534,7 +547,24 @@ def _validate_roi(rois: Any, image_size: Size) -> None:
         raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
 
+# FIXME: consider if this should be a method of anotehr class or can be skipped.
 def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float) -> Any:
+    """
+    Parse the ROIs to the correct format.
+
+    Parameters
+    ----------
+    rois :
+        Regions of interest to restrict the grids to. Coordinates should be given at level 0.
+    image_size :
+        Size of the image
+
+    Returns
+    -------
+    Tuple of ROIs
+
+
+    """
     if rois is None:
         return (((0, 0), image_size),)
 

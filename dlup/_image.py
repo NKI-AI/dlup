@@ -144,6 +144,25 @@ class SlideImage:
         backend: str | Callable[[Any], Any] = ImageBackend.PYVIPS,
         **kwargs: Any,
     ) -> _TSlideImage:
+        """Initialize a SlideImage from a file path.
+
+        Parameters
+        ----------
+        wsi_file_path : PathLike
+            Path to the slide file.
+        identifier : str, optional
+            Identifier of the slide, by default None.
+        backend : str or Callable, optional
+            Backend to use for reading the slide, by default `ImageBackend.PYVIPS`.
+        **kwargs : Any
+            Additional arguments to pass to the constructor, e.g. to overwrite mpp.
+
+        Returns
+        -------
+        SlideImage
+            SlideImage instance.
+        """
+
         wsi_file_path = pathlib.Path(wsi_file_path)
 
         if isinstance(backend, str):

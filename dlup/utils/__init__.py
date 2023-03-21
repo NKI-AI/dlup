@@ -9,7 +9,7 @@ import numpy as np
 from dlup.utils.imports import _PYTORCH_AVAILABLE
 
 if _PYTORCH_AVAILABLE:
-    import torch # pylint: disable=import-error
+    import torch  # pylint: disable=import-error
 
 
 class ArrayEncoder(json.JSONEncoder):

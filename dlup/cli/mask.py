@@ -50,13 +50,13 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         for pair in args.labels.split(","):
             name, index = pair.split("=")
             if not index.isnumeric():
-                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
+                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
             index = float(index)
             if not index.is_integer():
-                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
+                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
             index = int(index)
             if index == 0:
-                raise argparse.ArgumentTypeError(f"0 is not a proper index. Needs to be at least 1.")
+                raise argparse.ArgumentTypeError("0 is not a proper index. Needs to be at least 1.")
             index_map[index] = name.strip()
 
     polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
@@ -83,8 +83,8 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         slide_annotations.simplify(tolerance=args.simplify)
 
     if not args.separate:
-        with open(output_filename, "w") as f:
-            json.dump(slide_annotations.as_geojson(split_per_label=False), f, indent=2)
+        with open(output_filename, "w") as file:
+            json.dump(slide_annotations.as_geojson(split_per_label=False), file, indent=2)
     else:
         jsons = slide_annotations.as_geojson(split_per_label=True)
         if not type(jsons) == list[tuple[str, GeoJsonDict]]:
@@ -94,8 +94,8 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
             name = output_filename.with_suffix("").name
             new_name = name + "-" + label
             new_filename = (output_filename.parent / new_name).with_suffix(suffix)
-            with open(new_filename, "w") as f:
-                json.dump(json_dict, f, indent=2)
+            with open(new_filename, "w") as file:
+                json.dump(json_dict, file, indent=2)
 
 
 def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore

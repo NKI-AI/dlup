@@ -34,7 +34,7 @@ def numpy_to_pil(tile: npt.NDArray[np.int_]) -> PIL.Image.Image:
     elif bands == 4:
         mode = "RGBA"
     else:
-        raise RuntimeError(f"Incorrect number of channels.")
+        raise RuntimeError(f"Incorrect number of channels. Got {bands} channels.")
 
     return PIL.Image.fromarray(tile, mode=mode)
 

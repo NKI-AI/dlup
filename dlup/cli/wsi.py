@@ -97,7 +97,7 @@ def tiling(args: argparse.Namespace) -> None:
     output["output"]["tile_indices"] = indices
     output["output"]["background_tiles"] = len(dataset.regions) - num_tiles
 
-    with open(output_directory_path / "tiles.json", "w") as file:
+    with open(output_directory_path / "tiles.json", "w", encoding="utf-8") as file:
         json.dump(output, file, indent=2, cls=ArrayEncoder)
 
 
@@ -110,6 +110,19 @@ class TileSaver:
         self.do_not_save_tiles = do_not_save_tiles
 
     def save_tile(self, index: int) -> tuple[Coordinates, int]:
+        """Save a tile to disk and return the grid local coordinates and the index of the tile.
+
+        Parameters
+        ----------
+        index : int
+            The index of the tile in the dataset.
+
+        Returns
+        -------
+        tuple[Coordinates, int]
+            The grid local coordinates and the index of the tile.
+        """
+
         tile_dict = self.dataset[index]
         tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]

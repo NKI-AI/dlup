@@ -155,7 +155,7 @@ class PyVipsSlide(AbstractSlideBackend):
     @spacing.setter
     def spacing(self, value: tuple[float, float]) -> None:
         if not isinstance(value, tuple) and len(value) != 2:
-            raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y).")
+            raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y). Got {value} instead.")
 
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)
@@ -195,6 +195,17 @@ class PyVipsSlide(AbstractSlideBackend):
         raise NotImplementedError
 
     def set_cache(self, cache: Any) -> None:
+        """Set the cache to be used for the image.
+
+        Parameters
+        ----------
+        cache : Any
+            The cache to be used.
+
+        Returns
+        -------
+        None
+        """
         # FIXME: This needs to be implemented, and a CacheHandler defined.
         raise NotImplementedError
 

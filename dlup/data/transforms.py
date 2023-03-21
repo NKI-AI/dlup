@@ -81,7 +81,7 @@ def convert_annotations(
             )
             continue
 
-        if not (curr_annotation.label in index_map):
+        if curr_annotation.label not in index_map:
             continue
 
         original_values = None

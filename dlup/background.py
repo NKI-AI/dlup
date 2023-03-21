@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Any, Callable, Iterable
+from typing import Any, Callable
 
 import numpy as np
 import numpy.typing as npt
@@ -33,6 +33,7 @@ from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
 
 _MaskFunc = Callable[[npt.NDArray[np.int_]], npt.NDArray[np.int_]]
+
 
 def _is_close(_seeds: Any, _start: Any) -> bool:
     """

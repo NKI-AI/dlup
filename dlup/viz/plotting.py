@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup Contributors
+"""Utilities to plot (parts of) images conveniently."""
 from __future__ import annotations
 
 import numpy as np
@@ -52,7 +53,7 @@ def plot_2d(
             if mask_colors is not None:
                 color = PIL.ImageColor.getcolor(mask_colors[idx], "RGBA")
             else:
-                raise ValueError(f"If mask is given, `mask_colors` are required")
+                raise ValueError("If mask is given, `mask_colors` are required")
             curr_mask = PIL.Image.fromarray(((mask == idx)[..., np.newaxis] * color).astype(np.uint8), mode="RGBA")
             alpha_channel = PIL.Image.fromarray(
                 ((mask == idx) * int(mask_alpha * 255 / 100)).astype(np.uint8), mode="L"
@@ -63,7 +64,7 @@ def plot_2d(
     if geometries is not None:
         draw = PIL.ImageDraw.Draw(image)
         if geometries_color_map is None:
-            raise ValueError(f"If geometries are defined, you need to define `geometries_color_map`.")
+            raise ValueError("If geometries are defined, you need to define `geometries_color_map`.")
 
         for data in geometries:
             if isinstance(data, Point):

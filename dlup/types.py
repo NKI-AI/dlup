@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import os
-from typing import Iterable, Union
+from typing import Iterable
+
 import numpy as np
 import numpy.typing as npt
-
 
 string_classes = (str, bytes)
 PathLike = str | os.PathLike

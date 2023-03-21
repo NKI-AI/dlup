@@ -13,12 +13,13 @@ import pyvips
 import tifffile
 
 from dlup import UnsupportedSlideError
+from dlup.types import PathLike
+
 from .common import AbstractSlideBackend
 from .openslide_backend import OpenSlideSlide
 from .pyvips_backend import PyVipsSlide
 from .tifffile_backend import TifffileSlide
 
-from dlup.types import PathLike
 
 @lru_cache(maxsize=None)
 def autodetect_backend(filename: PathLike) -> AbstractSlideBackend:
@@ -124,7 +125,6 @@ def _try_tifffile(filename: PathLike) -> TifffileSlide:
 
 
 BackendLiteral = Literal["OPENSLIDE", "PYVIPS", "TIFFFILE", "AUTODETECT"]
-
 
 
 class ImageBackend(Enum):

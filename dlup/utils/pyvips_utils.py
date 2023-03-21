@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""Utilities to work with pyvips."""
 import numpy as np
 import numpy.typing as npt
 import pyvips

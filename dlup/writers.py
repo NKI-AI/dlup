@@ -9,7 +9,7 @@ import pathlib
 import shutil
 import tempfile
 from enum import Enum
-from typing import Any, Generator, Iterator
+from typing import Any, Iterator
 
 import numpy as np
 import numpy.typing as npt

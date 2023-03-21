@@ -103,6 +103,27 @@ def dataset_to_polygon(
     scaling: float = 1.0,
     show_progress: bool = True,
 ) -> dict[str, Polygon]:
+    """Converts a dataset to a dictionary of polygons.
+
+    Parameters
+    ----------
+    dataset : TiledROIsSlideImageDataset
+        The dataset to convert
+    index_map : dict[int, str]
+        A mapping from the index to the name of the polygon
+    num_workers : int, optional
+        The number of workers to use, by default 0
+    scaling : float, optional
+        The scaling for the polygons, by default 1.0
+    show_progress : bool, optional
+        Whether to show a progress bar, by default True
+
+    Returns
+    -------
+    dict[str, Polygon]
+        A dictionary of polygons, with keys representing the name of the polygon.
+
+    """
     output_polygons: dict[str, list[Polygon]] = {v: [] for v in index_map.values()}
 
     sample_function = partial(_get_sample, dataset=dataset, index_map=index_map, scaling=scaling)

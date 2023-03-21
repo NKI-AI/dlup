@@ -43,7 +43,7 @@ from shapely.validation import make_valid
 import dlup.annotations
 from dlup._exceptions import AnnotationError
 
-PointOrPolygon = Union["dlup.annotations.Point", "dlup.annotations.Polygon"]
+PointOrPolygon = Union[dlup.annotations.Point, dlup.annotations.Polygon]
 
 
 string_classes = (str, bytes)
@@ -69,6 +69,15 @@ class AnnotationType(Enum):
     POINT = "point"
     BOX = "box"
     POLYGON = "polygon"
+
+
+_ASAP_TYPES = {
+    "polygon": AnnotationType.POLYGON,
+    "rectangle": AnnotationType.BOX,
+    "dot": AnnotationType.POINT,
+    "spline": AnnotationType.POLYGON,
+    "pointset": AnnotationType.POINT,
+}
 
 
 class GeoJsonDict(TypedDict):
@@ -148,6 +157,23 @@ class Polygon(shapely.geometry.Polygon):  # type: ignore
 
 
 def shape(coordinates: ShapelyTypes, label: str, multiplier: float = 1.0) -> list[PointOrPolygon]:
+    """
+    Convert a shapely geometry to a dlup annotation.
+
+    Parameters
+    ----------
+    coordinates : ShapelyTypes
+        Shapely geometries
+    label : str
+        Label of the annotation
+    multiplier : float, optional
+        Multiplier for the coordinates, by default 1.0
+
+    Returns
+    -------
+    list[PointOrPolygon]
+        List of annotations of type Point or Polygon.
+    """
     geom_type = coordinates.get("type").lower()
     if geom_type == "point":
         return [Point(np.asarray(coordinates["coordinates"]) * multiplier, label=label)]
@@ -206,12 +232,15 @@ class WsiSingleLabelAnnotation:
         self._annotations = _annotations
 
     def append(self, sample: PointOrPolygon) -> None:
+        """Append a new annotation to the list of annotations."""
         self._annotations.append(sample)
 
     def as_strtree(self) -> STRtree:
+        """Return the annotation as a STRtree for fast spatial queries."""
         return STRtree(self._annotations)
 
     def as_list(self) -> list[PointOrPolygon]:
+        """Return the annotation as a list of geometries."""
         return self._annotations
 
     def as_json(self) -> list[dict[str, Any]]:
@@ -239,16 +268,32 @@ class WsiSingleLabelAnnotation:
 
     @staticmethod
     def __get_bbox(data: list[list[int | float]]) -> tuple[Size, Size]:
+        """Get the bounding box of a list of coordinates."""
         z = np.asarray(data)
         offset, size = z.min(axis=0).tolist(), (z.max(axis=0) - z.min(axis=0)).tolist()
         return (offset[0], offset[1]), (size[0], size[1])
 
     @property
     def bounding_boxes(self) -> list[tuple[Size, Size]]:
+        """Get the bounding boxes of all annotations."""
         data = [list(annotation.envelope.exterior.coords) for annotation in self.as_list()]
         return [self.__get_bbox(_) for _ in data]
 
     def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:
+        """In-place simplify the annotation by a given tolerance.
+
+        Parameters
+        ----------
+        tolerance : float
+            The tolerance to use for simplification.
+        preserve_topology : bool, optional
+            Whether to preserve topology, by default True
+
+        Returns
+        -------
+        None
+
+        """
         if self.__type != AnnotationType.POLYGON:
             return
         self._annotations = [
@@ -419,13 +464,6 @@ class WsiAnnotations:
         -------
         WsiAnnotations
         """
-        _ASAP_TYPES = {
-            "polygon": AnnotationType.POLYGON,
-            "rectangle": AnnotationType.BOX,
-            "dot": AnnotationType.POINT,
-            "spline": AnnotationType.POLYGON,
-            "pointset": AnnotationType.POINT,
-        }
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
@@ -448,7 +486,7 @@ class WsiAnnotations:
                 if isinstance(coordinates, shapely.geometry.collection.GeometryCollection):
                     split_up = [_ for _ in coordinates.geoms if _.area > 0]
                     if len(split_up) != 1:
-                        raise RuntimeError(f"Got unexpected object.")
+                        raise RuntimeError("Got unexpected object.")
                     coordinates = split_up[0]
 
                 if coordinates.area == 0:
@@ -675,8 +713,9 @@ class WsiAnnotations:
     def __add__(self, other: WsiAnnotations) -> WsiAnnotations:
         if set(self.available_labels).intersection(other.available_labels) != set():
             raise AnnotationError(
-                f"Can only add annotations with different labels. "
-                f"Use `.relabel` or relabel during construction of the object."
+                "Can only add annotations with different labels. "
+                "Use `.relabel` or relabel during construction of the object."
+                f"Got {self.available_labels} and {other.available_labels}."
             )
 
         curr_annotations = list(self._annotations.values())

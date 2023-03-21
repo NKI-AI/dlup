@@ -7,8 +7,6 @@ import collections
 import itertools
 from typing import Any, Callable, Iterator, Sequence
 
-import numpy as np
-
 import dlup.tiling
 
 

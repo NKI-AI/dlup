@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import functools
 from enum import Enum
-from typing import Iterator, Literal, Sequence, Union, Any
+from typing import Any, Iterator, Literal, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
