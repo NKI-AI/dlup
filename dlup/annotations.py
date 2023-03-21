@@ -40,10 +40,9 @@ from shapely import geometry
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
-import dlup.annotations
 from dlup._exceptions import AnnotationError
 
-PointOrPolygon = Union[dlup.annotations.Point, dlup.annotations.Polygon]
+PointOrPolygon = Union["Point", "Polygon"]
 
 
 string_classes = (str, bytes)

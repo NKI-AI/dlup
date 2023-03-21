@@ -121,7 +121,7 @@ class Grid:
         self.order = order
 
     @classmethod
-    def from_tiling(
+    def from_tiling(  # pylint: disable=too-many-arguments
         cls,
         offset: _GenericNumberArray,
         size: _GenericNumberArray,

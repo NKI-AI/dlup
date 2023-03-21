@@ -48,7 +48,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
     Setting `crop` to False will pad the image with zeros in the lower resolutions at the borders.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         path: pathlib.Path,
         grids: list[tuple[Grid, tuple[int, int], float]],
@@ -87,7 +87,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         return self._step_size
 
     @classmethod
-    def multiscale_from_tiling(
+    def multiscale_from_tiling(  # pylint: disable=too-many-arguments
         cls,
         path: pathlib.Path,
         mpps: list[float],

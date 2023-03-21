@@ -13,7 +13,7 @@ import PIL.ImageDraw
 from dlup.annotations import Point, Polygon
 
 
-def plot_2d(
+def plot_2d(  # pylint: disable=too-many-arguments
     image: PIL.Image.Image,
     mask: npt.NDArray[np.int_] | None = None,
     mask_colors: dict[int, str] | None = None,
@@ -68,9 +68,9 @@ def plot_2d(
 
         for data in geometries:
             if isinstance(data, Point):
-                r = 10
-                x, y = data.coords[0]
-                _points = [(x - r, y - r), (x + r, y + r)]
+                radius = 10
+                x_coord, y_coord = data.coords[0]
+                _points = [(x_coord - radius, y_coord - radius), (x_coord + radius, y_coord + radius)]
                 draw.ellipse(_points, outline=geometries_color_map[data.label], width=3)
 
             elif isinstance(data, Polygon):

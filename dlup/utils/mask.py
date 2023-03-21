@@ -19,7 +19,7 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.types import Coordinates
 
 
-def _DFS(
+def _DFS(  # pylint: disable=too-many-arguments
     polygons: list[Polygon],
     contours: list[npt.NDArray[np.int_]],
     hierarchy: list[npt.NDArray[np.int_]],

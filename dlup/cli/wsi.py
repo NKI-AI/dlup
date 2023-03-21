@@ -1,5 +1,6 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
+"""Command line interface for WSI information and tiling."""
 from __future__ import annotations
 
 import argparse
@@ -146,8 +147,8 @@ def info(args: argparse.Namespace) -> None:
         print(json.dumps(dict(props)))
         return
 
-    for k, v in props.items():
-        print(f"{k}\t{v}")
+    for key, value in props.items():
+        print(f"{key}\t{value}")
 
 
 def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore

@@ -49,6 +49,8 @@ class _StandardTilingFromSlideDatasetSample(TypedDict):
 
 
 class RegionFromSlideDatasetSample(_StandardTilingFromSlideDatasetSample):
+    """A sample from a :class:`RegionFromSlideDataset`."""
+
     grid_local_coordinates: NotRequired[Coordinates]
     grid_index: NotRequired[int]
     annotation_data: NotRequired[Any]
@@ -56,6 +58,7 @@ class RegionFromSlideDatasetSample(_StandardTilingFromSlideDatasetSample):
 
 class PretiledDatasetSample(TypedDict):
     """A sample from a :class:`PretiledDataset`."""
+
     image: PIL.Image.Image
     grid_index: int
     path: pathlib.Path
@@ -187,7 +190,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
     `from_standard_tiling`, to compute all the regions for specified tiling parameters on the fly.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         path: pathlib.Path,
         regions: collections.abc.Sequence[Any],
@@ -307,7 +310,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
             sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
 
         if self.labels:
-            sample["labels"] = {k: v for k, v in self.labels}
+            sample["labels"] = dict(self.labels)
 
         if self.__transform:
             sample = self.__transform(sample)
@@ -326,7 +329,6 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
 
 class SlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
-
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
@@ -361,7 +363,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
     >>> image = sample["image']
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         path: pathlib.Path,
         grids: list[tuple[Grid, Size, float]],
@@ -403,7 +405,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return self._grids
 
     @classmethod
-    def from_standard_tiling(
+    def from_standard_tiling(  # pylint: disable=too-many-arguments
         cls,
         path: pathlib.Path,
         mpp: float | None,

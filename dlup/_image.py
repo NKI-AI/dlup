@@ -172,8 +172,8 @@ class SlideImage:
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:
             wsi = backend(wsi_file_path)
-        except UnsupportedSlideError:
-            raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
+        except UnsupportedSlideError as exception:
+            raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}") from exception
 
         return cls(wsi, str(wsi_file_path) if identifier is None else identifier, **kwargs)
 

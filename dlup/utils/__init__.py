@@ -28,4 +28,4 @@ class ArrayEncoder(json.JSONEncoder):
         if isinstance(o, (np.int32, np.int64)):
             return int(o)
 
-        return json.JSONEncoder.default(self, obj)
+        return json.JSONEncoder.default(self, o)

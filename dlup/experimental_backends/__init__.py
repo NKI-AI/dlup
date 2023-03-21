@@ -1,6 +1,5 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-import os
 import pathlib
 from enum import Enum
 from functools import lru_cache
@@ -47,8 +46,8 @@ def autodetect_backend(filename: PathLike) -> AbstractSlideBackend:
             pass
         try:
             return _try_tifffile(filename)
-        except UnsupportedSlideError:
-            raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or tifffile.")
+        except UnsupportedSlideError as exception:
+            raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or tifffile.") from exception
 
     try:
         return _try_openslide(filename)
@@ -57,8 +56,8 @@ def autodetect_backend(filename: PathLike) -> AbstractSlideBackend:
 
     try:
         return _try_pyvips(filename)
-    except UnsupportedSlideError:
-        raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or openslide.")
+    except UnsupportedSlideError as exception:
+        raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or openslide.") from exception
 
 
 def _try_openslide(filename: PathLike) -> OpenSlideSlide:
@@ -78,8 +77,8 @@ def _try_openslide(filename: PathLike) -> OpenSlideSlide:
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
         slide.read_region((0, 0), slide.level_count - 1, size)
         return OpenSlideSlide(filename)
-    except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
-        raise UnsupportedSlideError(f"Cannot read {filename} with openslide.")
+    except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError) as exception:
+        raise UnsupportedSlideError(f"Cannot read {filename} with openslide.") from exception
 
 
 def _try_pyvips(filename: PathLike) -> PyVipsSlide:
@@ -99,8 +98,8 @@ def _try_pyvips(filename: PathLike) -> PyVipsSlide:
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
         slide.read_region((0, 0), slide.level_count - 1, size)
         return PyVipsSlide(filename)
-    except pyvips.error.Error:
-        raise UnsupportedSlideError(f"Cannot read {filename} with pyvips.")
+    except pyvips.error.Error as exception:
+        raise UnsupportedSlideError(f"Cannot read {filename} with pyvips.") from exception
 
 
 def _try_tifffile(filename: PathLike) -> TifffileSlide:
@@ -120,8 +119,8 @@ def _try_tifffile(filename: PathLike) -> TifffileSlide:
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
         slide.read_region((0, 0), slide.level_count - 1, size)
         return TifffileSlide(filename)
-    except tifffile.tifffile.TiffFileError:
-        raise UnsupportedSlideError(f"Cannot read {filename} with tifffile.")
+    except tifffile.tifffile.TiffFileError as exception:
+        raise UnsupportedSlideError(f"Cannot read {filename} with tifffile.") from exception
 
 
 BackendLiteral = Literal["OPENSLIDE", "PYVIPS", "TIFFFILE", "AUTODETECT"]

@@ -106,8 +106,8 @@ def convert_annotations(
 
 class DlupTransform(abc.ABC):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__()
         """Constructor"""
+        super().__init__()
 
     @abc.abstractmethod
     def __call__(self, sample: Any) -> Any:

@@ -22,3 +22,4 @@ def _module_available(module_path: str) -> bool:
 
 
 _PYTORCH_AVAILABLE = _module_available("pytorch")
+IMAGECODECS_AVAILABLE = _module_available("imagecodecs")

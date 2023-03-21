@@ -83,7 +83,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         slide_annotations.simplify(tolerance=args.simplify)
 
     if not args.separate:
-        with open(output_filename, "w") as file:
+        with open(output_filename, "w", encoding="utf-8") as file:
             json.dump(slide_annotations.as_geojson(split_per_label=False), file, indent=2)
     else:
         jsons = slide_annotations.as_geojson(split_per_label=True)
@@ -94,7 +94,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
             name = output_filename.with_suffix("").name
             new_name = name + "-" + label
             new_filename = (output_filename.parent / new_name).with_suffix(suffix)
-            with open(new_filename, "w") as file:
+            with open(new_filename, "w", encoding="utf-8") as file:
                 json.dump(json_dict, file, indent=2)
 
 

@@ -21,6 +21,7 @@ import dlup
 from dlup._image import Resampling
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.types import PathLike
+from dlup.utils.imports import IMAGECODECS_AVAILABLE
 from dlup.utils.pyvips_utils import numpy_to_vips, vips_to_numpy
 from dlup.utils.tifffile_utils import get_tile
 
@@ -70,7 +71,7 @@ class ImageWriter:
 class TifffileImageWriter(ImageWriter):
     """Image writer that writes tile-by-tile to tiff."""
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         filename: PathLike,
         size: tuple[int, int] | tuple[int, int, int],
@@ -120,6 +121,9 @@ class TifffileImageWriter(ImageWriter):
 
         if compression is None:
             compression = TiffCompression.NONE
+
+        if compression != TiffCompression.NONE and not IMAGECODECS_AVAILABLE:
+            raise ValueError("Compression requires the `imagecodecs` package to be installed.")
 
         if interpolator is None:
             interpolator = Resampling.LANCZOS
@@ -226,7 +230,7 @@ class TifffileImageWriter(ImageWriter):
             tiff_writer.close()
             shutil.move(str(temp_filename), str(filename))
 
-    def _write_page(
+    def _write_page(  # pylint: disable=too-many-arguments
         self,
         tiff_writer: tifffile.TiffWriter,
         tile_iterator: Iterator[npt.NDArray[np.int_]],
@@ -282,7 +286,7 @@ def _tiles_iterator_from_pil_image(
         yield cropped_array
 
 
-def _tile_iterator_from_page(
+def _tile_iterator_from_page(  # pylint: disable=too-many-arguments
     page: tifffile.TiffPage,
     tile_size: tuple[int, int],
     region_size: tuple[int, int],
