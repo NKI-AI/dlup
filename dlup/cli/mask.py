@@ -3,6 +3,7 @@
 """CLI utilities to handle masks"""
 import argparse
 import json
+import pathlib
 from typing import cast
 
 import shapely
@@ -43,21 +44,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         scaling = dataset.slide_image.get_scaling(mpp=target_mpp)
 
     # Parse the labels
-    if args.labels is None:
-        index_map = {1: "label"}
-    else:
-        index_map = {}
-        for pair in args.labels.split(","):
-            name, index = pair.split("=")
-            if not index.isnumeric():
-                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
-            index = float(index)
-            if not index.is_integer():
-                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
-            index = int(index)
-            if index == 0:
-                raise argparse.ArgumentTypeError("0 is not a proper index. Needs to be at least 1.")
-            index_map[index] = name.strip()
+    index_map = _parse_labels(args.labels)
 
     polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
     wsi_annotations = []
@@ -78,11 +65,74 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
             )
         )
 
-    slide_annotations = WsiAnnotations(wsi_annotations)
-    if args.simplify is not None:
-        slide_annotations.simplify(tolerance=args.simplify)
+    _write_to_json(
+        separate=args.separate,
+        output_filename=output_filename,
+        wsi_annotations=wsi_annotations,
+        simplify=args.simplify,
+    )
 
-    if not args.separate:
+
+def _parse_labels(labels: str) -> dict[int, str]:
+    """
+    Parse the labels from the command line arguments.
+
+    Parameters
+    ----------
+    labels : str
+        The labels to parse in the form of 1=tumor,2=stroma,etc.
+
+    Returns
+    -------
+    dict[int, str]
+        The parsed labels mapping index to name.
+
+    """
+    if labels is None:
+        index_map = {1: "label"}
+    else:
+        index_map = {}
+        for pair in labels.split(","):
+            name, index = pair.split("=")
+            if not index.isnumeric():
+                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
+            index = float(index)
+            if not index.is_integer():
+                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
+            index = int(index)
+            if index == 0:
+                raise argparse.ArgumentTypeError("0 is not a proper index. Needs to be at least 1.")
+            index_map[index] = name.strip()
+    return index_map
+
+
+def _write_to_json(
+    separate, output_filename: pathlib.Path, wsi_annotations: list[WsiSingleLabelAnnotation], simplify
+) -> None:
+    """Write the annotations to a json file.
+
+    Parameters
+    ----------
+    separate : bool
+        Whether to write the annotations to separate files.
+    output_filename : pathlib.Path
+        The output filename.
+    wsi_annotations : list[WsiSingleLabelAnnotation]
+        The annotations to write.
+    simplify : float
+        The tolerance to use for simplification.
+
+    Returns
+    -------
+    None
+
+    """
+
+    slide_annotations = WsiAnnotations(wsi_annotations)
+    if simplify is not None:
+        slide_annotations.simplify(tolerance=simplify)
+
+    if not separate:
         with open(output_filename, "w", encoding="utf-8") as file:
             json.dump(slide_annotations.as_geojson(split_per_label=False), file, indent=2)
     else:

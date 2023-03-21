@@ -563,4 +563,4 @@ def parse_rois(rois: tuple[ROI] | None, image_size: Size, scaling: float) -> Any
 
         return (_coords[0], _coords[1]), (_size[0], _size[1])
 
-    return tuple([build_coords(coords, size) for coords, size in rois])
+    return (build_coords(coords, size) for coords, size in rois)
