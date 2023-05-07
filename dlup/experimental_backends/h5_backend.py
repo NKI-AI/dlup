@@ -156,9 +156,15 @@ class H5FileImageReader:
 
                         cropped_tile = tile[crop_start_y:crop_end_y, crop_start_x:crop_end_x]
                         stitched_image[img_start_y:img_end_y, img_start_x:img_end_x] = cropped_tile
+
                     elif self._stitching_mode == StitchingMode.AVERAGE:
-                        stitched_image[img_start_y:img_end_y, img_start_x:img_end_x] += tile[:img_end_y - img_start_y,
-                                                                                        :img_end_x - img_start_x]
+                        tile_start_y = max(0, -start_y)
+                        tile_end_y = img_end_y - img_start_y
+                        tile_start_x = max(0, -start_x)
+                        tile_end_x = img_end_x - img_start_x
+
+                        cropped_tile = tile[tile_start_y:tile_end_y, tile_start_x:tile_end_x]
+                        stitched_image[img_start_y:img_end_y, img_start_x:img_end_x] += cropped_tile
                         divisor_array[img_start_y:img_end_y, img_start_x:img_end_x] += 1
                     else:
                         raise ValueError("Unsupported stitching mode")
