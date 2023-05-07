@@ -29,6 +29,7 @@ install_requires = [
     "openslide-python",
     "opencv-python>=4.6.0",
     "shapely>=2.0.0",
+    "h5py==3.8.0",
 ]
 
 setup(
