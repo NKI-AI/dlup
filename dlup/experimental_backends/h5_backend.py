@@ -1,5 +1,4 @@
 # encoding: utf-8
-import dlup
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.writers import TifffileImageWriter, Resampling
 from dlup.tiling import TilingMode
@@ -20,6 +19,11 @@ class StitchingMode(Enum):
     MAXIMUM = 2
 
 
+class PasteMode(Enum):
+    OVERWRITE = 0
+    ADD = 1
+
+
 class _DatasetIterator:
     def __init__(self, dataset):
         self.dataset = dataset
@@ -35,6 +39,23 @@ class _DatasetIterator:
             return item
         else:
             raise StopIteration
+
+
+def crop_to_bbox(array, bbox):
+    (x, y), (h, w) = bbox
+    return array[y:y + h, x:x + w]
+
+
+def paste_region(array, region, location, paste_mode=PasteMode.OVERWRITE):
+    x, y = location
+    h, w = region.shape[:2]
+
+    if paste_mode == PasteMode.OVERWRITE:
+        array[y:y + h, x:x + w] = region
+    elif paste_mode == PasteMode.ADD:
+        array[y:y + h, x:x + w] += region
+    else:
+        raise ValueError("Unsupported paste mode")
 
 
 class H5FileImageWriter:
@@ -154,7 +175,10 @@ class H5FileImageReader:
                         crop_start_x = img_start_x - start_x
                         crop_end_x = img_end_x - start_x
 
-                        cropped_tile = tile[crop_start_y:crop_end_y, crop_start_x:crop_end_x]
+                        # TODO: Simplify this
+                        bbox = (crop_start_y, crop_start_x), (crop_end_y - crop_start_y, crop_end_x - crop_start_x)
+                        #                         cropped_tile = tile[crop_start_y:crop_end_y, crop_start_x:crop_end_x]
+                        cropped_tile = crop_to_bbox(tile, bbox)
                         stitched_image[img_start_y:img_end_y, img_start_x:img_end_x] = cropped_tile
 
                     elif self._stitching_mode == StitchingMode.AVERAGE:
@@ -163,6 +187,7 @@ class H5FileImageReader:
                         tile_start_x = max(0, -start_x)
                         tile_end_x = img_end_x - img_start_x
 
+                        # TODO: Replace this with crop_to_bbox
                         cropped_tile = tile[tile_start_y:tile_end_y, tile_start_x:tile_end_x]
                         stitched_image[img_start_y:img_end_y, img_start_x:img_end_x] += cropped_tile
                         divisor_array[img_start_y:img_end_y, img_start_x:img_end_x] += 1
