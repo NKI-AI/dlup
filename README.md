@@ -16,5 +16,8 @@ Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more deta
 - Annotation classes which can load GeoJSON, HALO and ASAP formats and convert these to masks.
 - Command-line utilities to report on the metadata of WSIs, tile WSIs, and convert masks to polygons.
 
-### Quickstart
-The package can be installed using `pip install dlup`.
+## Quickstart
+The package can be installed using `python -m pip install dlup`.
+
+## Used by
+- [ahcore](https://github.com/NKI-AI/ahcore.git): a pytorch lightning based-library for computational pathology
