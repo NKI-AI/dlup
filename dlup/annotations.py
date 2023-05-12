@@ -501,9 +501,9 @@ class WsiAnnotations:
 
         annotations: list[WsiSingleLabelAnnotation] = []
         for label in output:
-            annotations.append(WsiSingleLabelAnnotation(
-                label=label, type=AnnotationType.POLYGON, coordinates=output[label]
-            ))
+            annotations.append(
+                WsiSingleLabelAnnotation(label=label, type=AnnotationType.POLYGON, coordinates=output[label])
+            )
 
         return cls(annotations)
 
