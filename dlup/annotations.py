@@ -391,13 +391,16 @@ class WsiAnnotations:
         scaling: float | None = None,
     ):
         """
-        Read annotations as an ASAP XML file.
-        ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
+        Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
 
         Parameters
         ----------
         asap_xml
         scaling : float, optional
+
+        References
+        ----------
+        .. [1] https://github.com/computationalpathologygroup/ASAP
 
         Returns
         -------
@@ -470,7 +473,8 @@ class WsiAnnotations:
     @classmethod
     def from_halo_xml(cls, halo_xml: PathLike, scaling: float | None = None) -> WsiAnnotations:
         """
-        Read annotations as a Halo XML file.
+        Read annotations as a Halo [1] XML file.
+        This function requires `pyhaloxml` [2] to be installed.
 
         Parameters
         ----------
@@ -478,6 +482,11 @@ class WsiAnnotations:
             Path to the Halo XML file.
         scaling : float, optional
             The scaling to apply to the annotations.
+
+        References
+        ----------
+        .. [1] https://indicalab.com/halo/
+        .. [2] https://github.com/rharkes/pyhaloxml
 
         Returns
         -------
