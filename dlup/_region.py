@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Iterable, cast
+from typing import Iterable, Union, cast
 
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
 
-_GenericFloatArray = npt.NDArray | Iterable[float]
-_GenericIntArray = npt.NDArray | Iterable[int]
+from dlup.types import GenericFloatArray, GenericIntArray
 
 
 class BoundaryMode(str, Enum):
@@ -43,7 +42,7 @@ class RegionView(ABC):
         """Returns size of the region in U units."""
         pass
 
-    def read_region(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image.Image:
+    def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Returns the requested region as a numpy array."""
         location = np.asarray(location)
         size = np.asarray(size)
@@ -74,6 +73,6 @@ class RegionView(ABC):
         return region
 
     @abstractmethod
-    def _read_region_impl(self, location: _GenericFloatArray, size: _GenericIntArray) -> PIL.Image.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Define a method to return an array containing the region."""
         pass

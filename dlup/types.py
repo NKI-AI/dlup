@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import Iterable
+from typing import Iterable, Union
 
-import numpy as np
+import numpy.typing as npt
 
 string_classes = (str, bytes)
-PathLike = str | os.PathLike
-GenericNumber = int | float
-GenericNumberArray = np.ndarray | Iterable[GenericNumber]
-GenericFloatArray = np.ndarray | Iterable[float]
-GenericIntArray = np.ndarray | Iterable[int]
+PathLike = Union[str, os.PathLike]
+GenericNumber = Union[int, float]
+GenericNumberArray = Union[npt.NDArray, Iterable[GenericNumber]]
+GenericFloatArray = Union[npt.NDArray, Iterable[float]]
+GenericIntArray = Union[npt.NDArray, Iterable[int]]
