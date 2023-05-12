@@ -395,7 +395,8 @@ class WsiAnnotations:
 
         Parameters
         ----------
-        asap_xml
+        asap_xml : PathLike
+            Path to ASAP XML annotation file.
         scaling : float, optional
 
         References
