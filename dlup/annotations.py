@@ -41,6 +41,11 @@ from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
+from dlup.utils.imports import PYHALOXML_AVAILABLE
+
+if PYHALOXML_AVAILABLE:
+    import pyhaloxml
+    import pyhaloxml.shapely
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -386,13 +391,17 @@ class WsiAnnotations:
         scaling: float | None = None,
     ):
         """
-        Read annotations as an ASAP XML file.
-        ASAP is WSI viewer/annotator of https://github.com/computationalpathologygroup/ASAP
+        Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
 
         Parameters
         ----------
-        asap_xml
+        asap_xml : PathLike
+            Path to ASAP XML annotation file.
         scaling : float, optional
+
+        References
+        ----------
+        .. [1] https://github.com/computationalpathologygroup/ASAP
 
         Returns
         -------
@@ -461,6 +470,52 @@ class WsiAnnotations:
                     opened_annotations += 1
 
         return cls(list(annotations.values()))
+
+    @classmethod
+    def from_halo_xml(cls, halo_xml: PathLike, scaling: float | None = None) -> WsiAnnotations:
+        """
+        Read annotations as a Halo [1] XML file.
+        This function requires `pyhaloxml` [2] to be installed.
+
+        Parameters
+        ----------
+        halo_xml : PathLike
+            Path to the Halo XML file.
+        scaling : float, optional
+            The scaling to apply to the annotations.
+
+        References
+        ----------
+        .. [1] https://indicalab.com/halo/
+        .. [2] https://github.com/rharkes/pyhaloxml
+
+        Returns
+        -------
+        WsiAnnotations
+        """
+        if not PYHALOXML_AVAILABLE:
+            raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
+        hx = pyhaloxml.HaloXML()
+        hx.load(halo_xml)
+
+        output = defaultdict(list)
+        _scaling = 1.0 if not scaling else scaling
+
+        for layer in hx.layers:
+            shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)
+            for shapely_polygon in shapely_multipolygon.geoms:
+                curr_polygon = Polygon(shapely_polygon, label=layer.name)
+                if _scaling != 1.0:
+                    curr_polygon = shapely.affinity.scale(curr_polygon, _scaling, _scaling)
+                output[layer.name].append(Polygon(curr_polygon, label=layer.name))
+
+        annotations: list[WsiSingleLabelAnnotation] = []
+        for label in output:
+            annotations.append(
+                WsiSingleLabelAnnotation(label=label, type=AnnotationType.POLYGON, coordinates=output[label])
+            )
+
+        return cls(annotations)
 
     def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
         return self._annotations[label]

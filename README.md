@@ -13,8 +13,8 @@ Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more deta
 
 ## Features
 - Dataset classes to handle whole-slide images in a tile-by-tile manner
-- Annotation classes which can load GeoJSON and ASAP formats and convert these to masks.
-- Command-line utilities to report on the metadata of WSIs, tile WSIs, and convert masks to polygons. 
+- Annotation classes which can load GeoJSON, HALO and ASAP formats and convert these to masks.
+- Command-line utilities to report on the metadata of WSIs, tile WSIs, and convert masks to polygons.
 
 ### Quickstart
 The package can be installed using `pip install dlup`.
