@@ -495,19 +495,17 @@ class WsiAnnotations:
         """
         if not PYHALOXML_AVAILABLE:
             raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
-        hx = pyhaloxml.HaloXML()
-        hx.load(halo_xml)
 
         output = defaultdict(list)
         _scaling = 1.0 if not scaling else scaling
-
-        for layer in hx.layers:
-            shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)
-            for shapely_polygon in shapely_multipolygon.geoms:
-                curr_polygon = Polygon(shapely_polygon, label=layer.name)
-                if _scaling != 1.0:
-                    curr_polygon = shapely.affinity.scale(curr_polygon, _scaling, _scaling)
-                output[layer.name].append(Polygon(curr_polygon, label=layer.name))
+        with pyhaloxml.HaloXMLFile(halo_xml) as hx:
+            for layer in hx.layers:
+                shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)
+                for shapely_polygon in shapely_multipolygon.geoms:
+                    curr_polygon = Polygon(shapely_polygon, label=layer.name)
+                    if _scaling != 1.0:
+                        curr_polygon = shapely.affinity.scale(curr_polygon, _scaling, _scaling)
+                    output[layer.name].append(Polygon(curr_polygon, label=layer.name))
 
         annotations: list[WsiSingleLabelAnnotation] = []
         for label in output:
