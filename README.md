@@ -40,5 +40,5 @@ If you use DLUP in your own research, please use the following BiBTeX entry:
 or the following plain bibliography:
 
 ```
-Teuwen, J., Romor, L., Pai, A., Schirris, Y. (2023). DLUP: Deep Laerning Utilities for Pathology (Version 0.3.25) [Computer software]. https://github.com/nki-ai/dlup
+Teuwen, J., Romor, L., Pai, A., Schirris, Y. (2023). DLUP: Deep Learning Utilities for Pathology (Version 0.3.25) [Computer software]. https://github.com/nki-ai/dlup
 ```
