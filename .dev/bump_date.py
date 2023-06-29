@@ -38,19 +38,13 @@ def bump_readme_file(
     """
     Runs the required regex functions on the README file
     """
-    import pdb
-
     with open(filename, "r") as f:
-        pdb.set_trace()
         content = f.read()
 
     with open(filename, "w") as f:
         content = regex_functions["bibtex_year"](year, content)
-        pdb.set_trace()
         content = regex_functions["bibtex_month"](month, content)
-        pdb.set_trace()
         content = regex_functions["plain_bib_year"](year, content)
-        pdb.set_trace()
         f.write(content)
 
 
