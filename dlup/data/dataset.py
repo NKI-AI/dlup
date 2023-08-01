@@ -9,6 +9,7 @@ import collections
 import functools
 import itertools
 import pathlib
+
 import warnings
 from math import ceil, floor
 from typing import Any, Callable, Generic, Iterable, Iterator, Optional, Sequence, TypedDict, TypeVar, Union, overload
@@ -207,6 +208,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
+        annotation_offset: np.ndarray | tuple[int, int] = (0, 0),
         labels: list[tuple[str, _LabelTypes]] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
         apply_color_profile: bool = False,
@@ -251,6 +253,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         self._output_tile_size = output_tile_size
 
         self.annotations = annotations
+        self.annotation_offset = annotation_offset
         self.labels = labels
         self._backend = backend
         self._apply_color_profile = apply_color_profile
@@ -337,9 +340,13 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
 
         # TODO: This needs to move to TiledWsiDataset (v1.0)
         if self.annotations is not None:
+
             if not isinstance(self.annotations, WsiAnnotations):
                 raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
-            sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
+            sample["annotations"] = self.annotations.read_region(coordinates,
+                                                                 scaling,
+                                                                 region_size,
+                                                                 offset=self.annotation_offset)
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
@@ -518,6 +525,7 @@ class TiledWsiDataset(BaseWsiDataset):
                 offset, bounds = slide_image.slide_bounds
                 offset = (int(scaling * offset[0]), int(scaling * offset[1]))
                 size = int(bounds[0] * scaling), int(bounds[1] * scaling)
+
                 _rois = [
                     (offset, size),
                 ]
