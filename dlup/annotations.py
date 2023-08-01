@@ -577,6 +577,7 @@ class WsiAnnotations:
         coordinates: np.ndarray | tuple[GenericNumber, GenericNumber],
         scaling: float,
         region_size: np.ndarray | tuple[GenericNumber, GenericNumber],
+        offset: np.nd_array | tuple[GenericNumber, GenericNumber] = (0,0),
     ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
@@ -622,7 +623,8 @@ class WsiAnnotations:
         `dlup.data.transforms.ConvertAnnotationsToMask`.
         """
 
-        box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
+        #  sampling box
+        box = list(np.asarray(coordinates) - np.asarray(offset)) + list(np.asarray(coordinates) - np.asarray(offset) + np.asarray(region_size))
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
 
@@ -657,7 +659,7 @@ class WsiAnnotations:
             if annotation:
                 cropped_annotations.append((annotation_name, annotation))
 
-        transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0], -coordinates[1]]
+        transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0] + offset[0], -coordinates[1] + offset[1]]
 
         output: list[Polygon | Point] = []
         for annotation_name, annotation in cropped_annotations:

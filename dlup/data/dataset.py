@@ -11,7 +11,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Any, Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
+from typing import Any, Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast, Literal
 
 import numpy as np
 import PIL
@@ -175,6 +175,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
+        annotation_offset: np.ndarray | tuple[int, int] = (0, 0),
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
@@ -215,6 +216,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._output_tile_size = output_tile_size
 
         self.annotations = annotations
+        self.annotation_offset = annotation_offset
         self.labels = labels
         self.__transform = transform
         self._backend = backend
@@ -283,7 +285,10 @@ class SlideImageDatasetBase(Dataset[T_co]):
         }
 
         if self.annotations is not None:
-            sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
+            sample["annotations"] = self.annotations.read_region(coordinates,
+                                                                 scaling,
+                                                                 region_size,
+                                                                 offset=self.annotation_offset)
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
@@ -393,6 +398,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         output_tile_size: tuple[int, int] | None = None,
         rois: ROIType | None = None,
         annotations: _AnnotationTypes | None = None,
+        annotation_offset: tuple[int, int] | Literal['bounds'] = (0, 0),
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
@@ -467,10 +473,15 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
                 offset = tuple((np.asarray(offset) * scaling).astype(int))
                 size = int(bounds[0] * scaling), int(bounds[1] * scaling)
                 _rois = ((offset, size),)
+                if annotation_offset == 'bounds':
+                    annotation_offset = offset
 
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling)
                 _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
+                if annotation_offset == 'bounds':
+                    raise ValueError(f"annotation_offset got {annotation_offset}, but limit_bounds is {limit_bounds}. "
+                                     f"annotations_offset only accepts this if limit_bounds is True, otherwise provide a tuple of ints")
 
         grid_mpp = mpp if mpp is not None else slide_mpp
         grids = []
@@ -493,6 +504,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask_threshold=mask_threshold,
             output_tile_size=output_tile_size,
             annotations=annotations,
+            annotation_offset=annotation_offset,
             labels=labels,
             transform=transform,
             backend=backend,
