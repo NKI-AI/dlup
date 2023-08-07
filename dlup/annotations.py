@@ -229,9 +229,11 @@ class WsiSingleLabelAnnotation:
     def annotation_class(self):
         return self.__annotation_class
 
-    @label.setter
-    def label(self, a_cls: AnnotationClass):
+    @annotation_class.setter
+    def annotation_class(self, a_cls: AnnotationClass):
         self.__annotation_class = a_cls
+        self.__label = a_cls.label
+        self.__type = a_cls.a_cls
         # TODO: We also need to rewrite all the polygons. This cannot yet be set in-place
         _annotations = []
         for geometry in self._annotations:
@@ -316,10 +318,10 @@ class WsiAnnotations:
             key=lambda annotation_class: (annotation_class.label, annotation_class.a_cls),
         )
 
-        # We convert the list internally into a dictionary so we have an easy way to access the data.
+        # We convert the list internally into a dictionary, so we have an easy way to access the data.
         self._annotations = {annotation.annotation_class: annotation for annotation in annotations}
         # Now we have a dict of label: annotations.
-        self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
+        self._annotation_trees = {a_cls: self[a_cls].as_strtree() for a_cls in self.available_labels}
 
     def filter(self, labels: str | list[str] | tuple[str]) -> None:
         """
@@ -356,7 +358,7 @@ class WsiAnnotations:
         None
         """
         # Create a dictionary with the mapping
-        mapping = {k: k for k in self.available_labels}
+        mapping: dict[AnnotationClass, AnnotationClass] = {k: k for k in self.available_labels}
 
         for old_annotation_class, new_annotation_class in labels:
             if old_annotation_class.a_cls != new_annotation_class.a_cls:
@@ -368,13 +370,13 @@ class WsiAnnotations:
                 raise AnnotationError(f"Relabel error. Label {old_annotation_class.label} not currently present.")
             mapping[old_annotation_class] = new_annotation_class
 
+        # TODO: Is thie correct?
         self.available_labels = sorted([mapping[label] for label in self.available_labels], key=lambda x: x.label)
 
         _annotations = {}
-        for annotation_class in self._annotations:
-            _geometry = self._annotations[annotation_class]
-            _geometry.a_cls = mapping[annotation_class].a_cls
-            _annotations[mapping[annotation_class]] = _geometry
+        for annotation_class, single_label_annotation in self._annotations.items():
+            single_label_annotation.annotation_class = mapping[annotation_class]
+            _annotations[mapping[annotation_class]] = single_label_annotation
         self._annotations = _annotations
         self._annotation_trees = {
             annotation_class: self[annotation_class].as_strtree() for annotation_class in self.available_labels
@@ -391,8 +393,8 @@ class WsiAnnotations:
             Bounding box of the form ((x, y), (w, h)).
         """
         all_boxes = []
-        for label in self.available_labels:
-            curr_bboxes = self[label].bounding_boxes
+        for annotation_class in self.available_labels:
+            curr_bboxes = self[annotation_class].bounding_boxes
             for box_start, box_size in curr_bboxes:
                 max_x, max_y = box_start[0] + box_size[0], box_start[1] + box_size[1]
                 all_boxes.append(shapely.geometry.box(*box_start, max_x, max_y))
@@ -592,9 +594,9 @@ class WsiAnnotations:
         annotations = defaultdict(list)
         _scaling = 1.0 if not scaling else scaling
 
-        darwin_an = parse_darwin_json(pathlib.Path(darwin_json), None).annotations
+        darwin_an = parse_darwin_json(pathlib.Path(darwin_json), None)
 
-        for curr_annotation in darwin_an:
+        for curr_annotation in darwin_an.annotations:
             name = curr_annotation.annotation_class.name
             annotation_type = _v7_annotation_type_to_dlup_annotation_type(
                 curr_annotation.annotation_class.annotation_type
@@ -627,8 +629,8 @@ class WsiAnnotations:
             output.append(WsiSingleLabelAnnotation(a_cls=an_cls, coordinates=annotations[an_cls]))
         return cls(output)
 
-    def __getitem__(self, label: AnnotationClass) -> WsiSingleLabelAnnotation:
-        return self._annotations[label]
+    def __getitem__(self, a_cls: AnnotationClass) -> WsiSingleLabelAnnotation:
+        return self._annotations[a_cls]
 
     def as_geojson(self, split_per_label=False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
         """

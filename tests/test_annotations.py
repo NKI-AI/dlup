@@ -10,7 +10,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from dlup.annotations import Polygon, WsiAnnotations
+from dlup.annotations import AnnotationClass, AnnotationType, Polygon, WsiAnnotations
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
 <ASAP_Annotations>
@@ -87,9 +87,11 @@ class TestAnnotations:
         coordinates, size = (10000, 10000), (5000, 5000)
         _annotations = self.annotations.copy()
 
-        assert _annotations.available_labels == ["healthy glands"]
-        _annotations.relabel((("healthy glands", "healthy glands 2"),))
-        assert _annotations.available_labels == ["healthy glands 2"]
+        original_class = AnnotationClass(label="healthy glands", a_cls=AnnotationType.POLYGON)
+        assert _annotations.available_labels == [original_class]
+        target_class = AnnotationClass(label="healthy glands 2", a_cls=AnnotationType.POLYGON)
+        _annotations.relabel(((original_class, target_class),))
+        assert _annotations.available_labels == [target_class]
 
         region = _annotations.read_region(coordinates, 1.0, size)
         for polygon in region:
@@ -103,7 +105,9 @@ class TestAnnotations:
 
     def test_add(self):
         copied_annotations = self.annotations.copy()
-        copied_annotations.relabel((("healthy glands", "healthy glands 2"),))
-
-        new_annotations = copied_annotations + self.annotations
-        assert new_annotations.available_labels == ["healthy glands", "healthy glands 2"]
+        a = AnnotationClass(label="healthy glands", a_cls=AnnotationType.POLYGON)
+        b = AnnotationClass(label="healthy glands 2", a_cls=AnnotationType.POLYGON)
+        copied_annotations.relabel(((a, b),))
+        assert copied_annotations.available_labels == [b]
+        new_annotations = self.annotations + copied_annotations
+        assert new_annotations.available_labels == [a, b]
