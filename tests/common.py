@@ -7,9 +7,9 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 import numpy as np
 import openslide  # type: ignore
 import PIL
-import pytest
+import pytest  # noqa
 from PIL.Image import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from scipy import interpolate
 
 
@@ -49,9 +49,7 @@ class SlideProperties(BaseModel):
     mpp_y: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_Y)
     mag: Optional[float] = Field(40.0, alias=openslide.PROPERTY_NAME_OBJECTIVE_POWER)
     vendor: str = Field("dummy", alias=openslide.PROPERTY_NAME_VENDOR)
-
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class SlideConfig(BaseModel):
@@ -123,6 +121,6 @@ class OpenSlideImageMock(openslide.ImageSlide):
     def from_slide_config(cls, slide_config):
         return cls(
             slide_config.image,
-            slide_config.properties.dict(by_alias=True, exclude_none=True),
+            slide_config.properties.model_dump(by_alias=True, exclude_none=True),
             slide_config.level_downsamples,
         )

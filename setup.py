@@ -55,13 +55,14 @@ setup(
     extras_require={
         "dev": [
             "pytest",
+            "mypy>=1.4.1",
             "pytest-mock",
             "sphinx_copybutton",
             "numpydoc",
             "myst_parser",
             "sphinx-book-theme",
             "pylint",
-            "pydantic",
+            "pydantic>=2.1.1",
             "types-requests",
         ],
     },

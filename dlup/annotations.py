@@ -210,30 +210,30 @@ class WsiSingleLabelAnnotation:
     """Class to hold the annotations of one specific label for a whole slide image"""
 
     def __init__(self, a_cls: AnnotationClass, coordinates):
-        self.__annotation_class = a_cls
-        self.__label = a_cls.label
-        self.__type = a_cls.a_cls
+        self._annotation_class = a_cls
+        self._label = a_cls.label
+        self._type = a_cls.a_cls
         self._annotations = coordinates
 
     @property
     def type(self):
         """The type of annotation, e.g. box, polygon or points."""
-        return self.__type
+        return self._type
 
     @property
     def label(self):
         """The label name for this annotation."""
-        return self.__label
+        return self._label
 
     @property
     def annotation_class(self):
-        return self.__annotation_class
+        return self._annotation_class
 
     @annotation_class.setter
     def annotation_class(self, a_cls: AnnotationClass):
-        self.__annotation_class = a_cls
-        self.__label = a_cls.label
-        self.__type = a_cls.a_cls
+        self._annotation_class = a_cls
+        self._label = a_cls.label
+        self._type = a_cls.a_cls
         # TODO: We also need to rewrite all the polygons. This cannot yet be set in-place
         _annotations = []
         for geometry in self._annotations:
@@ -279,7 +279,7 @@ class WsiSingleLabelAnnotation:
         return data
 
     @staticmethod
-    def __get_bbox(z):
+    def _get_bbox(z):
         return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
 
     @property
@@ -292,7 +292,7 @@ class WsiSingleLabelAnnotation:
                 # Create a 2D numpy array to represent the point
                 point_coords = np.asarray([annotation.x, annotation.y])
                 data.append(np.array([point_coords, point_coords]))
-        return [self.__get_bbox(_) for _ in data]
+        return [self._get_bbox(_) for _ in data]
 
     def simplify(self, tolerance: float, *, preserve_topology: bool = True):
         if self.type != AnnotationType.POLYGON:
@@ -604,18 +604,16 @@ class WsiAnnotations:
             key = AnnotationClass(label=name, a_cls=annotation_type)
             curr_data = curr_annotation.data
 
+            _cls = AnnotationClass(label=name, a_cls=annotation_type)
             if annotation_type == AnnotationType.POINT:
-                _cls = AnnotationClass(label=name, a_cls=annotation_type)
                 curr_point = Point((curr_data["x"], curr_data["y"]), a_cls=_cls)
                 curr_point = rescale_geometry(curr_point, scaling=scaling)
                 annotations[key].append(curr_point)
             elif annotation_type == AnnotationType.POLYGON:
-                _cls = AnnotationClass(label=name, a_cls=annotation_type)
                 curr_polygon = Polygon([(_["x"], _["y"]) for _ in curr_data["path"]], a_cls=_cls)
                 curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
                 annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
             elif annotation_type == AnnotationType.BOX:
-                _cls = AnnotationClass(label=name, a_cls=annotation_type)
                 x, y, h, w = curr_data.values()
                 curr_polygon = shapely.geometry.box(x, y, x + w, y + h)
                 curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
@@ -782,18 +780,17 @@ class WsiAnnotations:
                 annotation,
                 (geometry.MultiPolygon, geometry.GeometryCollection),
             ):
-                output += [self.__cast(annotation_class, _) for _ in annotation.geoms if _.area > 0]
+                output += [self._cast(annotation_class, _) for _ in annotation.geoms if _.area > 0]
 
             # TODO: Double check
             elif isinstance(annotation, (geometry.LineString, geometry.multilinestring.MultiLineString)):
                 continue
-
             else:
                 # The conversion to an internal format is only done here, because we only support Points and Polygons.
-                output.append(self.__cast(annotation_class, annotation))
+                output.append(self._cast(annotation_class, annotation))
         return output
 
-    def __cast(self, annotation_class: AnnotationClass, annotation: ShapelyTypes) -> Point | Polygon:
+    def _cast(self, annotation_class: AnnotationClass, annotation: ShapelyTypes) -> Point | Polygon:
         """
         Cast the shapely object with annotation_name to internal format.
 
