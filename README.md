@@ -13,7 +13,7 @@ Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more deta
 
 ## Features
 - Dataset classes to handle whole-slide images in a tile-by-tile manner
-- Annotation classes which can load GeoJSON, Darwin V7, HALO and ASAP formats and convert these to masks.
+- Annotation classes which can load GeoJSON, [V7 Darwin](https://www.v7labs.com/), [HALO](https://indicalab.com/halo/) and [ASAP](https://computationalpathologygroup.github.io/ASAP/) formats and convert these to masks.
 - Command-line utilities to report on the metadata of WSIs, tile WSIs, and convert masks to polygons.
 
 ## Quickstart
