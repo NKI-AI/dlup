@@ -23,6 +23,7 @@ jobs:
         python -m pip install pylint
         python -m pip install -e .
         python -m pip install pyhaloxml
+        python -m pip install darwin-py
     - name: Analysing the code with pylint
       run: |
         pylint dlup --errors-only

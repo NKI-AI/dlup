@@ -49,7 +49,7 @@ if PYHALOXML_AVAILABLE:
     import pyhaloxml.shapely
 
 if DARWIN_SDK_AVAILABLE:
-    from darwin.utils import parse_darwin_json
+    import darwin.utils
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -594,7 +594,7 @@ class WsiAnnotations:
         annotations = defaultdict(list)
         _scaling = 1.0 if not scaling else scaling
 
-        darwin_an = parse_darwin_json(pathlib.Path(darwin_json), None)
+        darwin_an = darwin.utils.parse_darwin_json(pathlib.Path(darwin_json), None)
 
         for curr_annotation in darwin_an.annotations:
             name = curr_annotation.annotation_class.name
