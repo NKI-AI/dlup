@@ -61,6 +61,12 @@ class AnnotationType(Enum):
     POLYGON = "polygon"
 
 
+class AnnotationSorting(Enum):
+    REVERSE = "reverse"
+    BY_AREA = "by_area"
+    NONE = "none"
+
+
 @dataclass(frozen=True)  # Frozen makes the class hashable
 class AnnotationClass:
     label: str
@@ -312,7 +318,9 @@ class WsiSingleLabelAnnotation:
 class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image."""
 
-    def __init__(self, annotations: list[WsiSingleLabelAnnotation]):
+    def __init__(
+        self, annotations: list[WsiSingleLabelAnnotation], sorting: AnnotationSorting = AnnotationSorting.NONE
+    ):
         self.available_labels = sorted(
             [_.annotation_class for _ in annotations],
             key=lambda annotation_class: (annotation_class.label, annotation_class.a_cls),
@@ -322,6 +330,8 @@ class WsiAnnotations:
         self._annotations = {annotation.annotation_class: annotation for annotation in annotations}
         # Now we have a dict of label: annotations.
         self._annotation_trees = {a_cls: self[a_cls].as_strtree() for a_cls in self.available_labels}
+
+        self._sorting = sorting
 
     def filter(self, labels: str | list[str] | tuple[str]) -> None:
         """
@@ -540,7 +550,7 @@ class WsiAnnotations:
 
                     opened_annotations += 1
 
-        return cls(list(annotations.values()))
+        return cls(list(annotations.values()), sorting=AnnotationSorting.BY_AREA)
 
     @classmethod
     def from_halo_xml(cls, halo_xml: PathLike, scaling: float | None = None) -> WsiAnnotations:
@@ -584,7 +594,7 @@ class WsiAnnotations:
                 )
             )
 
-        return cls(annotations)
+        return cls(annotations, sorting=AnnotationSorting.NONE)
 
     @classmethod
     def from_darwin_json(cls, darwin_json: PathLike, scaling: float | None = None) -> WsiAnnotations:
@@ -625,7 +635,7 @@ class WsiAnnotations:
         output = []
         for an_cls in annotations:
             output.append(WsiSingleLabelAnnotation(a_cls=an_cls, coordinates=annotations[an_cls]))
-        return cls(output)
+        return cls(output, sorting=AnnotationSorting.REVERSE)
 
     def __getitem__(self, a_cls: AnnotationClass) -> WsiSingleLabelAnnotation:
         return self._annotations[a_cls]
@@ -742,10 +752,15 @@ class WsiAnnotations:
             for v in curr_annotations:
                 filtered_annotations.append((k, v))
 
-        # Sort on name
-        filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0].label)
-        # Sort on area (largest to smallest)
-        filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
+        if self._sorting == AnnotationSorting.BY_AREA:
+            # Sort on name
+            filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0].label)
+            # Sort on area (largest to smallest)
+            filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
+        elif self._sorting == AnnotationSorting.REVERSE:
+            filtered_annotations = reversed(filtered_annotations)
+        else:  # AnnotationSorting.NONE
+            pass
 
         cropped_annotations = []
         for annotation_class, annotation in filtered_annotations:
