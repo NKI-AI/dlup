@@ -864,7 +864,7 @@ class WsiAnnotations:
         return f"{type(self).__name__}(labels={output[:-2]})"
 
 
-class DarwinPolygon:
+class _ComplexDarwinPolygonWrapper:
     def __init__(self, polygon):
         self.geom = polygon
         self.hole = False
@@ -872,7 +872,7 @@ class DarwinPolygon:
 
 
 def _parse_darwin_complex_polygon(annotation):
-    polygons = [DarwinPolygon(Polygon([(p["x"], p["y"]) for p in path])) for path in annotation.data["paths"]]
+    polygons = [_ComplexDarwinPolygonWrapper(Polygon([(p["x"], p["y"]) for p in path])) for path in annotation.data["paths"]]
 
     # Naive even-odd rule, but seems to work
     sorted_polygons = sorted(polygons, key=lambda x: x.geom.area, reverse=True)
