@@ -640,11 +640,11 @@ class WsiAnnotations:
             else:
                 ValueError(f"Annotation type {annotation_type} is not supported.")
 
-        # Now we can make WsiSingleLabel annotations
+        # Now we can make SingleAnnotationWrapper annotations
         output = []
-        for an_cls in annotations:
-            output.append(SingleAnnotationWrapper(a_cls=an_cls, coordinates=annotations[an_cls]))
-        return cls(output, sorting=AnnotationSorting.REVERSE)
+        for an_cls, coordinates in annotations.items():
+            output.append(SingleAnnotationWrapper(a_cls=an_cls, coordinates=coordinates))
+        return cls(output)
 
     def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
         return self._annotations[a_cls]
@@ -886,7 +886,7 @@ def _parse_darwin_complex_polygon(annotation) -> shapely.geometry.MultiPolygon:
     """
     polygons = [
         _ComplexDarwinPolygonWrapper(shapely.geometry.Polygon([(p["x"], p["y"]) for p in path]))
-        for path in annotation.data["paths"]
+        for path in annotation["paths"]
     ]
 
     # Naive even-odd rule, but seems to work
