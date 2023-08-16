@@ -767,7 +767,7 @@ class WsiAnnotations:
             # Sort on area (largest to smallest)
             filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
         elif self._sorting == AnnotationSorting.REVERSE:
-            filtered_annotations = reversed(filtered_annotations)
+            filtered_annotations = list(reversed(filtered_annotations))
         else:  # AnnotationSorting.NONE
             pass
 
