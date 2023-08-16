@@ -866,10 +866,11 @@ class WsiAnnotations:
 
 class _ComplexDarwinPolygonWrapper:
     """Wrapper class for a complex polygon (i.e. polygon with holes) from a Darwin annotation."""
+
     def __init__(self, polygon: shapely.geometry.Polygon):
         self.geom = polygon
         self.hole = False
-        self.holes = []
+        self.holes: list[float] = []
 
 
 def _parse_darwin_complex_polygon(annotation) -> shapely.geometry.MultiPolygon:
