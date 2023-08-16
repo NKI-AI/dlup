@@ -212,8 +212,8 @@ _POSTPROCESSORS = {
 }
 
 
-class WsiSingleLabelAnnotation:
-    """Class to hold the annotations of one specific label for a whole slide image"""
+class SingleAnnotationWrapper:
+    """Class to hold the annotations of one specific label (class) for a whole slide image"""
 
     def __init__(self, a_cls: AnnotationClass, coordinates):
         self._annotation_class = a_cls
@@ -319,7 +319,7 @@ class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image."""
 
     def __init__(
-        self, annotations: list[WsiSingleLabelAnnotation], sorting: AnnotationSorting = AnnotationSorting.NONE
+        self, annotations: list[SingleAnnotationWrapper], sorting: AnnotationSorting = AnnotationSorting.NONE
     ):
         self.available_labels = sorted(
             [_.annotation_class for _ in annotations],
@@ -459,8 +459,8 @@ class WsiAnnotations:
                         data[_label].append(_)
 
         # It is assumed that a specific label can only be one type (point or polygon)
-        annotations: list[WsiSingleLabelAnnotation] = [
-            WsiSingleLabelAnnotation(a_cls=data[k][0].annotation_class, coordinates=data[k]) for k in data.keys()
+        annotations: list[SingleAnnotationWrapper] = [
+            SingleAnnotationWrapper(a_cls=data[k][0].annotation_class, coordinates=data[k]) for k in data.keys()
         ]
 
         return cls(annotations)
@@ -470,7 +470,7 @@ class WsiAnnotations:
         cls,
         asap_xml: PathLike,
         scaling: float | None = None,
-    ):
+    ) -> WsiAnnotations:
         """
         Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
 
@@ -498,7 +498,7 @@ class WsiAnnotations:
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
-        annotations: dict[str, WsiSingleLabelAnnotation] = dict()
+        annotations: dict[str, SingleAnnotationWrapper] = dict()
         opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
@@ -541,7 +541,7 @@ class WsiAnnotations:
                         raise NotImplementedError
 
                     if label not in annotations:
-                        annotations[label] = WsiSingleLabelAnnotation(
+                        annotations[label] = SingleAnnotationWrapper(
                             a_cls=_cls,
                             coordinates=[coordinates],
                         )
@@ -586,10 +586,10 @@ class WsiAnnotations:
                     curr_polygon = rescale_geometry(Polygon(shapely_polygon, a_cls=_cls), scaling=scaling)
                     output[layer.name].append(Polygon(curr_polygon, a_cls=_cls))
 
-        annotations: list[WsiSingleLabelAnnotation] = []
+        annotations: list[SingleAnnotationWrapper] = []
         for label in output:
             annotations.append(
-                WsiSingleLabelAnnotation(
+                SingleAnnotationWrapper(
                     a_cls=AnnotationClass(label=label, a_cls=AnnotationType.POLYGON), coordinates=output[label]
                 )
             )
@@ -620,9 +620,18 @@ class WsiAnnotations:
                 curr_point = rescale_geometry(curr_point, scaling=scaling)
                 annotations[key].append(curr_point)
             elif annotation_type == AnnotationType.POLYGON:
-                curr_polygon = Polygon([(_["x"], _["y"]) for _ in curr_data["path"]], a_cls=_cls)
-                curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
-                annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
+                if "path" in curr_data:  # This is a regular polygon
+                    curr_polygon = Polygon([(_["x"], _["y"]) for _ in curr_data["path"]], a_cls=_cls)
+                    curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
+                    annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
+                elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
+                    curr_complex_polygon = _parse_darwin_complex_polygon(curr_data)
+                    for curr_polygon in curr_complex_polygon.geoms:
+                        curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
+                        annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
+                else:
+                    raise ValueError(f"Got unexpected data keys: {curr_data.keys()}")
+
             elif annotation_type == AnnotationType.BOX:
                 x, y, h, w = curr_data.values()
                 curr_polygon = shapely.geometry.box(x, y, x + w, y + h)
@@ -634,10 +643,10 @@ class WsiAnnotations:
         # Now we can make WsiSingleLabel annotations
         output = []
         for an_cls in annotations:
-            output.append(WsiSingleLabelAnnotation(a_cls=an_cls, coordinates=annotations[an_cls]))
+            output.append(SingleAnnotationWrapper(a_cls=an_cls, coordinates=annotations[an_cls]))
         return cls(output, sorting=AnnotationSorting.REVERSE)
 
-    def __getitem__(self, a_cls: AnnotationClass) -> WsiSingleLabelAnnotation:
+    def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
         return self._annotations[a_cls]
 
     def as_geojson(self, split_per_label=False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
@@ -855,6 +864,38 @@ class WsiAnnotations:
         return f"{type(self).__name__}(labels={output[:-2]})"
 
 
+class DarwinPolygon:
+    def __init__(self, polygon):
+        self.geom = polygon
+        self.hole = False
+        self.holes = []
+
+
+def _parse_darwin_complex_polygon(annotation):
+    polygons = [DarwinPolygon(Polygon([(p["x"], p["y"]) for p in path])) for path in annotation.data["paths"]]
+
+    # Naive even-odd rule, but seems to work
+    sorted_polygons = sorted(polygons, key=lambda x: x.geom.area, reverse=True)
+    for idx, my_polygon in enumerate(sorted_polygons):
+        for outer_polygon in reversed(sorted_polygons[:idx]):
+            contains = outer_polygon.geom.contains(my_polygon.geom)
+            if contains and outer_polygon.hole:
+                break
+            if outer_polygon.hole:
+                continue
+            if contains:
+                my_polygon.hole = True
+                outer_polygon.holes.append(my_polygon.geom.exterior.coords)
+
+    # create complex polygon with MultiPolygon
+    complex_polygon = [
+        Polygon(my_polygon.geom.exterior.coords, my_polygon.holes)
+        for my_polygon in sorted_polygons
+        if not my_polygon.hole
+    ]
+    return shapely.geometry.MultiPolygon(complex_polygon)
+
+
 def _parse_asap_coordinates(
     annotation_structure: ET.Element, annotation_type: AnnotationType, scaling: float | None
 ) -> ShapelyTypes:
@@ -913,7 +954,7 @@ def _v7_annotation_type_to_dlup_annotation_type(annotation_type: str) -> Annotat
     """
     if annotation_type == "bounding_box":
         return AnnotationType.BOX
-    elif annotation_type == "polygon":
+    elif annotation_type in ["polygon", "complex_polygon"]:
         return AnnotationType.POLYGON
     elif annotation_type == "keypoint":
         return AnnotationType.POINT

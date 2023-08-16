@@ -13,8 +13,8 @@ from dlup.annotations import (
     AnnotationType,
     GeoJsonDict,
     Polygon,
+    SingleAnnotationWrapper,
     WsiAnnotations,
-    WsiSingleLabelAnnotation,
 )
 from dlup.cli import file_path
 from dlup.data.dataset import TiledROIsSlideImageDataset
@@ -79,7 +79,7 @@ def mask_to_polygon(args: argparse.Namespace):
             coordinates = [Polygon(polygons[label], a_cls=a_cls)]
 
         wsi_annotations.append(
-            WsiSingleLabelAnnotation(
+            SingleAnnotationWrapper(
                 a_cls=a_cls,
                 coordinates=coordinates,
             )
