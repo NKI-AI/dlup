@@ -644,7 +644,7 @@ class WsiAnnotations:
         output = []
         for an_cls, coordinates in annotations.items():
             output.append(SingleAnnotationWrapper(a_cls=an_cls, coordinates=coordinates))
-        return cls(output)
+        return cls(output, sorting=AnnotationSorting.NONE)
 
     def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
         return self._annotations[a_cls]
