@@ -22,7 +22,7 @@ install_requires = [
     "numpy>=1.21",
     "scikit-image>=0.19",
     "tifftools",
-    "tifffile>=2022.5.4",
+    "tifffile>=2023.8.12",
     "pyvips>=2.2.1",
     "tqdm",
     "pillow>=9.2.0",
