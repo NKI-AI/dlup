@@ -49,11 +49,11 @@ class TifffileSlide(AbstractSlideBackend):
             self._shapes.append((page.shape[1], page.shape[2]))
 
             # TODO: The order of the x and y tag need to be verified
-            x_res = page.tags["XResolution"].value # type: ignore
+            x_res = page.tags["XResolution"].value  # type: ignore
             x_res = x_res[0] / x_res[1]
-            y_res = page.tags["YResolution"].value # type: ignore
+            y_res = page.tags["YResolution"].value  # type: ignore
             y_res = y_res[0] / y_res[1]
-            unit = int(page.tags["ResolutionUnit"].value) # type: ignore
+            unit = int(page.tags["ResolutionUnit"].value)  # type: ignore
 
             mpp_x = unit_dict[unit] / x_res
             mpp_y = unit_dict[unit] / y_res
@@ -69,7 +69,7 @@ class TifffileSlide(AbstractSlideBackend):
 
         properties = {}
         for idx, page in enumerate(self._image.pages):
-            for tag in page.tags: # type: ignore
+            for tag in page.tags:  # type: ignore
                 # These tags are not so relevant at this point and have a lot of output
                 if tag.name in [
                     "TileOffsets",

@@ -209,7 +209,7 @@ class TifffileImageWriter(ImageWriter):
                 tiff_reader = tifffile.TiffReader(temp_filename)
                 page = tiff_reader.pages[level]
                 tile_iterator = _tile_iterator_from_page(
-                    page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb, interpolator=self._interpolator # type: ignore
+                    page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb, interpolator=self._interpolator  # type: ignore
                 )
                 self._write_page(
                     tiff_writer,
