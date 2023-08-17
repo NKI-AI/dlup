@@ -179,5 +179,3 @@ class TestAnnotations:
         ]
         assert [_.type for _ in region] == annotation_types
 
-
-m
