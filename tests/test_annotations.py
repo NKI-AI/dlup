@@ -131,7 +131,7 @@ class TestAnnotations:
         assert self.v7_annotations.available_labels[3].label == "tumor (area)"
         assert self.v7_annotations.available_labels[3].a_cls == AnnotationType.POLYGON
         assert self.v7_annotations.available_labels[4].label == "tumor (cell)"
-        assert self.v7_annotations.available_labels[0].a_cls == AnnotationType.BOX
+        assert self.v7_annotations.available_labels[4].a_cls == AnnotationType.BOX
 
         assert self.v7_annotations.bounding_box == ((15291.49, 18094.48), (5010.769999999999, 5122.939999999999))
 
