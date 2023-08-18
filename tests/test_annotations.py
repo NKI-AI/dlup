@@ -178,4 +178,3 @@ class TestAnnotations:
             AnnotationType.BOX,
         ]
         assert [_.type for _ in region] == annotation_types
-
