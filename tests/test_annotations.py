@@ -57,8 +57,8 @@ class TestAnnotations:
     @property
     def v7_annotations(self):
         if self._v7_annotations is None:
-            assert pathlib.Path("./files/103S.json").exists()
-            self._v7_annotations = WsiAnnotations.from_darwin_json("./files/103S.json")
+            assert pathlib.Path("tests/files/103S.json").exists()
+            self._v7_annotations = WsiAnnotations.from_darwin_json("tests/files/103S.json")
         return self._v7_annotations
 
     def test_asap_to_geojson(self, split_per_label=False):
