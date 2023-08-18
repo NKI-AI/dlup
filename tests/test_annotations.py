@@ -11,6 +11,8 @@ import numpy as np
 import pytest
 
 from dlup.annotations import AnnotationClass, AnnotationType, Polygon, WsiAnnotations
+from dlup.utils.imports import DARWIN_SDK_AVAILABLE
+
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
 <ASAP_Annotations>
@@ -55,7 +57,8 @@ class TestAnnotations:
     @property
     def v7_annotations(self):
         if self._v7_annotations is None:
-            self._v7_annotations = WsiAnnotations.from_darwin_json("files/103S.json")
+            assert pathlib.Path("./files/103S.json").exists()
+            self._v7_annotations = WsiAnnotations.from_darwin_json("./files/103S.json")
         return self._v7_annotations
 
     def test_asap_to_geojson(self, split_per_label=False):
@@ -121,6 +124,8 @@ class TestAnnotations:
         assert new_annotations.available_labels == [a, b]
 
     def test_read_darwin_v7(self):
+        if not DARWIN_SDK_AVAILABLE:
+            return None
         assert len(self.v7_annotations.available_labels) == 5
         assert self.v7_annotations.available_labels[0].label == "ROI (segmentation)"
         assert self.v7_annotations.available_labels[0].a_cls == AnnotationType.BOX
