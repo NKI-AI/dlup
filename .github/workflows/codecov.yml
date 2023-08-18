@@ -25,6 +25,7 @@ jobs:
         pip install coverage
         pip install -e ".[dev]"
         pip install darwin-py
+        pip install pydantic
     - name: Run Coverage
       run: |
         coverage run -m pytest
