@@ -42,9 +42,15 @@ class TestSlideImage:
     def test_properties(self, openslide_image):
         """Test properties."""
         dlup_wsi = SlideImage(openslide_image, identifier="mock")
-        assert dlup_wsi.aspect_ratio == openslide_image.image.width / openslide_image.image.height
+        assert (
+            dlup_wsi.aspect_ratio
+            == openslide_image.image.width / openslide_image.image.height
+        )
         assert dlup_wsi.mpp == openslide_image.properties[openslide.PROPERTY_NAME_MPP_X]
-        assert dlup_wsi.magnification == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
+        assert (
+            dlup_wsi.magnification
+            == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
+        )
         assert isinstance(repr(dlup_wsi), str)
         assert dlup_wsi.identifier == "mock"
         assert isinstance(dlup_wsi.thumbnail, PIL.Image.Image)
@@ -74,7 +80,14 @@ class TestSlideImage:
         ],
     )
     def test_read_region(
-        self, mocker, dlup_wsi, openslide_image, out_region_x, out_region_y, out_region_size, scaling
+        self,
+        mocker,
+        dlup_wsi,
+        openslide_image,
+        out_region_x,
+        out_region_y,
+        out_region_size,
+        scaling,
     ):
         """Test exact interpolation.
 
@@ -98,14 +111,18 @@ class TestSlideImage:
         box = (*out_region_location, *(out_region_location + out_region_size))
         expected_level_box = np.array(box) / relative_scaling
         pil_extracted_region = expected_level_image.resize(
-            out_region_size, resample=PIL.Image.Resampling.LANCZOS, box=expected_level_box
+            out_region_size,
+            resample=PIL.Image.Resampling.LANCZOS,
+            box=expected_level_box,
         )
 
         # Spy on how our mock object was called
         mocker.spy(openslide_image, "read_region")
 
         # Use dlup read_region to extract the same location
-        extracted_region = dlup_wsi.read_region(out_region_location, scaling, out_region_size)
+        extracted_region = dlup_wsi.read_region(
+            out_region_location, scaling, out_region_size
+        )
 
         # Is a PIL Image
         assert isinstance(extracted_region, PIL.Image.Image)
@@ -118,7 +135,9 @@ class TestSlideImage:
         assert selected_level == expected_level
 
         # Check that the output corresponding shape and value.
-        assert np.asarray(pil_extracted_region).shape == np.asarray(extracted_region).shape
+        assert (
+            np.asarray(pil_extracted_region).shape == np.asarray(extracted_region).shape
+        )
         assert np.allclose(pil_extracted_region, extracted_region)
 
     @pytest.mark.parametrize("shift_x", list(np.linspace(0, 2, 10)))
@@ -134,7 +153,9 @@ class TestSlideImage:
 
         # Create a slide
         openslide_image = OpenSlideImageMock(
-            image, {openslide.PROPERTY_NAME_MPP_X: 1.0, openslide.PROPERTY_NAME_MPP_Y: 1.0}, (1.0, 4.3)
+            image,
+            {openslide.PROPERTY_NAME_MPP_X: 1.0, openslide.PROPERTY_NAME_MPP_Y: 1.0},
+            (1.0, 4.3),
         )
 
         wsi = SlideImage(openslide_image, identifier="mock")
@@ -144,10 +165,14 @@ class TestSlideImage:
 
         if (out_region_location + out_region_size > ssize).any():
             with pytest.raises(ValueError):
-                extracted_region = wsi.read_region(out_region_location, scaling, out_region_size)
+                extracted_region = wsi.read_region(
+                    out_region_location, scaling, out_region_size
+                )
             return
 
-        extracted_region = wsi.read_region(out_region_location, scaling, out_region_size)
+        extracted_region = wsi.read_region(
+            out_region_location, scaling, out_region_size
+        )
 
     def test_scaled_size(self, dlup_wsi):
         """Check the scale is greater than zero."""
@@ -184,6 +209,7 @@ def test_scaled_view(dlup_wsi, scaling):
     location = (3.7, 0)
     size = (10, 15)
     assert (
-        np.asarray(view.read_region(location, size)) == np.asarray(dlup_wsi.read_region(location, scaling, size))
+        np.asarray(view.read_region(location, size))
+        == np.asarray(dlup_wsi.read_region(location, scaling, size))
     ).all()
     assert dlup_wsi.get_scaled_size(scaling) == view.size

@@ -49,7 +49,11 @@ def numpy_to_vips(data: np.ndarray) -> pyvips.Image:
         height, width, bands = data.shape
 
     vips_image = pyvips.Image.new_from_memory(
-        np.ascontiguousarray(data).data, width, height, bands, NUMPY_DTYPE_TO_VIPS_FORMAT[str(data.dtype)]
+        np.ascontiguousarray(data).data,
+        width,
+        height,
+        bands,
+        NUMPY_DTYPE_TO_VIPS_FORMAT[str(data.dtype)],
     )
     return vips_image
 

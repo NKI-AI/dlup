@@ -85,12 +85,16 @@ class OpenSlideImageMock(openslide.ImageSlide):
         self.image = image
         self.level_downsamples = sorted(level_downsamples)
         base_size = np.array((self.image.width, self.image.height))
-        self._level_dimensions = tuple([tuple((base_size / d).astype(int)) for d in self.level_downsamples])
+        self._level_dimensions = tuple(
+            [tuple((base_size / d).astype(int)) for d in self.level_downsamples]
+        )
         super().__init__(image)
 
     def get_best_level_for_downsample(self, downsample):
         level_downsamples = np.array(self.level_downsamples)
-        level = 0 if downsample < 1 else np.where(level_downsamples <= downsample)[0][-1]
+        level = (
+            0 if downsample < 1 else np.where(level_downsamples <= downsample)[0][-1]
+        )
         return level
 
     @property
@@ -107,11 +111,17 @@ class OpenSlideImageMock(openslide.ImageSlide):
         image = np.pad(image, [(0, 1), (0, 1), (0, 0)])
         image = PIL.Image.fromarray(image)
         location = np.asarray(location) / self.level_downsamples[level]
-        return image.resize(size, resample=PIL.Image.Resampling.LANCZOS, box=(*location, *(location + size)))
+        return image.resize(
+            size,
+            resample=PIL.Image.Resampling.LANCZOS,
+            box=(*location, *(location + size)),
+        )
 
     @property
     def spacing(self):
-        return self.properties.get("openslide.mpp-x", None), self.properties.get("openslide.mpp-y", None)
+        return self.properties.get("openslide.mpp-x", None), self.properties.get(
+            "openslide.mpp-y", None
+        )
 
     @property
     def slide_bounds(self):

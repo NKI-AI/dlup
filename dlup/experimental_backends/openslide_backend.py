@@ -61,7 +61,10 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)
         mpp = np.array([mpp_y, mpp_x])
-        self._spacings = [cast(tuple[float, float], tuple(mpp * downsample)) for downsample in self.level_downsamples]
+        self._spacings = [
+            cast(tuple[float, float], tuple(mpp * downsample))
+            for downsample in self.level_downsamples
+        ]
 
     @property
     def magnification(self) -> int | None:
@@ -83,8 +86,14 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         offset = int(self.properties.get(openslide.PROPERTY_NAME_BOUNDS_X, 0)), int(
             self.properties.get(openslide.PROPERTY_NAME_BOUNDS_Y, 0)
         )
-        size = int(self.properties.get(openslide.PROPERTY_NAME_BOUNDS_WIDTH, self.dimensions[0])), int(
-            self.properties.get(openslide.PROPERTY_NAME_BOUNDS_HEIGHT, self.dimensions[1])
+        size = int(
+            self.properties.get(
+                openslide.PROPERTY_NAME_BOUNDS_WIDTH, self.dimensions[0]
+            )
+        ), int(
+            self.properties.get(
+                openslide.PROPERTY_NAME_BOUNDS_HEIGHT, self.dimensions[1]
+            )
         )
 
         return offset, size

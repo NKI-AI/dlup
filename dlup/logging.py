@@ -89,4 +89,6 @@ def build_cli_logger(
     levels = ["WARNING", "INFO", "DEBUG"]
     log_level = levels[min(len(levels) - 1, verbosity_level)]
     setup_logging(filename=log_filename if log_to_file else None, log_level=log_level)
-    logging.warning("Beta software. In case you run into issues report at https://github.com/NKI-AI/dlup/.")
+    logging.warning(
+        "Beta software. In case you run into issues report at https://github.com/NKI-AI/dlup/."
+    )

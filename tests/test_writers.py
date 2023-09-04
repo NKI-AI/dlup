@@ -25,7 +25,9 @@ from dlup.writers import TiffCompression, TifffileImageWriter
 )
 def test_tiff_writer(shape, target_mpp):
     random_array = np.random.randint(low=0, high=255, size=shape, dtype=np.uint8)
-    pil_image = PIL.Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
+    pil_image = PIL.Image.fromarray(
+        random_array, mode="RGB" if len(shape) == 3 else "L"
+    )
     mode = pil_image.mode
 
     if mode == "L":
@@ -35,7 +37,10 @@ def test_tiff_writer(shape, target_mpp):
 
     with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
         writer = TifffileImageWriter(
-            temp_tiff.name, size=size, mpp=(target_mpp, target_mpp), compression=TiffCompression.NONE
+            temp_tiff.name,
+            size=size,
+            mpp=(target_mpp, target_mpp),
+            compression=TiffCompression.NONE,
         )
 
         writer.from_pil(pil_image)

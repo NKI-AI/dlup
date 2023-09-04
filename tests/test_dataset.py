@@ -14,7 +14,12 @@ def test_tiled_level_slide_image_dataset(monkeypatch, dlup_wsi):
     monkeypatch.setattr(TiledROIsSlideImageDataset, "slide_image", dlup_wsi)
     monkeypatch.setattr(dlup.SlideImage, "from_file_path", lambda x, backend: dlup_wsi)
     dataset = TiledROIsSlideImageDataset.from_standard_tiling(
-        "dummy", mpp=1.0, tile_size=(32, 24), tile_overlap=(0, 0), tile_mode=TilingMode.skip, mask=None
+        "dummy",
+        mpp=1.0,
+        tile_size=(32, 24),
+        tile_overlap=(0, 0),
+        tile_mode=TilingMode.skip,
+        mask=None,
     )
     tile_data = dataset[0]
     tile = tile_data["image"]

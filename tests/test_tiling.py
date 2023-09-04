@@ -22,7 +22,9 @@ class TestTiling:
         """Check different modes if tile_size is bigger than the size."""
         size = 2
         tile_size = 10
-        (basis,) = tiles_grid_coordinates(size, tile_size, tile_overlap=tile_overlap, mode=mode)
+        (basis,) = tiles_grid_coordinates(
+            size, tile_size, tile_overlap=tile_overlap, mode=mode
+        )
 
         expected_lengths = {TilingMode.skip: 0, TilingMode.overflow: 1}
 
@@ -30,12 +32,15 @@ class TestTiling:
         assert len(basis) == expected_lengths[mode]
 
     @pytest.mark.parametrize(
-        "size, tile_size, tile_overlap", [(10, 3, 0), (3, 1, 2), (17, 3.2, 2), (53.2, 12.2, 15), (1, 2, 3)]
+        "size, tile_size, tile_overlap",
+        [(10, 3, 0), (3, 1, 2), (17, 3.2, 2), (53.2, 12.2, 15), (1, 2, 3)],
     )
     @pytest.mark.parametrize("mode", list(TilingMode))
     def test_spanned_basis(self, size, tile_size, tile_overlap, mode):
         """Check the spanned basis behaves as configured for tiles."""
-        (basis,) = tiles_grid_coordinates(size, tile_size, tile_overlap=tile_overlap, mode=mode)
+        (basis,) = tiles_grid_coordinates(
+            size, tile_size, tile_overlap=tile_overlap, mode=mode
+        )
 
         # Is sorted
         assert np.all(np.diff(basis) >= 0)
@@ -46,7 +51,9 @@ class TestTiling:
         # First coordinate is always zero.
         assert basis[0] == 0
 
-        tile_overlap = np.remainder(tile_overlap, np.minimum(tile_size, size), casting="safe")
+        tile_overlap = np.remainder(
+            tile_overlap, np.minimum(tile_size, size), casting="safe"
+        )
         right = basis + tile_size
         overlap = right - basis
         stride = np.diff(basis)

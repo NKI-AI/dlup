@@ -47,7 +47,9 @@ def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
         try:
             return _try_tifffile(filename)
         except UnsupportedSlideError:
-            raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or tifffile.")
+            raise UnsupportedSlideError(
+                f"Cannot read {filename} with pyvips or tifffile."
+            )
 
     try:
         return _try_openslide(filename)

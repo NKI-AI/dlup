@@ -62,11 +62,14 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         self._grids = grids
         self._num_scales = num_scales
         if len(list(grids)) % num_scales != 0:
-            raise ValueError(f"In a multiscale dataset the grids needs to be divisible by the number of scales.")
+            raise ValueError(
+                f"In a multiscale dataset the grids needs to be divisible by the number of scales."
+            )
 
         self._step_size = len(list(grids)[0][0])
         self._index_ranges = [
-            range(idx * self._step_size, (idx + 1) * self._step_size) for idx in range(0, num_scales)
+            range(idx * self._step_size, (idx + 1) * self._step_size)
+            for idx in range(0, num_scales)
         ]
         super().__init__(
             path,

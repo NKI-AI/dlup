@@ -80,7 +80,9 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
     mask = skimage.morphology.opening(mask, footprint=kernel)
     max_point = np.unravel_index(np.argmax(dseed, axis=None), dseed.shape)
 
-    skimage.segmentation.flood_fill(mask, seed_point=max_point, new_value=0, in_place=True)
+    skimage.segmentation.flood_fill(
+        mask, seed_point=max_point, new_value=0, in_place=True
+    )
     mask[mask > 0] = 255
     distance = ndi.distance_transform_edt(mask)
 
@@ -91,9 +93,13 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
     while maximal_distance > 0:
         start = np.unravel_index(distance.argmax(), distance.shape)
         if (maximal_distance > 0.6 * global_max) or _is_close(seeds, start[::-1]):
-            skimage.segmentation.flood_fill(final_mask, seed_point=start, new_value=200, in_place=True)
+            skimage.segmentation.flood_fill(
+                final_mask, seed_point=start, new_value=200, in_place=True
+            )
             seeds.append((start, maximal_distance))
-        skimage.segmentation.flood_fill(mask, seed_point=start, new_value=0, in_place=True)
+        skimage.segmentation.flood_fill(
+            mask, seed_point=start, new_value=0, in_place=True
+        )
         distance[mask == 0] = 0
         maximal_distance = distance.max()
 
@@ -139,7 +145,9 @@ def improved_fesi(image: np.ndarray) -> np.ndarray:
     lab_bgr[..., chnl] = 100
 
     gray_bgr = skimage.color.rgb2gray(skimage.color.lab2rgb(lab_bgr))
-    tissue_bgr = np.abs(skimage.filters.laplace(skimage.color.rgb2gray(img_bgr), ksize=3))
+    tissue_bgr = np.abs(
+        skimage.filters.laplace(skimage.color.rgb2gray(img_bgr), ksize=3)
+    )
     gray_bgr = (gray_bgr >= np.mean(gray_bgr)) * 1.0
 
     tissue_rgb_hsv_1 = tissue_bgr * img_hsv[..., 1] * gray_bgr
@@ -179,7 +187,9 @@ def next_power_of_2(x):
     return 1 if x == 0 else 2 ** (x - 1).bit_length()
 
 
-def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512) -> np.ndarray:
+def get_mask(
+    slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512
+) -> np.ndarray:
     """
     Compute a tissue mask for a Slide object.
 
@@ -316,10 +326,14 @@ def _is_foreground_numpy(
     background_size = (_background_mask.width, _background_mask.height)  # type: ignore
 
     region_size = region_view.size
-    max_dimension_index = max(range(len(background_size)), key=background_size.__getitem__)
+    max_dimension_index = max(
+        range(len(background_size)), key=background_size.__getitem__
+    )
     scaling = background_size[max_dimension_index] / region_size[max_dimension_index]
     scaled_region = np.array((x, y, w, h)) * scaling
-    scaled_coordinates, scaled_sizes = scaled_region[:2], np.ceil(scaled_region[2:]).astype(int)
+    scaled_coordinates, scaled_sizes = scaled_region[:2], np.ceil(
+        scaled_region[2:]
+    ).astype(int)
 
     mask_tile = np.zeros(scaled_sizes)
 

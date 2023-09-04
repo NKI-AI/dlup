@@ -54,7 +54,9 @@ def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.nd
         assert mesh[0, 0] == (1, 4)
         assert mesh[0, 1] == (1, 5)
     """
-    return np.ascontiguousarray(np.stack(tuple(reversed(np.meshgrid(*reversed(bases), indexing=indexing)))).T)
+    return np.ascontiguousarray(
+        np.stack(tuple(reversed(np.meshgrid(*reversed(bases), indexing=indexing)))).T
+    )
 
 
 def tiles_grid_coordinates(
@@ -72,7 +74,9 @@ def tiles_grid_coordinates(
     tile_overlap = _flattened_array(tile_overlap)
 
     if not (size.shape == tile_size.shape == tile_overlap.shape):
-        raise ValueError("size, tile_size and tile_overlap " "should have the same dimensions.")
+        raise ValueError(
+            "size, tile_size and tile_overlap " "should have the same dimensions."
+        )
 
     if (size <= 0).any():
         raise ValueError("size should always be greater than zero.")
@@ -81,7 +85,9 @@ def tiles_grid_coordinates(
         raise ValueError("tile size should always be greater than zero.")
 
     # Let's force it to a valid value.
-    tile_overlap = np.remainder(tile_overlap, np.minimum(tile_size, size), casting="safe")
+    tile_overlap = np.remainder(
+        tile_overlap, np.minimum(tile_size, size), casting="safe"
+    )
 
     # Get the striding
     stride = tile_size - tile_overlap
@@ -100,7 +106,9 @@ def tiles_grid_coordinates(
 
     # Let's create our indices list
     coordinates: list[npt.NDArray[np.float_]] = []
-    for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
+    for n, dstride, dtile_size, doverflow, dsize in zip(
+        num_tiles, stride, tile_size, overflow, size
+    ):
         tiles_locations = np.arange(n) * dstride
         coordinates.append(tiles_locations)
 
@@ -110,7 +118,9 @@ def tiles_grid_coordinates(
 class Grid(collections.abc.Sequence):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: list[np.ndarray], order: str | GridOrder = GridOrder.F):
+    def __init__(
+        self, coordinates: list[np.ndarray], order: str | GridOrder = GridOrder.F
+    ):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
         self.order = order

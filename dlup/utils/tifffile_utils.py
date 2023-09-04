@@ -6,7 +6,9 @@ import numpy as np
 import tifffile
 
 
-def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[Any, ...]) -> np.ndarray:
+def get_tile(
+    page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[Any, ...]
+) -> np.ndarray:
     """Extract a crop from a TIFF image file directory (IFD).
 
     Only the tiles englobing the crop area are loaded and not the whole page.
@@ -57,7 +59,12 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
     tile_per_line = int(np.ceil(image_width / tile_width))
 
     out = np.zeros(
-        (page.imagedepth, (tile_y1 - tile_y0) * tile_height, (tile_x1 - tile_x0) * tile_width, page.samplesperpixel),
+        (
+            page.imagedepth,
+            (tile_y1 - tile_y0) * tile_height,
+            (tile_x1 - tile_x0) * tile_width,
+            page.samplesperpixel,
+        ),
         dtype=page.dtype,
     )
 
@@ -84,7 +91,9 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
 
             image_y = (idx_y - tile_y0) * tile_height
             image_x = (idx_x - tile_x0) * tile_width
-            out[:, image_y : image_y + tile_height, image_x : image_x + tile_width, :] = tile
+            out[
+                :, image_y : image_y + tile_height, image_x : image_x + tile_width, :
+            ] = tile
 
     image_y0 = y0 - tile_y0 * tile_height
     image_x0 = x0 - tile_x0 * tile_width

@@ -37,7 +37,9 @@ def tiling(args: argparse.Namespace):
 
     Image.fromarray(mask.astype(dtype=bool)).save(output_directory_path / "mask.png")
     plot_2d(thumbnail).save(output_directory_path / "thumbnail.png")
-    plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
+    plot_2d(thumbnail, mask=mask).save(
+        output_directory_path / "thumbnail_with_mask.png"
+    )
 
     # TODO: Maybe give the SlideImageDataset an image as input?
     dataset = TiledROIsSlideImageDataset.from_standard_tiling(
@@ -64,7 +66,9 @@ def tiling(args: argparse.Namespace):
         },
         "output": {
             "mpp": args.mpp,
-            "size": dataset.slide_image.get_scaled_size(dataset.slide_image.get_scaling(args.mpp)),
+            "size": dataset.slide_image.get_scaled_size(
+                dataset.slide_image.get_scaling(args.mpp)
+            ),
         },
         "settings": {
             "mode": args.mode,
@@ -82,10 +86,14 @@ def tiling(args: argparse.Namespace):
     tiles_output_directory_path = output_directory_path / "tiles"
     if not args.do_not_save_tiles:
         tiles_output_directory_path.mkdir(parents=True, exist_ok=True)
-    tile_saver = TileSaver(dataset, tiles_output_directory_path, do_not_save_tiles=args.do_not_save_tiles)
+    tile_saver = TileSaver(
+        dataset, tiles_output_directory_path, do_not_save_tiles=args.do_not_save_tiles
+    )
 
     with Pool(args.num_workers) as pool:
-        for grid_local_coordinates, idx in pool.imap(tile_saver.save_tile, range(num_tiles)):
+        for grid_local_coordinates, idx in pool.imap(
+            tile_saver.save_tile, range(num_tiles)
+        ):
             indices[idx] = grid_local_coordinates
 
     output["output"]["num_tiles"] = num_tiles
@@ -138,7 +146,9 @@ def register_parser(parser: argparse._SubParsersAction):
     wsi_subparsers.dest = "subcommand"
 
     # Tile a slide and save the tiles in an output folder.
-    tiling_parser = wsi_subparsers.add_parser("tile", help="Generate tiles in a target output folder.")
+    tiling_parser = wsi_subparsers.add_parser(
+        "tile", help="Generate tiles in a target output folder."
+    )
     tiling_parser.add_argument(
         "--tile-size",
         type=int,
@@ -210,7 +220,9 @@ def register_parser(parser: argparse._SubParsersAction):
     tiling_parser.set_defaults(subcommand=tiling)
 
     # Get generic slide infos.
-    tiling_parser = wsi_subparsers.add_parser("info", help="Return available slide properties.")
+    tiling_parser = wsi_subparsers.add_parser(
+        "info", help="Return available slide properties."
+    )
     tiling_parser.add_argument(
         "slide_file_path",
         type=pathlib.Path,
