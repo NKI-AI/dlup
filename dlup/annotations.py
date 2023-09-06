@@ -738,13 +738,9 @@ class WsiAnnotations:
         self,
         location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
-<<<<<<< HEAD
         size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
-=======
-        region_size: np.ndarray | tuple[GenericNumber, GenericNumber],
         offset: np.nd_array | tuple[GenericNumber, GenericNumber] = (0,0),
->>>>>>> added new parameter and according changes so that limit bounds or other offsets can be taken into account when usign the dataset with annotations on mrxs files
-    ) -> list[Polygon | Point]:
+  ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
         The process is as follows:
@@ -788,13 +784,9 @@ class WsiAnnotations:
         The polygons can be converted to masks using `dlup.data.transforms.convert_annotations` or
         `dlup.data.transforms.ConvertAnnotationsToMask`.
         """
-<<<<<<< HEAD
-        box = list(location) + list(np.asarray(location) + np.asarray(size))
-=======
 
-        #  sampling box
-        box = list(np.asarray(coordinates) - np.asarray(offset)) + list(np.asarray(coordinates) - np.asarray(offset) + np.asarray(region_size))
->>>>>>> added new parameter and according changes so that limit bounds or other offsets can be taken into account when usign the dataset with annotations on mrxs files
+        box = list(np.asarray(location) - np.asarray(offset)) + list(np.asarray(location) - np.asarray(offset) + np.asarray(size))
+
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
 
@@ -832,22 +824,10 @@ class WsiAnnotations:
                     continue
 
             if annotation:
-<<<<<<< HEAD
+
                 cropped_annotations.append((annotation_class, annotation))
 
-        transformation_matrix = [
-            scaling,
-            0,
-            0,
-            scaling,
-            -location[0],
-            -location[1],
-        ]
-=======
-                cropped_annotations.append((annotation_name, annotation))
-
-        transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0] + offset[0], -coordinates[1] + offset[1]]
->>>>>>> added new parameter and according changes so that limit bounds or other offsets can be taken into account when usign the dataset with annotations on mrxs files
+        transformation_matrix = [scaling, 0, 0, scaling, -location[0] + offset[0], -location[1] + offset[1]]
 
         output: list[Polygon | Point] = []
         for annotation_class, annotation in cropped_annotations:
