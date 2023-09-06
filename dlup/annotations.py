@@ -624,7 +624,9 @@ class WsiAnnotations:
         """
 
         #  sampling box
-        box = list(np.asarray(coordinates) - np.asarray(offset)) + list(np.asarray(coordinates) - np.asarray(offset) + np.asarray(region_size))
+        box = list(np.asarray(coordinates) - np.asarray(offset)) + list(
+		np.asarray(coordinates) - np.asarray(offset) + np.asarray(region_size)
+	)
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
 
