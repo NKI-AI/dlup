@@ -76,6 +76,7 @@ def _try_openslide(filename: os.PathLike) -> OpenSlideSlide:
         slide = OpenSlideSlide(filename)
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
         slide.read_region((0, 0), slide.level_count - 1, size)
+        slide.close()
         return OpenSlideSlide(filename)
     except (openslide.OpenSlideUnsupportedFormatError, PIL.UnidentifiedImageError):
         raise UnsupportedSlideError(f"Cannot read {filename} with openslide.")
@@ -97,6 +98,7 @@ def _try_pyvips(filename: os.PathLike) -> PyVipsSlide:
         slide = PyVipsSlide(filename)
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
         slide.read_region((0, 0), slide.level_count - 1, size)
+        slide.close()
         return PyVipsSlide(filename)
     except pyvips.error.Error:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips.")
@@ -118,6 +120,7 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
         slide = TifffileSlide(filename)
         size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
         slide.read_region((0, 0), slide.level_count - 1, size)
+        slide.close()
         return TifffileSlide(filename)
     except tifffile.tifffile.TiffFileError:
         raise UnsupportedSlideError(f"Cannot read {filename} with tifffile.")

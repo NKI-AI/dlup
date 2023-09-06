@@ -25,19 +25,17 @@ of the automatic masking and thresholding.
     scaled_region_view = slide_image.get_scaled_view(slide_image.get_scaling(TARGET_MPP))
 
     dataset = TiledROIsSlideImageDataset.from_standard_tiling(INPUT_FILE_PATH, TARGET_MPP, TILE_SIZE, (0, 0), mask=mask)
-    background = Image.new("RGBA", tuple(scaled_region_view.size), (255, 255, 255, 255))
+    output = Image.new("RGBA", tuple(scaled_region_view.size), (255, 255, 255, 255))
 
     for d in dataset:
         tile = d["image"]
         coords = np.array(d["coordinates"])
         box = tuple(np.array((*coords, *(coords + TILE_SIZE))).astype(int))
-        background.paste(tile, box)
-        draw = ImageDraw.Draw(background)
+        output.paste(tile, box)
+        draw = ImageDraw.Draw(output)
         draw.rectangle(box, outline="red")
 
-    plt.figure()
-    plt.imshow(background)
-    plt.show()
+    output.save("dataset_example.png")
 
 .. figure:: img/dataset_example.png
 
@@ -60,19 +58,17 @@ of the automatic masking and thresholding.
     dataset = TiledROIsSlideImageDataset(INPUT_FILE_PATH, [(grid1, TILE_SIZE, TARGET_MPP), (grid2, TILE_SIZE, TARGET_MPP)], mask=mask)
 
 
-    background = Image.new("RGBA", tuple(scaled_region_view.size), (255, 255, 255, 255))
+    output = Image.new("RGBA", tuple(scaled_region_view.size), (255, 255, 255, 255))
 
     for i, d in enumerate(dataset):
         tile = d["image"]
         coords = np.array(d["coordinates"])
         print(coords, d["grid_local_coordinates"], d["grid_index"])
         box = tuple(np.array((*coords, *(coords + TILE_SIZE))).astype(int))
-        background.paste(tile, box)
-        draw = ImageDraw.Draw(background)
+        output.paste(tile, box)
+        draw = ImageDraw.Draw(output)
         draw.rectangle(box, outline="red")
 
-    plt.figure()
-    plt.imshow(background)
-    plt.show()
+    output.save("dataset_example2.png")
 
 .. figure:: img/dataset_example2.png

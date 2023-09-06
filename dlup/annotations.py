@@ -28,6 +28,7 @@ import os
 import pathlib
 import xml.etree.ElementTree as ET
 from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, ClassVar, Iterable, Type, TypedDict, TypeVar, Union
 
@@ -41,11 +42,14 @@ from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
-from dlup.utils.imports import PYHALOXML_AVAILABLE
+from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 if PYHALOXML_AVAILABLE:
     import pyhaloxml
     import pyhaloxml.shapely
+
+if DARWIN_SDK_AVAILABLE:
+    import darwin.utils
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -55,6 +59,18 @@ class AnnotationType(Enum):
     POINT = "point"
     BOX = "box"
     POLYGON = "polygon"
+
+
+class AnnotationSorting(Enum):
+    REVERSE = "reverse"
+    BY_AREA = "by_area"
+    NONE = "none"
+
+
+@dataclass(frozen=True)  # Frozen makes the class hashable
+class AnnotationClass:
+    label: str
+    a_cls: AnnotationType
 
 
 class GeoJsonDict(TypedDict):
@@ -75,12 +91,22 @@ class Point(shapely.geometry.Point):
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
-    def __init__(self, coord: shapely.geometry.Point | tuple[float, float], label: str | None = None) -> None:
-        self._id_to_attrs[str(id(self))] = dict(label=label)
+    def __init__(
+        self, coord: shapely.geometry.Point | tuple[float, float], a_cls: AnnotationClass | None = None
+    ) -> None:
+        self._id_to_attrs[str(id(self))] = dict(a_cls=a_cls)
+
+    @property
+    def annotation_class(self):
+        return self._id_to_attrs[str(id(self))]["a_cls"]
 
     @property
     def type(self):
-        return AnnotationType.POINT
+        return self.annotation_class.a_cls
+
+    @property
+    def label(self):
+        return self.annotation_class.label
 
     def __new__(cls, coord: tuple[float, float], *args, **kwargs) -> "Point":
         point = super().__new__(cls, coord)
@@ -97,7 +123,7 @@ class Point(shapely.geometry.Point):
             raise AttributeError(str(e)) from None
 
     def __str__(self) -> str:
-        return f"{self.label}, {self.wkt}"
+        return f"{self.annotation_class}, {self.wkt}"
 
 
 class Polygon(shapely.geometry.Polygon):
@@ -108,12 +134,22 @@ class Polygon(shapely.geometry.Polygon):
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
-    def __init__(self, coord: shapely.geometry.Polygon | tuple[float, float], label: str | None = None) -> None:
-        self._id_to_attrs[str(id(self))] = dict(label=label)
+    def __init__(
+        self, coord: shapely.geometry.Polygon | tuple[float, float], a_cls: AnnotationClass | None = None
+    ) -> None:
+        self._id_to_attrs[str(id(self))] = dict(a_cls=a_cls)
+
+    @property
+    def annotation_class(self):
+        return self._id_to_attrs[str(id(self))]["a_cls"]
 
     @property
     def type(self):
-        return AnnotationType.POLYGON
+        return self.annotation_class.a_cls
+
+    @property
+    def label(self):
+        return self.annotation_class.label
 
     def __new__(cls, coord: tuple[float, float], *args, **kwargs) -> "Point":
         point = super().__new__(cls, coord)
@@ -130,22 +166,41 @@ class Polygon(shapely.geometry.Polygon):
             raise AttributeError(str(e)) from None
 
     def __str__(self) -> str:
-        return f"{self.label}, {self.wkt}"
+        return f"{self.annotation_class}, {self.wkt}"
+
+
+def rescale_geometry(geometry: Union[Point, Polygon], scaling: float | None = None):
+    if scaling is None:
+        return geometry
+    if scaling == 1.0:
+        return geometry
+
+    scaled_geometry = shapely.affinity.scale(geometry, scaling, scaling)
+    if isinstance(geometry, Polygon):
+        return Polygon(scaled_geometry, a_cls=geometry.annotation_class)
+    elif isinstance(geometry, Point):
+        return Point(scaled_geometry, a_cls=geometry.annotation_class)
+    else:
+        raise ValueError(f"geometry type {type(geometry)} is not a valid dlup type.")
 
 
 def shape(coordinates, label, multiplier: float = 1.0):
     geom_type = coordinates.get("type").lower()
     if geom_type == "point":
-        return [Point(np.asarray(coordinates["coordinates"]) * multiplier, label=label)]
+        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT)
+        return [Point(np.asarray(coordinates["coordinates"]) * multiplier, a_cls=annotation_class)]
     elif geom_type == "multipoint":
-        return [Point(np.asarray(c) * multiplier, label=label) for c in coordinates["coordinates"]]
+        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT)
+        return [Point(np.asarray(c) * multiplier, a_cls=annotation_class) for c in coordinates["coordinates"]]
     elif geom_type == "polygon":
-        return [Polygon(np.asarray(coordinates["coordinates"][0]) * multiplier, label=label)]
+        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
+        return [Polygon(np.asarray(coordinates["coordinates"][0]) * multiplier, a_cls=annotation_class)]
     elif geom_type == "multipolygon":
+        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
         multi_polygon = shapely.geometry.MultiPolygon(
             [[np.asarray(c[0]) * multiplier, np.asarray(c[1:]) * multiplier] for c in coordinates["coordinates"]]
         )
-        return [Polygon(_, label=label) for _ in multi_polygon.geoms]
+        return [Polygon(_, a_cls=annotation_class) for _ in multi_polygon.geoms]
     else:
         raise NotImplementedError(f"Not support geom_type {geom_type}")
 
@@ -157,35 +212,41 @@ _POSTPROCESSORS = {
 }
 
 
-class WsiSingleLabelAnnotation:
-    """Class to hold the annotations of one specific label for a whole slide image"""
+class SingleAnnotationWrapper:
+    """Class to hold the annotations of one specific label (class) for a whole slide image"""
 
-    def __init__(self, label: str, type: AnnotationType, coordinates):
-        self.__type = type
+    def __init__(self, a_cls: AnnotationClass, coordinates):
+        self._annotation_class = a_cls
+        self._label = a_cls.label
+        self._type = a_cls.a_cls
         self._annotations = coordinates
-        self.__label = label
 
     @property
     def type(self):
         """The type of annotation, e.g. box, polygon or points."""
-        return self.__type
+        return self._type
 
     @property
     def label(self):
         """The label name for this annotation."""
-        return self.__label
+        return self._label
 
-    @label.setter
-    def label(self, label):
-        self.__label = label
+    @property
+    def annotation_class(self):
+        return self._annotation_class
 
+    @annotation_class.setter
+    def annotation_class(self, a_cls: AnnotationClass):
+        self._annotation_class = a_cls
+        self._label = a_cls.label
+        self._type = a_cls.a_cls
         # TODO: We also need to rewrite all the polygons. This cannot yet be set in-place
         _annotations = []
         for geometry in self._annotations:
             if isinstance(geometry, shapely.geometry.Polygon):
-                _annotations.append(Polygon(geometry, label=label))
+                _annotations.append(Polygon(geometry, a_cls=a_cls))
             elif isinstance(geometry, shapely.geometry.Point):
-                _annotations.append(Point(geometry, label=label))
+                _annotations.append(Point(geometry, a_cls=a_cls))
             else:
                 raise AnnotationError(f"Unknown annotation type {type(geometry)}.")
 
@@ -224,19 +285,26 @@ class WsiSingleLabelAnnotation:
         return data
 
     @staticmethod
-    def __get_bbox(z):
+    def _get_bbox(z):
         return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
 
     @property
     def bounding_boxes(self):
-        data = [np.asarray(annotation.envelope.exterior.coords) for annotation in self.as_list()]
-        return [self.__get_bbox(_) for _ in data]
+        data = []
+        for annotation in self.as_list():
+            if isinstance(annotation, Polygon):
+                data.append(np.asarray(annotation.envelope.exterior.coords))
+            elif isinstance(annotation, Point):
+                # Create a 2D numpy array to represent the point
+                point_coords = np.asarray([annotation.x, annotation.y])
+                data.append(np.array([point_coords, point_coords]))
+        return [self._get_bbox(_) for _ in data]
 
     def simplify(self, tolerance: float, *, preserve_topology: bool = True):
-        if self.__type != AnnotationType.POLYGON:
+        if self.type != AnnotationType.POLYGON:
             return
         self._annotations = [
-            Polygon(annotation.simplify(tolerance, preserve_topology=preserve_topology), label=self.__label)
+            Polygon(annotation.simplify(tolerance, preserve_topology=preserve_topology), a_cls=self.annotation_class)
             for annotation in self._annotations
         ]
 
@@ -250,22 +318,25 @@ class WsiSingleLabelAnnotation:
 class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image."""
 
-    def __init__(self, annotations: list[WsiSingleLabelAnnotation]):
-        self.available_labels = sorted([annotation.label for annotation in annotations])
-        if len(set(self.available_labels)) != len(self.available_labels):
-            raise ValueError(
-                f"annotations should be a list of `WsiSingleLabelAnnotation` with unique labels. "
-                f"Got {self.available_labels}."
-            )
+    def __init__(
+        self, annotations: list[SingleAnnotationWrapper], sorting: AnnotationSorting = AnnotationSorting.NONE
+    ):
+        self.available_labels = sorted(
+            [_.annotation_class for _ in annotations],
+            key=lambda annotation_class: (annotation_class.label, annotation_class.a_cls),
+        )
 
-        # We convert the list internally into a dictionary so we have an easy way to access the data.
-        self._annotations = {annotation.label: annotation for annotation in annotations}
+        # We convert the list internally into a dictionary, so we have an easy way to access the data.
+        self._annotations = {annotation.annotation_class: annotation for annotation in annotations}
         # Now we have a dict of label: annotations.
-        self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
+        self._annotation_trees = {a_cls: self[a_cls].as_strtree() for a_cls in self.available_labels}
+
+        self._sorting = sorting
 
     def filter(self, labels: str | list[str] | tuple[str]) -> None:
         """
-        Filter annotations based on the given label list.
+        Filter annotations based on the given label list. If annotations with the same name but a different type are
+        present, they will all be added irrespective of the type.
 
         Parameters
         ----------
@@ -276,40 +347,50 @@ class WsiAnnotations:
         -------
         None
         """
-        _labels = [labels] if isinstance(labels, str) else labels
-        self.available_labels = [_ for _ in self.available_labels if _ in _labels]
-        self._annotations = {k: v for k, v in self._annotations.items() if k in _labels}
-        self._annotation_trees = {k: v for k, v in self._annotation_trees.items() if k in _labels}
 
-    def relabel(self, labels: tuple[tuple[str, str], ...]) -> None:
+        _labels = [labels] if isinstance(labels, str) else labels
+        self.available_labels = [_ for _ in self.available_labels if _.label in _labels]
+        self._annotations = {k: v for k, v in self._annotations.items() if k.label in _labels}
+        self._annotation_trees = {k: v for k, v in self._annotation_trees.items() if k.label in _labels}
+
+    def relabel(self, labels: tuple[tuple[AnnotationClass, AnnotationClass], ...]) -> None:
         """
         Rename labels in the class in-place.
 
         Parameters
         ----------
         labels : tuple
-            Tuple of tuples of the form (original_label, new_label). Labels which are not present will be kept the same.
+            Tuple of tuples of the form (original_annotation_class, new_annotation_class).
+            Labels which are not present will be kept the same.
 
         Returns
         -------
         None
         """
         # Create a dictionary with the mapping
-        mapping = {k: k for k in self.available_labels}
-        for old_label, new_label in labels:
-            if old_label not in self:
-                raise AnnotationError(f"Relabel error. Label {old_label} not currently present.")
-            mapping[old_label] = new_label
+        mapping: dict[AnnotationClass, AnnotationClass] = {k: k for k in self.available_labels}
 
-        self.available_labels = [mapping[label] for label in self.available_labels]
+        for old_annotation_class, new_annotation_class in labels:
+            if old_annotation_class.a_cls != new_annotation_class.a_cls:
+                raise AnnotationError(
+                    f"Relabel error. Annotation types do not match for {old_annotation_class.label}."
+                )
+
+            if old_annotation_class not in self:
+                raise AnnotationError(f"Relabel error. Label {old_annotation_class.label} not currently present.")
+            mapping[old_annotation_class] = new_annotation_class
+
+        # TODO: Is thie correct?
+        self.available_labels = sorted([mapping[label] for label in self.available_labels], key=lambda x: x.label)
 
         _annotations = {}
-        for label in self._annotations:
-            _geometry = self._annotations[label]
-            _geometry.label = mapping[label]
-            _annotations[mapping[label]] = _geometry
+        for annotation_class, single_label_annotation in self._annotations.items():
+            single_label_annotation.annotation_class = mapping[annotation_class]
+            _annotations[mapping[annotation_class]] = single_label_annotation
         self._annotations = _annotations
-        self._annotation_trees = {label: self[label].as_strtree() for label in self.available_labels}
+        self._annotation_trees = {
+            annotation_class: self[annotation_class].as_strtree() for annotation_class in self.available_labels
+        }
 
     @property
     def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
@@ -322,8 +403,8 @@ class WsiAnnotations:
             Bounding box of the form ((x, y), (w, h)).
         """
         all_boxes = []
-        for label in self.available_labels:
-            curr_bboxes = self[label].bounding_boxes
+        for annotation_class in self.available_labels:
+            curr_bboxes = self[annotation_class].bounding_boxes
             for box_start, box_size in curr_bboxes:
                 max_x, max_y = box_start[0] + box_size[0], box_start[1] + box_size[1]
                 all_boxes.append(shapely.geometry.box(*box_start, max_x, max_y))
@@ -378,8 +459,8 @@ class WsiAnnotations:
                         data[_label].append(_)
 
         # It is assumed that a specific label can only be one type (point or polygon)
-        annotations: list[WsiSingleLabelAnnotation] = [
-            WsiSingleLabelAnnotation(label=k, type=data[k][0].type, coordinates=data[k]) for k in data.keys()
+        annotations: list[SingleAnnotationWrapper] = [
+            SingleAnnotationWrapper(a_cls=data[k][0].annotation_class, coordinates=data[k]) for k in data.keys()
         ]
 
         return cls(annotations)
@@ -389,7 +470,7 @@ class WsiAnnotations:
         cls,
         asap_xml: PathLike,
         scaling: float | None = None,
-    ):
+    ) -> WsiAnnotations:
         """
         Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
 
@@ -417,7 +498,7 @@ class WsiAnnotations:
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
-        annotations: dict[str, WsiSingleLabelAnnotation] = dict()
+        annotations: dict[str, SingleAnnotationWrapper] = dict()
         opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
@@ -451,17 +532,17 @@ class WsiAnnotations:
 
                 for coordinates in coordinates_list:
                     # TODO: There is a cast function
+                    _cls = AnnotationClass(label=label, a_cls=annotation_type)
                     if isinstance(coordinates, shapely.geometry.Point):
-                        coordinates = Point(coordinates, label=label)
+                        coordinates = Point(coordinates, a_cls=_cls)
                     elif isinstance(coordinates, shapely.geometry.Polygon):
-                        coordinates = Polygon(coordinates, label=label)
+                        coordinates = Polygon(coordinates, a_cls=_cls)
                     else:
                         raise NotImplementedError
 
                     if label not in annotations:
-                        annotations[label] = WsiSingleLabelAnnotation(
-                            label=label,
-                            type=annotation_type,
+                        annotations[label] = SingleAnnotationWrapper(
+                            a_cls=_cls,
                             coordinates=[coordinates],
                         )
                     else:
@@ -469,7 +550,7 @@ class WsiAnnotations:
 
                     opened_annotations += 1
 
-        return cls(list(annotations.values()))
+        return cls(list(annotations.values()), sorting=AnnotationSorting.BY_AREA)
 
     @classmethod
     def from_halo_xml(cls, halo_xml: PathLike, scaling: float | None = None) -> WsiAnnotations:
@@ -495,30 +576,78 @@ class WsiAnnotations:
         """
         if not PYHALOXML_AVAILABLE:
             raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
-        hx = pyhaloxml.HaloXML()
-        hx.load(halo_xml)
 
         output = defaultdict(list)
-        _scaling = 1.0 if not scaling else scaling
+        with pyhaloxml.HaloXMLFile(halo_xml) as hx:
+            for layer in hx.layers:
+                shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)
+                _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POLYGON)
+                for shapely_polygon in shapely_multipolygon.geoms:
+                    curr_polygon = rescale_geometry(Polygon(shapely_polygon, a_cls=_cls), scaling=scaling)
+                    output[layer.name].append(Polygon(curr_polygon, a_cls=_cls))
 
-        for layer in hx.layers:
-            shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)
-            for shapely_polygon in shapely_multipolygon.geoms:
-                curr_polygon = Polygon(shapely_polygon, label=layer.name)
-                if _scaling != 1.0:
-                    curr_polygon = shapely.affinity.scale(curr_polygon, _scaling, _scaling)
-                output[layer.name].append(Polygon(curr_polygon, label=layer.name))
-
-        annotations: list[WsiSingleLabelAnnotation] = []
+        annotations: list[SingleAnnotationWrapper] = []
         for label in output:
             annotations.append(
-                WsiSingleLabelAnnotation(label=label, type=AnnotationType.POLYGON, coordinates=output[label])
+                SingleAnnotationWrapper(
+                    a_cls=AnnotationClass(label=label, a_cls=AnnotationType.POLYGON), coordinates=output[label]
+                )
             )
 
-        return cls(annotations)
+        return cls(annotations, sorting=AnnotationSorting.NONE)
 
-    def __getitem__(self, label: str) -> WsiSingleLabelAnnotation:
-        return self._annotations[label]
+    @classmethod
+    def from_darwin_json(cls, darwin_json: PathLike, scaling: float | None = None) -> WsiAnnotations:
+        if not DARWIN_SDK_AVAILABLE:
+            raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
+
+        annotations = defaultdict(list)
+        _scaling = 1.0 if not scaling else scaling
+
+        darwin_an = darwin.utils.parse_darwin_json(pathlib.Path(darwin_json), None)
+
+        for curr_annotation in darwin_an.annotations:
+            name = curr_annotation.annotation_class.name
+            annotation_type = _v7_annotation_type_to_dlup_annotation_type(
+                curr_annotation.annotation_class.annotation_type
+            )
+            key = AnnotationClass(label=name, a_cls=annotation_type)
+            curr_data = curr_annotation.data
+
+            _cls = AnnotationClass(label=name, a_cls=annotation_type)
+            if annotation_type == AnnotationType.POINT:
+                curr_point = Point((curr_data["x"], curr_data["y"]), a_cls=_cls)
+                curr_point = rescale_geometry(curr_point, scaling=scaling)
+                annotations[key].append(curr_point)
+            elif annotation_type == AnnotationType.POLYGON:
+                if "path" in curr_data:  # This is a regular polygon
+                    curr_polygon = Polygon([(_["x"], _["y"]) for _ in curr_data["path"]], a_cls=_cls)
+                    curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
+                    annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
+                elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
+                    curr_complex_polygon = _parse_darwin_complex_polygon(curr_data)
+                    for curr_polygon in curr_complex_polygon.geoms:
+                        curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
+                        annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
+                else:
+                    raise ValueError(f"Got unexpected data keys: {curr_data.keys()}")
+
+            elif annotation_type == AnnotationType.BOX:
+                x, y, h, w = curr_data.values()
+                curr_polygon = shapely.geometry.box(x, y, x + w, y + h)
+                curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
+                annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
+            else:
+                ValueError(f"Annotation type {annotation_type} is not supported.")
+
+        # Now we can make SingleAnnotationWrapper annotations
+        output = []
+        for an_cls, coordinates in annotations.items():
+            output.append(SingleAnnotationWrapper(a_cls=an_cls, coordinates=coordinates))
+        return cls(output, sorting=AnnotationSorting.NONE)
+
+    def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
+        return self._annotations[a_cls]
 
     def as_geojson(self, split_per_label=False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
         """
@@ -531,7 +660,7 @@ class WsiAnnotations:
 
         Returns
         -------
-        list or GeoJson
+        list of (str, GeoJsonDict)
         """
         jsons = [(label, self[label].as_json()) for label in self.available_labels]
         if split_per_label:
@@ -584,10 +713,10 @@ class WsiAnnotations:
         The process is as follows:
 
         1.  All the annotations which overlap with the requested region of interested are filtered with an STRTree.
-        2.  The annotations are filtered by name, and subsequently by area from large to small. The reason this is
-            implemented this way is because sometimes one can annotate a larger region, and the smaller regions should
-            overwrite the previous part. A function `dlup.data.transforms.convert_annotations` can be used to convert such
-            outputs to a mask.
+        2.  The annotations are filtered by name (if the names are the same they are in order of POINT, BOX and POLYGON)
+            , and subsequently by area from large to small. The reason this is implemented this way is because sometimes
+            one can annotate a larger region, and the smaller regions should overwrite the previous part.
+            A function `dlup.data.transforms.convert_annotations` can be used to convert such outputs to a mask.
         3.  The annotations are cropped to the region-of-interest, or filtered in case of points. Polygons which
             convert into points after intersection are removed. If it's a image-level label, nothing happens.
         4.  The annotation is rescaled and shifted to the origin to match the local patch coordinate system.
@@ -625,6 +754,7 @@ class WsiAnnotations:
 
         #  sampling box
         box = list(np.asarray(coordinates) - np.asarray(offset)) + list(np.asarray(coordinates) - np.asarray(offset) + np.asarray(region_size))
+
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
 
@@ -635,17 +765,22 @@ class WsiAnnotations:
             for v in curr_annotations:
                 filtered_annotations.append((k, v))
 
-        # Sort on name
-        filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0])
-        # Sort on area (largest to smallest)
-        filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
+        if self._sorting == AnnotationSorting.BY_AREA:
+            # Sort on name
+            filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0].label)
+            # Sort on area (largest to smallest)
+            filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
+        elif self._sorting == AnnotationSorting.REVERSE:
+            filtered_annotations = list(reversed(filtered_annotations))
+        else:  # AnnotationSorting.NONE
+            pass
 
         cropped_annotations = []
-        for annotation_name, annotation in filtered_annotations:
+        for annotation_class, annotation in filtered_annotations:
             if annotation.is_valid is False:
                 annotation = make_valid(annotation)
 
-            crop_func = _POSTPROCESSORS[self[annotation_name].type]
+            crop_func = _POSTPROCESSORS[annotation_class.a_cls]
             if crop_func is not None:
                 curr_area = annotation.area
                 # The following function casts this again as a shapely Polygon, so we will need to convert
@@ -657,40 +792,39 @@ class WsiAnnotations:
                     continue
 
             if annotation:
-                cropped_annotations.append((annotation_name, annotation))
+                cropped_annotations.append((annotation_class, annotation))
 
         transformation_matrix = [scaling, 0, 0, scaling, -coordinates[0] + offset[0], -coordinates[1] + offset[1]]
 
         output: list[Polygon | Point] = []
-        for annotation_name, annotation in cropped_annotations:
+        for annotation_class, annotation in cropped_annotations:
             annotation = shapely.affinity.affine_transform(annotation, transformation_matrix)
             # It can occur that single polygon annotations result in being points after being intersected.
             # This part is required because shapely operations on the edited polygons lose the label and type.
-            if self[annotation_name].type == AnnotationType.POLYGON and annotation.area == 0:
+            if self[annotation_class].type == AnnotationType.POLYGON and annotation.area == 0:
                 continue
 
             if isinstance(
                 annotation,
                 (geometry.MultiPolygon, geometry.GeometryCollection),
             ):
-                output += [self.__cast(annotation_name, _) for _ in annotation.geoms if _.area > 0]
+                output += [self._cast(annotation_class, _) for _ in annotation.geoms if _.area > 0]
 
             # TODO: Double check
             elif isinstance(annotation, (geometry.LineString, geometry.multilinestring.MultiLineString)):
                 continue
-
             else:
                 # The conversion to an internal format is only done here, because we only support Points and Polygons.
-                output.append(self.__cast(annotation_name, annotation))
+                output.append(self._cast(annotation_class, annotation))
         return output
 
-    def __cast(self, annotation_name: str, annotation: ShapelyTypes) -> Point | Polygon:
+    def _cast(self, annotation_class: AnnotationClass, annotation: ShapelyTypes) -> Point | Polygon:
         """
         Cast the shapely object with annotation_name to internal format.
 
         Parameters
         ----------
-        annotation_name : str
+        annotation_class : AnnotationClass
         annotation : ShapelyTypes
 
         Returns
@@ -698,15 +832,21 @@ class WsiAnnotations:
         Point or Polygon
 
         """
-        if self[annotation_name].type == AnnotationType.POINT:
-            return Point(annotation, label=annotation_name)
-        elif self[annotation_name].type == AnnotationType.POLYGON:
-            return Polygon(annotation, label=annotation_name)
+        # TODO: There are weird things now with the annotation class and the type. Fix this.
+        if self[annotation_class].type == AnnotationType.POINT:
+            return Point(annotation, a_cls=annotation_class)
+        elif self[annotation_class].type == AnnotationType.POLYGON:
+            return Polygon(annotation, a_cls=annotation_class)
+        elif self[annotation_class].type == AnnotationType.BOX:
+            return Polygon(annotation, a_cls=annotation_class)
         else:
-            raise RuntimeError(f"Unexpected type. Got {self[annotation_name].type}.")
+            raise RuntimeError(f"Unexpected type. Got {self[annotation_class].type}.")
 
-    def __contains__(self, item):
-        return item in self.available_labels
+    def __contains__(self, item: Union[str, AnnotationClass]) -> bool:
+        if isinstance(item, str):
+            return item in [_.label for _ in self.available_labels]
+        else:
+            return item in self.available_labels
 
     def __add__(self, other: WsiAnnotations) -> WsiAnnotations:
         if set(self.available_labels).intersection(other.available_labels) != set():
@@ -726,6 +866,54 @@ class WsiAnnotations:
             output += f"{annotation_name} ({len(self._annotations[annotation_name])}, "
 
         return f"{type(self).__name__}(labels={output[:-2]})"
+
+
+class _ComplexDarwinPolygonWrapper:
+    """Wrapper class for a complex polygon (i.e. polygon with holes) from a Darwin annotation."""
+
+    def __init__(self, polygon: shapely.geometry.Polygon):
+        self.geom = polygon
+        self.hole = False
+        self.holes: list[float] = []
+
+
+def _parse_darwin_complex_polygon(annotation) -> shapely.geometry.MultiPolygon:
+    """
+    Parse a complex polygon (i.e. polygon with holes) from a Darwin annotation.
+
+    Parameters
+    ----------
+    annotation : dict
+
+    Returns
+    -------
+    shapely.geometry.MultiPolygon
+    """
+    polygons = [
+        _ComplexDarwinPolygonWrapper(shapely.geometry.Polygon([(p["x"], p["y"]) for p in path]))
+        for path in annotation["paths"]
+    ]
+
+    # Naive even-odd rule, but seems to work
+    sorted_polygons = sorted(polygons, key=lambda x: x.geom.area, reverse=True)
+    for idx, my_polygon in enumerate(sorted_polygons):
+        for outer_polygon in reversed(sorted_polygons[:idx]):
+            contains = outer_polygon.geom.contains(my_polygon.geom)
+            if contains and outer_polygon.hole:
+                break
+            if outer_polygon.hole:
+                continue
+            if contains:
+                my_polygon.hole = True
+                outer_polygon.holes.append(my_polygon.geom.exterior.coords)
+
+    # create complex polygon with MultiPolygon
+    complex_polygon = [
+        shapely.geometry.Polygon(my_polygon.geom.exterior.coords, my_polygon.holes)
+        for my_polygon in sorted_polygons
+        if not my_polygon.hole
+    ]
+    return shapely.geometry.MultiPolygon(complex_polygon)
 
 
 def _parse_asap_coordinates(
@@ -769,3 +957,26 @@ def _parse_asap_coordinates(
         raise RuntimeError(f"Annotation type not supported. Got {annotation_type}.")
 
     return coordinates
+
+
+def _v7_annotation_type_to_dlup_annotation_type(annotation_type: str) -> AnnotationType:
+    """
+    Convert a v7 annotation type to a dlup annotation type.
+
+    Parameters
+    ----------
+    annotation_type : str
+        The annotation type as defined in the v7 annotation format.
+
+    Returns
+    -------
+    AnnotationType
+    """
+    if annotation_type == "bounding_box":
+        return AnnotationType.BOX
+    elif annotation_type in ["polygon", "complex_polygon"]:
+        return AnnotationType.POLYGON
+    elif annotation_type == "keypoint":
+        return AnnotationType.POINT
+    else:
+        raise NotImplementedError(f"annotation_type {annotation_type} is not implemented or not a valid dlup type.")

@@ -7,39 +7,47 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 import numpy as np
 import openslide  # type: ignore
 import PIL
-import pytest
+import pytest  # noqa
 from PIL.Image import Image
-from pydantic import BaseModel, Field
-from scipy import interpolate
+from pydantic import BaseModel, ConfigDict, Field
+from scipy.interpolate import RegularGridInterpolator
 
 
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
     """Generate a non-uniform sample image."""
-    # Interpolate some simple function
-    interp_args = ((0, 1), (0, 1), ((0, 1), (1, 0)))  # x  # y  # z
-    f = interpolate.interp2d(*interp_args, kind="linear")
     if not (np.array(size) % 2 == 0).all():
         raise ValueError("Size should be a tuple of values divisible by two.")
 
+    # Define data for interpolation
+    x = np.linspace(0, 1, size[0])
+    y = np.linspace(0, 1, size[1])
+
+    # Define the values at each grid point
+    X, Y = np.meshgrid(x, y)
+    values = X + Y
+
+    # Use RegularGridInterpolator
+    f = RegularGridInterpolator((x, y), values)
+
     # Sample it
-    width, height = size
-    x = np.linspace(0, 1, width)
-    y = np.linspace(0, 1, height)
-    z = f(x, y)
+    Z = np.stack([X, Y], axis=-1)
+    z = f(Z).reshape(size)
+
+    # Sample it
+    z = f(Z).reshape(size)
 
     # Interpret it as HSV, so we get funny colors
-    im = np.zeros((height, width, 3))
-    im[:, :, 0] = z.T
+    im = np.zeros((*size, 3))
+    im[:, :, 0] = z
     im[:, :, 1] = 1
 
     # Set the value to a pixel-level checkerboard.
-    # Maybe there's a faster way.
-    im[height // 2, width // 2, 2] = 1
+    im[size[1] // 2, size[0] // 2, 2] = 1
     im[:, :, 2] = np.sign(np.fft.ifft2(im[:, :, 2]).real)
     im = im * 255
     im = im.astype("uint8")
     im = PIL.Image.fromarray(im, mode="HSV")
-    return im.convert(mode="RGBA")  # type: ignore
+    return im.convert(mode="RGBA")
 
 
 class SlideProperties(BaseModel):
@@ -49,9 +57,7 @@ class SlideProperties(BaseModel):
     mpp_y: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_Y)
     mag: Optional[float] = Field(40.0, alias=openslide.PROPERTY_NAME_OBJECTIVE_POWER)
     vendor: str = Field("dummy", alias=openslide.PROPERTY_NAME_VENDOR)
-
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class SlideConfig(BaseModel):
@@ -123,6 +129,6 @@ class OpenSlideImageMock(openslide.ImageSlide):
     def from_slide_config(cls, slide_config):
         return cls(
             slide_config.image,
-            slide_config.properties.dict(by_alias=True, exclude_none=True),
+            slide_config.properties.model_dump(by_alias=True, exclude_none=True),
             slide_config.level_downsamples,
         )
