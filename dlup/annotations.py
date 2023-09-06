@@ -706,7 +706,7 @@ class WsiAnnotations:
         coordinates: np.ndarray | tuple[GenericNumber, GenericNumber],
         scaling: float,
         region_size: np.ndarray | tuple[GenericNumber, GenericNumber],
-        offset: np.nd_array | tuple[GenericNumber, GenericNumber] = (0,0),
+        offset: np.nd_array | tuple[GenericNumber, GenericNumber] = (0, 0),
     ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
@@ -754,8 +754,8 @@ class WsiAnnotations:
 
         #  sampling box
         box = list(np.asarray(coordinates) - np.asarray(offset)) + list(
-		np.asarray(coordinates) - np.asarray(offset) + np.asarray(region_size)
-	)
+	    np.asarray(coordinates) - np.asarray(offset) + np.asarray(region_size)
+        )
 
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
