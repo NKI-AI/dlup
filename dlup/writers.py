@@ -209,7 +209,7 @@ class TifffileImageWriter(ImageWriter):
                 tiff_reader = tifffile.TiffReader(temp_filename)
                 page = tiff_reader.pages[level]
                 tile_iterator = _tile_iterator_from_page(
-                    page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb, interpolator=self._interpolator
+                    page, self._tile_size, shapes[level], scale=2, is_rgb=is_rgb, interpolator=self._interpolator  # type: ignore
                 )
                 self._write_page(
                     tiff_writer,
@@ -240,9 +240,9 @@ class TifffileImageWriter(ImageWriter):
             tile_iterator,  # noqa
             shape=(*shapes[level], self._size[-1]) if is_rgb else (*shapes[level], 1),
             dtype="uint8",
-            resolution=(*native_resolution / 2**level, "CENTIMETER"),  # noqa
+            resolution=(*native_resolution / 2**level, "CENTIMETER"),  # type: ignore
             photometric="rgb" if is_rgb else "minisblack",
-            compression=compression if not self._quality else (compression, self._quality),  # noqa
+            compression=compression if not self._quality else (compression, self._quality),  # type: ignore
             tile=self._tile_size,
             **options,
         )

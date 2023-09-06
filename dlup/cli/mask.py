@@ -8,7 +8,14 @@ from typing import cast
 import shapely
 
 from dlup._image import Resampling
-from dlup.annotations import AnnotationType, GeoJsonDict, Polygon, WsiAnnotations, WsiSingleLabelAnnotation
+from dlup.annotations import (
+    AnnotationClass,
+    AnnotationType,
+    GeoJsonDict,
+    Polygon,
+    SingleAnnotationWrapper,
+    WsiAnnotations,
+)
 from dlup.cli import file_path
 from dlup.data.dataset import TiledROIsSlideImageDataset
 from dlup.experimental_backends import ImageBackend
@@ -65,15 +72,15 @@ def mask_to_polygon(args: argparse.Namespace):
         if polygons[label].is_empty:
             continue
 
+        a_cls = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
-            coordinates = [Polygon(coords, label=label) for coords in polygons[label].geoms if not coords.is_empty]
+            coordinates = [Polygon(coords, a_cls=a_cls) for coords in polygons[label].geoms if not coords.is_empty]
         else:
-            coordinates = [Polygon(polygons[label], label=label)]
+            coordinates = [Polygon(polygons[label], a_cls=a_cls)]
 
         wsi_annotations.append(
-            WsiSingleLabelAnnotation(
-                label=label,
-                type=AnnotationType.POLYGON,
+            SingleAnnotationWrapper(
+                a_cls=a_cls,
                 coordinates=coordinates,
             )
         )

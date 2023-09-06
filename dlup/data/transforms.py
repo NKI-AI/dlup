@@ -13,6 +13,7 @@ import shapely
 
 import dlup.annotations
 from dlup._exceptions import AnnotationError
+from dlup.annotations import AnnotationType
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
@@ -23,7 +24,7 @@ def convert_annotations(
     index_map: dict[str, int],
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[dict, np.ndarray, np.ndarray | None]:
+) -> tuple[dict, dict, np.ndarray, np.ndarray | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
@@ -61,6 +62,7 @@ def convert_annotations(
     mask = np.empty(region_size, dtype=np.int32)
     mask[:] = default_value
     points: dict[str, list] = defaultdict(list)
+    boxes: dict[str, list[tuple[tuple[int, int], tuple[int, int]]]] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
 
@@ -69,6 +71,10 @@ def convert_annotations(
         if isinstance(curr_annotation, dlup.annotations.Point):
             points[curr_annotation.label] += tuple(curr_annotation.coords)
             continue
+
+        if isinstance(curr_annotation, dlup.annotations.Polygon) and curr_annotation.type == AnnotationType.BOX:
+            min_x, min_y, max_x, max_y = curr_annotation.bounds
+            boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
 
         if roi_name and curr_annotation.label == roi_name:
             cv2.fillPoly(
@@ -98,7 +104,7 @@ def convert_annotations(
             # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
             mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
 
-    return dict(points), mask, roi_mask if roi_name else None
+    return dict(points), dict(boxes), mask, roi_mask if roi_name else None
 
 
 class ConvertAnnotationsToMask:
@@ -124,7 +130,7 @@ class ConvertAnnotationsToMask:
             return sample
 
         _annotations = sample["annotations"]
-        points, mask, roi = convert_annotations(
+        points, boxes, mask, roi = convert_annotations(
             _annotations,
             sample["image"].size[::-1],
             roi_name=self._roi_name,
@@ -133,6 +139,7 @@ class ConvertAnnotationsToMask:
         )
         sample["annotation_data"] = {
             "points": points,
+            "boxes": boxes,
             "mask": mask,
         }
         if roi is not None:
