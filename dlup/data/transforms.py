@@ -13,7 +13,7 @@ import shapely
 
 import dlup.annotations
 from dlup._exceptions import AnnotationError
-from dlup.annotations import AnnotationType
+from dlup.annotations import AnnotationClass, AnnotationType
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
@@ -171,13 +171,17 @@ class RenameLabels:
                 output_annotations.append(annotation)
                 continue
 
-            if isinstance(annotation, dlup.annotations.Polygon):
-                output_annotations.append(dlup.annotations.Polygon(annotation, label=self._remap_labels[label]))
-
-            elif isinstance(annotation, dlup.annotations.Point):
-                output_annotations.append(dlup.annotations.Point(annotation, label=self._remap_labels[label]))
+            if annotation.a_cls.annotation_type == AnnotationType.BOX:
+                a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.BOX)
+                output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
+            elif annotation.a_cls.annotation_type == AnnotationType.POLYGON:
+                a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.POLYGON)
+                output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
+            elif annotation.a_cls.annotation_type == AnnotationType.POINT:
+                a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.POINT)
+                output_annotations.append(dlup.annotations.Point(annotation, a_cls=a_cls))
             else:
-                raise AnnotationError(f"Unsupported annotation type {type(annotation)}")
+                raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.annotation_type}")
 
         sample["annotations"] = output_annotations
         return sample
