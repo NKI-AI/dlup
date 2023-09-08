@@ -13,7 +13,6 @@ import pytest
 from dlup.annotations import AnnotationClass, AnnotationType, Polygon, WsiAnnotations
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
-
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
 <ASAP_Annotations>
     <Annotations>
