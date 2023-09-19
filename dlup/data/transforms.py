@@ -171,17 +171,17 @@ class RenameLabels:
                 output_annotations.append(annotation)
                 continue
 
-            if annotation.a_cls.annotation_type == AnnotationType.BOX:
+            if annotation.a_cls.a_cls == AnnotationType.BOX:
                 a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.BOX)
                 output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-            elif annotation.a_cls.annotation_type == AnnotationType.POLYGON:
+            elif annotation.a_cls.a_cls == AnnotationType.POLYGON:
                 a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.POLYGON)
                 output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-            elif annotation.a_cls.annotation_type == AnnotationType.POINT:
+            elif annotation.a_cls.a_cls == AnnotationType.POINT:
                 a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.POINT)
                 output_annotations.append(dlup.annotations.Point(annotation, a_cls=a_cls))
             else:
-                raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.annotation_type}")
+                raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.a_cls}")
 
         sample["annotations"] = output_annotations
         return sample
