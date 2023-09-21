@@ -123,9 +123,7 @@ from packaging.version import parse
 
 v = parse(release)
 if v.release is None:
-    raise ValueError(
-        "Ill-formed version: {!r}. Version should follow " "PEP440".format(version)
-    )
+    raise ValueError("Ill-formed version: {!r}. Version should follow " "PEP440".format(version))
 
 if v.is_devrelease:
     binder_branch = "main"
