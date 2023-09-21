@@ -3,6 +3,7 @@
 import pytest
 from dlup.data.transforms import AnnotationType, AnnotationClass, RenameLabels
 
+
 class Polygon:
     def __init__(self, coordinates, a_cls):
         self.coordinates = coordinates
@@ -15,6 +16,7 @@ class Point:
         self.coordinates = coordinates
         self.label = a_cls.label
         self.a_cls = a_cls
+
 
 @pytest.fixture
 def remap_labels():
