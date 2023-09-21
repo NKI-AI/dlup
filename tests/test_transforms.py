@@ -1,7 +1,8 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
 import pytest
-from dlup.data.transforms import AnnotationType, AnnotationClass, RenameLabels
+
+from dlup.data.transforms import AnnotationClass, AnnotationType, RenameLabels
 
 
 class Polygon:
