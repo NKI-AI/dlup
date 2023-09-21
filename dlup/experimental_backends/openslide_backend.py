@@ -74,7 +74,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
     @property
     def vendor(self) -> str:
         """Returns the scanner vendor."""
-        return self.properties.properties[openslide.PROPERTY_NAME_VENDOR]
+        return self.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
 
     @property
     def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
