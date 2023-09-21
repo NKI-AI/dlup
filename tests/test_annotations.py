@@ -49,9 +49,7 @@ class TestAnnotations:
         geojson_out.write(json.dumps(asap_geojson).encode("utf-8"))
         geojson_out.flush()
 
-        geojson_annotations = WsiAnnotations.from_geojson(
-            [pathlib.Path(geojson_out.name)], scaling=1
-        )
+        geojson_annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)], scaling=1)
 
     _v7_annotations = None
 
@@ -59,21 +57,15 @@ class TestAnnotations:
     def v7_annotations(self):
         if self._v7_annotations is None:
             assert pathlib.Path("tests/files/103S.json").exists()
-            self._v7_annotations = WsiAnnotations.from_darwin_json(
-                "tests/files/103S.json"
-            )
+            self._v7_annotations = WsiAnnotations.from_darwin_json("tests/files/103S.json")
         return self._v7_annotations
 
     def test_asap_to_geojson(self, split_per_label=False):
         asap_geojson = self.asap_annotations.as_geojson(split_per_label=split_per_label)
-        geojson_geojson = self.geojson_annotations.as_geojson(
-            split_per_label=split_per_label
-        )
+        geojson_geojson = self.geojson_annotations.as_geojson(split_per_label=split_per_label)
         assert asap_geojson == geojson_geojson
 
-    @pytest.mark.parametrize(
-        "region", [((10000, 10000), (5000, 5000), 3756.0), ((0, 0), (5000, 5000), None)]
-    )
+    @pytest.mark.parametrize("region", [((10000, 10000), (5000, 5000), 3756.0), ((0, 0), (5000, 5000), None)])
     def test_read_region(self, region):
         coordinates, size, area = region
         region = self.asap_annotations.read_region(coordinates, 1.0, size)
@@ -92,13 +84,9 @@ class TestAnnotations:
         coordinates = (np.asarray(coordinates) * scaling).tolist()
         size = (np.asarray(size) * scaling).tolist()
         with tempfile.NamedTemporaryFile(suffix=".json") as geojson_out:
-            geojson_out.write(
-                json.dumps(self.asap_annotations.as_geojson()).encode("utf-8")
-            )
+            geojson_out.write(json.dumps(self.asap_annotations.as_geojson()).encode("utf-8"))
             geojson_out.flush()
-            annotations = WsiAnnotations.from_geojson(
-                [pathlib.Path(geojson_out.name)], scaling=scaling
-            )
+            annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)], scaling=scaling)
 
         region = annotations.read_region(coordinates, 1.0, size)
         assert len(region) == 1
@@ -109,13 +97,9 @@ class TestAnnotations:
         coordinates, size = (10000, 10000), (5000, 5000)
         _annotations = self.asap_annotations.copy()
 
-        original_class = AnnotationClass(
-            label="healthy glands", a_cls=AnnotationType.POLYGON
-        )
+        original_class = AnnotationClass(label="healthy glands", a_cls=AnnotationType.POLYGON)
         assert _annotations.available_labels == [original_class]
-        target_class = AnnotationClass(
-            label="healthy glands 2", a_cls=AnnotationType.POLYGON
-        )
+        target_class = AnnotationClass(label="healthy glands 2", a_cls=AnnotationType.POLYGON)
         _annotations.relabel(((original_class, target_class),))
         assert _annotations.available_labels == [target_class]
 
@@ -127,10 +111,7 @@ class TestAnnotations:
         copied_annotations = self.asap_annotations.copy()
         # Now we can change a parameter
         copied_annotations.filter([""])
-        assert (
-            copied_annotations.available_labels
-            != self.asap_annotations.available_labels
-        )
+        assert copied_annotations.available_labels != self.asap_annotations.available_labels
 
     def test_add(self):
         copied_annotations = self.asap_annotations.copy()

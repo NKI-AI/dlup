@@ -115,9 +115,7 @@ class TifffileImageWriter(ImageWriter):
         self._tile_size = tile_size
 
         self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])  # type: ignore
-        self._mpp: tuple[float, float] = (
-            (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
-        )
+        self._mpp: tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
 
         if compression is None:
             compression = TiffCompression.NONE
@@ -129,9 +127,7 @@ class TifffileImageWriter(ImageWriter):
             raise ValueError(f"Invalid interpolator: {interpolator.name}")
 
         if anti_aliasing and interpolator == Resampling.NEAREST:
-            raise ValueError(
-                "Anti-aliasing cannot be used with nearest neighbor interpolation."
-            )
+            raise ValueError("Anti-aliasing cannot be used with nearest neighbor interpolation.")
         elif anti_aliasing:
             raise NotImplementedError("Anti-aliasing is not yet implemented.")
 
@@ -175,14 +171,9 @@ class TifffileImageWriter(ImageWriter):
         software = f"dlup {dlup.__version__} with tifffile.py backend"
         n_subresolutions = 0
         if self._pyramid:
-            n_subresolutions = int(
-                np.ceil(
-                    np.log2(np.asarray(native_size) / np.asarray(self._tile_size))
-                ).min()
-            )
+            n_subresolutions = int(np.ceil(np.log2(np.asarray(native_size) / np.asarray(self._tile_size))).min())
         shapes = [
-            np.floor(np.asarray(native_size) / 2**n).astype(int).tolist()
-            for n in range(0, n_subresolutions + 1)
+            np.floor(np.asarray(native_size) / 2**n).astype(int).tolist() for n in range(0, n_subresolutions + 1)
         ]
 
         # TODO: add to metadata "axes": "TCYXS", and "SignificantBits": 10,
@@ -257,9 +248,7 @@ class TifffileImageWriter(ImageWriter):
         )
 
 
-def _tiles_iterator_from_pil_image(
-    pil_image: PIL.Image.Image, tile_size: tuple[int, int]
-):
+def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: tuple[int, int]):
     """
     Given a PIL image return a a tile-iterator.
 
@@ -333,9 +322,7 @@ def _tile_iterator_from_page(
         size = np.clip(region_end, 0, region_size) - coordinates
 
         tile = get_tile(page, coordinates[::-1], size[::-1])[0]
-        vips_tile = numpy_to_vips(tile).resize(
-            1 / scale, kernel=INTERPOLATOR_TO_VIPS[interpolator.value]
-        )
+        vips_tile = numpy_to_vips(tile).resize(1 / scale, kernel=INTERPOLATOR_TO_VIPS[interpolator.value])
         output = vips_to_numpy(vips_tile)
         if not is_rgb:
             output = output[..., 0]

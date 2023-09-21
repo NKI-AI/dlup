@@ -132,14 +132,10 @@ class ConcatDataset(Dataset[T_co]):
         """
         if idx < 0:
             if -idx > len(self):
-                raise ValueError(
-                    "absolute value of index should not exceed dataset length"
-                )
+                raise ValueError("absolute value of index should not exceed dataset length")
             idx = len(self) + idx
         dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
-        sample_idx = (
-            idx if dataset_idx == 0 else idx - self.cumulative_sizes[dataset_idx - 1]
-        )
+        sample_idx = idx if dataset_idx == 0 else idx - self.cumulative_sizes[dataset_idx - 1]
         return self.datasets[dataset_idx], sample_idx
 
     def __len__(self):
@@ -226,9 +222,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         if mask is not None:
             boolean_mask: NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
             for i, region in enumerate(regions):
-                boolean_mask[i] = is_foreground(
-                    self.slide_image, mask, region, mask_threshold
-                )
+                boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
 
     @property
@@ -262,9 +256,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         region_size: tuple[int, int] = w, h
         scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
-        region_view.boundary_mode = (
-            BoundaryMode.crop if self.crop else BoundaryMode.zero
-        )
+        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
         region = region_view.read_region(coordinates, region_size)
 
@@ -277,9 +269,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         }
 
         if self.annotations is not None:
-            sample["annotations"] = self.annotations.read_region(
-                coordinates, scaling, region_size
-            )
+            sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
@@ -293,11 +283,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
         The length may vary depending on the provided boolean mask.
         """
-        return (
-            len(self.regions)
-            if self.masked_indices is None
-            else len(self.masked_indices)
-        )
+        return len(self.regions) if self.masked_indices is None else len(self.masked_indices)
 
     def __iter__(self):
         for i in range(len(self)):
@@ -354,13 +340,9 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self._grids = grids
         regions = []
         for grid, tile_size, mpp in grids:
-            regions.append(
-                MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid)
-            )
+            regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))
 
-        self._starting_indices = [0] + list(
-            itertools.accumulate([len(s) for s in regions])
-        )[:-1]
+        self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
 
         super().__init__(
             path,
@@ -455,9 +437,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
 
             if limit_bounds:
                 if rois is not None:
-                    raise ValueError(
-                        f"Cannot use both `rois` and `limit_bounds` at the same time."
-                    )
+                    raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
                 if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
                     raise ValueError(
                         f"Cannot use AutoDetect as backend and use limit_bounds at the same time. This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
@@ -470,9 +450,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
 
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling)
-                _rois = parse_rois(
-                    rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0
-                )
+                _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
 
         grid_mpp = mpp if mpp is not None else slide_mpp
         grids = []
@@ -502,15 +480,11 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
 
     def __getitem__(self, index):
         data = super().__getitem__(index)
-        region_data: RegionFromSlideDatasetSample = cast(
-            RegionFromSlideDatasetSample, data
-        )
+        region_data: RegionFromSlideDatasetSample = cast(RegionFromSlideDatasetSample, data)
         region_index = data["region_index"]
         starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
         grid_index = region_index - self._starting_indices[starting_index]
-        grid_local_coordinates = np.unravel_index(
-            grid_index, self.grids[starting_index][0].size
-        )
+        grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
         region_data["grid_local_coordinates"] = grid_local_coordinates
         region_data["grid_index"] = starting_index
 
@@ -526,9 +500,7 @@ def parse_rois(rois: ROIType | None, image_size, scaling: float = 1.0):
     else:
         # Do some checks whether the ROIs are within the image
         origin_positive = [np.all(np.asarray(coords) > 0) for coords, size in rois]
-        image_within_borders = [
-            np.all((np.asarray(coords) + size) <= image_size) for coords, size in rois
-        ]
+        image_within_borders = [np.all((np.asarray(coords) + size) <= image_size) for coords, size in rois]
         if not origin_positive or not image_within_borders:
             raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 

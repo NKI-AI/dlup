@@ -42,9 +42,7 @@ class RegionView(ABC):
         """Returns size of the region in U units."""
         pass
 
-    def read_region(
-        self, location: GenericFloatArray, size: GenericIntArray
-    ) -> PIL.Image.Image:
+    def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Returns the requested region as a numpy array."""
         location = np.asarray(location)
         size = np.asarray(size)
@@ -58,9 +56,7 @@ class RegionView(ABC):
         # This is slightly tricky as it can influence the mpp slightly
         offset = -np.clip(location, None, 0)
 
-        clipped_region_size = (
-            np.clip(location + size, np.zeros_like(size), self.size) - location - offset
-        )
+        clipped_region_size = np.clip(location + size, np.zeros_like(size), self.size) - location - offset
         clipped_region_size = clipped_region_size.astype(int)
         region = self._read_region_impl(location + offset, clipped_region_size)
 
@@ -77,8 +73,6 @@ class RegionView(ABC):
         return region
 
     @abstractmethod
-    def _read_region_impl(
-        self, location: GenericFloatArray, size: GenericIntArray
-    ) -> PIL.Image.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
         """Define a method to return an array containing the region."""
         pass

@@ -181,9 +181,7 @@ class AbstractSlideBackend(abc.ABC):
         """Properties of slide"""
 
     @abc.abstractmethod
-    def read_region(
-        self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]
-    ) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 

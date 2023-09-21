@@ -72,14 +72,9 @@ def convert_annotations(
             points[curr_annotation.label] += tuple(curr_annotation.coords)
             continue
 
-        if (
-            isinstance(curr_annotation, dlup.annotations.Polygon)
-            and curr_annotation.type == AnnotationType.BOX
-        ):
+        if isinstance(curr_annotation, dlup.annotations.Polygon) and curr_annotation.type == AnnotationType.BOX:
             min_x, min_y, max_x, max_y = curr_annotation.bounds
-            boxes[curr_annotation.label].append(
-                ((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y)))
-            )
+            boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
 
         if roi_name and curr_annotation.label == roi_name:
             cv2.fillPoly(
@@ -93,10 +88,7 @@ def convert_annotations(
             continue
 
         original_values = None
-        interiors = [
-            np.asarray(pi.coords).round().astype(np.int32)
-            for pi in curr_annotation.interiors
-        ]
+        interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
         if interiors is not []:
             original_values = mask.copy()
             holes_mask = np.zeros(region_size, dtype=np.int32)
@@ -118,9 +110,7 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(
-        self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0
-    ):
+    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
         """
         Parameters
         ----------
@@ -255,9 +245,7 @@ class MajorityClassToLabel:
                 index_map={},
             )
             masked_image = np.asarray(sample["image"]) * roi[..., np.newaxis]
-            sample["image"] = PIL.Image.fromarray(
-                masked_image.astype(np.uint8), mode=sample["image"].mode
-            )
+            sample["image"] = PIL.Image.fromarray(masked_image.astype(np.uint8), mode=sample["image"].mode)
 
         sample["labels"].update({"majority_class": self._index_map[max_key]})
         return sample
@@ -293,14 +281,10 @@ class ContainsPolygonToLabel:
         if "labels" not in sample:
             sample["labels"] = {}
 
-        requested_polygons = [
-            _ for _ in sample["annotations"] if _.label == self._label
-        ]
+        requested_polygons = [_ for _ in sample["annotations"] if _.label == self._label]
 
         if self._roi_name:
-            roi = shapely.geometry.MultiPolygon(
-                [_ for _ in sample["annotations"] if _.label == self._roi_name]
-            )
+            roi = shapely.geometry.MultiPolygon([_ for _ in sample["annotations"] if _.label == self._roi_name])
         else:
             roi = shapely.geometry.box(0, 0, *(sample["image"].size[::-1]))
 

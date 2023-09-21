@@ -74,12 +74,8 @@ class PyVipsSlide(AbstractSlideBackend):
         unit_dict = {"cm": 1000, "centimeter": 1000}
         self._downsamples.append(1.0)
         for idx, image in enumerate(self._images):
-            mpp_x = unit_dict.get(image.get("resolution-unit"), 0) / float(
-                image.get("xres")
-            )
-            mpp_y = unit_dict.get(image.get("resolution-unit"), 0) / float(
-                image.get("yres")
-            )
+            mpp_x = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("xres"))
+            mpp_y = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("yres"))
             check_if_mpp_is_valid(mpp_x, mpp_y)
 
             self._spacings.append((mpp_y, mpp_x))
@@ -117,44 +113,28 @@ class PyVipsSlide(AbstractSlideBackend):
             self._shapes.append(pyvips_shape)
 
         for idx, image in enumerate(self._images):
-            self._downsamples.append(
-                float(image.get(f"openslide.level[{idx}].downsample"))
-            )
+            self._downsamples.append(float(image.get(f"openslide.level[{idx}].downsample")))
 
         mpp_x, mpp_y = None, None
         available_fields = self._images[0].get_fields()
-        if (
-            "openslide.mpp-x" in available_fields
-            and "openslide.mpp-y" in available_fields
-        ):
+        if "openslide.mpp-x" in available_fields and "openslide.mpp-y" in available_fields:
             mpp_x = float(self._images[0].get("openslide.mpp-x"))
             mpp_y = float(self._images[0].get("openslide.mpp-y"))
 
         if mpp_x is not None and mpp_y is not None:
             check_if_mpp_is_valid(mpp_x, mpp_y)
-            self._spacings = [
-                (np.array([mpp_y, mpp_x]) * downsample).tolist()
-                for downsample in self._downsamples
-            ]
+            self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
         else:
             warnings.warn(
                 f"{path} does not have a parseable spacings property. You can overwrite it with `.mpp = (mpp_x, mpp_y)."
             )
 
-        if (
-            "openslide.bounds-x" in available_fields
-            and "openslide.bounds-y" in available_fields
-        ):
-            offset = int(self._images[0].get("openslide.bounds-x")), int(
-                self._images[0].get("openslide.bounds-y")
-            )
+        if "openslide.bounds-x" in available_fields and "openslide.bounds-y" in available_fields:
+            offset = int(self._images[0].get("openslide.bounds-x")), int(self._images[0].get("openslide.bounds-y"))
         else:
             offset = (0, 0)
 
-        if (
-            "openslide.bounds-width" in available_fields
-            and "openslide.bounds-height" in available_fields
-        ):
+        if "openslide.bounds-width" in available_fields and "openslide.bounds-height" in available_fields:
             size = int(self._images[0].get("openslide.bounds-width")), int(
                 self._images[0].get("openslide.bounds-height")
             )
@@ -181,10 +161,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)
-        self._spacings = [
-            (np.array([mpp_y, mpp_x]) * downsample).tolist()
-            for downsample in self._downsamples
-        ]
+        self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
 
     @property
     def properties(self):
@@ -198,9 +175,7 @@ class PyVipsSlide(AbstractSlideBackend):
     def magnification(self) -> float | None:
         """Returns the objective power at which the WSI was sampled."""
         if self._loader == "openslideloader":
-            return float(
-                self._images[0].properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
-            )
+            return float(self._images[0].properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
         else:
             return None
 
@@ -216,17 +191,13 @@ class PyVipsSlide(AbstractSlideBackend):
         """Images associated with this whole-slide image."""
         if not self._loader == "openslideload":
             return {}
-        associated_images = (
-            _.strip() for _ in self.properties["slide-associated-images"].split(",")
-        )
+        associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
         raise NotImplementedError
 
     def set_cache(self, cache):
         raise NotImplementedError
 
-    def read_region(
-        self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]
-    ) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -249,9 +220,9 @@ class PyVipsSlide(AbstractSlideBackend):
         x, y = coordinates
         height, width = size
 
-        region = np.asarray(
-            image.fetch(int(x // ratio), int(y // ratio), int(height), int(width))
-        ).reshape(int(width), int(height), -1)
+        region = np.asarray(image.fetch(int(x // ratio), int(y // ratio), int(height), int(width))).reshape(
+            int(width), int(height), -1
+        )
 
         return numpy_to_pil(region)
 

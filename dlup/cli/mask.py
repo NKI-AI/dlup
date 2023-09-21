@@ -57,24 +57,16 @@ def mask_to_polygon(args: argparse.Namespace):
         for pair in args.labels.split(","):
             name, index = pair.split("=")
             if not index.isnumeric():
-                raise argparse.ArgumentTypeError(
-                    f"Expected a key-pair of the form 1=tumor,2=stroma"
-                )
+                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
             index = float(index)
             if not index.is_integer():
-                raise argparse.ArgumentTypeError(
-                    f"Expected a key-pair of the form 1=tumor,2=stroma"
-                )
+                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
             index = int(index)
             if index == 0:
-                raise argparse.ArgumentTypeError(
-                    f"0 is not a proper index. Needs to be at least 1."
-                )
+                raise argparse.ArgumentTypeError(f"0 is not a proper index. Needs to be at least 1.")
             index_map[index] = name.strip()
 
-    polygons = dataset_to_polygon(
-        dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling
-    )
+    polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
     wsi_annotations = []
     for label in polygons:
         if polygons[label].is_empty:
@@ -82,11 +74,7 @@ def mask_to_polygon(args: argparse.Namespace):
 
         a_cls = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
-            coordinates = [
-                Polygon(coords, a_cls=a_cls)
-                for coords in polygons[label].geoms
-                if not coords.is_empty
-            ]
+            coordinates = [Polygon(coords, a_cls=a_cls) for coords in polygons[label].geoms if not coords.is_empty]
         else:
             coordinates = [Polygon(polygons[label], a_cls=a_cls)]
 

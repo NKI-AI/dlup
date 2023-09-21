@@ -46,9 +46,7 @@ def main():
     Console script for dlup.
     """
     # From https://stackoverflow.com/questions/17073688/how-to-use-argparse-subparsers-correctly
-    root_parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    root_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     root_subparsers = root_parser.add_subparsers(help="Possible DLUP CLI utils to run.")
     root_subparsers.required = True

@@ -49,9 +49,7 @@ def plot_2d(
             if idx == 0:
                 continue
             color = PIL.ImageColor.getcolor(mask_colors[idx], "RGBA")
-            curr_mask = PIL.Image.fromarray(
-                ((mask == idx)[..., np.newaxis] * color).astype(np.uint8), mode="RGBA"
-            )
+            curr_mask = PIL.Image.fromarray(((mask == idx)[..., np.newaxis] * color).astype(np.uint8), mode="RGBA")
             alpha_channel = PIL.Image.fromarray(
                 ((mask == idx) * int(mask_alpha * 255 / 100)).astype(np.uint8), mode="L"
             )

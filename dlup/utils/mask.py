@@ -44,9 +44,7 @@ def _DFS(
                         offset[0],
                         offset[1],
                     ]
-                    polygon = shapely.affinity.affine_transform(
-                        polygon, transformation_matrix
-                    )
+                    polygon = shapely.affinity.affine_transform(polygon, transformation_matrix)
 
                 polygons.append(polygon)
             else:
@@ -55,9 +53,7 @@ def _DFS(
         sibling_id = hierarchy[sibling_id][0]
 
 
-def mask_to_polygons(
-    mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling: float = 1.0
-) -> list[Polygon]:
+def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling: float = 1.0) -> list[Polygon]:
     # Adapted From: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
 
     """Generates a list of Shapely polygons from the contours hierarchy returned by cv2.find_contours().
@@ -77,9 +73,7 @@ def mask_to_polygons(
     list
         The list of generated Shapely polygons
     """
-    contours, hierarchy = cv2.findContours(
-        mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
-    )
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
     hierarchy = hierarchy[0]
     polygons: list[Polygon] = []
@@ -96,9 +90,7 @@ def _get_sample(index, dataset, index_map, scaling):
         curr_mask = (_mask == index).astype(np.uint8)
         if not curr_mask.any():
             continue
-        output[index_map[index]] = mask_to_polygons(
-            curr_mask, offset=sample["coordinates"], scaling=scaling
-        )
+        output[index_map[index]] = mask_to_polygons(curr_mask, offset=sample["coordinates"], scaling=scaling)
     return output
 
 
@@ -112,9 +104,7 @@ def dataset_to_polygon(
 ) -> dict[str, Polygon]:
     output_polygons: dict[str, list[Polygon]] = {v: [] for v in index_map.values()}
 
-    sample_function = partial(
-        _get_sample, dataset=dataset, index_map=index_map, scaling=scaling
-    )
+    sample_function = partial(_get_sample, dataset=dataset, index_map=index_map, scaling=scaling)
 
     if num_workers <= 0:
         for idx in tqdm(range(len(dataset)), disable=not show_progress):
