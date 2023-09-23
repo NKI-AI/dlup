@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -160,6 +159,17 @@ class AbstractSlideBackend(abc.ABC):
 
         downsample = max(*(dim / thumb for dim, thumb in zip(self.dimensions, size)))
         level = self.get_best_level_for_downsample(downsample)
+
+        # Debugging logs:
+        print(f"Downsample: {downsample}")
+        print(f"Level chosen: {level}")
+        print(f"Level dimensions at chosen level: {self.level_dimensions[level]}")
+
+        region = self.read_region((0, 0), level, self.level_dimensions[level])
+
+        # More debugging:
+        print(f"Region type: {type(region)}")
+
         thumbnail = (
             self.read_region((0, 0), level, self.level_dimensions[level])
             .convert("RGB")

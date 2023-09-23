@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -8,7 +7,7 @@ import numpy as np
 import openslide
 import PIL.Image
 
-from dlup.experimental_backends.common import AbstractSlideBackend
+from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 

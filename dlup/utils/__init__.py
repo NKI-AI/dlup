@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 import json
 import warnings
@@ -6,9 +5,6 @@ import warnings
 import numpy as np
 
 from dlup.utils.imports import _PYTORCH_AVAILABLE
-
-if _PYTORCH_AVAILABLE:
-    import torch  # type: ignore # pylint: disable=import-error
 
 
 class ArrayEncoder(json.JSONEncoder):

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from typing import Any
 
@@ -6,7 +5,7 @@ import numpy as np
 import PIL.Image
 import tifffile
 
-from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
+from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
 from dlup.utils.tifffile_utils import get_tile
 

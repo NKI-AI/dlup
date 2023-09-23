@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -11,7 +10,7 @@ import PIL.Image
 import pyvips
 
 from dlup import UnsupportedSlideError
-from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
+from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 

@@ -22,7 +22,8 @@ import PIL.Image  # type: ignore
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
-from dlup.experimental_backends import AbstractSlideBackend, ImageBackend
+from dlup.backends.common import AbstractSlideBackend
+from dlup.experimental_backends import ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
