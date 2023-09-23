@@ -7,7 +7,7 @@ import numpy as np
 from dlup.utils.imports import PYTORCH_AVAILABLE
 
 if PYTORCH_AVAILABLE:
-    import torch
+    import torch  # type: ignore
 
 
 class ArrayEncoder(json.JSONEncoder):
