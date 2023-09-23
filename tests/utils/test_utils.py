@@ -1,3 +1,5 @@
+# Copyright (c) dlup contributors
+
 import json
 
 import numpy as np
