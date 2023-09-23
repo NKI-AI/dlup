@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 import numpy as np
 import pytest

@@ -1,4 +1,3 @@
-import argparse
 import pathlib
 from argparse import ArgumentTypeError
 from unittest.mock import patch

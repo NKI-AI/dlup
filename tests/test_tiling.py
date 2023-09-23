@@ -1,8 +1,5 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-import functools
-from typing import Any, Dict, Optional, Tuple, TypeVar
-
 import numpy as np
 import pytest
 
@@ -47,9 +44,10 @@ class TestTiling:
         # First coordinate is always zero.
         assert basis[0] == 0
 
-        tile_overlap = np.remainder(tile_overlap, np.minimum(tile_size, size), casting="safe")
-        right = basis + tile_size
-        overlap = right - basis
+        # TODO: These are not used yet
+        # tile_overlap = np.remainder(tile_overlap, np.minimum(tile_size, size), casting="safe")
+        # right = basis + tile_size
+        # overlap = right - basis
         stride = np.diff(basis)
         tiled_size = basis[-1] + tile_size
 

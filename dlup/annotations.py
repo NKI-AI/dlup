@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 """
 Annotation module for dlup.
@@ -256,13 +255,13 @@ class SingleAnnotationWrapper:
         self._type = a_cls.a_cls
         # TODO: We also need to rewrite all the polygons. This cannot yet be set in-place
         _annotations = []
-        for geometry in self._annotations:
-            if isinstance(geometry, shapely.geometry.Polygon):
-                _annotations.append(Polygon(geometry, a_cls=a_cls))
-            elif isinstance(geometry, shapely.geometry.Point):
-                _annotations.append(Point(geometry, a_cls=a_cls))
+        for _geometry in self._annotations:
+            if isinstance(_geometry, shapely.geometry.Polygon):
+                _annotations.append(Polygon(_geometry, a_cls=a_cls))
+            elif isinstance(_geometry, shapely.geometry.Point):
+                _annotations.append(Point(_geometry, a_cls=a_cls))
             else:
-                raise AnnotationError(f"Unknown annotation type {type(geometry)}.")
+                raise AnnotationError(f"Unknown annotation type {type(_geometry)}.")
 
         self._annotations = _annotations
 
@@ -539,7 +538,7 @@ class WsiAnnotations:
                 if isinstance(coordinates, shapely.geometry.collection.GeometryCollection):
                     split_up = [_ for _ in coordinates.geoms if _.area > 0]
                     if len(split_up) != 1:
-                        raise RuntimeError(f"Got unexpected object.")
+                        raise RuntimeError("Got unexpected object.")
                     coordinates = split_up[0]
 
                 if coordinates.area == 0:
@@ -640,17 +639,17 @@ class WsiAnnotations:
             _cls = AnnotationClass(label=name, a_cls=annotation_type)
             if annotation_type == AnnotationType.POINT:
                 curr_point = Point((curr_data["x"], curr_data["y"]), a_cls=_cls)
-                curr_point = rescale_geometry(curr_point, scaling=scaling)
+                curr_point = rescale_geometry(curr_point, scaling=_scaling)
                 annotations[key].append(curr_point)
             elif annotation_type == AnnotationType.POLYGON:
                 if "path" in curr_data:  # This is a regular polygon
                     curr_polygon = Polygon([(_["x"], _["y"]) for _ in curr_data["path"]], a_cls=_cls)
-                    curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
+                    curr_polygon = rescale_geometry(curr_polygon, scaling=_scaling)
                     annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
                 elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
                     curr_complex_polygon = _parse_darwin_complex_polygon(curr_data)
                     for curr_polygon in curr_complex_polygon.geoms:
-                        curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
+                        curr_polygon = rescale_geometry(curr_polygon, scaling=_scaling)
                         annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
                 else:
                     raise ValueError(f"Got unexpected data keys: {curr_data.keys()}")
@@ -658,7 +657,7 @@ class WsiAnnotations:
             elif annotation_type == AnnotationType.BOX:
                 x, y, h, w = curr_data.values()
                 curr_polygon = shapely.geometry.box(x, y, x + w, y + h)
-                curr_polygon = rescale_geometry(curr_polygon, scaling=scaling)
+                curr_polygon = rescale_geometry(curr_polygon, scaling=_scaling)
                 annotations[key].append(Polygon(curr_polygon, a_cls=_cls))
             else:
                 ValueError(f"Annotation type {annotation_type} is not supported.")
@@ -884,8 +883,8 @@ class WsiAnnotations:
     def __add__(self, other: WsiAnnotations) -> WsiAnnotations:
         if set(self.available_labels).intersection(other.available_labels) != set():
             raise AnnotationError(
-                f"Can only add annotations with different labels. "
-                f"Use `.relabel` or relabel during construction of the object."
+                "Can only add annotations with different labels. "
+                "Use `.relabel` or relabel during construction of the object."
             )
 
         curr_annotations = list(self._annotations.values())

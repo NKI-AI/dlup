@@ -62,7 +62,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         self._grids = grids
         self._num_scales = num_scales
         if len(list(grids)) % num_scales != 0:
-            raise ValueError(f"In a multiscale dataset the grids needs to be divisible by the number of scales.")
+            raise ValueError("In a multiscale dataset the grids needs to be divisible by the number of scales.")
 
         self._step_size = len(list(grids)[0][0])
         self._index_ranges = [
@@ -101,7 +101,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         backend: Callable = ImageBackend.PYVIPS,
     ):
         if mpps != sorted(mpps):
-            raise ValueError(f"The mpp values should be in increasing order.")
+            raise ValueError("The mpp values should be in increasing order.")
 
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp

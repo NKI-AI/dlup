@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 
 """Datasets helpers to simplify the generation of a dataset made of tiles from a WSI.
@@ -11,12 +10,11 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Any, Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
+from typing import Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import PIL
 from numpy.typing import NDArray
-from PIL import Image
 
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import WsiAnnotations
@@ -437,10 +435,11 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
 
             if limit_bounds:
                 if rois is not None:
-                    raise ValueError(f"Cannot use both `rois` and `limit_bounds` at the same time.")
+                    raise ValueError("Cannot use both `rois` and `limit_bounds` at the same time.")
                 if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
                     raise ValueError(
-                        f"Cannot use AutoDetect as backend and use limit_bounds at the same time. This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
+                        "Cannot use AutoDetect as backend and use limit_bounds at the same time. "
+                        "This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
                     )
 
                 offset, bounds = slide_image.slide_bounds

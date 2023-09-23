@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 """CLI utilities to handle masks"""
 import argparse
@@ -57,13 +56,13 @@ def mask_to_polygon(args: argparse.Namespace):
         for pair in args.labels.split(","):
             name, index = pair.split("=")
             if not index.isnumeric():
-                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
+                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
             index = float(index)
             if not index.is_integer():
-                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
+                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
             index = int(index)
             if index == 0:
-                raise argparse.ArgumentTypeError(f"0 is not a proper index. Needs to be at least 1.")
+                raise argparse.ArgumentTypeError("0 is not a proper index. Needs to be at least 1.")
             index_map[index] = name.strip()
 
     polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
@@ -94,7 +93,7 @@ def mask_to_polygon(args: argparse.Namespace):
             json.dump(slide_annotations.as_geojson(split_per_label=False), f, indent=2)
     else:
         jsons = slide_annotations.as_geojson(split_per_label=True)
-        if not type(jsons) == list[tuple[str, GeoJsonDict]]:
+        if not type(jsons) == list[tuple[str, GeoJsonDict]]:  # noqa
             raise ValueError("Expected a list of tuples")
         for label, json_dict in jsons:
             suffix = output_filename.suffix
