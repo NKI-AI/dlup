@@ -1,5 +1,6 @@
 # Copyright (c) dlup contributors
 from unittest.mock import Mock
+
 import pytest
 
 from dlup.utils.tifffile_utils import (
