@@ -65,7 +65,7 @@ def convert_annotations(
     boxes: dict[str, list[tuple[tuple[int, int], tuple[int, int]]]] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
-
+    has_roi = False
     for curr_annotation in annotations:
         holes_mask = None
         if isinstance(curr_annotation, dlup.annotations.Point):
@@ -82,6 +82,7 @@ def convert_annotations(
                 [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
                 1,
             )
+            has_roi = True
             continue
 
         if not (curr_annotation.label in index_map):
@@ -103,6 +104,10 @@ def convert_annotations(
         if interiors is not []:
             # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
             mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
+
+        # This is a hard to find bug, so better give an explicit error.
+        if not has_roi:
+            raise AnnotationError(f"ROI mask {roi_name} not found, please add a ROI mask to the annotations.")
 
     return dict(points), dict(boxes), mask, roi_mask if roi_name else None
 
