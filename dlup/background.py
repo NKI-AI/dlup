@@ -325,7 +325,9 @@ def _is_foreground_numpy(
 
     max_boundary = np.tile(mask_size, 2)
     min_boundary = np.zeros_like(max_boundary)
-    box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)  # type: ignore
+    box = np.clip(
+        (*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary
+    )  # type: ignore
     clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
 
     if clipped_h == 0 or clipped_w == 0:

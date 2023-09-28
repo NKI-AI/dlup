@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -11,7 +10,7 @@ import PIL.Image
 import pyvips
 
 from dlup import UnsupportedSlideError
-from dlup.experimental_backends.common import AbstractSlideBackend, numpy_to_pil
+from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
@@ -157,7 +156,7 @@ class PyVipsSlide(AbstractSlideBackend):
     @spacing.setter
     def spacing(self, value: tuple[float, float]) -> None:
         if not isinstance(value, tuple) and len(value) != 2:
-            raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y).")
+            raise ValueError("`.spacing` has to be of the form (mpp_x, mpp_y).")
 
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)
@@ -191,7 +190,8 @@ class PyVipsSlide(AbstractSlideBackend):
         """Images associated with this whole-slide image."""
         if not self._loader == "openslideload":
             return {}
-        associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
+        # TODO: Fix this
+        # associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
         raise NotImplementedError
 
     def set_cache(self, cache):

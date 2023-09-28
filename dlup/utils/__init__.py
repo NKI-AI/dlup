@@ -1,19 +1,18 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 import json
 import warnings
 
 import numpy as np
 
-from dlup.utils.imports import _PYTORCH_AVAILABLE
+from dlup.utils.imports import PYTORCH_AVAILABLE
 
-if _PYTORCH_AVAILABLE:
+if PYTORCH_AVAILABLE:
     import torch  # type: ignore # pylint: disable=import-error
 
 
 class ArrayEncoder(json.JSONEncoder):
     def default(self, obj):
-        if _PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):  # type: ignore
+        if PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):  # type: ignore
             obj = obj.numpy()
 
         if isinstance(obj, np.ndarray):

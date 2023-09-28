@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 """DLUP Command-line interface. This is the file which builds the main parser."""
 import argparse

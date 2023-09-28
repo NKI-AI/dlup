@@ -16,13 +16,13 @@ from enum import IntEnum
 from typing import Callable, Type, TypeVar, cast
 
 import numpy as np  # type: ignore
-import openslide  # type: ignore
 import PIL
 import PIL.Image  # type: ignore
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
-from dlup.experimental_backends import AbstractSlideBackend, ImageBackend
+from dlup.backends.common import AbstractSlideBackend
+from dlup.experimental_backends import ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
@@ -116,7 +116,8 @@ class SlideImage:
 
         if self._wsi.spacing is None:
             raise UnsupportedSlideError(
-                f"The spacing of {identifier} cannot be derived from image and is not explicitly set in the `overwrite_mpp` parameter."
+                f"The spacing of {identifier} cannot be derived from image and is "
+                "not explicitly set in the `overwrite_mpp` parameter."
             )
 
         check_if_mpp_is_valid(*self._wsi.spacing)
@@ -207,8 +208,8 @@ class SlideImage:
         Examples
         --------
         The locations are defined at the requested scaling (with respect to level 0), so if we want to extract at
-        location ``(location_x, location_y)`` of a scaling 0.5 (with respect to level 0), and have resulting tile size of
-         ``(tile_size, tile_size)`` with a scaling factor of 0.5, we can use:
+        location ``(location_x, location_y)`` of a scaling 0.5 (with respect to level 0), and have
+        resulting tile size of ``(tile_size, tile_size)`` with a scaling factor of 0.5, we can use:
         >>>  wsi.read_region(location=(coordinate_x, coordinate_y), scaling=0.5, size=(tile_size, tile_size))
         """
         owsi = self._wsi

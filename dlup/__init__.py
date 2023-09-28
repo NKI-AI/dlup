@@ -1,8 +1,6 @@
-# coding=utf-8
-# Copyright (c) dlup contributors
-"""Top-level package for dlup."""
+# Copyright (c) dlup contributors"""Top-level package for dlup."""
 
-from ._exceptions import DlupError, UnsupportedSlideError
+from ._exceptions import UnsupportedSlideError
 from ._image import SlideImage
 from ._region import BoundaryMode, RegionView
 

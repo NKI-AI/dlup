@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -33,7 +32,7 @@ def numpy_to_pil(tile: np.ndarray) -> PIL.Image.Image:
     elif bands == 4:
         mode = "RGBA"
     else:
-        raise RuntimeError(f"Incorrect number of channels.")
+        raise RuntimeError("Incorrect number of channels.")
 
     return PIL.Image.fromarray(tile, mode=mode)
 
@@ -160,6 +159,7 @@ class AbstractSlideBackend(abc.ABC):
 
         downsample = max(*(dim / thumb for dim, thumb in zip(self.dimensions, size)))
         level = self.get_best_level_for_downsample(downsample)
+
         thumbnail = (
             self.read_region((0, 0), level, self.level_dimensions[level])
             .convert("RGB")
