@@ -8,25 +8,25 @@ from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
 
 
 def test_numpy_to_pil_single_channel():
-    arr = np.random.randint(0, 256, (10, 10, 1), dtype=np.uint8)
+    arr = np.arange(100, dtype=np.uint8).reshape((10, 10, 1))
     pil_img = numpy_to_pil(arr)
     assert pil_img.mode == "L"
 
 
 def test_numpy_to_pil_rgb():
-    arr = np.random.randint(0, 256, (10, 10, 3), dtype=np.uint8)
+    arr = np.arange(300, dtype=np.uint8).reshape((10, 10, 3)).clip(0, 255)
     pil_img = numpy_to_pil(arr)
     assert pil_img.mode == "RGB"
 
 
 def test_numpy_to_pil_rgba():
-    arr = np.random.randint(0, 256, (10, 10, 4), dtype=np.uint8)
+    arr = (np.arange(400).reshape((10, 10, 3)) / 400 * 255).astype(np.uint8).reshape((10, 10, 4))
     pil_img = numpy_to_pil(arr)
     assert pil_img.mode == "RGBA"
 
 
 def test_numpy_to_pil_invalid_channels():
-    arr = np.random.randint(0, 256, (10, 10, 5), dtype=np.uint8)
+    arr = (np.arange(500).reshape((10, 10, 3)) / 500 * 255).astype(np.uint8).reshape((10, 10, 5))
     with pytest.raises(RuntimeError):
         numpy_to_pil(arr)
 
