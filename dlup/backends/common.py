@@ -132,13 +132,9 @@ class AbstractSlideBackend(abc.ABC):
         -------
         int
         """
-        sorted_downsamples = np.asarray(sorted(self._downsamples, reverse=True))
-
-        def difference(sorted_list: npt.NDArray[np.float_]) -> float:
-            return float(np.clip(0, None, downsample - sorted_list))
-
-        number = max(sorted_downsamples, key=difference)
-        return self._downsamples.index(number)
+        level_downsamples = np.array(self.level_downsamples)
+        level = 0 if downsample < 1 else np.where(level_downsamples <= downsample)[0][-1]
+        return level
 
     def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
         """
