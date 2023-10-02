@@ -48,7 +48,7 @@ if PYHALOXML_AVAILABLE:
     import pyhaloxml.shapely
 
 if DARWIN_SDK_AVAILABLE:
-    import darwin.utils
+    import darwin
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
@@ -622,7 +622,6 @@ class WsiAnnotations:
     def from_darwin_json(cls, darwin_json: PathLike, scaling: float | None = None) -> WsiAnnotations:
         if not DARWIN_SDK_AVAILABLE:
             raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
-
         annotations = defaultdict(list)
         _scaling = 1.0 if not scaling else scaling
 
