@@ -132,7 +132,7 @@ def info(args: argparse.Namespace) -> None:
         print(f"{k}\t{v}")
 
 
-def register_parser(parser: argparse._SubParsersAction[Any]) -> None:
+def register_parser(parser: argparse._SubParsersAction) -> None:
     """Register wsi commands to a root parser."""
     wsi_parser = parser.add_parser("wsi", help="WSI parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI subparser")

@@ -12,7 +12,6 @@ import pathlib
 from typing import Any, Callable, Generic, Iterable, Sequence, TypedDict, TypeVar, Union
 
 import numpy as np
-import numpy.typing as npt
 import PIL
 from numpy.typing import NDArray
 
@@ -22,6 +21,7 @@ from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
+from utils.types import MaskTypes
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -29,7 +29,6 @@ _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
 ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
-MaskTypes = SlideImage | npt.NDArray[np.int_] | WsiAnnotations
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):

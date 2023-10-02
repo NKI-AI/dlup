@@ -183,7 +183,7 @@ class AbstractSlideBackend(abc.ABC):
 
     @abc.abstractmethod
     def read_region(
-        self, coordinates: tuple[GenericNumber, GenericNumber], level: int, size: tuple[Any, ...]
+        self, coordinates: tuple[GenericNumber, GenericNumber], level: int, size: tuple[int, int]
     ) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.

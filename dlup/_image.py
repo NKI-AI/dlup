@@ -1,4 +1,5 @@
 # Copyright (c) dlup contributors
+
 """Whole slide image access objects.
 
 In this module we take care of abstracting the access to whole slide images.
@@ -11,13 +12,11 @@ import errno
 import os
 import pathlib
 from enum import IntEnum
-from types import TracebackType
-from typing import Any, Literal, Optional, Type, TypeVar, cast
+from typing import Callable, Type, TypeVar, cast
 
-import numpy as np
-import numpy.typing as npt
+import numpy as np  # type: ignore
 import PIL
-import PIL.Image
+import PIL.Image  # type: ignore
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
@@ -71,7 +70,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: npt.NDArray[np.int_], size: tuple[GenericNumber, GenericNumber]) -> GenericIntArray:
+def _clip2size(a: np.ndarray, size: tuple[GenericNumber, GenericNumber]) -> np.ndarray:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
@@ -97,7 +96,7 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs: Any):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs):
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
@@ -123,19 +122,14 @@ class SlideImage:
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
 
-    def close(self) -> None:
+    def close(self):
         """Close the underlying image."""
         self._wsi.close()
 
-    def __enter__(self) -> "SlideImage":
+    def __enter__(self):
         return self
 
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
-    ) -> Literal[False]:
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         return False
 
@@ -145,7 +139,7 @@ class SlideImage:
         wsi_file_path: PathLike,
         identifier: str | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
-        **kwargs: Any,
+        **kwargs,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
 
@@ -163,9 +157,9 @@ class SlideImage:
 
     def read_region(
         self,
-        location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
+        location: np.ndarray | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: npt.NDArray[np.int_] | tuple[int, int],
+        size: np.ndarray | tuple[int, int],
     ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
@@ -259,7 +253,9 @@ class SlideImage:
 
         # We extract the region via openslide with the required extra border
         region = owsi.read_region(
-            (native_size_adapted[0], native_size_adapted[1]), native_level, tuple(native_size_adapted)
+            (level_zero_location_adapted[0], level_zero_location_adapted[1]),
+            native_level,
+            (native_size_adapted[0], native_size_adapted[1]),
         )
 
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
@@ -324,7 +320,7 @@ class SlideImage:
         return self._identifier
 
     @property
-    def properties(self) -> dict[str, str | int | float | None]:
+    def properties(self) -> dict:
         """Returns any extra associated properties with the image."""
         return self._wsi.properties
 
