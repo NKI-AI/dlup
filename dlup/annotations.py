@@ -43,13 +43,6 @@ from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
-if PYHALOXML_AVAILABLE:
-    import pyhaloxml
-    import pyhaloxml.shapely
-
-if DARWIN_SDK_AVAILABLE:
-    import darwin
-
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
 ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
 
@@ -597,6 +590,7 @@ class WsiAnnotations:
         """
         if not PYHALOXML_AVAILABLE:
             raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
+        import pyhaloxml
 
         output = defaultdict(list)
         with pyhaloxml.HaloXMLFile(halo_xml) as hx:
@@ -622,6 +616,8 @@ class WsiAnnotations:
     def from_darwin_json(cls, darwin_json: PathLike, scaling: float | None = None) -> WsiAnnotations:
         if not DARWIN_SDK_AVAILABLE:
             raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
+        import darwin
+
         annotations = defaultdict(list)
         _scaling = 1.0 if not scaling else scaling
 
