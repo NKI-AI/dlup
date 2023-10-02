@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -148,7 +147,7 @@ class Grid(collections.abc.Sequence):
         """Return the total number of points in the grid."""
         return functools.reduce(lambda value, size: value * size, self.size, 1)
 
-    def __iter__(self) -> Iterator[np.ndarray]:
+    def __iter__(self) -> Iterator[npt.NDArray[np.int_]]:
         """Iterate through every tile."""
         for i in range(len(self)):
             yield self[i]

@@ -1,11 +1,11 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 
 import argparse
 import json
 import pathlib
 from multiprocessing import Pool
-from typing import cast
+from pathlib import Path
+from typing import Any, cast
 
 from PIL import Image
 
@@ -17,7 +17,7 @@ from dlup.utils import ArrayEncoder
 from dlup.viz.plotting import plot_2d
 
 
-def tiling(args: argparse.Namespace):
+def tiling(args: argparse.Namespace) -> None:
     """Perform the WSI tiling."""
     input_file_path = args.slide_file_path
     output_directory_path = args.output_directory_path
@@ -97,12 +97,15 @@ def tiling(args: argparse.Namespace):
 
 
 class TileSaver:
-    def __init__(self, dataset, output_directory_path, do_not_save_tiles=False):
+    def __init__(
+        self, dataset: TiledROIsSlideImageDataset, output_directory_path: Path, do_not_save_tiles=False
+    ) -> None:
         self.dataset = dataset
         self.output_directory_path = output_directory_path
         self.do_not_save_tiles = do_not_save_tiles
 
-    def save_tile(self, index):
+    # TODO: Fix the Any
+    def save_tile(self, index: int) -> tuple[Any, int]:
         tile_dict = self.dataset[index]
         tile = tile_dict["image"]
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
@@ -118,7 +121,7 @@ class TileSaver:
         return grid_local_coordinates, index
 
 
-def info(args: argparse.Namespace):
+def info(args: argparse.Namespace) -> None:
     """Return available slide properties."""
     slide = SlideImage.from_file_path(args.slide_file_path)
     props = slide.properties
@@ -130,7 +133,7 @@ def info(args: argparse.Namespace):
         print(f"{k}\t{v}")
 
 
-def register_parser(parser: argparse._SubParsersAction):
+def register_parser(parser: argparse._SubParsersAction) -> None:
     """Register wsi commands to a root parser."""
     wsi_parser = parser.add_parser("wsi", help="WSI parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI subparser")

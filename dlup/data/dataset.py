@@ -13,6 +13,7 @@ import pathlib
 from typing import Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
 
 import numpy as np
+import numpy.typing as npt
 import PIL
 from numpy.typing import NDArray
 
@@ -40,7 +41,7 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
 
 
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
-    grid_local_coordinates: tuple
+    grid_local_coordinates: tuple[int, int]
     grid_index: int
 
 
@@ -173,7 +174,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold: float | None = 0.0,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
+        transform: Callable[[RegionFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
         backend: Callable = ImageBackend.PYVIPS,
         **kwargs,
     ):
@@ -327,14 +328,14 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         path: pathlib.Path,
         grids: list[tuple[Grid, tuple[int, int], float]],
         crop: bool = False,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        backend: ImageBackend = ImageBackend.PYVIPS,
         **kwargs,
-    ):
+    ) -> None:
         self._grids = grids
         regions = []
         for grid, tile_size, mpp in grids:
@@ -375,11 +376,11 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         rois: ROIType | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: Callable[[RegionFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
         limit_bounds: bool = True,
         **kwargs,
-    ):
+    ) -> "TiledROIsSlideImageDataset":
         """Function to be used to tile a WSI on-the-fly.
         Parameters
         ----------

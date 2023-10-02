@@ -7,10 +7,11 @@ import pathlib
 from typing import Callable
 
 import numpy as np
+import numpy.typing as npt
 
 from dlup import SlideImage
 from dlup.annotations import WsiAnnotations
-from dlup.data.dataset import ROIType, TiledROIsSlideImageDataset, parse_rois
+from dlup.data.dataset import RegionFromSlideDatasetSample, ROIType, TiledROIsSlideImageDataset, parse_rois
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 
@@ -52,12 +53,12 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         grids: list[tuple[Grid, tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
         mask_threshold: float | None = 0.0,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: Callable[[RegionFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
     ):
         self._grids = grids
         self._num_scales = num_scales
@@ -94,11 +95,11 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: np.ndarray | None = None,
+        mask: npt.NDArray[np.int_] | None = None,
         mask_threshold: float | None = 0.0,
         rois: ROIType | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: Callable[[RegionFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
     ):
         if mpps != sorted(mpps):
             raise ValueError("The mpp values should be in increasing order.")

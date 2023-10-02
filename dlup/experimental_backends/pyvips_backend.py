@@ -186,7 +186,7 @@ class PyVipsSlide(AbstractSlideBackend):
         return None
 
     @property
-    def associated_images(self):
+    def associated_images(self) -> dict[str, PIL.Image.Image]:
         """Images associated with this whole-slide image."""
         if not self._loader == "openslideload":
             return {}
@@ -194,7 +194,7 @@ class PyVipsSlide(AbstractSlideBackend):
         # associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
         raise NotImplementedError
 
-    def set_cache(self, cache):
+    def set_cache(self, cache) -> None:
         raise NotImplementedError
 
     def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
@@ -226,7 +226,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         return numpy_to_pil(region)
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying slide"""
         del self._regions
         del self._images

@@ -22,7 +22,7 @@ from dlup.tiling import TilingMode
 from dlup.utils.mask import dataset_to_polygon
 
 
-def mask_to_polygon(args: argparse.Namespace):
+def mask_to_polygon(args: argparse.Namespace) -> None:
     """Perform the mask conversion to polygon."""
     mask_filename = args.MASK_FILENAME
     output_filename = args.OUTPUT_FN
