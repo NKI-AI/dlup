@@ -591,6 +591,7 @@ class WsiAnnotations:
         if not PYHALOXML_AVAILABLE:
             raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
         import pyhaloxml
+        import pyhaloxml.shapely
 
         output = defaultdict(list)
         with pyhaloxml.HaloXMLFile(halo_xml) as hx:
