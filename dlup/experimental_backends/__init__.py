@@ -1,4 +1,4 @@
-# coding=utf-8
+# type: ignore
 # Copyright (c) dlup contributors
 import os
 import pathlib

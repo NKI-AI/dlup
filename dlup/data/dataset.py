@@ -20,7 +20,7 @@ from numpy.typing import NDArray
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import WsiAnnotations
 from dlup.background import is_foreground
-from dlup.experimental_backends import ImageBackend
+from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 
@@ -99,7 +99,7 @@ class ConcatDataset(Dataset[T_co]):
     wsi_indices: dict[str, range]
 
     @staticmethod
-    def cumsum(sequence):
+    def cumsum(sequence) -> list[int]:
         out_sequence, total = [], 0
         for item in sequence:
             length = len(item)
@@ -486,7 +486,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
         grid_index = region_index - self._starting_indices[starting_index]
         grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
-        region_data["grid_local_coordinates"] = grid_local_coordinates
+        region_data["grid_local_coordinates"] = (grid_local_coordinates[0], grid_local_coordinates[1])
         region_data["grid_index"] = starting_index
 
         if self.__transform:
@@ -495,7 +495,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois: ROIType | None, image_size, scaling: float = 1.0):
+def parse_rois(rois: ROIType | None, image_size: tuple[int, int], scaling: float = 1.0):
     if rois is None:
         return (((0, 0), image_size),)
     else:

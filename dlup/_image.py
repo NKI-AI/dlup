@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 
 """Whole slide image access objects.
@@ -13,17 +12,18 @@ import errno
 import os
 import pathlib
 from enum import IntEnum
-from typing import Callable, Type, TypeVar, cast
+from types import TracebackType
+from typing import Any, Literal, Optional, Type, TypeVar, cast
 
-import numpy as np  # type: ignore
+import numpy as np
 import numpy.typing as npt
 import PIL
-import PIL.Image  # type: ignore
+import PIL.Image
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
 from dlup.backends.common import AbstractSlideBackend
-from dlup.experimental_backends import ImageBackend
+from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
@@ -98,7 +98,7 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs: Any):
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
@@ -128,10 +128,15 @@ class SlideImage:
         """Close the underlying image."""
         self._wsi.close()
 
-    def __enter__(self):
+    def __enter__(self) -> "SlideImage":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Literal[False]:
         self.close()
         return False
 
@@ -140,8 +145,8 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: str | Callable = ImageBackend.PYVIPS,
-        **kwargs,
+        backend: ImageBackend = ImageBackend.PYVIPS,
+        **kwargs: Any,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
 
@@ -159,7 +164,7 @@ class SlideImage:
 
     def read_region(
         self,
-        location: np.ndarray | tuple[GenericNumber, GenericNumber],
+        location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
         size: npt.NDArray[np.int_] | tuple[int, int],
     ) -> PIL.Image.Image:
@@ -320,7 +325,7 @@ class SlideImage:
         return self._identifier
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> dict[str, str | int | float | None]:
         """Returns any extra associated properties with the image."""
         return self._wsi.properties
 
@@ -351,7 +356,7 @@ class SlideImage:
         return width / height
 
     @property
-    def slide_bounds(self):
+    def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
         """Returns the bounds of the slide. These can be smaller than the image itself.
         These bounds are in the format (x, y), (width, height), and are defined at level 0 of the image.
         """

@@ -1,3 +1,4 @@
+# type: ignore
 # Copyright (c) dlup contributors
 from typing import Any
 

@@ -85,7 +85,7 @@ def mask_to_polygons(
     return polygons
 
 
-def _get_sample(index, dataset, index_map, scaling):
+def _get_sample(index: int, dataset, index_map, scaling: float):
     output = {}
     sample = dataset[index]
     _mask = np.asarray(sample["image"])

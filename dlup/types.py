@@ -5,11 +5,12 @@ from __future__ import annotations
 import os
 from typing import Iterable, Union
 
+import numpy as np
 import numpy.typing as npt
 
 string_classes = (str, bytes)
 PathLike = Union[str, os.PathLike]
 GenericNumber = Union[int, float]
-GenericNumberArray = Union[npt.NDArray, Iterable[GenericNumber]]
-GenericFloatArray = Union[npt.NDArray, Iterable[float]]
-GenericIntArray = Union[npt.NDArray, Iterable[int]]
+GenericNumberArray = Union[npt.NDArray[np.generic], Iterable[GenericNumber]]
+GenericFloatArray = Union[npt.NDArray[np.float_], Iterable[float]]
+GenericIntArray = Union[npt.NDArray[np.int_], Iterable[int]]

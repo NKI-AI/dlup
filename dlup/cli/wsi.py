@@ -98,7 +98,7 @@ def tiling(args: argparse.Namespace) -> None:
 
 class TileSaver:
     def __init__(
-        self, dataset: TiledROIsSlideImageDataset, output_directory_path: Path, do_not_save_tiles=False
+        self, dataset: TiledROIsSlideImageDataset, output_directory_path: Path, do_not_save_tiles: bool = False
     ) -> None:
         self.dataset = dataset
         self.output_directory_path = output_directory_path
@@ -113,7 +113,7 @@ class TileSaver:
 
         indices = grid_local_coordinates
         if len(self.dataset.grids) > 1:
-            indices = [grid_index] + indices
+            indices = [grid_index] + list(indices)
 
         if not self.do_not_save_tiles:
             tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")
@@ -133,7 +133,7 @@ def info(args: argparse.Namespace) -> None:
         print(f"{k}\t{v}")
 
 
-def register_parser(parser: argparse._SubParsersAction) -> None:
+def register_parser(parser: argparse._SubParsersAction[Any]) -> None:
     """Register wsi commands to a root parser."""
     wsi_parser = parser.add_parser("wsi", help="WSI parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI subparser")

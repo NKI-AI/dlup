@@ -2,7 +2,7 @@
 """CLI utilities to handle masks"""
 import argparse
 import json
-from typing import cast
+from typing import Any, cast
 
 import shapely
 
@@ -17,7 +17,7 @@ from dlup.annotations import (
 )
 from dlup.cli import file_path
 from dlup.data.dataset import TiledROIsSlideImageDataset
-from dlup.experimental_backends import ImageBackend
+from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import TilingMode
 from dlup.utils.mask import dataset_to_polygon
 
@@ -104,7 +104,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
                 json.dump(json_dict, f, indent=2)
 
 
-def register_parser(parser: argparse._SubParsersAction):
+def register_parser(parser: argparse._SubParsersAction[Any]) -> None:
     """Register mask commands to a root parser."""
     wsi_parser = parser.add_parser("mask", help="WSI mask parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI mask subparser")

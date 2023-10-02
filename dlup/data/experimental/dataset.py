@@ -1,4 +1,4 @@
-# coding=utf-8
+# type: ignore
 # Copyright (c) dlup contributors
 """Experimental dataset functions, might e.g. lack tests, or requires input from users"""
 from __future__ import annotations

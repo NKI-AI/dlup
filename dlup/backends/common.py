@@ -132,10 +132,10 @@ class AbstractSlideBackend(abc.ABC):
         -------
         int
         """
-        sorted_downsamples = sorted(self._downsamples, reverse=True)
+        sorted_downsamples = np.asarray(sorted(self._downsamples, reverse=True))
 
-        def difference(sorted_list):
-            return np.clip(0, None, downsample - sorted_list)
+        def difference(sorted_list: npt.NDArray[np.float_]) -> float:
+            return float(np.clip(0, None, downsample - sorted_list))
 
         number = max(sorted_downsamples, key=difference)
         return self._downsamples.index(number)
