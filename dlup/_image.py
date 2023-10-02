@@ -1,5 +1,4 @@
 # Copyright (c) dlup contributors
-
 """Whole slide image access objects.
 
 In this module we take care of abstracting the access to whole slide images.

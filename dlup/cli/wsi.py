@@ -1,5 +1,4 @@
 # Copyright (c) dlup contributors
-
 import argparse
 import json
 import pathlib

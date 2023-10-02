@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 """Utilities to work with binary masks"""
 from functools import partial

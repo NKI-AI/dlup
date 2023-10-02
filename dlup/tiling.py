@@ -40,7 +40,7 @@ def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> np.ndarray:
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.ndarray:
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> npt.NDArray[np.int_]:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Examples
@@ -139,7 +139,12 @@ class Grid(collections.abc.Sequence):
         return tuple(len(x) for x in self.coordinates)
 
     def __getitem__(self, key):
-        order = "F" if self.order.value == "C" else "C"
+        if isinstance(self.order, str):
+            _order = GridOrder[self.order]
+        else:
+            _order = self.order
+
+        order = "F" if _order.value == "C" else "C"
         index = np.unravel_index(key, self.size, order=order)
         return np.array([c[i] for c, i in zip(self.coordinates, index)])
 

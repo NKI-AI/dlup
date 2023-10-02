@@ -1,5 +1,4 @@
 # Copyright (c) dlup contributors
-
 """Datasets helpers to simplify the generation of a dataset made of tiles from a WSI.
 Dataset and ConcatDataset are taken from pytorch 1.8.0 under BSD license.
 """
@@ -10,7 +9,7 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Callable, Generic, Iterable, TypedDict, TypeVar, Union, cast
+from typing import Any, Callable, Generic, Iterable, Sequence, TypedDict, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -35,10 +34,12 @@ MaskTypes = SlideImage | npt.NDArray[np.int_] | WsiAnnotations
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
     image: PIL.Image.Image
-    coordinates: tuple[int, int]
+    coordinates: tuple[int | float, int | float]
     mpp: float
     path: pathlib.Path
     region_index: int
+    labels: dict[str, Any] | None
+    annotations: Any | None
 
 
 class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
@@ -141,9 +142,9 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self):
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, idx):
+    def __getitem__(self, index):
         """Returns the sample at the given index."""
-        dataset, sample_idx = self.index_to_dataset(idx)
+        dataset, sample_idx = self.index_to_dataset(index)
         return dataset[sample_idx]
 
 
@@ -175,7 +176,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold: float | None = 0.0,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable[[RegionFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
+        transform: Callable[[StandardTilingFromSlideDatasetSample], StandardTilingFromSlideDatasetSample]
+        | None = None,
         backend: Callable = ImageBackend.PYVIPS,
         **kwargs,
     ):
@@ -226,7 +228,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
             self.masked_indices = np.argwhere(boolean_mask).flatten()
 
     @property
-    def path(self):
+    def path(self) -> pathlib.Path:
         """Path of whole slide image"""
         return self._path
 
@@ -240,7 +242,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path, self._backend, **self._kwargs)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: Any) -> Any:
         slide_image = self.slide_image
 
         # If there's a mask, we consider the index as a sub-sequence index.
@@ -266,9 +268,13 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "mpp": mpp,
             "path": self.path,
             "region_index": region_index,
+            "labels": None,
+            "annotations": None,
         }
 
         if self.annotations is not None:
+            if not isinstance(self.annotations, WsiAnnotations):
+                raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
             sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
 
         if self.labels:
@@ -338,7 +344,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         **kwargs,
     ) -> None:
         self._grids = grids
-        regions = []
+        regions: list[Sequence] = []
         for grid, tile_size, mpp in grids:
             regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))
 
@@ -359,7 +365,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         self.__transform = transform
 
     @property
-    def grids(self):
+    def grids(self) -> list[tuple[Grid, tuple[int, int], float]]:
         return self._grids
 
     @classmethod
@@ -377,10 +383,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         rois: ROIType | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable[[RegionFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
+        transform: Callable[[StandardTilingFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
         limit_bounds: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> "TiledROIsSlideImageDataset":
         """Function to be used to tile a WSI on-the-fly.
         Parameters
@@ -445,7 +451,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
                     )
 
                 offset, bounds = slide_image.slide_bounds
-                offset = tuple((np.asarray(offset) * scaling).astype(int))
+                offset = (int(scaling * offset[0]), int(scaling * offset[1]))
                 size = int(bounds[0] * scaling), int(bounds[1] * scaling)
                 _rois = ((offset, size),)
 
@@ -479,10 +485,9 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             **kwargs,
         )
 
-    def __getitem__(self, index):
-        data = super().__getitem__(index)
-        region_data: RegionFromSlideDatasetSample = cast(RegionFromSlideDatasetSample, data)
-        region_index = data["region_index"]
+    def __getitem__(self, index: Any) -> Any:
+        region_data = super().__getitem__(index)
+        region_index = region_data["region_index"]
         starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
         grid_index = region_index - self._starting_indices[starting_index]
         grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)

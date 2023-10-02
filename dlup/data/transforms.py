@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 # pylint: disable=unsubscriptable-object
 from __future__ import annotations
@@ -222,7 +221,7 @@ class MajorityClassToLabel:
         if "labels" not in sample:
             sample["labels"] = {}
 
-        areas = defaultdict(int)
+        areas: dict[str, int] = defaultdict(int)
         keys = list(self._index_map.keys())
         if self._roi_name:
             keys.append(self._roi_name)
@@ -244,12 +243,13 @@ class MajorityClassToLabel:
             # In this case we cannot be certain about the label as the non-covering part of the ROI is larger than the
             # majority class.
             # In this case we mask the image.
-            _, _, roi = convert_annotations(
+            _, _, _, roi = convert_annotations(
                 sample["annotations"],
                 sample["image"].size[::-1],
                 roi_name=self._roi_name,
                 index_map={},
             )
+            assert roi
             masked_image = np.asarray(sample["image"]) * roi[..., np.newaxis]
             sample["image"] = PIL.Image.fromarray(masked_image.astype(np.uint8), mode=sample["image"].mode)
 
