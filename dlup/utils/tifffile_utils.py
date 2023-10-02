@@ -59,7 +59,7 @@ def retrieve_tile_data(page, tile_y0, tile_y1, tile_x0, tile_x1):
     return tiles_data
 
 
-def _get_tile_from_data(page, tiles_data, coordinates, size):
+def _get_tile_from_data(page, tiles_data, coordinates, size) -> npt.NDArray[np.int_]:
     x0, y0 = coordinates
     w, h = size
     tile_width, tile_height = page.tilewidth, page.tilelength

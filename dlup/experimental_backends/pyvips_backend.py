@@ -182,7 +182,7 @@ class PyVipsSlide(AbstractSlideBackend):
     def vendor(self) -> str | None:
         """Returns the scanner vendor."""
         if self._loader == "openslideloader":
-            return self._images[0].properties[openslide.PROPERTY_NAME_VENDOR]
+            return str(self._images[0].properties[openslide.PROPERTY_NAME_VENDOR])
         return None
 
     @property

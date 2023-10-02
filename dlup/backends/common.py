@@ -5,12 +5,13 @@ import abc
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 
-from dlup.types import PathLike
+from dlup.types import GenericNumber, PathLike
 
 
-def numpy_to_pil(tile: np.ndarray) -> PIL.Image.Image:
+def numpy_to_pil(tile: npt.NDArray[np.uint8]) -> PIL.Image.Image:
     """
     Convert a numpy tile to a PIL image, assuming the last axis is the channels
 
@@ -177,11 +178,13 @@ class AbstractSlideBackend(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def properties(self):
+    def properties(self) -> dict[str, Any]:
         """Properties of slide"""
 
     @abc.abstractmethod
-    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
+    def read_region(
+        self, coordinates: tuple[GenericNumber, GenericNumber], level: int, size: tuple[Any, ...]
+    ) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -211,7 +214,7 @@ class AbstractSlideBackend(abc.ABC):
         """Returns the scanner vendor."""
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         """Close the underlying slide"""
 
     def __repr__(self) -> str:

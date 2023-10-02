@@ -16,6 +16,7 @@ from enum import IntEnum
 from typing import Callable, Type, TypeVar, cast
 
 import numpy as np  # type: ignore
+import numpy.typing as npt
 import PIL
 import PIL.Image  # type: ignore
 
@@ -71,7 +72,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: np.ndarray, size: tuple[GenericNumber, GenericNumber]) -> np.ndarray:
+def _clip2size(a: npt.NDArray[np.int_], size: tuple[GenericNumber, GenericNumber]) -> GenericIntArray:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
@@ -123,7 +124,7 @@ class SlideImage:
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying image."""
         self._wsi.close()
 
@@ -160,7 +161,7 @@ class SlideImage:
         self,
         location: np.ndarray | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: np.ndarray | tuple[int, int],
+        size: npt.NDArray[np.int_] | tuple[int, int],
     ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
@@ -253,7 +254,9 @@ class SlideImage:
         native_size_adapted = np.ceil(native_size_adapted).astype(int)
 
         # We extract the region via openslide with the required extra border
-        region = owsi.read_region(tuple(level_zero_location_adapted), native_level, tuple(native_size_adapted))
+        region = owsi.read_region(
+            (native_size_adapted[0], native_size_adapted[1]), native_level, tuple(native_size_adapted)
+        )
 
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.

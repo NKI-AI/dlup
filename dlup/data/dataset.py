@@ -30,6 +30,7 @@ _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
 ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
+MaskTypes = SlideImage | npt.NDArray[np.int_] | WsiAnnotations
 
 
 class StandardTilingFromSlideDatasetSample(TypedDict):
@@ -170,7 +171,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         path: pathlib.Path,
         regions: collections.abc.Sequence,
         crop: bool = False,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
@@ -328,7 +329,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         path: pathlib.Path,
         grids: list[tuple[Grid, tuple[int, int], float]],
         crop: bool = False,
-        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
+        mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
@@ -371,7 +372,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
         rois: ROIType | None = None,
         annotations: _AnnotationTypes | None = None,

@@ -11,7 +11,7 @@ import numpy.typing as npt
 
 from dlup import SlideImage
 from dlup.annotations import WsiAnnotations
-from dlup.data.dataset import RegionFromSlideDatasetSample, ROIType, TiledROIsSlideImageDataset, parse_rois
+from dlup.data.dataset import MaskTypes, RegionFromSlideDatasetSample, ROIType, TiledROIsSlideImageDataset, parse_rois
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 
@@ -53,7 +53,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         grids: list[tuple[Grid, tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
-        mask: SlideImage | npt.NDArray[np.int_] | WsiAnnotations | None = None,
+        mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,

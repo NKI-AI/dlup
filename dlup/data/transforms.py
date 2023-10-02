@@ -8,6 +8,7 @@ from typing import Iterable
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 import shapely
 
@@ -24,7 +25,7 @@ def convert_annotations(
     index_map: dict[str, int],
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[dict, dict, np.ndarray, np.ndarray | None]:
+) -> tuple[dict, dict, npt.NDArray[np.int_], npt.NDArray[np.int_] | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.

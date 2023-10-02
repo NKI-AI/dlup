@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 
 """Algorithms for background segmentation.
@@ -17,9 +16,10 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 import scipy.ndimage as ndi
 import skimage.filters
@@ -30,6 +30,7 @@ import dlup.tiling
 from dlup import SlideImage
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
+from dlup.data.dataset import MaskTypes
 
 
 def _is_close(_seeds, _start) -> bool:
@@ -38,23 +39,23 @@ def _is_close(_seeds, _start) -> bool:
 
     Parameters
     ----------
-    _seeds : list
-    _start : list
+    _seeds : list[list[int]]
+    _start : list[int]
 
     Returns
     -------
     bool
     """
-    _start = np.asarray(_start)
+    start = np.asarray(_start)
     max_dist = 500
     for seed in _seeds:
         _seed = np.asarray(seed[0])
-        if np.sqrt(((_start - _seed) ** 2).sum()) <= max_dist:
+        if np.sqrt(((start - _seed) ** 2).sum()) <= max_dist:
             return True
     return False
 
 
-def _fesi_common(image: np.ndarray) -> np.ndarray:
+def _fesi_common(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     """
     Common functionality for FESI and Improved FESI.
 
@@ -87,7 +88,7 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
     final_mask = mask.copy()
     maximal_distance = distance.max()
     global_max = distance.max()
-    seeds: list = []
+    seeds: list[tuple[tuple[Any, ...], Any]] = []
     while maximal_distance > 0:
         start = np.unravel_index(distance.argmax(), distance.shape)
         if (maximal_distance > 0.6 * global_max) or _is_close(seeds, start[::-1]):
@@ -102,7 +103,7 @@ def _fesi_common(image: np.ndarray) -> np.ndarray:
     return final_mask.astype(bool)
 
 
-def improved_fesi(image: np.ndarray) -> np.ndarray:
+def improved_fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     """Combination of original and improved FESI algorithms.
 
     Extract foreground from background from H&E WSIs combining the original
@@ -147,7 +148,7 @@ def improved_fesi(image: np.ndarray) -> np.ndarray:
     return _fesi_common(tissue_rgb_hsv_1)
 
 
-def fesi(image: np.ndarray) -> np.ndarray:
+def fesi(image: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     """
     Extract foreground from background from H&E WSIs using the FESI algorithm [1].
 
@@ -170,16 +171,18 @@ def fesi(image: np.ndarray) -> np.ndarray:
     return _fesi_common(gray)
 
 
-def next_power_of_2(x):
+def next_power_of_2(x: int | float) -> int:
     """Returns the smallest greater than x, power of 2 value.
 
     https://stackoverflow.com/a/14267557/576363
     """
     x = int(x)
-    return 1 if x == 0 else 2 ** (x - 1).bit_length()
+    return int(1 if x == 0 else 2 ** (x - 1).bit_length())
 
 
-def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512) -> np.ndarray:
+def get_mask(
+    slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minimal_size: int = 512
+) -> npt.NDArray[np.int8]:
     """
     Compute a tissue mask for a Slide object.
 
@@ -214,7 +217,7 @@ def get_mask(slide: dlup.SlideImage, mask_func: Callable = improved_fesi, minima
 
 def is_foreground(
     slide_image: SlideImage,
-    background_mask: np.ndarray | SlideImage | WsiAnnotations,
+    background_mask: MaskTypes,
     region: tuple[float, float, int, int, float],
     threshold: float | None = 1.0,
 ) -> bool:
@@ -294,12 +297,12 @@ def _is_foreground_wsiannotations(
     if threshold == 1.0 and np.asarray(mask).mean() == 1:
         return True
 
-    return np.asarray(mask).mean() > threshold
+    return bool(np.asarray(mask).mean() > threshold)
 
 
 def _is_foreground_numpy(
     slide_image: SlideImage,
-    background_mask: np.ndarray,
+    background_mask: npt.NDArray[np.int_],
     region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
@@ -313,7 +316,7 @@ def _is_foreground_numpy(
 
     # Type of background_mask is Any here.
     # The scaling should be computed using the longest edge of the image.
-    background_size = (_background_mask.width, _background_mask.height)  # type: ignore
+    background_size = (_background_mask.width, _background_mask.height)
 
     region_size = region_view.size
     max_dimension_index = max(range(len(background_size)), key=background_size.__getitem__)
@@ -325,16 +328,14 @@ def _is_foreground_numpy(
 
     max_boundary = np.tile(mask_size, 2)
     min_boundary = np.zeros_like(max_boundary)
-    box = np.clip(
-        (*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary
-    )  # type: ignore
+    box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)
     clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
 
     if clipped_h == 0 or clipped_w == 0:
         return False
 
     mask_tile[:clipped_h, :clipped_w] = np.asarray(
-        _background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float  # type: ignore
+        _background_mask.resize((clipped_w, clipped_h), PIL.Image.BICUBIC, box=box), dtype=float
     )
 
     if threshold == 1.0 and mask_tile.mean() == 1.0:
@@ -361,5 +362,5 @@ class AvailableMaskFunctions(Enum):
     fesi = partial(fesi)
     improved_fesi = partial(improved_fesi)
 
-    def __call__(self, *args):
+    def __call__(self, *args: str):
         return self.value(*args)
