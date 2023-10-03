@@ -9,9 +9,10 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Any, Callable, Generic, Iterable, Sequence, TypedDict, TypeVar, Union
+from typing import Any, Callable, Generic, Iterable, Optional, Sequence, TypedDict, TypeVar, Union
 
 import numpy as np
+import numpy.typing as npt
 import PIL
 from numpy.typing import NDArray
 
@@ -31,7 +32,7 @@ _LabelTypes = Union[str, bool, int, float]
 ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
 
 
-class StandardTilingFromSlideDatasetSample(TypedDict):
+class TileSample(TypedDict):
     image: PIL.Image.Image
     coordinates: tuple[int | float, int | float]
     mpp: float
@@ -41,7 +42,25 @@ class StandardTilingFromSlideDatasetSample(TypedDict):
     annotations: Any | None
 
 
-class RegionFromSlideDatasetSample(StandardTilingFromSlideDatasetSample):
+PointType = tuple[float, float]
+BoundingBoxType = tuple[tuple[int, int], tuple[int, int]]
+
+AnnotationData = TypedDict(
+    "AnnotationData",
+    {
+        "points": dict[str, list[PointType]],
+        "boxes": dict[str, list[BoundingBoxType]],
+        "mask": npt.NDArray[np.int_],
+        "roi": Optional[npt.NDArray[np.int_]],
+    },
+)
+
+
+class TileSampleWithAnnotationData(TypedDict):
+    annotation_data: AnnotationData
+
+
+class RegionFromSlideDatasetSample(TileSample):
     grid_local_coordinates: tuple[int, int]
     grid_index: int
 
@@ -175,8 +194,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold: float | None = 0.0,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable[[StandardTilingFromSlideDatasetSample], StandardTilingFromSlideDatasetSample]
-        | None = None,
+        transform: Callable[[TileSample], TileSample] | None = None,
         backend: Callable = ImageBackend.PYVIPS,
         **kwargs,
     ):
@@ -261,7 +279,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
         region = region_view.read_region(coordinates, region_size)
 
-        sample: StandardTilingFromSlideDatasetSample = {
+        sample: TileSample = {
             "image": region,
             "coordinates": coordinates,
             "mpp": mpp,
@@ -295,7 +313,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
             yield self[i]
 
 
-class SlideImageDataset(SlideImageDatasetBase[StandardTilingFromSlideDatasetSample]):
+class SlideImageDataset(SlideImageDatasetBase[TileSample]):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -340,7 +358,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         self._grids = grids
         regions: list[Sequence] = []
@@ -382,7 +400,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         rois: ROIType | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable[[StandardTilingFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
+        transform: Callable[[TileSample], RegionFromSlideDatasetSample] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
         limit_bounds: bool = True,
         **kwargs: Any,

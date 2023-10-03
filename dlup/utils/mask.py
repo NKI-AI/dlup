@@ -84,8 +84,10 @@ def mask_to_polygons(
     return polygons
 
 
-def _get_sample(index: int, dataset, index_map, scaling: float):
-    output = {}
+def _get_sample(
+    index: int, dataset: TiledROIsSlideImageDataset, index_map: dict[int, str], scaling: float
+) -> dict[str, list[Polygon]]:
+    output: dict[str, list[Polygon]] = {}
     sample = dataset[index]
     _mask = np.asarray(sample["image"])
     for index in index_map:

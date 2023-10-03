@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Iterable
+from typing import Iterable, cast
 
 import cv2
 import numpy as np
@@ -14,6 +14,7 @@ import shapely
 import dlup.annotations
 from dlup._exceptions import AnnotationError
 from dlup.annotations import AnnotationClass, AnnotationType
+from dlup.data.dataset import BoundingBoxType, PointType, TileSample, TileSampleWithAnnotationData
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
@@ -24,7 +25,9 @@ def convert_annotations(
     index_map: dict[str, int],
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[dict, dict, npt.NDArray[np.int_], npt.NDArray[np.int_] | None]:
+) -> tuple[
+    dict[str, list[PointType]], dict[str, list[BoundingBoxType]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None
+]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
@@ -61,8 +64,8 @@ def convert_annotations(
     """
     mask = np.empty(region_size, dtype=np.int32)
     mask[:] = default_value
-    points: dict[str, list] = defaultdict(list)
-    boxes: dict[str, list[tuple[tuple[int, int], tuple[int, int]]]] = defaultdict(list)
+    points: dict[str, list[PointType]] = defaultdict(list)
+    boxes: dict[str, list[BoundingBoxType]] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
     has_roi = False
@@ -130,9 +133,9 @@ class ConvertAnnotationsToMask:
         self._index_map = index_map
         self._default_value = default_value
 
-    def __call__(self, sample):
-        if "annotations" not in sample:
-            return sample
+    def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData:
+        if not sample["annotations"]:
+            raise ValueError("No annotations found to convert to mask.")
 
         _annotations = sample["annotations"]
         points, boxes, mask, roi = convert_annotations(
@@ -142,15 +145,16 @@ class ConvertAnnotationsToMask:
             index_map=self._index_map,
             default_value=self._default_value,
         )
-        sample["annotation_data"] = {
+
+        output: TileSampleWithAnnotationData = cast(TileSampleWithAnnotationData, sample)
+        output["annotation_data"] = {
             "points": points,
             "boxes": boxes,
             "mask": mask,
+            "roi": roi,
         }
-        if roi is not None:
-            sample["annotation_data"]["roi"] = roi
 
-        return sample
+        return output
 
 
 class RenameLabels:
@@ -166,8 +170,10 @@ class RenameLabels:
         """
         self._remap_labels = remap_labels
 
-    def __call__(self, sample):
+    def __call__(self, sample: TileSample) -> TileSample:
         _annotations = sample["annotations"]
+        if not _annotations:
+            raise ValueError("No annotations found to rename.")
 
         output_annotations = []
         for annotation in _annotations:
@@ -214,12 +220,14 @@ class MajorityClassToLabel:
         self._roi_name = roi_name
         self._index_map = index_map
 
-    def __call__(self, sample):
-        if "annotations" not in sample:
-            return sample
+    def __call__(self, sample: TileSample) -> TileSample:
+        if not sample["annotations"]:
+            raise ValueError("No annotations found to convert to majority class.")
 
-        if "labels" not in sample:
+        if not sample["labels"]:
             sample["labels"] = {}
+        # mypy doesn't understand that sample["labels"] is not None anymore
+        assert sample["labels"]
 
         areas: dict[str, int] = defaultdict(int)
         keys = list(self._index_map.keys())
@@ -280,12 +288,13 @@ class ContainsPolygonToLabel:
         self._label = label
         self._threshold = threshold
 
-    def __call__(self, sample):
-        if "annotations" not in sample:
-            return sample
+    def __call__(self, sample: TileSample) -> TileSample:
+        if not sample["annotations"]:
+            raise ValueError("No annotations found to find if contains polygon.")
 
-        if "labels" not in sample:
+        if not sample["labels"]:
             sample["labels"] = {}
+        assert sample["labels"]
 
         requested_polygons = [_ for _ in sample["annotations"] if _.label == self._label]
 
