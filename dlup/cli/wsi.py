@@ -124,6 +124,8 @@ def info(args: argparse.Namespace) -> None:
     """Return available slide properties."""
     slide = SlideImage.from_file_path(args.slide_file_path)
     props = slide.properties
+    if not props:
+        return print("No properties found.")
     if args.json:
         print(json.dumps(dict(props)))
         return

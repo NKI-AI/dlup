@@ -11,6 +11,6 @@ import numpy.typing as npt
 string_classes = (str, bytes)
 PathLike = Union[str, os.PathLike]
 GenericNumber = Union[int, float]
-GenericNumberArray = Union[npt.NDArray[np.generic], Iterable[GenericNumber]]
+GenericNumberArray = Union[npt.NDArray[np.int_ | np.float_], Iterable[GenericNumber]]
 GenericFloatArray = Union[npt.NDArray[np.float_], Iterable[float]]
 GenericIntArray = Union[npt.NDArray[np.int_], Iterable[int]]

@@ -16,11 +16,11 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 
 
 def _DFS(
-    polygons,
-    contours,
-    hierarchy,
-    sibling_id,
-    is_outer,
+    polygons: list[Polygon],
+    contours: list,
+    hierarchy: dict[int, list[int]],
+    sibling_id: int,
+    is_outer: bool,
     siblings,
     offset: tuple[int, int] = (0, 0),
     scaling: float = 1.0,

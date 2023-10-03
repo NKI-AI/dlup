@@ -12,9 +12,10 @@ import errno
 import os
 import pathlib
 from enum import IntEnum
-from typing import Callable, Type, TypeVar, cast
+from typing import Type, TypeVar, cast
 
 import numpy as np  # type: ignore
+import numpy.typing as npt
 import PIL
 import PIL.Image  # type: ignore
 
@@ -22,7 +23,7 @@ from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
 from dlup.backends.common import AbstractSlideBackend
 from dlup.experimental_backends import ImageBackend  # type: ignore
-from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, PathLike
+from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
@@ -157,9 +158,9 @@ class SlideImage:
 
     def read_region(
         self,
-        location: np.ndarray | tuple[GenericNumber, GenericNumber],
+        location: GenericNumberArray | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: np.ndarray | tuple[int, int],
+        size: npt.NDArray[np.int_] | tuple[int, int],
     ) -> PIL.Image.Image:
         """Return a region at a specific scaling level of the pyramid.
 
@@ -320,7 +321,7 @@ class SlideImage:
         return self._identifier
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> dict[str, str | int | float | bool] | None:
         """Returns any extra associated properties with the image."""
         return self._wsi.properties
 
