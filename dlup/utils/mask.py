@@ -17,7 +17,7 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 
 def _DFS(
     polygons: list[Polygon],
-    contours: list,
+    contours,
     hierarchy: dict[int, list[int]],
     sibling_id: int,
     is_outer: bool,

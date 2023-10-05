@@ -10,7 +10,7 @@ import functools
 import itertools
 import pathlib
 from typing import Any, Callable, Generic, Iterable, Optional, Sequence, TypedDict, TypeVar, Union
-
+from math import ceil, floor
 import numpy as np
 import numpy.typing as npt
 import PIL
@@ -29,7 +29,7 @@ T = TypeVar("T")
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
-ROIType = tuple[tuple[tuple[int, int], tuple[int, int]], ...]
+ROIType = tuple[tuple[int, int], tuple[int, int]]
 
 
 class TileSample(TypedDict):
@@ -397,7 +397,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         crop: bool = False,
         mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
-        rois: ROIType | None = None,
+        rois: list[ROIType] | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[TileSample], RegionFromSlideDatasetSample] | None = None,
@@ -517,7 +517,7 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         return region_data
 
 
-def parse_rois(rois: ROIType | None, image_size: tuple[int, int], scaling: float = 1.0):
+def parse_rois(rois: list[ROIType] | None, image_size: tuple[int, int], scaling: float = 1.0):
     if rois is None:
         return (((0, 0), image_size),)
     else:
@@ -527,12 +527,11 @@ def parse_rois(rois: ROIType | None, image_size: tuple[int, int], scaling: float
         if not origin_positive or not image_within_borders:
             raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
-    _rois = [
-        (
-            (np.ceil(np.asarray(coords) * scaling).astype(int)).tolist(),
-            np.floor(np.asarray(size) * scaling).astype(int).tolist(),
-        )
-        for coords, size in rois
-    ]  # preceding _ used to circumvent mypy complaining about type casting
+    _rois = []
+    for coords, size in rois:
+        _coords = (ceil(coords[0] * scaling), ceil(coords[1] * scaling))
+        _size = (floor(size[0] * scaling), floor(size[1] * scaling))
+
+        _rois.append((_coords, _size))
 
     return _rois
