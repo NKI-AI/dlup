@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from enum import Enum
 from functools import partial
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import numpy.typing as npt
@@ -33,6 +33,7 @@ from dlup.annotations import WsiAnnotations
 
 if TYPE_CHECKING:
     from dlup.data.dataset import MaskTypes
+
 
 def _is_close(_seeds, _start) -> bool:
     """
