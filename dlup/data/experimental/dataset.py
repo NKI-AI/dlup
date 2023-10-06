@@ -14,7 +14,7 @@ from dlup.annotations import WsiAnnotations
 from dlup.data.dataset import RegionFromSlideDatasetSample, ROIType, TiledROIsSlideImageDataset, parse_rois
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
-from utils.types import MaskTypes
+from dlup.types import MaskTypes
 
 _BaseAnnotationTypes = SlideImage | WsiAnnotations
 _AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes

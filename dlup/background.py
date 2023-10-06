@@ -30,7 +30,7 @@ import dlup.tiling
 from dlup import SlideImage
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
-from utils.types import MaskTypes
+from dlup.types import MaskTypes
 
 
 def _is_close(_seeds, _start) -> bool:

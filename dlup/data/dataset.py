@@ -23,7 +23,7 @@ from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
-from utils.types import MaskTypes
+from dlup.types import MaskTypes
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
