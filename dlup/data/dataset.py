@@ -9,8 +9,9 @@ import collections
 import functools
 import itertools
 import pathlib
-from typing import Any, Callable, Generic, Iterable, Optional, Sequence, TypedDict, TypeVar, Union
 from math import ceil, floor
+from typing import Any, Callable, Generic, Iterable, Optional, Sequence, TypedDict, TypeVar, Union
+
 import numpy as np
 import numpy.typing as npt
 import PIL

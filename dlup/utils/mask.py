@@ -17,11 +17,11 @@ from dlup.data.dataset import TiledROIsSlideImageDataset
 
 def _DFS(
     polygons: list[Polygon],
-    contours,
-    hierarchy: dict[int, list[int]],
+    contours: tuple[npt.NDArray[np.int_]],
+    hierarchy: npt.NDArray[np.int_],
     sibling_id: int,
     is_outer: bool,
-    siblings,
+    siblings: list[npt.NDArray[np.int_]] | None,
     offset: tuple[int, int] = (0, 0),
     scaling: float = 1.0,
 ) -> None:
@@ -48,6 +48,7 @@ def _DFS(
 
                 polygons.append(polygon)
             else:
+                assert siblings  # This is for mypy. We don't get in this branch when its none.
                 siblings.append(contour)
 
         sibling_id = hierarchy[sibling_id][0]

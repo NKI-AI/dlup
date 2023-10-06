@@ -14,10 +14,10 @@ import pathlib
 from enum import IntEnum
 from typing import Type, TypeVar, cast
 
-import numpy as np  # type: ignore
+import numpy as np
 import numpy.typing as npt
 import PIL
-import PIL.Image  # type: ignore
+import PIL.Image
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView

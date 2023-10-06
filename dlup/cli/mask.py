@@ -39,7 +39,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         mpp=None,
         tile_mode=TilingMode.overflow,
         crop=False,
-        backend=ImageBackend.TIFFFILE,
+        backend=ImageBackend.PYVIPS,
         interpolator=Resampling.NEAREST,
     )
     target_mpp = args.mpp

@@ -70,6 +70,9 @@ def _get_tile_from_data(page, tiles_data, coordinates, size) -> npt.NDArray[np.i
         dtype=page.dtype,
     )
 
+    if not tiles_data:
+        return out
+
     for (idx_y, idx_x), tile in tiles_data:
         image_y = (idx_y - tile_y0) * tile_height
         image_x = (idx_x - tile_x0) * tile_width
