@@ -122,8 +122,7 @@ class TestSlideImage:
 
         # Check that the output corresponding shape and value.
         assert np.asarray(pil_extracted_region).shape == np.asarray(extracted_region).shape
-        print(np.asarray(pil_extracted_region).sum(), np.asarray(extracted_region).sum())
-        # assert np.allclose(pil_extracted_region, extracted_region)
+        assert np.allclose(pil_extracted_region, extracted_region)
 
     @pytest.mark.parametrize("shift_x", list(np.linspace(0, 2, 10)))
     def test_border_region(self, shift_x):
