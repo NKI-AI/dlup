@@ -22,7 +22,7 @@ def _DFS(
     sibling_id: int,
     is_outer: bool,
     siblings: list[npt.NDArray[np.int_]] | None,
-    offset: tuple[int, int] = (0, 0),
+    offset: tuple[int | float, int | float] = (0, 0),
     scaling: float = 1.0,
 ) -> None:
     # Adapted FROM: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
@@ -55,7 +55,7 @@ def _DFS(
 
 
 def mask_to_polygons(
-    mask: npt.NDArray[np.int_], offset: tuple[int, int] = (0, 0), scaling: float = 1.0
+    mask: npt.NDArray[np.int_], offset: tuple[int | float, int | float] = (0, 0), scaling: float = 1.0
 ) -> list[Polygon]:
     # Adapted From: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
 

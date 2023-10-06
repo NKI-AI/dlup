@@ -133,7 +133,7 @@ class AbstractSlideBackend(abc.ABC):
         int
         """
         level_downsamples = np.array(self.level_downsamples)
-        level = 0 if downsample < 1 else np.where(level_downsamples <= downsample)[0][-1]
+        level = 0 if downsample < 1 else int(np.where(level_downsamples <= downsample)[0][-1])
         return level
 
     def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:

@@ -12,7 +12,8 @@ import errno
 import os
 import pathlib
 from enum import IntEnum
-from typing import Type, TypeVar, cast
+from types import TracebackType
+from typing import Any, Literal, Optional, Type, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -71,7 +72,9 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.read_region((x, y), self._scaling, (w, h))
 
 
-def _clip2size(a: np.ndarray, size: tuple[GenericNumber, GenericNumber]) -> np.ndarray:
+def _clip2size(
+    a: npt.NDArray[np.int_ | np.float_], size: tuple[GenericNumber, GenericNumber]
+) -> npt.NDArray[np.int_ | np.float_]:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
@@ -97,7 +100,7 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs):
+    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs: Any) -> None:
         """Initialize a whole slide image and validate its properties."""
         self._wsi = wsi
         self._identifier = identifier
@@ -123,14 +126,19 @@ class SlideImage:
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying image."""
         self._wsi.close()
 
-    def __enter__(self):
+    def __enter__(self) -> "SlideImage":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Literal[False]:
         self.close()
         return False
 
@@ -140,7 +148,7 @@ class SlideImage:
         wsi_file_path: PathLike,
         identifier: str | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
-        **kwargs,
+        **kwargs: Any,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
 

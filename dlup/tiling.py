@@ -4,10 +4,12 @@ from __future__ import annotations
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, Sequence, Union
+from typing import Iterator, Literal, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
+
+from dlup.types import GenericNumberArray
 
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[npt.NDArray[np.int_ | np.float_], Sequence[_GenericNumber]]
@@ -35,12 +37,12 @@ class GridOrder(str, Enum):
     F = "F"
 
 
-def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> np.ndarray:
+def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> npt.NDArray[np.float_ | np.int_]:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> npt.NDArray[np.int_]:
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing: Literal["xy", "ij"] = "ij") -> npt.NDArray[np.int_]:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Examples

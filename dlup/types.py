@@ -8,6 +8,7 @@ from typing import Iterable, Union
 import numpy as np
 import numpy.typing as npt
 
+
 string_classes = (str, bytes)
 PathLike = Union[str, os.PathLike]
 GenericNumber = Union[int, float]

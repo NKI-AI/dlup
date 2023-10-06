@@ -112,7 +112,7 @@ class TileSaver:
 
         indices = grid_local_coordinates
         if len(self.dataset.grids) > 1:
-            indices = [grid_index] + list(indices)
+            indices = [grid_index] + indices
 
         if not self.do_not_save_tiles:
             tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")
