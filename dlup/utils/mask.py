@@ -30,7 +30,7 @@ def _DFS(
         contour = contours[sibling_id].squeeze(axis=1)
         if len(contour) >= 3:
             first_child_id = hierarchy[sibling_id][2]
-            children: list | None = [] if is_outer else None
+            children: list[npt.NDArray[np.int_]] | None = [] if is_outer else None
             _DFS(polygons, contours, hierarchy, first_child_id, not is_outer, children)
 
             if is_outer:
@@ -48,7 +48,7 @@ def _DFS(
 
                 polygons.append(polygon)
             else:
-                assert siblings  # This is for mypy. We don't get in this branch when its none.
+                assert siblings is not None  # This is for mypy
                 siblings.append(contour)
 
         sibling_id = hierarchy[sibling_id][0]
