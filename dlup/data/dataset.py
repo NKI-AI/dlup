@@ -23,7 +23,8 @@ from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
-from dlup.types import MaskTypes
+
+MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "WsiAnnotations"]
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")

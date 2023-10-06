@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Iterable, Union
+from typing import Iterable, Union
 
 import numpy as np
 import numpy.typing as npt
-
-if TYPE_CHECKING:
-    from dlup import SlideImage
-    from dlup.annotations import WsiAnnotations
 
 string_classes = (str, bytes)
 PathLike = Union[str, os.PathLike]
@@ -18,4 +14,3 @@ GenericNumber = Union[int, float]
 GenericNumberArray = Union[npt.NDArray[np.int_ | np.float_], Iterable[GenericNumber]]
 GenericFloatArray = Union[npt.NDArray[np.float_], Iterable[float]]
 GenericIntArray = Union[npt.NDArray[np.int_], Iterable[int]]
-MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "WsiAnnotations"]
