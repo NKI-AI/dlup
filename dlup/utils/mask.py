@@ -11,13 +11,14 @@ import shapely.affinity
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 from tqdm import tqdm
+from typing import Sequence
 
 from dlup.data.dataset import TiledROIsSlideImageDataset
 
 
 def _DFS(
     polygons: list[Polygon],
-    contours: tuple[npt.NDArray[np.int_]],
+    contours: Sequence[npt.NDArray[np.int_]],
     hierarchy: npt.NDArray[np.int_],
     sibling_id: int,
     is_outer: bool,
