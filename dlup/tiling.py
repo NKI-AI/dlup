@@ -63,7 +63,7 @@ def tiles_grid_coordinates(
     tile_size: _GenericNumberArray,
     tile_overlap: _GenericNumberArray | _GenericNumber = 0,
     mode: TilingMode = TilingMode.skip,
-) -> list[np.ndarray]:
+) -> list[npt.NDArray[np.int_ | np.float_]]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
     The first tile has the corner located at (0, 0).
@@ -100,7 +100,7 @@ def tiles_grid_coordinates(
         overflow = tiled_size - size
 
     # Let's create our indices list
-    coordinates: list[npt.NDArray[np.float_]] = []
+    coordinates: list[npt.NDArray[np.int_ | np.float_]] = []
     for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
         coordinates.append(tiles_locations)
@@ -129,7 +129,7 @@ class Grid(collections.abc.Sequence):
         tile_overlap: _GenericNumberArray | _GenericNumber = 0,
         mode: TilingMode = TilingMode.skip,
         order: GridOrder = GridOrder.C,
-    ):
+    ) -> "Grid":
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
         coordinates = [c + o for c, o in zip(coordinates, offset)]

@@ -107,7 +107,11 @@ def _retrieve_tile_data(page, tile_y0, tile_y1, tile_x0, tile_x1):
     return tiles_data
 
 
-def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[Any, ...]) -> npt.NDArray[np.int_]:
+def get_tile(
+    page: tifffile.TiffPage,
+    coordinates: npt.NDArray[np.int_] | tuple[int, int],
+    size: npt.NDArray[np.int_] | tuple[int, int],
+) -> npt.NDArray[np.int_]:
     """Extract a crop from a TIFF image file directory (IFD).
 
     Only the tiles englobing the crop area are loaded and not the whole page.
