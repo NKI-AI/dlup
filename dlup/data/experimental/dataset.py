@@ -11,16 +11,17 @@ import numpy.typing as npt
 
 from dlup import SlideImage
 from dlup.annotations import WsiAnnotations
-from dlup.data.dataset import RegionFromSlideDatasetSample, ROIType, TiledROIsSlideImageDataset, parse_rois, MaskTypes
+from dlup.data.dataset import MaskTypes, RegionFromWsiDatasetSample, TiledWsiDataset, parse_rois
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
+from dlup.types import ROIType
 
 _BaseAnnotationTypes = SlideImage | WsiAnnotations
 _AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
 _LabelTypes = str | bool | int | float
 
 
-class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
+class MultiScaleSlideImageDataset(TiledWsiDataset):
     """Dataset class that supports multiscale output, and can have multiple ROIs.
 
     This dataset can be used, for example, to tile your WSI on-the-fly using the `multiscale_from_tiling` function.
@@ -57,7 +58,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mask_threshold: float | None = 0.0,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable[[RegionFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
+        transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
     ):
         self._grids = grids
@@ -98,7 +99,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         mask: npt.NDArray[np.int_] | None = None,
         mask_threshold: float | None = 0.0,
         rois: ROIType | None = None,
-        transform: Callable[[RegionFromSlideDatasetSample], RegionFromSlideDatasetSample] | None = None,
+        transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
     ):
         if mpps != sorted(mpps):
@@ -143,7 +144,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
 
     def __getitem__(self, index):
         indices = [_[index] for _ in self._index_ranges]
-        sample = [TiledROIsSlideImageDataset.__getitem__(self, _) for _ in indices]
+        sample = [TiledWsiDataset.__getitem__(self, _) for _ in indices]
         if self.__transform:
             sample = self.__transform(sample)
 

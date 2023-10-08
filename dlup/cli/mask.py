@@ -16,7 +16,7 @@ from dlup.annotations import (
     WsiAnnotations,
 )
 from dlup.cli import file_path
-from dlup.data.dataset import TiledROIsSlideImageDataset
+from dlup.data.dataset import TiledWsiDataset
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import TilingMode
 from dlup.utils.mask import dataset_to_polygon
@@ -32,7 +32,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
     # Prepare output directory.
     output_filename.parent.mkdir(parents=True, exist_ok=True)
 
-    dataset = TiledROIsSlideImageDataset.from_standard_tiling(
+    dataset = TiledWsiDataset.from_standard_tiling(
         mask_filename,
         tile_size=tile_size,
         tile_overlap=tile_overlap,

@@ -2,6 +2,7 @@
 """Utilities to work with binary masks"""
 from functools import partial
 from multiprocessing import Pool
+from typing import Sequence
 
 import cv2
 import numpy as np
@@ -11,9 +12,8 @@ import shapely.affinity
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 from tqdm import tqdm
-from typing import Sequence
 
-from dlup.data.dataset import TiledROIsSlideImageDataset
+from dlup.data.dataset import TiledWsiDataset
 
 
 def _DFS(
@@ -87,7 +87,7 @@ def mask_to_polygons(
 
 
 def _get_sample(
-    index: int, dataset: TiledROIsSlideImageDataset, index_map: dict[int, str], scaling: float
+    index: int, dataset: TiledWsiDataset, index_map: dict[int, str], scaling: float
 ) -> dict[str, list[Polygon]]:
     output: dict[str, list[Polygon]] = {}
     sample = dataset[index]
@@ -102,7 +102,7 @@ def _get_sample(
 
 # TODO: show_progress should be a function that can be e.g. `tqdm.tqdm`
 def dataset_to_polygon(
-    dataset: TiledROIsSlideImageDataset,
+    dataset: TiledWsiDataset,
     index_map: dict[int, str],
     num_workers: int = 0,
     scaling: float = 1.0,

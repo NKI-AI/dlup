@@ -32,6 +32,7 @@ from enum import Enum
 from typing import Any, ClassVar, Iterable, Type, TypedDict, TypeVar, Union
 
 import numpy as np
+import numpy.typing as npt
 import shapely
 import shapely.affinity
 import shapely.validation
@@ -40,7 +41,7 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
-from dlup.types import GenericNumber, PathLike
+from dlup.types import GenericNumber, PathLike, ROIType
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
@@ -91,15 +92,15 @@ class Point(shapely.geometry.Point):
         self._id_to_attrs[str(id(self))] = dict(a_cls=a_cls)
 
     @property
-    def annotation_class(self):
+    def annotation_class(self) -> AnnotationClass:
         return self._id_to_attrs[str(id(self))]["a_cls"]
 
     @property
-    def type(self):
+    def type(self) -> AnnotationType:
         return self.annotation_class.a_cls
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self.annotation_class.label
 
     def __new__(cls, coord: tuple[float, float], *args, **kwargs) -> "Point":
@@ -136,15 +137,15 @@ class Polygon(shapely.geometry.Polygon):
         self._id_to_attrs[str(id(self))] = dict(a_cls=a_cls)
 
     @property
-    def annotation_class(self):
+    def annotation_class(self) -> AnnotationClass:
         return self._id_to_attrs[str(id(self))]["a_cls"]
 
     @property
-    def type(self):
+    def type(self) -> AnnotationType:
         return self.annotation_class.a_cls
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self.annotation_class.label
 
     def __new__(cls, coord: tuple[float, float], *args, **kwargs) -> "Point":
@@ -165,7 +166,7 @@ class Polygon(shapely.geometry.Polygon):
         return f"{self.annotation_class}, {self.wkt}"
 
 
-def rescale_geometry(geometry: Union[Point, Polygon], scaling: float | None = None):
+def rescale_geometry(geometry: Union[Point, Polygon], scaling: float | None = None) -> Union[Point, Polygon]:
     if scaling is None:
         return geometry
     if scaling == 1.0:
@@ -228,21 +229,21 @@ class SingleAnnotationWrapper:
         self._annotations = coordinates
 
     @property
-    def type(self):
+    def type(self) -> AnnotationType:
         """The type of annotation, e.g. box, polygon or points."""
         return self._type
 
     @property
-    def label(self):
+    def label(self) -> str:
         """The label name for this annotation."""
         return self._label
 
     @property
-    def annotation_class(self):
+    def annotation_class(self) -> AnnotationClass:
         return self._annotation_class
 
     @annotation_class.setter
-    def annotation_class(self, a_cls: AnnotationClass):
+    def annotation_class(self, a_cls: AnnotationClass) -> None:
         self._annotation_class = a_cls
         self._label = a_cls.label
         self._type = a_cls.a_cls
@@ -258,7 +259,7 @@ class SingleAnnotationWrapper:
 
         self._annotations = _annotations
 
-    def append(self, sample):
+    def append(self, sample) -> None:
         self._annotations.append(sample)
 
     def as_strtree(self) -> STRtree:
@@ -267,7 +268,7 @@ class SingleAnnotationWrapper:
     def as_list(self) -> list:
         return self._annotations
 
-    def as_json(self) -> list[dict[str, Any]]:
+    def as_json(self) -> list[Any]:
         """
         Return the annotation as json format.
 
@@ -291,11 +292,13 @@ class SingleAnnotationWrapper:
         return data
 
     @staticmethod
-    def _get_bbox(z):
-        return tuple(z.min(axis=0).tolist()), tuple((z.max(axis=0) - z.min(axis=0)).tolist())
+    def _get_bbox(z: npt.NDArray[np.int_ | np.float_]) -> ROIType:
+        coords = tuple(z.min(axis=0).tolist())
+        size = tuple((z.max(axis=0) - z.min(axis=0)).tolist())
+        return (coords[0], coords[1]), (size[0], size[1])
 
     @property
-    def bounding_boxes(self):
+    def bounding_boxes(self) -> tuple[ROIType, ...]:
         data = []
         for annotation in self.as_list():
             if isinstance(annotation, Polygon):
@@ -304,9 +307,9 @@ class SingleAnnotationWrapper:
                 # Create a 2D numpy array to represent the point
                 point_coords = np.asarray([annotation.x, annotation.y])
                 data.append(np.array([point_coords, point_coords]))
-        return [self._get_bbox(_) for _ in data]
+        return tuple([self._get_bbox(_) for _ in data])
 
-    def simplify(self, tolerance: float, *, preserve_topology: bool = True):
+    def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:
         if self.type != AnnotationType.POLYGON:
             return
         self._annotations = [
@@ -667,7 +670,7 @@ class WsiAnnotations:
     def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
         return self._annotations[a_cls]
 
-    def as_geojson(self, split_per_label=False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
+    def as_geojson(self, split_per_label: bool = False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
         """
         Output the annotations as proper geojson.
 
@@ -704,7 +707,7 @@ class WsiAnnotations:
                 index += 1
         return data
 
-    def simplify(self, tolerance: float, *, preserve_topology: bool = True):
+    def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:
         """Simplify the polygons in the annotation (i.e. reduce points). Other annotations will remain unchanged.
         All points in the resulting polygons object will be in the tolerance distance of the original polygon.
 
@@ -725,9 +728,9 @@ class WsiAnnotations:
 
     def read_region(
         self,
-        coordinates: np.ndarray | tuple[GenericNumber, GenericNumber],
+        coordinates: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        region_size: np.ndarray | tuple[GenericNumber, GenericNumber],
+        region_size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
     ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
@@ -887,7 +890,7 @@ class WsiAnnotations:
         curr_annotations += list(other._annotations.values())
         return WsiAnnotations(curr_annotations)
 
-    def __str__(self):
+    def __str__(self) -> str:
         # Create a string for the labels
         output = ""
         for annotation_name in self._annotations:

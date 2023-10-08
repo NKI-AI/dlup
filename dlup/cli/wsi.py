@@ -9,8 +9,8 @@ from typing import Any, cast
 from PIL import Image
 
 from dlup import SlideImage
-from dlup.background import AvailableMaskFunctions, get_mask
-from dlup.data.dataset import TiledROIsSlideImageDataset
+from dlup.background_deprecated import AvailableMaskFunctions, get_mask  # type: ignore
+from dlup.data.dataset import TiledWsiDataset
 from dlup.tiling import TilingMode
 from dlup.utils import ArrayEncoder
 from dlup.viz.plotting import plot_2d
@@ -39,7 +39,7 @@ def tiling(args: argparse.Namespace) -> None:
     plot_2d(thumbnail, mask=mask).save(output_directory_path / "thumbnail_with_mask.png")
 
     # TODO: Maybe give the SlideImageDataset an image as input?
-    dataset = TiledROIsSlideImageDataset.from_standard_tiling(
+    dataset = TiledWsiDataset.from_standard_tiling(
         input_file_path,
         mask=mask,
         mpp=args.mpp,
@@ -96,9 +96,7 @@ def tiling(args: argparse.Namespace) -> None:
 
 
 class TileSaver:
-    def __init__(
-        self, dataset: TiledROIsSlideImageDataset, output_directory_path: Path, do_not_save_tiles: bool = False
-    ) -> None:
+    def __init__(self, dataset: TiledWsiDataset, output_directory_path: Path, do_not_save_tiles: bool = False) -> None:
         self.dataset = dataset
         self.output_directory_path = output_directory_path
         self.do_not_save_tiles = do_not_save_tiles
@@ -110,9 +108,8 @@ class TileSaver:
         grid_local_coordinates = tile_dict["grid_local_coordinates"]
         grid_index = tile_dict["grid_index"]
 
-        indices = grid_local_coordinates
         if len(self.dataset.grids) > 1:
-            indices = [grid_index] + indices
+            indices = (grid_index,) + grid_local_coordinates
 
         if not self.do_not_save_tiles:
             tile.save(self.output_directory_path / f"{'_'.join(map(str, indices))}.png")

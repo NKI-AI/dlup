@@ -9,8 +9,9 @@ import collections
 import functools
 import itertools
 import pathlib
+import warnings
 from math import ceil, floor
-from typing import Any, Callable, Generic, Iterable, Optional, Sequence, TypedDict, TypeVar, Union
+from typing import Any, Callable, Generic, Iterable, Iterator, Optional, Sequence, TypedDict, TypeVar, Union, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -23,6 +24,7 @@ from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
+from dlup.types import ROIType
 
 MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "WsiAnnotations"]
 
@@ -31,7 +33,6 @@ T = TypeVar("T")
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
 _AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
-ROIType = tuple[tuple[int, int], tuple[int, int]]
 
 
 class TileSample(TypedDict):
@@ -62,15 +63,9 @@ class TileSampleWithAnnotationData(TypedDict):
     annotation_data: AnnotationData
 
 
-class RegionFromSlideDatasetSample(TileSample):
+class RegionFromWsiDatasetSample(TileSample):
     grid_local_coordinates: tuple[int, int]
     grid_index: int
-
-
-class PretiledDatasetSample(TypedDict):
-    image: PIL.Image.Image
-    grid_index: int
-    path: pathlib.Path
 
 
 class Dataset(Generic[T_co], collections.abc.Sequence):
@@ -159,11 +154,23 @@ class ConcatDataset(Dataset[T_co]):
         sample_idx = idx if dataset_idx == 0 else idx - self.cumulative_sizes[dataset_idx - 1]
         return self.datasets[dataset_idx], sample_idx
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, index):
+    @overload
+    def __getitem__(self, index: int) -> T_co:
+        ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list[T_co]:
+        ...
+
+    def __getitem__(self, index: Union[int, slice]) -> T_co | list[T_co]:
         """Returns the sample at the given index."""
+        if isinstance(index, slice):
+            start, stop, step = index.indices(len(self))
+            return [self[i] for i in range(start, stop, step or 1)]
+
         dataset, sample_idx = self.index_to_dataset(index)
         return dataset[sample_idx]
 
@@ -172,18 +179,18 @@ LRU_CACHE_SIZE = 32
 
 
 @functools.lru_cache(LRU_CACHE_SIZE)
-def _get_cached_slide_image(path: pathlib.Path, backend, **kwargs):
+def _get_cached_slide_image(path: pathlib.Path, backend: ImageBackend, **kwargs: Any) -> "SlideImage":
     return SlideImage.from_file_path(path, backend=backend, **kwargs)
 
 
-class SlideImageDatasetBase(Dataset[T_co]):
+class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
     """Generic :class:`Dataset` to iterate over regions of a :class:`SlideImage`class.
 
     This class features some logic to avoid instantiating too many slides
     which for very large datasets can cause expensive allocation due to
-    openslide internal caching.
+    internal caching of the image reading backand.
 
-    This class is the superclass of :class:`TiledROIsSlideImageDataset`, which has a function,
+    This class is the superclass of :class:`TiledWsiDataset`, which has a function,
     `from_standard_tiling`, to compute all the regions for specified tiling parameters on the fly.
     """
 
@@ -196,8 +203,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold: float | None = 0.0,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable[[TileSample], TileSample] | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        backend: ImageBackend = ImageBackend.PYVIPS,
         **kwargs,
     ):
         """
@@ -231,7 +237,6 @@ class SlideImageDatasetBase(Dataset[T_co]):
 
         self.annotations = annotations
         self.labels = labels
-        self.__transform = transform
         self._backend = backend
         self._kwargs = kwargs
 
@@ -252,16 +257,29 @@ class SlideImageDatasetBase(Dataset[T_co]):
         return self._path
 
     @property
-    def crop(self):
+    def crop(self) -> bool:
         """Returns true the regions will be cropped at the boundaries."""
         return self._crop
 
     @property
-    def slide_image(self):
+    def slide_image(self) -> "SlideImage":
         """Return the cached slide image instance associated with this dataset."""
         return _get_cached_slide_image(self.path, self._backend, **self._kwargs)
 
-    def __getitem__(self, index: Any) -> Any:
+    @overload
+    def __getitem__(self, index: int) -> TileSample:
+        ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[TileSample]:
+        ...
+
+    def __getitem__(self, index: Union[int, slice]) -> Union[TileSample, Sequence[TileSample]]:
+        if isinstance(index, slice):
+            # handle slicing
+            start, stop, step = index.indices(len(self))
+            return [self[i] for i in range(start, stop, step or 1)]
+
         slide_image = self.slide_image
 
         # If there's a mask, we consider the index as a sub-sequence index.
@@ -291,6 +309,7 @@ class SlideImageDatasetBase(Dataset[T_co]):
             "annotations": None,
         }
 
+        # TODO: This needs to move to TiledWsiDataset (v1.0)
         if self.annotations is not None:
             if not isinstance(self.annotations, WsiAnnotations):
                 raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
@@ -299,25 +318,18 @@ class SlideImageDatasetBase(Dataset[T_co]):
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
 
-        if self.__transform:
-            sample = self.__transform(sample)
         return sample
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Returns the length of the dataset.
 
         The length may vary depending on the provided boolean mask.
         """
         return len(self.regions) if self.masked_indices is None else len(self.masked_indices)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[TileSample]:
         for i in range(len(self)):
             yield self[i]
-
-
-class SlideImageDataset(SlideImageDatasetBase[TileSample]):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
 
 def _coords_to_region(tile_size, target_mpp, key, coords):
@@ -325,14 +337,14 @@ def _coords_to_region(tile_size, target_mpp, key, coords):
     return *coords, *tile_size, target_mpp
 
 
-class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSample]):
+class TiledWsiDataset(BaseWsiDataset):
     """Example dataset class that supports multiple ROIs.
 
     This dataset can be used, for example, to tile your WSI on-the-fly using the `from_standard_tiling` function.
 
     Examples
     --------
-    >>>  dlup_dataset = TiledROIsSlideImageDataset.from_standard_tiling(\
+    >>>  dlup_dataset = TiledWsiDataset.from_standard_tiling(\
             path='/path/to/TCGA-WSI.svs',\
             mpp=0.5,\
             tile_size=(512,512),\
@@ -358,12 +370,12 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         mask_threshold: float | None = 0.0,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
+        transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
         **kwargs: Any,
     ) -> None:
         self._grids = grids
-        regions: list[Sequence] = []
+        regions: list[Sequence[MapSequence[Callable[[Any], Any]]]] = []
         for grid, tile_size, mpp in grids:
             regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))
 
@@ -377,11 +389,10 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             mask_threshold=mask_threshold,
             annotations=annotations,
             labels=labels,
-            transform=None,
             backend=backend,
             **kwargs,
         )
-        self.__transform = transform
+        self._transform = transform
 
     @property
     def grids(self) -> list[tuple[Grid, tuple[int, int], float]]:
@@ -402,11 +413,11 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
         rois: list[ROIType] | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable[[TileSample], RegionFromSlideDatasetSample] | None = None,
+        transform: Callable[[TileSample], RegionFromWsiDatasetSample] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
         limit_bounds: bool = True,
         **kwargs: Any,
-    ) -> "TiledROIsSlideImageDataset":
+    ) -> "TiledWsiDataset":
         """Function to be used to tile a WSI on-the-fly.
         Parameters
         ----------
@@ -472,7 +483,9 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
                 offset, bounds = slide_image.slide_bounds
                 offset = (int(scaling * offset[0]), int(scaling * offset[1]))
                 size = int(bounds[0] * scaling), int(bounds[1] * scaling)
-                _rois = ((offset, size),)
+                _rois = [
+                    (offset, size),
+                ]
 
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling)
@@ -504,24 +517,58 @@ class TiledROIsSlideImageDataset(SlideImageDatasetBase[RegionFromSlideDatasetSam
             **kwargs,
         )
 
-    def __getitem__(self, index: Any) -> Any:
+    @overload
+    def __getitem__(self, index: int) -> RegionFromWsiDatasetSample:
+        ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list[RegionFromWsiDatasetSample]:
+        ...
+
+    def __getitem__(
+        self, index: Union[int, slice]
+    ) -> Union[RegionFromWsiDatasetSample, list[RegionFromWsiDatasetSample]]:
         region_data = super().__getitem__(index)
+
+        if isinstance(index, slice):
+            # Convince mypy.
+            if not isinstance(region_data, collections.abc.Sequence):
+                raise ValueError("Expected a sequence of TileSample.")
+            # We know that for slices, super().__getitem__ returns a sequence of TileSample
+            return [self._process_tile_sample(data) for data in region_data]
+
+        # We know that for int, super().__getitem__ returns a TileSample. Now we need to convince mypy.
+        if not isinstance(region_data, dict):
+            raise ValueError("Expected a TileSample.")
+        return self._process_tile_sample(region_data)
+
+    def _process_tile_sample(self, region_data: TileSample) -> RegionFromWsiDatasetSample:
         region_index = region_data["region_index"]
         starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
         grid_index = region_index - self._starting_indices[starting_index]
         grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
-        region_data["grid_local_coordinates"] = (grid_local_coordinates[0], grid_local_coordinates[1])
-        region_data["grid_index"] = starting_index
 
-        if self.__transform:
-            region_data = self.__transform(region_data)
+        output: RegionFromWsiDatasetSample = {
+            "image": region_data["image"],
+            "coordinates": region_data["coordinates"],
+            "mpp": region_data["mpp"],
+            "path": region_data["path"],
+            "region_index": region_data["region_index"],
+            "labels": region_data["labels"],
+            "annotations": region_data["annotations"],
+            "grid_local_coordinates": (int(grid_local_coordinates[0]), int(grid_local_coordinates[1])),
+            "grid_index": starting_index,
+        }
 
-        return region_data
+        if self._transform:
+            output = self._transform(output)
+
+        return output
 
 
-def parse_rois(rois: list[ROIType] | None, image_size: tuple[int, int], scaling: float = 1.0):
+def parse_rois(rois: list[ROIType] | None, image_size: tuple[int, int], scaling: float = 1.0) -> list[ROIType]:
     if rois is None:
-        return (((0, 0), image_size),)
+        return [((0, 0), image_size)]
     else:
         # Do some checks whether the ROIs are within the image
         origin_positive = [np.all(np.asarray(coords) > 0) for coords, size in rois]
@@ -537,3 +584,14 @@ def parse_rois(rois: list[ROIType] | None, image_size: tuple[int, int], scaling:
         _rois.append((_coords, _size))
 
     return _rois
+
+
+class TiledROIsSlideImageDataset(TiledWsiDataset):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        warnings.warn(
+            "`TiledROIsSlideImageDataset` is deprecated and will be removed in dlup v1.0. "
+            "Use `TiledWsiDataset` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
