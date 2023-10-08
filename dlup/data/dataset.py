@@ -68,7 +68,7 @@ class RegionFromWsiDatasetSample(TileSample):
     grid_index: int
 
 
-class Dataset(Generic[T_co], collections.abc.Sequence):
+class Dataset(Generic[T_co], collections.abc.Sequence[T_co]):
     """An abstract class representing a :class:`Dataset`.
 
     All datasets that represent a map from keys to data samples should subclass
@@ -115,7 +115,7 @@ class ConcatDataset(Dataset[T_co]):
     wsi_indices: dict[str, range]
 
     @staticmethod
-    def cumsum(sequence) -> list[int]:
+    def cumsum(sequence: list[Dataset[T_co]]) -> list[int]:
         out_sequence, total = [], 0
         for item in sequence:
             length = len(item)
@@ -123,7 +123,7 @@ class ConcatDataset(Dataset[T_co]):
             total += length
         return out_sequence
 
-    def __init__(self, datasets: Iterable[Dataset]) -> None:
+    def __init__(self, datasets: Iterable[Dataset[T_co]]) -> None:
         super().__init__()
         # Cannot verify that datasets is Sized
         assert len(datasets) > 0, "datasets should not be an empty iterable"  # type: ignore
@@ -133,7 +133,7 @@ class ConcatDataset(Dataset[T_co]):
                 raise ValueError("ConcatDataset requires datasets to be indexable.")
         self.cumulative_sizes = self.cumsum(self.datasets)
 
-    def index_to_dataset(self, idx: int) -> tuple[Dataset, int]:
+    def index_to_dataset(self, idx: int) -> tuple[Dataset[T_co], int]:
         """Returns the dataset and the index of the sample in the dataset.
 
         Parameters
@@ -197,14 +197,14 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
     def __init__(
         self,
         path: pathlib.Path,
-        regions: collections.abc.Sequence,
+        regions: collections.abc.Sequence[tuple[float, float, int, int, float]],
         crop: bool = False,
         mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Parameters
@@ -332,7 +332,9 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             yield self[i]
 
 
-def _coords_to_region(tile_size, target_mpp, key, coords):
+def _coords_to_region(
+    tile_size: tuple[int, int], target_mpp: float, key: str, coords: tuple[int, int]
+) -> tuple[int, int, int, int, float]:
     """Return the necessary tuple that represents a region."""
     return *coords, *tile_size, target_mpp
 
@@ -375,7 +377,7 @@ class TiledWsiDataset(BaseWsiDataset):
         **kwargs: Any,
     ) -> None:
         self._grids = grids
-        regions: list[Sequence[MapSequence[Callable[[Any], Any]]]] = []
+        regions: list[Sequence[tuple[float, float, int, int, float]]] = []
         for grid, tile_size, mpp in grids:
             regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))
 

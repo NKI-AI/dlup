@@ -111,7 +111,7 @@ def tiles_grid_coordinates(
 class Grid(collections.abc.Sequence):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: list[np.ndarray], order: str | GridOrder = GridOrder.F):
+    def __init__(self, coordinates: list[npt.NDArray[np.int_ | np.float_]], order: str | GridOrder = GridOrder.C):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
         self.order = order
@@ -128,7 +128,7 @@ class Grid(collections.abc.Sequence):
         tile_size: _GenericNumberArray,
         tile_overlap: _GenericNumberArray | _GenericNumber = 0,
         mode: TilingMode = TilingMode.skip,
-        order: GridOrder = GridOrder.F,
+        order: GridOrder = GridOrder.C,
     ):
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
