@@ -32,6 +32,8 @@ import skimage.segmentation
 from numpy import typing as npt
 from scipy import ndimage as ndi
 
+import dlup
+
 
 def _is_close(_seeds, _start) -> bool:
     """
