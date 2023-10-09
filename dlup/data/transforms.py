@@ -108,9 +108,9 @@ def convert_annotations(
             # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
             mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
 
-        # This is a hard to find bug, so better give an explicit error.
-        if not has_roi and roi_name is not None:
-            raise AnnotationError(f"ROI mask {roi_name} not found, please add a ROI mask to the annotations.")
+    # This is a hard to find bug, so better give an explicit error.
+    if not has_roi and roi_name is not None:
+        raise AnnotationError(f"ROI mask {roi_name} not found, please add a ROI mask to the annotations.")
 
     return dict(points), dict(boxes), mask, roi_mask if roi_name else None
 
