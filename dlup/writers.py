@@ -328,7 +328,11 @@ def _tile_iterator_from_page(
         region_end = coordinates + resized_tile_size
         size = np.clip(region_end, 0, region_size) - coordinates
 
-        tile = get_tile(page, coordinates[::-1], size[::-1])[0]
+        # For mypy
+        _coordinates = coordinates[::-1]
+        _size = size[::-1]
+
+        tile = get_tile(page, (_coordinates[0], _coordinates[1]), (_size[0], _size[1]))[0]
         vips_tile = numpy_to_vips(tile).resize(1 / scale, kernel=INTERPOLATOR_TO_VIPS[interpolator.value])
         output = vips_to_numpy(vips_tile)
         if not is_rgb:

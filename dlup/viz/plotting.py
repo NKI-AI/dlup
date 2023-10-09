@@ -14,10 +14,10 @@ from dlup.annotations import Point, Polygon
 def plot_2d(
     image: PIL.Image.Image,
     mask: npt.NDArray[np.int_] | None = None,
-    mask_colors=None,
+    mask_colors: dict[int, str] | None = None,
     mask_alpha: int = 70,
-    geometries=None,
-    geometries_color_map=None,
+    geometries: list[Polygon | Point] | None = None,
+    geometries_color_map: dict[str, str] | None = None,
 ) -> PIL.Image.Image:
     """
     Plotting utility to overlay masks and geometries (Points, Polygons) on top of the image.
@@ -43,6 +43,8 @@ def plot_2d(
     image = image.convert("RGBA")
 
     if mask is not None:
+        if mask_colors is None:
+            raise ValueError("mask_colors must be defined if mask is defined.")
         # Get unique values
         unique_vals = sorted(list(np.unique(mask)))
         for idx in unique_vals:
@@ -57,6 +59,9 @@ def plot_2d(
             image = PIL.Image.alpha_composite(image.copy(), curr_mask.copy()).copy()
 
     if geometries is not None:
+        if geometries_color_map is None:
+            raise ValueError("geometries_color_map must be defined if geometries is defined.")
+
         draw = PIL.ImageDraw.Draw(image)
         for data in geometries:
             if isinstance(data, Point):
