@@ -1,17 +1,18 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, Sequence, Union
+from typing import Iterator, Literal, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
 
+from dlup.types import GenericNumberArray
+
 _GenericNumber = Union[int, float]
-_GenericNumberArray = Union[npt.NDArray, Sequence[_GenericNumber]]
+_GenericNumberArray = Union[npt.NDArray[np.int_ | np.float_], Sequence[_GenericNumber]]
 
 
 class TilingMode(str, Enum):
@@ -36,12 +37,12 @@ class GridOrder(str, Enum):
     F = "F"
 
 
-def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> np.ndarray:
+def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> npt.NDArray[np.float_ | np.int_]:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
 
 
-def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing="ij") -> np.ndarray:
+def indexed_ndmesh(bases: Sequence[_GenericNumberArray], indexing: Literal["xy", "ij"] = "ij") -> npt.NDArray[np.int_]:
     """Converts a list of arrays into an n-dimensional indexed mesh.
 
     Examples
@@ -62,7 +63,7 @@ def tiles_grid_coordinates(
     tile_size: _GenericNumberArray,
     tile_overlap: _GenericNumberArray | _GenericNumber = 0,
     mode: TilingMode = TilingMode.skip,
-) -> list[np.ndarray]:
+) -> list[npt.NDArray[np.int_ | np.float_]]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
     The first tile has the corner located at (0, 0).
@@ -99,7 +100,7 @@ def tiles_grid_coordinates(
         overflow = tiled_size - size
 
     # Let's create our indices list
-    coordinates: list[npt.NDArray[np.float_]] = []
+    coordinates: list[npt.NDArray[np.int_ | np.float_]] = []
     for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
         coordinates.append(tiles_locations)
@@ -110,7 +111,7 @@ def tiles_grid_coordinates(
 class Grid(collections.abc.Sequence):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: list[np.ndarray], order: str | GridOrder = GridOrder.F):
+    def __init__(self, coordinates: list[npt.NDArray[np.int_ | np.float_]], order: str | GridOrder = GridOrder.C):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
         self.order = order
@@ -127,8 +128,8 @@ class Grid(collections.abc.Sequence):
         tile_size: _GenericNumberArray,
         tile_overlap: _GenericNumberArray | _GenericNumber = 0,
         mode: TilingMode = TilingMode.skip,
-        order: GridOrder = GridOrder.F,
-    ):
+        order: GridOrder = GridOrder.C,
+    ) -> "Grid":
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
         coordinates = [c + o for c, o in zip(coordinates, offset)]
@@ -140,7 +141,12 @@ class Grid(collections.abc.Sequence):
         return tuple(len(x) for x in self.coordinates)
 
     def __getitem__(self, key):
-        order = "F" if self.order.value == "C" else "C"
+        if isinstance(self.order, str):
+            _order = GridOrder[self.order]
+        else:
+            _order = self.order
+
+        order = "F" if _order.value == "C" else "C"
         index = np.unravel_index(key, self.size, order=order)
         return np.array([c[i] for c, i in zip(self.coordinates, index)])
 
@@ -148,7 +154,7 @@ class Grid(collections.abc.Sequence):
         """Return the total number of points in the grid."""
         return functools.reduce(lambda value, size: value * size, self.size, 1)
 
-    def __iter__(self) -> Iterator[np.ndarray]:
+    def __iter__(self) -> Iterator[npt.NDArray[np.int_]]:
         """Iterate through every tile."""
         for i in range(len(self)):
             yield self[i]

@@ -33,9 +33,6 @@ use_parentheses = true
 ensure_newline_before_comments = true
 line_length = 119
 
-[tool.pylint.messages_control]
-disable = "C0330, C0326"
-
 [tool.pylint.format]
 max-line-length = "120"
 

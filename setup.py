@@ -27,7 +27,7 @@ install_requires = [
     "tqdm",
     "pillow>=9.2.0",
     "openslide-python",
-    "opencv-python>=4.6.0",
+    "opencv-python>=4.8.1.78",
     "shapely>=2.0.0",
 ]
 

@@ -1,20 +1,13 @@
 # Copyright (c) dlup contributors
 import json
 import warnings
+from typing import Any
 
 import numpy as np
 
-from dlup.utils.imports import PYTORCH_AVAILABLE
-
-if PYTORCH_AVAILABLE:
-    import torch  # type: ignore # pylint: disable=import-error
-
 
 class ArrayEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if PYTORCH_AVAILABLE and isinstance(obj, torch.Tensor):  # type: ignore
-            obj = obj.numpy()
-
+    def default(self, obj: Any) -> Any:
         if isinstance(obj, np.ndarray):
             if obj.size > 10e4:
                 warnings.warn(

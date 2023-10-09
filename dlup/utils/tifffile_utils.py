@@ -2,6 +2,7 @@
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import tifffile
 
 
@@ -58,7 +59,7 @@ def retrieve_tile_data(page, tile_y0, tile_y1, tile_x0, tile_x1):
     return tiles_data
 
 
-def _get_tile_from_data(page, tiles_data, coordinates, size):
+def _get_tile_from_data(page, tiles_data, coordinates, size) -> npt.NDArray[np.int_]:
     x0, y0 = coordinates
     w, h = size
     tile_width, tile_height = page.tilewidth, page.tilelength
@@ -68,6 +69,9 @@ def _get_tile_from_data(page, tiles_data, coordinates, size):
         (page.imagedepth, h, w, page.samplesperpixel),
         dtype=page.dtype,
     )
+
+    if not tiles_data:
+        return out
 
     for (idx_y, idx_x), tile in tiles_data:
         image_y = (idx_y - tile_y0) * tile_height
@@ -103,7 +107,11 @@ def _retrieve_tile_data(page, tile_y0, tile_y1, tile_x0, tile_x1):
     return tiles_data
 
 
-def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[Any, ...]) -> np.ndarray:
+def get_tile(
+    page: tifffile.TiffPage,
+    coordinates: npt.NDArray[np.int_] | tuple[int, int],
+    size: npt.NDArray[np.int_] | tuple[int, int],
+) -> npt.NDArray[np.int_]:
     """Extract a crop from a TIFF image file directory (IFD).
 
     Only the tiles englobing the crop area are loaded and not the whole page.

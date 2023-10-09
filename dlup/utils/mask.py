@@ -1,28 +1,29 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 """Utilities to work with binary masks"""
 from functools import partial
 from multiprocessing import Pool
+from typing import Sequence
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import shapely
 import shapely.affinity
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 from tqdm import tqdm
 
-from dlup.data.dataset import TiledROIsSlideImageDataset
+from dlup.data.dataset import TiledWsiDataset
 
 
 def _DFS(
-    polygons,
-    contours,
-    hierarchy,
-    sibling_id,
-    is_outer,
-    siblings,
-    offset: tuple[int, int] = (0, 0),
+    polygons: list[Polygon],
+    contours: Sequence[npt.NDArray[np.int_]],
+    hierarchy: npt.NDArray[np.int_],
+    sibling_id: int,
+    is_outer: bool,
+    siblings: list[npt.NDArray[np.int_]] | None,
+    offset: tuple[int | float, int | float] = (0, 0),
     scaling: float = 1.0,
 ) -> None:
     # Adapted FROM: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
@@ -30,7 +31,7 @@ def _DFS(
         contour = contours[sibling_id].squeeze(axis=1)
         if len(contour) >= 3:
             first_child_id = hierarchy[sibling_id][2]
-            children: list | None = [] if is_outer else None
+            children: list[npt.NDArray[np.int_]] | None = [] if is_outer else None
             _DFS(polygons, contours, hierarchy, first_child_id, not is_outer, children)
 
             if is_outer:
@@ -48,12 +49,15 @@ def _DFS(
 
                 polygons.append(polygon)
             else:
+                assert siblings is not None  # This is for mypy
                 siblings.append(contour)
 
         sibling_id = hierarchy[sibling_id][0]
 
 
-def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling: float = 1.0) -> list[Polygon]:
+def mask_to_polygons(
+    mask: npt.NDArray[np.int_], offset: tuple[int | float, int | float] = (0, 0), scaling: float = 1.0
+) -> list[Polygon]:
     # Adapted From: https://gist.github.com/stefano-malacrino/7d429e5d12854b9e51b187170e812fa4
 
     """Generates a list of Shapely polygons from the contours hierarchy returned by cv2.find_contours().
@@ -82,8 +86,10 @@ def mask_to_polygons(mask: np.ndarray, offset: tuple[int, int] = (0, 0), scaling
     return polygons
 
 
-def _get_sample(index, dataset, index_map, scaling):
-    output = {}
+def _get_sample(
+    index: int, dataset: TiledWsiDataset, index_map: dict[int, str], scaling: float
+) -> dict[str, list[Polygon]]:
+    output: dict[str, list[Polygon]] = {}
     sample = dataset[index]
     _mask = np.asarray(sample["image"])
     for index in index_map:
@@ -96,7 +102,7 @@ def _get_sample(index, dataset, index_map, scaling):
 
 # TODO: show_progress should be a function that can be e.g. `tqdm.tqdm`
 def dataset_to_polygon(
-    dataset: TiledROIsSlideImageDataset,
+    dataset: TiledWsiDataset,
     index_map: dict[int, str],
     num_workers: int = 0,
     scaling: float = 1.0,

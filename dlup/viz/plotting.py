@@ -1,8 +1,8 @@
-# coding=utf-8
 # Copyright (c) dlup Contributors
 from __future__ import annotations
 
 import numpy as np
+import numpy.typing as npt
 import PIL
 import PIL.Image
 import PIL.ImageColor
@@ -13,9 +13,9 @@ from dlup.annotations import Point, Polygon
 
 def plot_2d(
     image: PIL.Image.Image,
-    mask: np.ndarray | None = None,
+    mask: npt.NDArray[np.int_] | None = None,
     mask_colors=None,
-    mask_alpha=70,
+    mask_alpha: int = 70,
     geometries=None,
     geometries_color_map=None,
 ) -> PIL.Image.Image:

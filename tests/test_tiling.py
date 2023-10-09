@@ -84,10 +84,11 @@ class TestTiling:
 
     def test_grid(self):
         """Test Grid basic api."""
-        grid = Grid([np.array((0, 1)), np.array((2, 3, 4))])
+        grid = Grid([np.array((0, 1)), np.array((2, 3, 4))], order="F")
 
         assert grid.size == (2, 3)
         assert len(grid) == 6
+
         # First row, first column
         assert (grid[0] == (0, 2)).all()
         # First row, second column

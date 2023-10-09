@@ -8,9 +8,10 @@ import pathlib
 import shutil
 import tempfile
 from enum import Enum
-from typing import Iterator
+from typing import Any, Generator, Iterator
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 from pyvips.enums import Kernel
 from tifffile import tifffile
@@ -152,7 +153,7 @@ class TifffileImageWriter(ImageWriter):
         iterator = _tiles_iterator_from_pil_image(pil_image, self._tile_size)
         self.from_tiles_iterator(iterator)
 
-    def from_tiles_iterator(self, iterator: Iterator[np.ndarray]) -> None:
+    def from_tiles_iterator(self, iterator: Iterator[npt.NDArray[np.int_]]) -> None:
         """
         Generate the tiff from a tiles iterator. The tiles should be in row-major (C-order) order.
         The `dlup.tiling.Grid` class has the possibility to generate such grids using `GridOrder.C`.
@@ -232,13 +233,13 @@ class TifffileImageWriter(ImageWriter):
     def _write_page(
         self,
         tiff_writer: tifffile.TiffWriter,
-        tile_iterator: Iterator,
+        tile_iterator: Iterator[npt.NDArray[np.int_]],
         level: int,
         compression: str | None,
         shapes: list[tuple[int, int]],
         is_rgb: bool,
-        **options,
-    ):
+        **options: Any,
+    ) -> None:
         native_resolution = 1 / np.array(self._mpp) * 10000
         tiff_writer.write(
             tile_iterator,  # noqa
@@ -252,9 +253,11 @@ class TifffileImageWriter(ImageWriter):
         )
 
 
-def _tiles_iterator_from_pil_image(pil_image: PIL.Image.Image, tile_size: tuple[int, int]):
+def _tiles_iterator_from_pil_image(
+    pil_image: PIL.Image.Image, tile_size: tuple[int, int]
+) -> Generator[npt.NDArray[np.int_], None, None]:
     """
-    Given a PIL image return a a tile-iterator.
+    Given a PIL image return a tile-iterator.
 
     Parameters
     ----------
@@ -290,7 +293,7 @@ def _tile_iterator_from_page(
     scale: int,
     is_rgb: bool = True,
     interpolator: Resampling = Resampling.NEAREST,
-):
+) -> Generator[npt.NDArray[np.int_], None, None]:
     """
     Create an iterator from a tiff page. Useful when writing a pyramidal tiff where the previous page is read to write
     the new page. Each tile will be the downsampled version from the previous version.

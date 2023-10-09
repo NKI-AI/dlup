@@ -2,7 +2,7 @@
 """CLI utilities to handle masks"""
 import argparse
 import json
-from typing import cast
+from typing import Any, cast
 
 import shapely
 
@@ -16,13 +16,13 @@ from dlup.annotations import (
     WsiAnnotations,
 )
 from dlup.cli import file_path
-from dlup.data.dataset import TiledROIsSlideImageDataset
-from dlup.experimental_backends import ImageBackend
+from dlup.data.dataset import TiledWsiDataset
+from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import TilingMode
 from dlup.utils.mask import dataset_to_polygon
 
 
-def mask_to_polygon(args: argparse.Namespace):
+def mask_to_polygon(args: argparse.Namespace) -> None:
     """Perform the mask conversion to polygon."""
     mask_filename = args.MASK_FILENAME
     output_filename = args.OUTPUT_FN
@@ -32,14 +32,14 @@ def mask_to_polygon(args: argparse.Namespace):
     # Prepare output directory.
     output_filename.parent.mkdir(parents=True, exist_ok=True)
 
-    dataset = TiledROIsSlideImageDataset.from_standard_tiling(
+    dataset = TiledWsiDataset.from_standard_tiling(
         mask_filename,
         tile_size=tile_size,
         tile_overlap=tile_overlap,
         mpp=None,
         tile_mode=TilingMode.overflow,
         crop=False,
-        backend=ImageBackend.TIFFFILE,
+        backend=ImageBackend.PYVIPS,
         interpolator=Resampling.NEAREST,
     )
     target_mpp = args.mpp
@@ -73,14 +73,14 @@ def mask_to_polygon(args: argparse.Namespace):
 
         a_cls = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
-            coordinates = [Polygon(coords, a_cls=a_cls) for coords in polygons[label].geoms if not coords.is_empty]
+            annotations = [Polygon(coords, a_cls=a_cls) for coords in polygons[label].geoms if not coords.is_empty]
         else:
-            coordinates = [Polygon(polygons[label], a_cls=a_cls)]
+            annotations = [Polygon(polygons[label], a_cls=a_cls)]
 
         wsi_annotations.append(
             SingleAnnotationWrapper(
                 a_cls=a_cls,
-                coordinates=coordinates,
+                annotation=annotations,
             )
         )
 
@@ -104,7 +104,7 @@ def mask_to_polygon(args: argparse.Namespace):
                 json.dump(json_dict, f, indent=2)
 
 
-def register_parser(parser: argparse._SubParsersAction):
+def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore
     """Register mask commands to a root parser."""
     wsi_parser = parser.add_parser("mask", help="WSI mask parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI mask subparser")
