@@ -27,4 +27,4 @@ jobs:
         python -m pip install darwin-py
     - name: mypy
       run: |
-        mypy dlup
+        mypy dlup --strict

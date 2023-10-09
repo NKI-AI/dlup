@@ -377,9 +377,10 @@ class TiledWsiDataset(BaseWsiDataset):
         **kwargs: Any,
     ) -> None:
         self._grids = grids
+        # TODO (v1): MapSequence does not support Grid as input.
         regions: list[Sequence[tuple[float, float, int, int, float]]] = []
         for grid, tile_size, mpp in grids:
-            regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))
+            regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))  # type: ignore
 
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import collections
 import functools
 from enum import Enum
-from typing import Iterator, Literal, Sequence, Union
+from typing import Iterator, Literal, Sequence, Union, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -108,7 +108,7 @@ def tiles_grid_coordinates(
     return coordinates
 
 
-class Grid(collections.abc.Sequence):
+class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
     def __init__(self, coordinates: list[npt.NDArray[np.int_ | np.float_]], order: str | GridOrder = GridOrder.C):
@@ -136,25 +136,39 @@ class Grid(collections.abc.Sequence):
         return cls(coordinates, order=order)
 
     @property
-    def size(self) -> tuple[int, ...]:
+    def size(self) -> tuple[int, int]:
         """Return the size of the generated lattice."""
-        return tuple(len(x) for x in self.coordinates)
+        return len(self.coordinates[0]), len(self.coordinates[1])
 
-    def __getitem__(self, key):
+    @overload
+    def __getitem__(self, key: int) -> npt.NDArray[np.int_ | np.float_]:
+        ...
+
+    @overload
+    def __getitem__(self, key: slice) -> list[npt.NDArray[np.int_ | np.float_]]:
+        ...
+
+    def __getitem__(
+        self, key: Union[int, slice]
+    ) -> npt.NDArray[np.int_ | np.float_] | list[npt.NDArray[np.int_ | np.float_]]:
+        if isinstance(key, slice):
+            start, stop, step = key.indices(len(self))
+            return [self[i] for i in range(start, stop, step or 1)]
+
         if isinstance(self.order, str):
             _order = GridOrder[self.order]
         else:
             _order = self.order
 
-        order = "F" if _order.value == "C" else "C"
-        index = np.unravel_index(key, self.size, order=order)
+        order_literal: Literal["C", "F"] = "F" if _order == GridOrder.C else "C"
+        index = np.unravel_index(key, self.size, order=order_literal)
         return np.array([c[i] for c, i in zip(self.coordinates, index)])
 
     def __len__(self) -> int:
         """Return the total number of points in the grid."""
         return functools.reduce(lambda value, size: value * size, self.size, 1)
 
-    def __iter__(self) -> Iterator[npt.NDArray[np.int_]]:
+    def __iter__(self) -> Iterator[npt.NDArray[np.int_ | np.float_]]:
         """Iterate through every tile."""
         for i in range(len(self)):
             yield self[i]

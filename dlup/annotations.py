@@ -220,7 +220,7 @@ def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> 
         raise NotImplementedError(f"Not support geom_type {geom_type}")
 
 
-_POSTPROCESSORS = {
+_POSTPROCESSORS: dict[AnnotationType, Callable[[Polygon | Point, Polygon], Polygon | Point]] = {
     AnnotationType.POINT: lambda x, region: x,
     AnnotationType.BOX: lambda x, region: x.intersection(region),
     AnnotationType.POLYGON: lambda x, region: x.intersection(region),
@@ -605,9 +605,9 @@ class WsiAnnotations:
         import pyhaloxml.shapely
 
         output = defaultdict(list)
-        with pyhaloxml.HaloXMLFile(halo_xml) as hx:
+        with pyhaloxml.HaloXMLFile(halo_xml) as hx:  # type: ignore
             for layer in hx.layers:
-                shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)
+                shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)  # type: ignore
                 _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POLYGON)
                 for shapely_polygon in shapely_multipolygon.geoms:
                     curr_polygon = rescale_geometry(Polygon(shapely_polygon, a_cls=_cls), scaling=scaling)
@@ -916,7 +916,7 @@ class _ComplexDarwinPolygonWrapper:
         self.holes: list[float] = []
 
 
-def _parse_darwin_complex_polygon(annotation) -> shapely.geometry.MultiPolygon:
+def _parse_darwin_complex_polygon(annotation: dict[str, Any]) -> shapely.geometry.MultiPolygon:
     """
     Parse a complex polygon (i.e. polygon with holes) from a Darwin annotation.
 
