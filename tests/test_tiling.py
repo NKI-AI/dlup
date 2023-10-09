@@ -82,14 +82,20 @@ class TestTiling:
         assert (mesh[0, 1, 0] == (1, 5, 7)).all()
         assert (mesh[2, 1, 1] == (3, 5, 8)).all()
 
-    def test_grid(self):
+    @pytest.mark.parametrize("order", ["F", "C"])
+    def test_grid(self, order):
         """Test Grid basic api."""
-        grid = Grid([np.array((0, 1)), np.array((2, 3, 4))], order="F")
+        grid = Grid([np.array((0, 1)), np.array((2, 3, 4))], order=order)
 
         assert grid.size == (2, 3)
         assert len(grid) == 6
 
         # First row, first column
         assert (grid[0] == (0, 2)).all()
-        # First row, second column
-        assert (grid[1] == (0, 3)).all()
+
+        if order == "F":
+            # First row, second column
+            assert (grid[1] == (0, 3)).all()
+        else:
+            # In C order we need to look at the third element
+            assert (grid[2] == (0, 3)).all()
