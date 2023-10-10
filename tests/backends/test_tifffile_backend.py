@@ -31,7 +31,7 @@ def mock_tifffile_slide():
 
             # Halve the values for the next iteration
             size //= 2
-            x_res_value = (res_value[0], res_value[1] * 2)  # To halve the resolution
+            # x_res_value = (res_value[0], res_value[1] * 2)  # To halve the resolution
 
         instance = MockTiffFile.return_value
         instance.pages = mock_pages

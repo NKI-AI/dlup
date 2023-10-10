@@ -9,8 +9,6 @@ from typing import Iterator, Literal, Sequence, Union, overload
 import numpy as np
 import numpy.typing as npt
 
-from dlup.types import GenericNumberArray
-
 _GenericNumber = Union[int, float]
 _GenericNumberArray = Union[npt.NDArray[np.int_ | np.float_], Sequence[_GenericNumber]]
 

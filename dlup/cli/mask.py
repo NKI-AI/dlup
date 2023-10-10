@@ -2,7 +2,7 @@
 """CLI utilities to handle masks"""
 import argparse
 import json
-from typing import Any, cast
+from typing import cast
 
 import shapely
 
