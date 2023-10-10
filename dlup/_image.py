@@ -124,7 +124,7 @@ class SlideImage:
             )
 
         check_if_mpp_is_valid(*self._wsi.spacing)
-        self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
+        # self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
 
     def close(self) -> None:
         """Close the underlying image."""
@@ -291,13 +291,13 @@ class SlideImage:
 
     def get_mpp(self, scaling: float) -> float:
         """Returns the respective mpp from the scaling."""
-        return self._avg_native_mpp / scaling
+        return self._wsi.spacing[0] / scaling
 
     def get_scaling(self, mpp: float | None) -> float:
         """Inverse of get_mpp()."""
         if not mpp:
             return 1.0
-        return self._avg_native_mpp / mpp
+        return self._wsi.spacing[0] / mpp
 
     def get_scaled_view(self, scaling: GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""
@@ -346,7 +346,7 @@ class SlideImage:
     @property
     def mpp(self) -> float:
         """Returns the microns per pixel of the high res image."""
-        return self._avg_native_mpp
+        return self._wsi.spacing[0]
 
     @property
     def magnification(self) -> float | None:
