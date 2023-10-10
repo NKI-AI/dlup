@@ -568,6 +568,10 @@ class TiledWsiDataset(BaseWsiDataset):
 
         return output
 
+    def __iter__(self) -> Iterator[RegionFromWsiDatasetSample]:
+        for i in range(len(self)):
+            yield self[i]
+
 
 def parse_rois(rois: list[ROIType] | None, image_size: tuple[int, int], scaling: float = 1.0) -> list[ROIType]:
     if rois is None:

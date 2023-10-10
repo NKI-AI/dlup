@@ -91,11 +91,11 @@ class TestTiling:
         assert len(grid) == 6
 
         # First row, first column
-        assert (grid[0] == (0, 2)).all()
+        assert (grid[0] == (0, 2)).all()  # pylint: disable=no-member
 
         if order == "F":
             # First row, second column
-            assert (grid[1] == (0, 3)).all()
+            assert (grid[1] == (0, 3)).all()  # pylint: disable=no-member
         else:
             # In C order we need to look at the third element
-            assert (grid[2] == (0, 3)).all()
+            assert (grid[2] == (0, 3)).all()  # pylint: disable=no-member

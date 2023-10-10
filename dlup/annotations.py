@@ -671,8 +671,8 @@ class WsiAnnotations:
 
         # Now we can make SingleAnnotationWrapper annotations
         output = []
-        for an_cls, annotations in all_annotations.items():
-            output.append(SingleAnnotationWrapper(a_cls=an_cls, annotation=annotations))
+        for an_cls, _annotation in all_annotations.items():
+            output.append(SingleAnnotationWrapper(a_cls=an_cls, annotation=_annotation))
         return cls(output, sorting=AnnotationSorting.NONE)
 
     def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
