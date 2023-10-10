@@ -22,12 +22,12 @@ install_requires = [
     "numpy>=1.21",
     "scikit-image>=0.19",
     "tifftools",
-    "tifffile>=2023.8.12",
+    "tifffile>=2022.8.12",
     "pyvips>=2.2.1",
     "tqdm",
     "pillow>=9.2.0",
     "openslide-python",
-    "opencv-python>=4.8.1.78",
+    "opencv-python>=4.8.0.74",
     "shapely>=2.0.0",
 ]
 
