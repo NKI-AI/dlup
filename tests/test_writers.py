@@ -35,7 +35,10 @@ def test_tiff_writer(shape, target_mpp):
 
     with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
         writer = TifffileImageWriter(
-            temp_tiff.name, size=size, mpp=(target_mpp, target_mpp), compression=TiffCompression.NONE
+            temp_tiff.name,
+            size=size,
+            mpp=(target_mpp, target_mpp),
+            compression=TiffCompression.NONE,
         )
 
         writer.from_pil(pil_image)

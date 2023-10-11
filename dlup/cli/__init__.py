@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 """DLUP Command-line interface. This is the file which builds the main parser."""
 import argparse
@@ -21,7 +20,7 @@ def dir_path(path: str) -> pathlib.Path:
     raise argparse.ArgumentTypeError(f"{path} is not a valid directory.")
 
 
-def file_path(path: str, need_exists=True) -> pathlib.Path:
+def file_path(path: str, need_exists: bool = True) -> pathlib.Path:
     """Check if the path is a valid file.
     Parameters
     ----------
@@ -41,7 +40,7 @@ def file_path(path: str, need_exists=True) -> pathlib.Path:
     return _path
 
 
-def main():
+def main() -> None:
     """
     Console script for dlup.
     """

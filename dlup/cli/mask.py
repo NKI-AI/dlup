@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 """CLI utilities to handle masks"""
 import argparse
@@ -8,15 +7,22 @@ from typing import cast
 import shapely
 
 from dlup._image import Resampling
-from dlup.annotations import AnnotationType, GeoJsonDict, Polygon, WsiAnnotations, WsiSingleLabelAnnotation
+from dlup.annotations import (
+    AnnotationClass,
+    AnnotationType,
+    GeoJsonDict,
+    Polygon,
+    SingleAnnotationWrapper,
+    WsiAnnotations,
+)
 from dlup.cli import file_path
-from dlup.data.dataset import TiledROIsSlideImageDataset
-from dlup.experimental_backends import ImageBackend
+from dlup.data.dataset import TiledWsiDataset
+from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import TilingMode
 from dlup.utils.mask import dataset_to_polygon
 
 
-def mask_to_polygon(args: argparse.Namespace):
+def mask_to_polygon(args: argparse.Namespace) -> None:
     """Perform the mask conversion to polygon."""
     mask_filename = args.MASK_FILENAME
     output_filename = args.OUTPUT_FN
@@ -26,14 +32,14 @@ def mask_to_polygon(args: argparse.Namespace):
     # Prepare output directory.
     output_filename.parent.mkdir(parents=True, exist_ok=True)
 
-    dataset = TiledROIsSlideImageDataset.from_standard_tiling(
+    dataset = TiledWsiDataset.from_standard_tiling(
         mask_filename,
         tile_size=tile_size,
         tile_overlap=tile_overlap,
         mpp=None,
         tile_mode=TilingMode.overflow,
         crop=False,
-        backend=ImageBackend.TIFFFILE,
+        backend=ImageBackend.PYVIPS,
         interpolator=Resampling.NEAREST,
     )
     target_mpp = args.mpp
@@ -50,13 +56,13 @@ def mask_to_polygon(args: argparse.Namespace):
         for pair in args.labels.split(","):
             name, index = pair.split("=")
             if not index.isnumeric():
-                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
+                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
             index = float(index)
             if not index.is_integer():
-                raise argparse.ArgumentTypeError(f"Expected a key-pair of the form 1=tumor,2=stroma")
+                raise argparse.ArgumentTypeError("Expected a key-pair of the form 1=tumor,2=stroma")
             index = int(index)
             if index == 0:
-                raise argparse.ArgumentTypeError(f"0 is not a proper index. Needs to be at least 1.")
+                raise argparse.ArgumentTypeError("0 is not a proper index. Needs to be at least 1.")
             index_map[index] = name.strip()
 
     polygons = dataset_to_polygon(dataset, index_map=index_map, num_workers=args.num_workers, scaling=scaling)
@@ -65,16 +71,16 @@ def mask_to_polygon(args: argparse.Namespace):
         if polygons[label].is_empty:
             continue
 
+        a_cls = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
-            coordinates = [Polygon(coords, label=label) for coords in polygons[label].geoms if not coords.is_empty]
+            annotations = [Polygon(coords, a_cls=a_cls) for coords in polygons[label].geoms if not coords.is_empty]
         else:
-            coordinates = [Polygon(polygons[label], label=label)]
+            annotations = [Polygon(polygons[label], a_cls=a_cls)]
 
         wsi_annotations.append(
-            WsiSingleLabelAnnotation(
-                label=label,
-                type=AnnotationType.POLYGON,
-                coordinates=coordinates,
+            SingleAnnotationWrapper(
+                a_cls=a_cls,
+                annotation=annotations,
             )
         )
 
@@ -87,7 +93,7 @@ def mask_to_polygon(args: argparse.Namespace):
             json.dump(slide_annotations.as_geojson(split_per_label=False), f, indent=2)
     else:
         jsons = slide_annotations.as_geojson(split_per_label=True)
-        if not type(jsons) == list[tuple[str, GeoJsonDict]]:
+        if not type(jsons) == list[tuple[str, GeoJsonDict]]:  # noqa
             raise ValueError("Expected a list of tuples")
         for label, json_dict in jsons:
             suffix = output_filename.suffix
@@ -98,7 +104,7 @@ def mask_to_polygon(args: argparse.Namespace):
                 json.dump(json_dict, f, indent=2)
 
 
-def register_parser(parser: argparse._SubParsersAction):
+def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore
     """Register mask commands to a root parser."""
     wsi_parser = parser.add_parser("mask", help="WSI mask parser")
     wsi_subparsers = wsi_parser.add_subparsers(help="WSI mask subparser")

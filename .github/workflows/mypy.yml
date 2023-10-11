@@ -24,6 +24,7 @@ jobs:
         python -m pip install mypy
         python -m pip install -e ".[dev]"
         python -m pip install pyhaloxml
+        python -m pip install darwin-py
     - name: mypy
       run: |
-        mypy dlup
+        mypy dlup --strict

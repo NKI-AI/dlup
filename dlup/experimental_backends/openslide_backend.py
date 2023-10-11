@@ -1,4 +1,4 @@
-# coding=utf-8
+# type: ignore
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import numpy as np
 import openslide
 import PIL.Image
 
-from dlup.experimental_backends.common import AbstractSlideBackend
+from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
@@ -56,7 +56,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
     @spacing.setter
     def spacing(self, value: tuple[float, float]) -> None:
         if not isinstance(value, tuple) and len(value) != 2:
-            raise ValueError(f"`.spacing` has to be of the form (mpp_x, mpp_y).")
+            raise ValueError("`.spacing` has to be of the form (mpp_x, mpp_y).")
 
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)
@@ -74,7 +74,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
     @property
     def vendor(self) -> str:
         """Returns the scanner vendor."""
-        return self.properties.properties[openslide.PROPERTY_NAME_VENDOR]
+        return self.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
 
     @property
     def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:

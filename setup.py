@@ -22,12 +22,12 @@ install_requires = [
     "numpy>=1.21",
     "scikit-image>=0.19",
     "tifftools",
-    "tifffile>=2022.5.4",
+    "tifffile>=2023.8.12",
     "pyvips>=2.2.1",
     "tqdm",
     "pillow>=9.2.0",
     "openslide-python",
-    "opencv-python>=4.6.0",
+    "opencv-python>=4.8.1.78",
     "shapely>=2.0.0",
 ]
 
@@ -55,13 +55,14 @@ setup(
     extras_require={
         "dev": [
             "pytest",
+            "mypy>=1.4.1",
             "pytest-mock",
             "sphinx_copybutton",
             "numpydoc",
             "myst_parser",
             "sphinx-book-theme",
             "pylint",
-            "pydantic",
+            "pydantic>=2.1.1",
             "types-requests",
         ],
     },

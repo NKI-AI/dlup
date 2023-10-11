@@ -1,4 +1,4 @@
-# coding=utf-8
+# type: ignore
 # Copyright (c) dlup contributors
 """Experimental dataset functions, might e.g. lack tests, or requires input from users"""
 from __future__ import annotations
@@ -7,19 +7,21 @@ import pathlib
 from typing import Callable
 
 import numpy as np
+import numpy.typing as npt
 
 from dlup import SlideImage
 from dlup.annotations import WsiAnnotations
-from dlup.data.dataset import ROIType, TiledROIsSlideImageDataset, parse_rois
+from dlup.data.dataset import MaskTypes, RegionFromWsiDatasetSample, TiledWsiDataset, parse_rois
 from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
+from dlup.types import ROIType
 
 _BaseAnnotationTypes = SlideImage | WsiAnnotations
 _AnnotationTypes = list[tuple[str, _BaseAnnotationTypes]] | _BaseAnnotationTypes
 _LabelTypes = str | bool | int | float
 
 
-class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
+class MultiScaleSlideImageDataset(TiledWsiDataset):
     """Dataset class that supports multiscale output, and can have multiple ROIs.
 
     This dataset can be used, for example, to tile your WSI on-the-fly using the `multiscale_from_tiling` function.
@@ -52,17 +54,17 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         grids: list[tuple[Grid, tuple[int, int], float]],
         num_scales: int,
         crop: bool = True,
-        mask: SlideImage | np.ndarray | WsiAnnotations | None = None,
+        mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
     ):
         self._grids = grids
         self._num_scales = num_scales
         if len(list(grids)) % num_scales != 0:
-            raise ValueError(f"In a multiscale dataset the grids needs to be divisible by the number of scales.")
+            raise ValueError("In a multiscale dataset the grids needs to be divisible by the number of scales.")
 
         self._step_size = len(list(grids)[0][0])
         self._index_ranges = [
@@ -94,14 +96,14 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
-        mask: np.ndarray | None = None,
+        mask: npt.NDArray[np.int_] | None = None,
         mask_threshold: float | None = 0.0,
         rois: ROIType | None = None,
-        transform: Callable | None = None,
-        backend: Callable = ImageBackend.PYVIPS,
+        transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
+        backend: ImageBackend = ImageBackend.PYVIPS,
     ):
         if mpps != sorted(mpps):
-            raise ValueError(f"The mpp values should be in increasing order.")
+            raise ValueError("The mpp values should be in increasing order.")
 
         with SlideImage.from_file_path(path, backend=backend) as slide_image:
             original_mpp = slide_image.mpp
@@ -142,7 +144,7 @@ class MultiScaleSlideImageDataset(TiledROIsSlideImageDataset):
 
     def __getitem__(self, index):
         indices = [_[index] for _ in self._index_ranges]
-        sample = [TiledROIsSlideImageDataset.__getitem__(self, _) for _ in indices]
+        sample = [TiledWsiDataset.__getitem__(self, _) for _ in indices]
         if self.__transform:
             sample = self.__transform(sample)
 

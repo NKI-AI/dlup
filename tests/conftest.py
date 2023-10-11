@@ -1,11 +1,11 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 
 """Fixtures, hooks and plugins."""
+import pytest
 
 from dlup import SlideImage
 
-from .common import *
+from .common import OpenSlideImageMock, SlideConfig
 
 
 @pytest.fixture

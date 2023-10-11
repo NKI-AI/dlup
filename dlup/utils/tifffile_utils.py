@@ -1,12 +1,12 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import tifffile
 
 
-def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[Any, ...]) -> np.ndarray:
+def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[Any, ...]) -> npt.NDArray[np.int_]:
     """Extract a crop from a TIFF image file directory (IFD).
 
     Only the tiles englobing the crop area are loaded and not the whole page.

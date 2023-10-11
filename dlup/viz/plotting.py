@@ -1,8 +1,8 @@
-# coding=utf-8
 # Copyright (c) dlup Contributors
 from __future__ import annotations
 
 import numpy as np
+import numpy.typing as npt
 import PIL
 import PIL.Image
 import PIL.ImageColor
@@ -13,11 +13,11 @@ from dlup.annotations import Point, Polygon
 
 def plot_2d(
     image: PIL.Image.Image,
-    mask: np.ndarray | None = None,
-    mask_colors=None,
-    mask_alpha=70,
-    geometries=None,
-    geometries_color_map=None,
+    mask: npt.NDArray[np.int_] | None = None,
+    mask_colors: dict[int, str] | None = None,
+    mask_alpha: int = 70,
+    geometries: list[Polygon | Point] | None = None,
+    geometries_color_map: dict[str, str] | None = None,
 ) -> PIL.Image.Image:
     """
     Plotting utility to overlay masks and geometries (Points, Polygons) on top of the image.
@@ -43,6 +43,8 @@ def plot_2d(
     image = image.convert("RGBA")
 
     if mask is not None:
+        if mask_colors is None:
+            raise ValueError("mask_colors must be defined if mask is defined.")
         # Get unique values
         unique_vals = sorted(list(np.unique(mask)))
         for idx in unique_vals:
@@ -57,6 +59,9 @@ def plot_2d(
             image = PIL.Image.alpha_composite(image.copy(), curr_mask.copy()).copy()
 
     if geometries is not None:
+        if geometries_color_map is None:
+            raise ValueError("geometries_color_map must be defined if geometries is defined.")
+
         draw = PIL.ImageDraw.Draw(image)
         for data in geometries:
             if isinstance(data, Point):
@@ -67,7 +72,12 @@ def plot_2d(
 
             elif isinstance(data, Polygon):
                 coordinates = data.exterior.coords
-                draw.polygon(coordinates, fill=None, outline=geometries_color_map[data.label], width=3)
+                draw.polygon(
+                    coordinates,
+                    fill=None,
+                    outline=geometries_color_map[data.label],
+                    width=3,
+                )
 
             else:
                 raise RuntimeError(f"Type {type(data)} not implemented.")

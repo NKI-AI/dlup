@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 
 """Test the SlideImage class.
@@ -8,20 +7,14 @@ at a selected level by minimizing the information loss during
 interpolation as well as ensuring the tiles are extracted
 from the right level and locations of the original image.
 """
-
-from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
-
 import numpy as np
 import openslide  # type: ignore
 import PIL
 import pytest
-from PIL.Image import Image
-from pydantic import BaseModel, Field
-from scipy import interpolate
 
 from dlup import SlideImage, UnsupportedSlideError
 
-from .common import *
+from .common import OpenSlideImageMock, SlideConfig, SlideProperties, get_sample_nonuniform_image
 
 
 class TestSlideImage:
@@ -37,7 +30,7 @@ class TestSlideImage:
     def test_mpp_exceptions(self, openslide_image):
         """Test that we break if the slide has no isotropic resolution."""
         with pytest.raises(UnsupportedSlideError):
-            wsi = SlideImage(openslide_image)
+            _ = SlideImage(openslide_image)
 
     def test_properties(self, openslide_image):
         """Test properties."""
@@ -74,15 +67,23 @@ class TestSlideImage:
         ],
     )
     def test_read_region(
-        self, mocker, dlup_wsi, openslide_image, out_region_x, out_region_y, out_region_size, scaling
+        self,
+        mocker,
+        dlup_wsi,
+        openslide_image,
+        out_region_x,
+        out_region_y,
+        out_region_size,
+        scaling,
     ):
         """Test exact interpolation.
 
         We want to be sure that reading a region at some scaling level is equivalent to
         downsampling the whole image and extracting that region using PIL.
         """
-        base_image = openslide_image.image
-        base_image_size = np.array((base_image.width, base_image.height))
+        # TODO: Use these
+        # base_image = openslide_image.image
+        # base_image_size = np.array((base_image.width, base_image.height))
 
         # Compute output image global coordinates.
         out_region_location = np.array((out_region_x, out_region_y))
@@ -98,7 +99,9 @@ class TestSlideImage:
         box = (*out_region_location, *(out_region_location + out_region_size))
         expected_level_box = np.array(box) / relative_scaling
         pil_extracted_region = expected_level_image.resize(
-            out_region_size, resample=PIL.Image.Resampling.LANCZOS, box=expected_level_box
+            out_region_size,
+            resample=PIL.Image.Resampling.LANCZOS,
+            box=expected_level_box,
         )
 
         # Spy on how our mock object was called
@@ -134,7 +137,9 @@ class TestSlideImage:
 
         # Create a slide
         openslide_image = OpenSlideImageMock(
-            image, {openslide.PROPERTY_NAME_MPP_X: 1.0, openslide.PROPERTY_NAME_MPP_Y: 1.0}, (1.0, 4.3)
+            image,
+            {openslide.PROPERTY_NAME_MPP_X: 1.0, openslide.PROPERTY_NAME_MPP_Y: 1.0},
+            (1.0, 4.3),
         )
 
         wsi = SlideImage(openslide_image, identifier="mock")
@@ -148,6 +153,8 @@ class TestSlideImage:
             return
 
         extracted_region = wsi.read_region(out_region_location, scaling, out_region_size)
+        # TODO: Make this test smarter
+        assert extracted_region is not None
 
     def test_scaled_size(self, dlup_wsi):
         """Check the scale is greater than zero."""

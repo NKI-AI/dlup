@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -6,12 +5,13 @@ import abc
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 
-from dlup.types import PathLike
+from dlup.types import GenericNumber, PathLike
 
 
-def numpy_to_pil(tile: np.ndarray) -> PIL.Image.Image:
+def numpy_to_pil(tile: npt.NDArray[np.uint8]) -> PIL.Image.Image:
     """
     Convert a numpy tile to a PIL image, assuming the last axis is the channels
 
@@ -33,7 +33,7 @@ def numpy_to_pil(tile: np.ndarray) -> PIL.Image.Image:
     elif bands == 4:
         mode = "RGBA"
     else:
-        raise RuntimeError(f"Incorrect number of channels.")
+        raise RuntimeError("Incorrect number of channels.")
 
     return PIL.Image.fromarray(tile, mode=mode)
 
@@ -132,13 +132,9 @@ class AbstractSlideBackend(abc.ABC):
         -------
         int
         """
-        sorted_downsamples = sorted(self._downsamples, reverse=True)
-
-        def difference(sorted_list):
-            return np.clip(0, None, downsample - sorted_list)
-
-        number = max(sorted_downsamples, key=difference)
-        return self._downsamples.index(number)
+        level_downsamples = np.array(self.level_downsamples)
+        level = 0 if downsample < 1 else int(np.where(level_downsamples <= downsample)[0][-1])
+        return level
 
     def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
         """
@@ -160,6 +156,7 @@ class AbstractSlideBackend(abc.ABC):
 
         downsample = max(*(dim / thumb for dim, thumb in zip(self.dimensions, size)))
         level = self.get_best_level_for_downsample(downsample)
+
         thumbnail = (
             self.read_region((0, 0), level, self.level_dimensions[level])
             .convert("RGB")
@@ -177,11 +174,13 @@ class AbstractSlideBackend(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def properties(self):
+    def properties(self) -> dict[str, Any]:
         """Properties of slide"""
 
     @abc.abstractmethod
-    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
+    def read_region(
+        self, coordinates: tuple[GenericNumber, GenericNumber], level: int, size: tuple[int, int]
+    ) -> PIL.Image.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -211,7 +210,7 @@ class AbstractSlideBackend(abc.ABC):
         """Returns the scanner vendor."""
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         """Close the underlying slide"""
 
     def __repr__(self) -> str:

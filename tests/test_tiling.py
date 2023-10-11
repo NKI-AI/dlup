@@ -1,8 +1,5 @@
 # coding=utf-8
 # Copyright (c) dlup contributors
-import functools
-from typing import Any, Dict, Optional, Tuple, TypeVar
-
 import numpy as np
 import pytest
 
@@ -30,7 +27,8 @@ class TestTiling:
         assert len(basis) == expected_lengths[mode]
 
     @pytest.mark.parametrize(
-        "size, tile_size, tile_overlap", [(10, 3, 0), (3, 1, 2), (17, 3.2, 2), (53.2, 12.2, 15), (1, 2, 3)]
+        "size, tile_size, tile_overlap",
+        [(10, 3, 0), (3, 1, 2), (17, 3.2, 2), (53.2, 12.2, 15), (1, 2, 3)],
     )
     @pytest.mark.parametrize("mode", list(TilingMode))
     def test_spanned_basis(self, size, tile_size, tile_overlap, mode):
@@ -46,9 +44,10 @@ class TestTiling:
         # First coordinate is always zero.
         assert basis[0] == 0
 
-        tile_overlap = np.remainder(tile_overlap, np.minimum(tile_size, size), casting="safe")
-        right = basis + tile_size
-        overlap = right - basis
+        # TODO: These are not used yet
+        # tile_overlap = np.remainder(tile_overlap, np.minimum(tile_size, size), casting="safe")
+        # right = basis + tile_size
+        # overlap = right - basis
         stride = np.diff(basis)
         tiled_size = basis[-1] + tile_size
 
@@ -83,13 +82,20 @@ class TestTiling:
         assert (mesh[0, 1, 0] == (1, 5, 7)).all()
         assert (mesh[2, 1, 1] == (3, 5, 8)).all()
 
-    def test_grid(self):
+    @pytest.mark.parametrize("order", ["F", "C"])
+    def test_grid(self, order):
         """Test Grid basic api."""
-        grid = Grid([np.array((0, 1)), np.array((2, 3, 4))])
+        grid = Grid([np.array((0, 1)), np.array((2, 3, 4))], order=order)
 
         assert grid.size == (2, 3)
         assert len(grid) == 6
+
         # First row, first column
-        assert (grid[0] == (0, 2)).all()
-        # First row, second column
-        assert (grid[1] == (0, 3)).all()
+        assert (grid[0] == (0, 2)).all()  # pylint: disable=no-member
+
+        if order == "F":
+            # First row, second column
+            assert (grid[1] == (0, 3)).all()  # pylint: disable=no-member
+        else:
+            # In C order we need to look at the third element
+            assert (grid[2] == (0, 3)).all()  # pylint: disable=no-member
