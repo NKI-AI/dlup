@@ -78,7 +78,7 @@ class PyVipsSlide(AbstractSlideBackend):
             mpp_y = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("yres"))
             check_if_mpp_is_valid(mpp_x, mpp_y)
 
-            self._spacings.append((mpp_y, mpp_x))
+            self._spacings.append((mpp_x, mpp_y))
             if idx >= 1:
                 downsample = mpp_x / self._spacings[0][0]
                 self._downsamples.append(downsample)
@@ -123,7 +123,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         if mpp_x is not None and mpp_y is not None:
             check_if_mpp_is_valid(mpp_x, mpp_y)
-            self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
+            self._spacings = [(np.array([mpp_x, mpp_y]) * downsample).tolist() for downsample in self._downsamples]
         else:
             warnings.warn(
                 f"{path} does not have a parseable spacings property. You can overwrite it with `.mpp = (mpp_x, mpp_y)."
@@ -161,7 +161,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)
-        self._spacings = [(np.array([mpp_y, mpp_x]) * downsample).tolist() for downsample in self._downsamples]
+        self._spacings = [(np.array([mpp_x, mpp_y]) * downsample).tolist() for downsample in self._downsamples]
 
     @property
     def properties(self):
