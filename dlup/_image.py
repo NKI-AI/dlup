@@ -291,13 +291,13 @@ class SlideImage:
 
     def get_mpp(self, scaling: float) -> float:
         """Returns the respective mpp from the scaling."""
-        return self._wsi.spacing[1] / scaling
+        return self._wsi.spacing[0] / scaling
 
     def get_scaling(self, mpp: float | None) -> float:
         """Inverse of get_mpp()."""
         if not mpp:
             return 1.0
-        return self._wsi.spacing[1] / mpp
+        return self._wsi.spacing[0] / mpp
 
     def get_scaled_view(self, scaling: GenericNumber) -> _SlideImageRegionView:
         """Returns a RegionView at a specific level."""
@@ -346,7 +346,7 @@ class SlideImage:
     @property
     def mpp(self) -> float:
         """Returns the microns per pixel of the high res image."""
-        return self._wsi.spacing[1]
+        return self._wsi.spacing[0]
 
     @property
     def magnification(self) -> float | None:
