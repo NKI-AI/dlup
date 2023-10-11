@@ -129,6 +129,7 @@ Make sure all your changes are committed. Then run:
 .. code-block:: console
 
     $ bump2version patch # possible: major / minor / patch
+    $ python .dev/bump_date.py
     $ git push
 
 
