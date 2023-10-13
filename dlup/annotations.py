@@ -857,6 +857,26 @@ class WsiAnnotations:
                 output.append(self._cast(annotation_class, annotation))
         return output
 
+    def get_scaled_view(self, scaling: float, region_size: tuple) -> list[Polygon | Point]:
+        """
+        Obtain the scaled view of annotations of a particular region.
+
+        Parameters
+        ----------
+        scaling: float
+            The scaling at which the view is requested.
+
+        region_size: tuple
+            The region size within the annotations which needs to be scaled and returned.
+
+        Returns
+        -------
+        scaled_region: List[Polygon | Point]
+            The scaled annotation region
+        """
+        scaled_region = self.read_region((0, 0), scaling=scaling, region_size=region_size)
+        return scaled_region
+
     def _cast(self, annotation_class: AnnotationClass, annotation: ShapelyTypes) -> Point | Polygon:
         """
         Cast the shapely object with annotation_name to internal format.
