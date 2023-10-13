@@ -157,6 +157,43 @@ class ConvertAnnotationsToMask:
         return output
 
 
+def rename_labels(annotations: Iterable[_AnnotationsTypes], remap_labels: dict[str, str]) -> list[_AnnotationsTypes]:
+    """
+    Rename the labels in the annotations.
+
+    Parameters
+    ----------
+    annotations: Iterable[_AnnotationsTypes]
+        The annotations
+    remap_labels: dict[str, str]
+        The renaming table
+
+    Returns
+    -------
+    list[_AnnotationsTypes]
+    """
+    output_annotations = []
+    for annotation in annotations:
+        label = annotation.label
+        if label not in remap_labels:
+            output_annotations.append(annotation)
+            continue
+
+        if annotation.a_cls.a_cls == AnnotationType.BOX:
+            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.BOX)
+            output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
+        elif annotation.a_cls.a_cls == AnnotationType.POLYGON:
+            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.POLYGON)
+            output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
+        elif annotation.a_cls.a_cls == AnnotationType.POINT:
+            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.POINT)
+            output_annotations.append(dlup.annotations.Point(annotation, a_cls=a_cls))
+        else:
+            raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.a_cls}")
+
+    return output_annotations
+
+
 class RenameLabels:
     """Remap the label names"""
 
@@ -175,26 +212,7 @@ class RenameLabels:
         if not _annotations:
             raise ValueError("No annotations found to rename.")
 
-        output_annotations = []
-        for annotation in _annotations:
-            label = annotation.label
-            if label not in self._remap_labels:
-                output_annotations.append(annotation)
-                continue
-
-            if annotation.a_cls.a_cls == AnnotationType.BOX:
-                a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.BOX)
-                output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-            elif annotation.a_cls.a_cls == AnnotationType.POLYGON:
-                a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.POLYGON)
-                output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-            elif annotation.a_cls.a_cls == AnnotationType.POINT:
-                a_cls = AnnotationClass(label=self._remap_labels[label], a_cls=AnnotationType.POINT)
-                output_annotations.append(dlup.annotations.Point(annotation, a_cls=a_cls))
-            else:
-                raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.a_cls}")
-
-        sample["annotations"] = output_annotations
+        sample["annotations"] = rename_labels(_annotations, self._remap_labels)
         return sample
 
 
