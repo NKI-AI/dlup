@@ -857,7 +857,7 @@ class WsiAnnotations:
                 output.append(self._cast(annotation_class, annotation))
         return output
 
-    def get_scaled_view(self, scaling: float, region_size: tuple) -> list[Polygon | Point]:
+    def get_scaled_view(self, scaling: float, region_size: npt.NDArray[np.int_ | np.float_]) -> list[Polygon | Point]:
         """
         Obtain the scaled view of annotations of a particular region.
 
@@ -866,7 +866,7 @@ class WsiAnnotations:
         scaling: float
             The scaling at which the view is requested.
 
-        region_size: tuple
+        region_size: npt.NDArray[np.int_ | np.float_]
             The region size within the annotations which needs to be scaled and returned.
 
         Returns
