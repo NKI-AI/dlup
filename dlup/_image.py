@@ -226,10 +226,13 @@ class SlideImage:
         level_size = np.array(self.get_scaled_size(scaling))
 
         if (size < 0).any():
-            raise ValueError("Size values must be greater than zero.")
+            raise ValueError(f"Size values must be greater than zero. Got {size}")
 
         if ((location < 0) | ((location + size) > level_size)).any():
-            raise ValueError("Requested region is outside level boundaries.")
+            raise ValueError(
+                f"Requested region is outside level boundaries. "
+                f"{location.tolist()} + {size.tolist()} (={(location + size).tolist()}) > {level_size.tolist()}."
+            )
 
         native_level = owsi.get_best_level_for_downsample(1 / scaling)
         native_level_size = owsi.level_dimensions[native_level]
