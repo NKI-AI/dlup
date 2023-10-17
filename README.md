@@ -31,7 +31,7 @@ If you use DLUP in your own research, please use the following BiBTeX entry:
   month = {10},
   title = {{DLUP: Deep Learning Utilities for Pathology}},
   url = {https://github.com/nki-ai/dlup},
-  version = {0.3.30},
+  version = {0.3.31},
   year = {2023}
 }
 ```
@@ -39,5 +39,5 @@ If you use DLUP in your own research, please use the following BiBTeX entry:
 or the following plain bibliography:
 
 ```
-Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2023). DLUP: Deep Learning Utilities for Pathology (Version 0.3.30) [Computer software]. https://github.com/nki-ai/dlup
+Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2023). DLUP: Deep Learning Utilities for Pathology (Version 0.3.31) [Computer software]. https://github.com/nki-ai/dlup
 ```

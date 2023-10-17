@@ -11,8 +11,8 @@ def citation_regex(new_date, content):
 
 
 readme_regexes = {
-    "bibtex_year": lambda year, content: re.sub(r"\{\d{4}\}", str(year), content),  # {2023} in bibtex
-    "bibtex_month": lambda month, content: re.sub(r"\{\d{1,2}\}", str(month), content),  # {5} or {12} in bibtex
+    "bibtex_year": lambda year, content: re.sub(r"\{\d{4}\}", f"{{{year}}}", content),  # {2023} in bibtex
+    "bibtex_month": lambda month, content: re.sub(r"\{\d{1,2}\}", f"{{{month}}}", content),  # {5} or {12} in bibtex
     "plain_bib_year": lambda year, content: re.sub(r"(\d{4})", str(year), content),  # (2023) in the plain bibliography
 }
 
