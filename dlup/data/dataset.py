@@ -148,7 +148,7 @@ class ConcatDataset(Dataset[T_co]):
         """
         if idx < 0:
             if -idx > len(self):
-                raise ValueError("absolute value of index should not exceed dataset length")
+                raise ValueError("Absolute value of index should not exceed dataset length")
             idx = len(self) + idx
         dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
         sample_idx = idx if dataset_idx == 0 else idx - self.cumulative_sizes[dataset_idx - 1]
@@ -567,6 +567,10 @@ class TiledWsiDataset(BaseWsiDataset):
             output = self._transform(output)
 
         return output
+
+    def __iter__(self) -> Iterator[RegionFromWsiDatasetSample]:
+        for i in range(len(self)):
+            yield self[i]
 
 
 def parse_rois(rois: list[ROIType] | None, image_size: tuple[int, int], scaling: float = 1.0) -> list[ROIType]:

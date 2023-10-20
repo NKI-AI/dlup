@@ -62,6 +62,8 @@ Ready to contribute? Here's how to set up `dlup` for local development.
    - Install `pre-commit`_.
    - Install pre-commit hooks: :code:`pre-commit install`.
 
+Now the pre-commit hooks will run before committing, but you can also run `pre-commit run --all` explicitly.
+
 5. Install your local copy into a virtual environment:
 
 .. code-block:: console
@@ -127,6 +129,7 @@ Make sure all your changes are committed. Then run:
 .. code-block:: console
 
     $ bump2version patch # possible: major / minor / patch
+    $ python .dev/bump_date.py
     $ git push
 
 

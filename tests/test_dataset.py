@@ -22,8 +22,8 @@ def test_tiled_level_slide_image_dataset(monkeypatch, dlup_wsi):
         mask=None,
     )
     tile_data = dataset[0]
-    tile = tile_data["image"]
-    coordinates = tile_data["coordinates"]
+    tile = tile_data["image"]  # pylint: disable=unsubscriptable-object
+    coordinates = tile_data["coordinates"]  # pylint: disable=unsubscriptable-object
 
     # Numpy array has height, width, channels.
     # Images have width, height, channels.

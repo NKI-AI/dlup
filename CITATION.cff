@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Teuwen"
+  given-names: "Jonas"
+  orcid: "https://orcid.org/0000-0002-1825-1428"
+- family-names: "Romor"
+  given-names: "Leonardo"
+- family-names: "Pai"
+  given-names: "Ajey"
+  orcid: "https://orcid.org/0009-0003-3970-9236"
+- family-names: "Schirris"
+  given-names: "Yoni"
+  orcid: "https://orcid.org/0000-0003-0217-8737"
+- family-names: "Marcus"
+  given-names: "Eric"
+  orchid: "https://orcid.org/0000-0002-3375-6248"
+title: "DLUP: Deep Learning Utilities for Pathology"
+version: 0.3.31
+date-released: 2023-10-17
+url: "https://github.com/nki-ai/dlup"

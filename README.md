@@ -21,3 +21,23 @@ The package can be installed using `python -m pip install dlup`.
 
 ## Used by
 - [ahcore](https://github.com/NKI-AI/ahcore.git): a pytorch lightning based-library for computational pathology
+
+## Citing DLUP
+If you use DLUP in your own research, please use the following BiBTeX entry:
+
+```
+@software{dlup,
+  author = {Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus, E.},
+  month = {10},
+  title = {{DLUP: Deep Learning Utilities for Pathology}},
+  url = {https://github.com/nki-ai/dlup},
+  version = {0.3.31},
+  year = {2023}
+}
+```
+
+or the following plain bibliography:
+
+```
+Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2023). DLUP: Deep Learning Utilities for Pathology (Version 0.3.31) [Computer software]. https://github.com/nki-ai/dlup
+```
