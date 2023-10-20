@@ -229,7 +229,6 @@ class SlideImage:
             raise ValueError("Size values must be greater than zero.")
 
         if ((location < 0) | ((location + size) > level_size)).any():
-
             raise ValueError("Requested region is outside level boundaries.")
 
         native_level = owsi.get_best_level_for_downsample(1 / scaling)
@@ -298,7 +297,7 @@ class SlideImage:
 
     def get_scaling(self, mpp: float | None) -> float:
         """Inverse of get_mpp()."""
-        if not mpp or self._wsi.spacing is None: 
+        if not mpp or self._wsi.spacing is None:
             return 1.0
         return self._wsi.spacing[0] / mpp
 
@@ -349,7 +348,7 @@ class SlideImage:
     @property
     def mpp(self) -> float:
         """Returns the microns per pixel of the high res image."""
-        if self._wsi.spacing is None: 
+        if self._wsi.spacing is None:
             return 1.0
         return self._wsi.spacing[0]
 
