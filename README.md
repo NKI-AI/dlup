@@ -9,12 +9,15 @@
 Dlup offers a set of utilities to ease the process of running Deep Learning algorithms on
 Whole Slide Images.
 
-Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more details on how to use dlup.
 
 ## Features
-- Dataset classes to handle whole-slide images in a tile-by-tile manner
-- Annotation classes which can load GeoJSON, [V7 Darwin](https://www.v7labs.com/), [HALO](https://indicalab.com/halo/) and [ASAP](https://computationalpathologygroup.github.io/ASAP/) formats and convert these to masks.
-- Command-line utilities to report on the metadata of WSIs, tile WSIs, and convert masks to polygons.
+- Read whole-slide images at any arbitrary resolution by seamlessly interpolating between the pyramidal levels
+- Dataset classes to handle whole-slide images in a tile-by-tile manner compatible with pytorch
+- Annotation classes which can load GeoJSON, [V7 Darwin](https://www.v7labs.com/), [HALO](https://indicalab.com/halo/) and [ASAP](https://computationalpathologygroup.github.io/ASAP/) formats and read parts of it (e.g. a tile)
+- Transforms to handle annotations per tile, resulting, together with the dataset classes a dataset consisting of tiles of whole-slide images with corresponding masks as targets, readily useable with a pytorch dataloader
+- Command-line utilities to report on the metadata of WSIs, tile WSIs, and convert masks to polygons
+
+Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more details on how to use dlup.
 
 ## Quickstart
 The package can be installed using `python -m pip install dlup`.
@@ -23,14 +26,14 @@ The package can be installed using `python -m pip install dlup`.
 - [ahcore](https://github.com/NKI-AI/ahcore.git): a pytorch lightning based-library for computational pathology
 
 ## Citing DLUP
-If you use DLUP in your own research, please use the following BiBTeX entry:
+If you use DLUP in your research, please use the following BiBTeX entry:
 
 ```
 @software{dlup,
   author = {Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus, E.},
   month = {10},
   title = {{DLUP: Deep Learning Utilities for Pathology}},
-  url = {https://github.com/nki-ai/dlup},
+  url = {https://github.com/NKI-AI/dlup},
   version = {0.3.31},
   year = {2023}
 }
@@ -39,5 +42,5 @@ If you use DLUP in your own research, please use the following BiBTeX entry:
 or the following plain bibliography:
 
 ```
-Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2023). DLUP: Deep Learning Utilities for Pathology (Version 0.3.31) [Computer software]. https://github.com/nki-ai/dlup
+Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2023). DLUP: Deep Learning Utilities for Pathology (Version 0.3.31) [Computer software]. https://github.com/NKI-AI/dlup
 ```
