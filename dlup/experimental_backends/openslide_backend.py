@@ -60,7 +60,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
 
         mpp_x, mpp_y = value
         check_if_mpp_is_valid(mpp_x, mpp_y)
-        mpp = np.array([mpp_y, mpp_x])
+        mpp = np.array([mpp_x, mpp_y])
         self._spacings = [cast(tuple[float, float], tuple(mpp * downsample)) for downsample in self.level_downsamples]
 
     @property

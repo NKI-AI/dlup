@@ -1,5 +1,4 @@
 # Copyright (c) dlup contributors
-
 """Whole slide image access objects.
 
 In this module we take care of abstracting the access to whole slide images.
@@ -79,6 +78,42 @@ def _clip2size(
     return np.clip(a, (0, 0), size)
 
 
+def _check_size_and_location(
+    size: npt.NDArray[np.int_ | np.float_],
+    location: npt.NDArray[np.int_ | np.float_],
+    level_size: npt.NDArray[np.int_],
+) -> None:
+    """
+    Check if the size and location are within bounds for the given level size.
+
+    Parameters
+    ----------
+    size : npt.NDArray[np.int_ | np.float_]
+        The size of the region to extract.
+    location : npt.NDArray[np.int_ | np.float_]
+        The location of the region to extract.
+    level_size : npt.NDArray[np.int_]
+        The size of the level.
+
+    Raises
+    ------
+    ValueError
+        If the size is negative or if the location is outside the level boundaries.
+
+    Returns
+    -------
+    None
+    """
+    if (size < 0).any():
+        raise ValueError(f"Size values must be greater than zero. Got {size}")
+
+    if ((location < 0) | ((location + size) > level_size)).any():
+        raise ValueError(
+            f"Requested region is outside level boundaries. "
+            f"{location.tolist()} + {size.tolist()} (={(location + size).tolist()}) > {level_size.tolist()}."
+        )
+
+
 class SlideImage:
     """Utility class to simplify whole-slide pyramidal images management.
 
@@ -100,22 +135,51 @@ class SlideImage:
     >>> wsi = dlup.SlideImage.from_file_path('path/to/slide.svs')
     """
 
-    def __init__(self, wsi: AbstractSlideBackend, identifier: str | None = None, **kwargs: Any) -> None:
-        """Initialize a whole slide image and validate its properties."""
+    def __init__(
+        self,
+        wsi: AbstractSlideBackend,
+        identifier: str | None = None,
+        interpolator: Optional[Resampling] = Resampling.LANCZOS,
+        overwrite_mpp: Optional[tuple[float, float]] = None,
+        pick_closest_level: bool = False,
+    ) -> None:
+        """Initialize a whole slide image and validate its properties. This class allows to read whole-slide images
+        at any arbitrary resolution. This class can read images from any backend that implements the
+        AbstractSlideBackend interface.
+
+        Parameters
+        ----------
+        wsi : AbstractSlideBackend
+            The slide object.
+        identifier : str, optional
+            A user-defined identifier for the slide, used in e.g. exceptions.
+        interpolator : Resampling, optional
+            The interpolator to use when reading regions. For images typically LANCZOS is the best choice. Masks
+            can use NEAREST. If set to None, will use LANCZOS.
+        overwrite_mpp : tuple[float, float], optional
+            Overwrite the mpp of the slide. For instance, if the mpp is not available, or when sourcing from
+            and external database.
+
+        Raises
+        ------
+        UnsupportedSlideError
+            If the slide is not supported, or when the mpp is not valid (too anisotropic).
+
+        Returns
+        -------
+        None
+
+        """
         self._wsi = wsi
         self._identifier = identifier
 
-        if kwargs.get("interpolator", None) is not None:
-            interpolator = kwargs["interpolator"]
-            if isinstance(interpolator, Resampling):
-                interpolator = interpolator.name
-
-            self._interpolator = PIL.Image.Resampling[interpolator]
+        if interpolator is not None:
+            self._interpolator = PIL.Image.Resampling[interpolator.name]
         else:
             self._interpolator = PIL.Image.Resampling.LANCZOS
 
-        if kwargs.get("overwrite_mpp", None) is not None:
-            self._wsi.spacing = kwargs["overwrite_mpp"]
+        if overwrite_mpp is not None:
+            self._wsi.spacing = overwrite_mpp
 
         if self._wsi.spacing is None:
             raise UnsupportedSlideError(
@@ -125,6 +189,8 @@ class SlideImage:
 
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
+
+        self._pick_closest_level = pick_closest_level
 
     def close(self) -> None:
         """Close the underlying image."""
@@ -175,7 +241,7 @@ class SlideImage:
         A typical slide is made of several levels at different mpps.
         In normal cirmustances, it's not possible to retrieve an image of
         intermediate mpp between these levels. This method takes care of
-        sumbsampling the closest high resolution level to extract a target
+        subsampling the closest high resolution level to extract a target
         region via interpolation.
 
         Once the best layer is selected, a native resolution region
@@ -220,24 +286,17 @@ class SlideImage:
         resulting tile size of ``(tile_size, tile_size)`` with a scaling factor of 0.5, we can use:
         >>>  wsi.read_region(location=(coordinate_x, coordinate_y), scaling=0.5, size=(tile_size, tile_size))
         """
-        owsi = self._wsi
+        wsi = self._wsi
         location = np.asarray(location)
         size = np.asarray(size)
         level_size = np.array(self.get_scaled_size(scaling))
 
-        if (size < 0).any():
-            raise ValueError(f"Size values must be greater than zero. Got {size}")
+        _check_size_and_location(location, size, level_size)
 
-        if ((location < 0) | ((location + size) > level_size)).any():
-            raise ValueError(
-                f"Requested region is outside level boundaries. "
-                f"{location.tolist()} + {size.tolist()} (={(location + size).tolist()}) > {level_size.tolist()}."
-            )
-
-        native_level = owsi.get_best_level_for_downsample(1 / scaling)
-        native_level_size = owsi.level_dimensions[native_level]
-        native_level_downsample = owsi.level_downsamples[native_level]
-        native_scaling = scaling * owsi.level_downsamples[native_level]
+        native_level = wsi.get_best_level_for_downsample(1 / scaling)
+        native_level_size = wsi.level_dimensions[native_level]
+        native_level_downsample = wsi.level_downsamples[native_level]
+        native_scaling = scaling * wsi.level_downsamples[native_level]
         native_location = location / native_scaling
         native_size = size / native_scaling
 
@@ -263,8 +322,8 @@ class SlideImage:
         # region.
         native_size_adapted = np.ceil(native_size_adapted).astype(int)
 
-        # We extract the region via openslide with the required extra border
-        region = owsi.read_region(
+        # We extract the region via the slide backend with the required extra border
+        region = wsi.read_region(
             (level_zero_location_adapted[0], level_zero_location_adapted[1]),
             native_level,
             (native_size_adapted[0], native_size_adapted[1]),
