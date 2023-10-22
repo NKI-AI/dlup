@@ -142,6 +142,7 @@ class SlideImage:
         identifier: str | None = None,
         interpolator: Optional[Resampling] = Resampling.LANCZOS,
         overwrite_mpp: Optional[tuple[float, float]] = None,
+        apply_color_profile: bool = False,
     ) -> None:
         """Initialize a whole slide image and validate its properties. This class allows to read whole-slide images
         at any arbitrary resolution. This class can read images from any backend that implements the
@@ -159,6 +160,8 @@ class SlideImage:
         overwrite_mpp : tuple[float, float], optional
             Overwrite the mpp of the slide. For instance, if the mpp is not available, or when sourcing from
             and external database.
+        apply_color_profile : bool
+            Whether to apply the color profile to the output regions.
 
         Raises
         ------
@@ -189,6 +192,9 @@ class SlideImage:
 
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
+
+        self._apply_color_profile = apply_color_profile
+        self.__color_transforms = None
 
     def close(self) -> None:
         """Close the underlying image."""
@@ -225,6 +231,19 @@ class SlideImage:
             The ICC profile of the image.
         """
         return getattr(self._wsi, "color_profile", None)
+
+    @property
+    def _color_transform(self) -> PIL.ImageCms.ImageCmsTransform | None:
+        if self.color_profile is None:
+            return None
+
+        if self.__color_transforms is None:
+            to_profile = PIL.ImageCms.createProfile("sRGB")
+            intent = PIL.ImageCms.getDefaultIntent(self.color_profile)
+            self.__color_transform = PIL.ImageCms.buildTransform(
+                self.color_profile, to_profile, "RGBA", "RGBA", intent, 0
+            )
+        return self.__color_transform
 
     def __enter__(self) -> "SlideImage":
         return self
@@ -374,7 +393,10 @@ class SlideImage:
         )
         box = cast(tuple[float, float, float, float], box)
         size = cast(tuple[int, int], size)
-        return region.resize(size, resample=self._interpolator, box=box)
+        region = region.resize(size, resample=self._interpolator, box=box)
+        if self._apply_color_profile and self.color_profile is not None:
+            PIL.ImageCms.applyTransform(region, self._color_transform, True)
+        return region
 
     def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, int]:
         """Compute slide image size at specific scaling."""
