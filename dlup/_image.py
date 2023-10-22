@@ -396,6 +396,10 @@ class SlideImage:
         region = region.resize(size, resample=self._interpolator, box=box)
         if self._apply_color_profile and self.color_profile is not None:
             PIL.ImageCms.applyTransform(region, self._color_transform, True)
+            # Remove the ICC profile from the region to make sure it's not applied twice by accident.
+            # Should always be available if a color profile is present.
+            del region.info["icc_profile"]
+
         return region
 
     def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, int]:
