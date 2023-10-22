@@ -18,6 +18,7 @@ import numpy as np
 import numpy.typing as npt
 import PIL
 import PIL.Image
+from PIL.ImageCms import ImageCmsProfile
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
@@ -141,7 +142,6 @@ class SlideImage:
         identifier: str | None = None,
         interpolator: Optional[Resampling] = Resampling.LANCZOS,
         overwrite_mpp: Optional[tuple[float, float]] = None,
-        pick_closest_level: bool = False,
     ) -> None:
         """Initialize a whole slide image and validate its properties. This class allows to read whole-slide images
         at any arbitrary resolution. This class can read images from any backend that implements the
@@ -190,11 +190,40 @@ class SlideImage:
         check_if_mpp_is_valid(*self._wsi.spacing)
         self._avg_native_mpp = (float(self._wsi.spacing[0]) + float(self._wsi.spacing[1])) / 2
 
-        self._pick_closest_level = pick_closest_level
-
     def close(self) -> None:
         """Close the underlying image."""
         self._wsi.close()
+
+    def color_profile(self) -> ImageCmsProfile | None:
+        """Returns the ICC profile of the image.
+
+        Each image in the pyramid has the same ICC profile, but the associated images might have their own.
+        If you wish to apply the ICC profile (which is also available as a property in the region itself).
+
+        TODO
+        ----
+        The color profile is attached to each region, but in our approach it is possible that at some point the
+        color profile is dropped due to casting to numpy arrays. This is not a problem for the moment, but
+        it might be in the future.
+
+        You can use the profile as follows:
+
+        >>> import dlup
+        >>> from PIL import ImageCms
+        >>> wsi = dlup.SlideImage.from_file_path("path/to/slide.svs")
+        >>> region = wsi.read_region((0, 0), 1.0, (512, 512))
+        >>> to_profile = ImageCms.createProfile("sRGB")
+        >>> intent = ImageCms.getDefaultIntent(wsi.color_profile)
+        >>> transform = ImageCms.buildTransform(wsi.color_profile, to_profile, "RGBA", "RGBA", intent, 0)
+        >>> # Now you can apply the transform to the region (or any other PIL image)
+        >>> ImageCms.applyTransform(image, transform, True)
+
+        Returns
+        -------
+        ImageCmsProfile
+            The ICC profile of the image.
+        """
+        return getattr(self._wsi, "color_profile", None)
 
     def __enter__(self) -> "SlideImage":
         return self
@@ -213,7 +242,7 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: ImageBackend = ImageBackend.PYVIPS,
+        backend: ImageBackend = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path)
@@ -354,6 +383,27 @@ class SlideImage:
     def get_mpp(self, scaling: float) -> float:
         """Returns the respective mpp from the scaling."""
         return self._avg_native_mpp / scaling
+
+    def get_closest_native_level(self, mpp: float) -> int:
+        """Returns the closest native level to the given mpp.
+
+        Returns
+        -------
+        int
+            The closest level.
+        """
+        closest_index, _ = min(enumerate(self._wsi.level_spacings), key=lambda x: abs((x[1][0] + x[1][1]) / 2 - mpp))
+        return closest_index
+
+    def get_closest_native_mpp(self, mpp: float) -> tuple[float, float]:
+        """Returns the closest native mpp to the given mpp.
+
+        Returns
+        -------
+        tuple[float, float]
+            The closest mpp in the format (mpp_x, mpp_y).
+        """
+        return self._wsi.level_spacings[self.get_closest_native_level(mpp)]
 
     def get_scaling(self, mpp: float | None) -> float:
         """Inverse of get_mpp()."""
