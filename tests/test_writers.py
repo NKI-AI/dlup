@@ -8,6 +8,7 @@ import pytest
 import pyvips
 
 from dlup import SlideImage
+from dlup.experimental_backends import ImageBackend
 from dlup.utils.pyvips_utils import vips_to_numpy
 from dlup.writers import TiffCompression, TifffileImageWriter
 
@@ -49,6 +50,7 @@ def test_tiff_writer(shape, target_mpp):
 
         assert np.allclose(np.asarray(pil_image), vips_image_numpy)
 
-        with SlideImage.from_file_path(temp_tiff.name) as slide:
+        # OpenSlide does not read tiff mpp's correctly, so we use pyvips to check.
+        with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.PYVIPS) as slide:
             slide_mpp = slide.mpp
             assert np.allclose(slide_mpp, target_mpp)

@@ -38,6 +38,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
             Path to image.
         """
         super().__init__(str(filename))
+        self._spacings = None
 
         try:
             mpp_x = float(self.properties[openslide.PROPERTY_NAME_MPP_X])
