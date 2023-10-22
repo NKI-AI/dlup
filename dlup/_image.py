@@ -194,6 +194,7 @@ class SlideImage:
         """Close the underlying image."""
         self._wsi.close()
 
+    @property
     def color_profile(self) -> ImageCmsProfile | None:
         """Returns the ICC profile of the image.
 
@@ -216,7 +217,7 @@ class SlideImage:
         >>> intent = ImageCms.getDefaultIntent(wsi.color_profile)
         >>> transform = ImageCms.buildTransform(wsi.color_profile, to_profile, "RGBA", "RGBA", intent, 0)
         >>> # Now you can apply the transform to the region (or any other PIL image)
-        >>> ImageCms.applyTransform(image, transform, True)
+        >>> ImageCms.applyTransform(region, transform, True)
 
         Returns
         -------
