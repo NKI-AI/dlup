@@ -2,11 +2,14 @@
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
+import warnings
+from distutils.version import LooseVersion
 from typing import cast
 
 import numpy as np
 import openslide
 import PIL.Image
+from PIL.ImageCms import ImageCmsProfile
 
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
@@ -71,6 +74,26 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         if value is not None:
             return int(value)
         return value
+
+    @property
+    def color_profile(self) -> ImageCmsProfile | None:
+        """
+        Returns the color profile of the image if available. Otherwise returns None.
+
+        Returns
+        -------
+        ImageCmsProfile, optional
+            The color profile of the image.
+        """
+        if LooseVersion(openslide.__library_version__) < LooseVersion("4.0.0"):
+            warnings.warn(
+                "Color profile support is only available for openslide >= 4.0.0. "
+                f"You have version {openslide.__library_version__}. "
+                "Please update your openslide installation if you want to use this feature (recommended)."
+            )
+            return None
+
+        return super().color_profile
 
     @property
     def vendor(self) -> str:
