@@ -378,6 +378,12 @@ class SlideImage:
             (native_size_adapted[0], native_size_adapted[1]),
         )
 
+        if self._apply_color_profile and self.color_profile is not None:
+            PIL.ImageCms.applyTransform(region, self._color_transform, True)
+            # Remove the ICC profile from the region to make sure it's not applied twice by accident.
+            # Should always be available if a color profile is present.
+            del region.info["icc_profile"]
+
         # Within this region, there are a bunch of extra pixels, we interpolate to sample
         # the pixel in the right position to retain the right sample weight.
         # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
@@ -394,12 +400,6 @@ class SlideImage:
         box = cast(tuple[float, float, float, float], box)
         size = cast(tuple[int, int], size)
         region = region.resize(size, resample=self._interpolator, box=box)
-        if self._apply_color_profile and self.color_profile is not None:
-            PIL.ImageCms.applyTransform(region, self._color_transform, True)
-            # Remove the ICC profile from the region to make sure it's not applied twice by accident.
-            # Should always be available if a color profile is present.
-            del region.info["icc_profile"]
-
         return region
 
     def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, int]:
