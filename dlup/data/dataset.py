@@ -383,7 +383,7 @@ class TiledWsiDataset(BaseWsiDataset):
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
-        backend: ImageBackend = ImageBackend.PYVIPS,
+        backend: ImageBackend = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> None:
         self._grids = grids
