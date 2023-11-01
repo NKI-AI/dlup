@@ -36,7 +36,7 @@ setup(
     author_email="j.teuwen@nki.nl",
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    python_requires=">=3.10",
+    python_requires=">=3.8",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
