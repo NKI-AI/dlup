@@ -120,7 +120,7 @@ def mask_to_polygons(
     hierarchy = hierarchy[0]
     polygons: list[Polygon] = []
     _DFS(polygons, contours, hierarchy, 0, True, [], offset=offset, scaling=scaling)
-
+    polygons = _analyse_validity(polygons)
     return polygons
 
 
