@@ -10,6 +10,7 @@ import numpy.typing as npt
 import shapely
 import shapely.affinity
 from shapely.geometry import Polygon, MultiPolygon
+from shapely.validation import explain_validity
 from shapely.ops import unary_union
 from tqdm import tqdm
 
@@ -73,16 +74,22 @@ def _analyse_validity(shapely_polygons: list[MultiPolygon | Polygon]) -> list[Po
     if not len(shapely_polygons) > 0:
         raise RuntimeError(f"There are no polygons to validate!")
     for polygon in shapely_polygons:
-        if not polygon.is_valid:
+        # Apply buffer(0) to only self-intersecting polygons.
+        quality_of_polygon: str = explain_validity(polygon)
+        if 'Self-intersection' in quality_of_polygon:
             polygon = polygon.buffer(0)
+        try:
+            if not polygon.is_valid:
+                raise TypeError(f"Some Polygons are not valid. Make sure you have checked your masks!")
+        except TypeError as error:
+            raise error
         # If the polygon is of type MultiPolygon, unroll it.
         if polygon.geom_type == "MultiPolygon":
-            valid_polygons.extend(
-                [geom for geom in polygon.geoms if geom.is_valid and geom.area > 0 and not geom.is_empty]
-            )
+            valid_polygons.extend([geom for geom in polygon.geoms if geom.area > 0 and not geom.is_empty])
         elif polygon.geom_type == "Polygon":
-            if polygon.is_valid and polygon.area > 0 and not polygon.is_empty:
+            if polygon.area > 0 and not polygon.is_empty:
                 valid_polygons.append(polygon)
+
     return valid_polygons
 
 
