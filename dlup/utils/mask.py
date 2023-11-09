@@ -76,7 +76,7 @@ def _analyse_validity(shapely_polygons: list[MultiPolygon | Polygon]) -> list[Po
     for polygon in shapely_polygons:
         # Apply buffer(0) to only self-intersecting polygons.
         quality_of_polygon: str = explain_validity(polygon)
-        if 'Self-intersection' in quality_of_polygon:
+        if "Self-intersection" in quality_of_polygon:
             polygon = polygon.buffer(0)
         try:
             if not polygon.is_valid:
