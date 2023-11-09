@@ -82,7 +82,7 @@ def _analyse_validity(shapely_polygons: list[MultiPolygon | Polygon]) -> list[Po
             if not polygon.is_valid:
                 raise TypeError(f"Some Polygons are not valid. Make sure you have checked your masks!")
         except TypeError as error:
-            raise error
+            continue
         # If the polygon is of type MultiPolygon, unroll it.
         if polygon.geom_type == "MultiPolygon":
             valid_polygons.extend([geom for geom in polygon.geoms if geom.area > 0 and not geom.is_empty])
