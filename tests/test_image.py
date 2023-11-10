@@ -161,6 +161,16 @@ class TestSlideImage:
         size = dlup_wsi.get_scaled_size(0.5)
         assert (np.array(size) >= 0).all()
 
+    @pytest.mark.parametrize("mpp", [0.57, 1.2, 4.4])
+    def test_get_closest_native_mpp(self, dlup_wsi, mpp):
+        """Check the scale is greater than zero."""
+        _mpp = dlup_wsi.get_closest_native_mpp(mpp)
+
+        if mpp in [0.57, 1.2]:
+            assert _mpp == (1.0, 1.0)
+        else:
+            assert _mpp == (4.0, 4.0)
+
     def test_thumbnail(self, dlup_wsi):
         """Check the thumbnail is a PIL Image."""
         thumbnail = dlup_wsi.thumbnail
