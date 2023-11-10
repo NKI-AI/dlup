@@ -60,7 +60,7 @@ class TifffileSlide(AbstractSlideBackend):
 
             mpp_x = unit_dict[unit] / x_res
             mpp_y = unit_dict[unit] / y_res
-            self._spacings.append((mpp_y, mpp_x))
+            self._spacings.append((mpp_x, mpp_y))
 
             if idx >= 1:
                 downsample = mpp_x / self._spacings[0][0]
