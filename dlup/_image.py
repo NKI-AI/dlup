@@ -405,11 +405,10 @@ class SlideImage:
     def get_scaled_size(self, scaling: GenericNumber, use_limit_bounds: Optional[bool] = False) -> tuple[int, int]:
         """Compute slide image size at specific scaling."""
         if use_limit_bounds:
-            bounded_size = self.bounded_size
+            _, bounded_size = self.slide_bounds
             size = int(bounded_size[0] * scaling), int(bounded_size[1] * scaling)
         else:
-            size = np.array(self.size) * scaling
-            cast(tuple[int, int], tuple(size.astype(int)))
+            size = int(self.size[0]) * scaling, int(self.size[1]) * scaling
         return size
 
     def get_mpp(self, scaling: float) -> float:
@@ -486,12 +485,6 @@ class SlideImage:
     def size(self) -> tuple[int, int]:
         """Returns the highest resolution image size in pixels. Returns in (width, height)."""
         return self._wsi.dimensions
-
-    @property
-    def bounded_size(self) -> tuple[int, ...]:
-        """Returns the effective size of the wsi considering the slide bounds property"""
-        _, bounded_size = self._wsi.slide_bounds
-        return int(bounded_size[0]), int(bounded_size[1])
 
     @property
     def mpp(self) -> float:
