@@ -408,7 +408,7 @@ class SlideImage:
             _, bounded_size = self.slide_bounds
             size = int(bounded_size[0] * scaling), int(bounded_size[1] * scaling)
         else:
-            size = int(self.size[0]) * scaling, int(self.size[1]) * scaling
+            size = int(self.size[0] * scaling), int(self.size[1] * scaling)
         return size
 
     def get_mpp(self, scaling: float) -> float:
