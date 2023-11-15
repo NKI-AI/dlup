@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import copy
 import errno
+from abc import ABC
 import json
 import os
 import pathlib
@@ -41,7 +42,7 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
-from dlup.types import GenericNumber, PathLike, ROIType
+from dlup.types import GenericNumber, PathLike, ROIType, GenericFloatArray, GenericIntArray
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
@@ -164,6 +165,24 @@ class Polygon(shapely.geometry.Polygon):  # type: ignore
 
     def __str__(self) -> str:
         return f"{self.annotation_class}, {self.wkt}"
+
+
+class _AnnotationRegionView(ABC):
+    def __init__(
+        self,
+        annotations: WsiAnnotations,
+        scaling: GenericNumber,
+    ):
+        """Initialize with a WsiAnnotations object and the scaling level."""
+        self._annotations = annotations
+        self._scaling = scaling
+
+    def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> list[Polygon | Point]:
+        """Returns an annotation region of the level associated to the view."""
+        x, y = location
+        w, h = size
+        scaled_region = self._annotations.read_region((x, y), scaling=self._scaling, region_size=(w, h))
+        return scaled_region
 
 
 def rescale_geometry(geometry: Union[Point, Polygon], scaling: float | None = None) -> Union[Point, Polygon]:
@@ -857,7 +876,7 @@ class WsiAnnotations:
                 output.append(self._cast(annotation_class, annotation))
         return output
 
-    def get_scaled_view(self, scaling: float, region_size: npt.NDArray[np.int_ | np.float_]) -> list[Polygon | Point]:
+    def get_scaled_view(self, scaling: float) -> _AnnotationRegionView:
         """
         Obtain the scaled view of annotations of a particular region.
 
@@ -866,16 +885,12 @@ class WsiAnnotations:
         scaling: float
             The scaling at which the view is requested.
 
-        region_size: npt.NDArray[np.int_ | np.float_]
-            The region size within the annotations which needs to be scaled and returned.
-
         Returns
         -------
-        scaled_region: List[Polygon | Point]
+        scaled_region: _AnnotationRegionView
             The scaled annotation region
         """
-        scaled_region = self.read_region((0, 0), scaling=scaling, region_size=region_size)
-        return scaled_region
+        return _AnnotationRegionView(self, scaling)
 
     def _cast(self, annotation_class: AnnotationClass, annotation: ShapelyTypes) -> Point | Polygon:
         """
