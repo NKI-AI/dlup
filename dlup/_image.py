@@ -402,10 +402,29 @@ class SlideImage:
         region = region.resize(size, resample=self._interpolator, box=box)
         return region
 
-    def get_scaled_size(self, scaling: GenericNumber) -> tuple[int, int]:
-        """Compute slide image size at specific scaling."""
-        size = np.array(self.size) * scaling
-        return cast(tuple[int, int], tuple(size.astype(int)))
+    def get_scaled_size(self, scaling: GenericNumber, use_limit_bounds: Optional[bool] = False) -> tuple[int, int]:
+        """Compute slide image size at specific scaling.
+
+        Parameters
+        -----------
+        scaling: GenericNumber
+            The factor by which the image needs to be scaled.
+
+        use_limit_bounds: Optional[bool]
+            If True, the scaled size will be calculated using the slide bounds of the whole slide image.
+            This is generally the specific area within a whole slide image where we can find the tissue specimen.
+
+        Returns
+        -------
+        size: tuple[int, int]
+            The scaled size of the image.
+        """
+        if use_limit_bounds:
+            _, bounded_size = self.slide_bounds
+            size = int(bounded_size[0] * scaling), int(bounded_size[1] * scaling)
+        else:
+            size = int(self.size[0] * scaling), int(self.size[1] * scaling)
+        return size
 
     def get_mpp(self, scaling: float) -> float:
         """Returns the respective mpp from the scaling."""
