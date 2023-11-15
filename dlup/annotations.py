@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import copy
 import errno
-from abc import ABC
+from abc import ABC, abstractmethod
 import json
 import os
 import pathlib
