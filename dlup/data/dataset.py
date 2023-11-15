@@ -148,7 +148,7 @@ class ConcatDataset(Dataset[T_co]):
         """
         if idx < 0:
             if -idx > len(self):
-                raise ValueError("absolute value of index should not exceed dataset length")
+                raise ValueError("Absolute value of index should not exceed dataset length")
             idx = len(self) + idx
         dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
         sample_idx = idx if dataset_idx == 0 else idx - self.cumulative_sizes[dataset_idx - 1]
@@ -179,8 +179,10 @@ LRU_CACHE_SIZE = 32
 
 
 @functools.lru_cache(LRU_CACHE_SIZE)
-def _get_cached_slide_image(path: pathlib.Path, backend: ImageBackend, **kwargs: Any) -> "SlideImage":
-    return SlideImage.from_file_path(path, backend=backend, **kwargs)
+def _get_cached_slide_image(
+    path: pathlib.Path, backend: ImageBackend, apply_color_profile: bool, **kwargs: Any
+) -> "SlideImage":
+    return SlideImage.from_file_path(path, backend=backend, apply_color_profile=apply_color_profile, **kwargs)
 
 
 class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
@@ -204,6 +206,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
+        apply_color_profile: bool = False,
         **kwargs: Any,
     ):
         """
@@ -227,8 +230,12 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             Image-level labels. Will be added to each individual tile.
         transform :
             Transforming function. To be used for augmentations or other model specific preprocessing.
-        **kwargs :
-            Keyword arguments get passed to the underlying slide image.
+        backend : ImageBackend
+           Backend to pass to SlideImage
+        apply_color_profile : bool
+            Whether to apply the ICC profile to the image if available.
+        **kwargs : Any
+            Passed to SlideImage
         """
         # We need to reuse the pah in order to re-open the image if necessary.
         self._path = path
@@ -238,6 +245,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         self.annotations = annotations
         self.labels = labels
         self._backend = backend
+        self._apply_color_profile = apply_color_profile
         self._kwargs = kwargs
 
         # Maps from a masked index -> regions index.
@@ -264,7 +272,9 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
     @property
     def slide_image(self) -> "SlideImage":
         """Return the cached slide image instance associated with this dataset."""
-        return _get_cached_slide_image(self.path, self._backend, **self._kwargs)
+        return _get_cached_slide_image(
+            self.path, backend=self._backend, apply_color_profile=self._apply_color_profile, **self._kwargs
+        )
 
     @overload
     def __getitem__(self, index: int) -> TileSample:
@@ -373,7 +383,7 @@ class TiledWsiDataset(BaseWsiDataset):
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
-        backend: ImageBackend = ImageBackend.PYVIPS,
+        backend: ImageBackend = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> None:
         self._grids = grids

@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
+from PIL.ImageCms import ImageCmsProfile
 
 from dlup.types import GenericNumber, PathLike
 
@@ -171,6 +172,10 @@ class AbstractSlideBackend(abc.ABC):
     def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
         """Returns the bounds of the slide. These can be smaller than the image itself."""
         return (0, 0), self.dimensions
+
+    @property
+    def color_profile(self) -> ImageCmsProfile | None:
+        raise NotImplementedError("Color profiles are currently not implemented in this backend.")
 
     @property
     @abc.abstractmethod

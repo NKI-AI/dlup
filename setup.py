@@ -26,7 +26,7 @@ install_requires = [
     "pyvips>=2.2.1",
     "tqdm",
     "pillow>=9.2.0",
-    "openslide-python",
+    "openslide-python>=1.3.1",
     "opencv-python>=4.8.1.78",
     "shapely>=2.0.0",
 ]

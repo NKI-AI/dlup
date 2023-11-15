@@ -114,7 +114,7 @@ class TifffileImageWriter(ImageWriter):
         self._filename = pathlib.Path(filename)
         self._tile_size = tile_size
 
-        self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])  # type: ignore
+        self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])
         self._mpp: tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
 
         if compression is None:
@@ -245,7 +245,7 @@ class TifffileImageWriter(ImageWriter):
             tile_iterator,  # noqa
             shape=(*shapes[level], self._size[-1]) if is_rgb else (*shapes[level], 1),
             dtype="uint8",
-            resolution=(*native_resolution / 2**level, "CENTIMETER"),  # type: ignore
+            resolution=(*native_resolution / 2**level, "CENTIMETER"),
             photometric="rgb" if is_rgb else "minisblack",
             compression=compression if not self._quality else (compression, self._quality),  # type: ignore
             tile=self._tile_size,

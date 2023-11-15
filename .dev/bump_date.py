@@ -1,14 +1,18 @@
+import re
 from datetime import datetime
 from typing import Callable, Dict
-import re
 
-citation_regex = lambda new_date, content: re.sub(
-    r"date-released: \d{4}-\d{2}-\d{2}", f"date-released: {new_date}", content
-)
+
+def citation_regex(new_date, content):
+    """
+    Replaces the date in the CITATION.cff file with the new date
+    """
+    return re.sub(r"date-released: \d{4}-\d{2}-\d{2}", f"date-released: {new_date}", content)
+
 
 readme_regexes = {
-    "bibtex_year": lambda year, content: re.sub(r"\{\d{4}\}", str(year), content),  # {2023} in bibtex
-    "bibtex_month": lambda month, content: re.sub(r"\{\d{1,2}\}", str(month), content),  # {5} or {12} in bibtex
+    "bibtex_year": lambda year, content: re.sub(r"\{\d{4}\}", f"{{{year}}}", content),  # {2023} in bibtex
+    "bibtex_month": lambda month, content: re.sub(r"\{\d{1,2}\}", f"{{{month}}}", content),  # {5} or {12} in bibtex
     "plain_bib_year": lambda year, content: re.sub(r"(\d{4})", str(year), content),  # (2023) in the plain bibliography
 }
 
