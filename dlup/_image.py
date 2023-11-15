@@ -403,7 +403,17 @@ class SlideImage:
         return region
 
     def get_scaled_size(self, scaling: GenericNumber, use_limit_bounds: Optional[bool] = False) -> tuple[int, int]:
-        """Compute slide image size at specific scaling."""
+        """Compute slide image size at specific scaling.
+
+        Parameters
+        -----------
+        scaling: GenericNumber
+            The factor by which the image needs to be scaled.
+
+        use_limit_bounds: Optional[bool]
+            If True, the scaled size will be calculated using the slide bounds of the whole slide image.
+            This is generally the specific area within a whole slide image where we can find the tissue specimen.
+        """
         if use_limit_bounds:
             _, bounded_size = self.slide_bounds
             size = int(bounded_size[0] * scaling), int(bounded_size[1] * scaling)
