@@ -81,11 +81,12 @@ class AbstractRegionView(ABC):
     """
     An abstract object which can be used to extract a specific annotation region.
     """
-    def read_region(self, location: GenericFloatArray, size: GenericIntArray):
+
+    def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> list[Polygon | Point]:
         return self._read_region_impl(location, size)
 
     @abstractmethod
-    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> list[Polygon | Point]:
         """Define a method to return an annotation object containing the region."""
         pass
 
@@ -184,6 +185,7 @@ class _AnnotationRegionView(AbstractRegionView):
     """
     This is a special class for viewing specific regions of the annotations.
     """
+
     def __init__(self, annotations: WsiAnnotations, scaling: GenericNumber):
         """Initialize with a WsiAnnotations object and the scaling level."""
         super().__init__()
