@@ -413,6 +413,11 @@ class SlideImage:
         use_limit_bounds: Optional[bool]
             If True, the scaled size will be calculated using the slide bounds of the whole slide image.
             This is generally the specific area within a whole slide image where we can find the tissue specimen.
+
+        Returns
+        -------
+        size: tuple[int, int]
+            The scaled size of the image.
         """
         if use_limit_bounds:
             _, bounded_size = self.slide_bounds
