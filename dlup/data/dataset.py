@@ -203,6 +203,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         crop: bool = False,
         mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
+        output_tile_size: tuple[int, int] | None = None,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
@@ -224,6 +225,9 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             Threshold to check against. The foreground percentage should be strictly larger than threshold.
             If None anything is foreground. If 1, the region must be completely foreground.
             Other values are in between, for instance if 0.5, the region must be at least 50% foreground.
+        output_tile_size: tuple[int, int], optional
+            If this value is set, this value will be used as the tile size of the output tiles. If this value
+            is different from the underlying grid, this tile will be extracted around the center of the region.
         annotations :
             Annotation classes.
         labels : list
@@ -241,6 +245,8 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         self._path = path
         self._crop = crop
         self.regions = regions
+
+        self._output_tile_size = output_tile_size
 
         self.annotations = annotations
         self.labels = labels
@@ -306,6 +312,14 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         scaling: float = slide_image.mpp / mpp
         region_view = slide_image.get_scaled_view(scaling)
         region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
+
+        if self._output_tile_size is not None:
+            # If we have an output tile_size, we extract a region around the center of the given region.
+            output_tile_x, output_tile_y = self._output_tile_size
+            coordinates_x = x + w / 2 - output_tile_x / 2
+            coordinates_y = y + h / 2 - output_tile_y / 2
+            coordinates = (coordinates_x, coordinates_y)
+            region_size = self._output_tile_size
 
         region = region_view.read_region(coordinates, region_size)
 
@@ -380,6 +394,7 @@ class TiledWsiDataset(BaseWsiDataset):
         crop: bool = False,
         mask: MaskTypes | None = None,
         mask_threshold: float | None = 0.0,
+        output_tile_size: tuple[int, int] | None = None,
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
@@ -400,6 +415,7 @@ class TiledWsiDataset(BaseWsiDataset):
             crop,
             mask=mask,
             mask_threshold=mask_threshold,
+            output_tile_size=output_tile_size,
             annotations=annotations,
             labels=labels,
             backend=backend,
@@ -418,6 +434,7 @@ class TiledWsiDataset(BaseWsiDataset):
         mpp: float | None,
         tile_size: tuple[int, int],
         tile_overlap: tuple[int, int],
+        output_tile_size: tuple[int, int] | None = None,
         tile_mode: TilingMode = TilingMode.overflow,
         grid_order: GridOrder = GridOrder.C,
         crop: bool = False,
@@ -442,6 +459,9 @@ class TiledWsiDataset(BaseWsiDataset):
             Tuple of integers that represent the pixel size of output tiles
         tile_overlap :
             Tuple of integers that represents the overlap of tiles in the x and y direction
+        output_tile_size: tuple[int, int], optional
+            If this value is set, this value will be used as the tile size of the output tiles. If this value
+            is different from the underlying grid, this tile will be extracted around the center of the region.
         tile_mode :
             "skip" or "overflow". see `dlup.tiling.TilingMode` for more information
         grid_order : GridOrder
@@ -523,6 +543,7 @@ class TiledWsiDataset(BaseWsiDataset):
             crop=crop,
             mask=mask,
             mask_threshold=mask_threshold,
+            output_tile_size=output_tile_size,
             annotations=annotations,
             labels=labels,
             transform=transform,
