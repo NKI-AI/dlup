@@ -168,11 +168,10 @@ class Polygon(shapely.geometry.Polygon):  # type: ignore
 
 
 class _AnnotationRegionView(ABC):
-    def __init__(
-        self,
-        annotations: WsiAnnotations,
-        scaling: GenericNumber,
-    ):
+    """
+    This is a special class for viewing specific regions of the annotations.
+    """
+    def __init__(self, annotations: WsiAnnotations, scaling: GenericNumber):
         """Initialize with a WsiAnnotations object and the scaling level."""
         self._annotations = annotations
         self._scaling = scaling
