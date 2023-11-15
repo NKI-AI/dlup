@@ -186,6 +186,7 @@ class _AnnotationRegionView(AbstractRegionView):
     """
     def __init__(self, annotations: WsiAnnotations, scaling: GenericNumber):
         """Initialize with a WsiAnnotations object and the scaling level."""
+        super().__init__()
         self._annotations = annotations
         self._scaling = scaling
 
