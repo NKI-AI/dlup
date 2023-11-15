@@ -77,6 +77,19 @@ class GeoJsonDict(TypedDict):
     features: list[dict[str, str | dict[str, str]]]
 
 
+class AbstractRegionView(ABC):
+    """
+    An abstract object which can be used to extract a specific annotation region.
+    """
+    def read_region(self, location: GenericFloatArray, size: GenericIntArray):
+        return self._read_region_impl(location, size)
+
+    @abstractmethod
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
+        """Define a method to return an annotation object containing the region."""
+        pass
+
+
 class Point(shapely.geometry.Point):  # type: ignore
     # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
     _id_to_attrs: ClassVar[dict[str, Any]] = {}
@@ -167,7 +180,7 @@ class Polygon(shapely.geometry.Polygon):  # type: ignore
         return f"{self.annotation_class}, {self.wkt}"
 
 
-class _AnnotationRegionView(ABC):
+class _AnnotationRegionView(AbstractRegionView):
     """
     This is a special class for viewing specific regions of the annotations.
     """
@@ -176,7 +189,7 @@ class _AnnotationRegionView(ABC):
         self._annotations = annotations
         self._scaling = scaling
 
-    def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> list[Polygon | Point]:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> list[Polygon | Point]:
         """Returns an annotation region of the level associated to the view."""
         x, y = location
         w, h = size
