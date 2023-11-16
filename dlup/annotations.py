@@ -488,7 +488,7 @@ class WsiAnnotations:
             SingleAnnotationWrapper(a_cls=data[k][0].annotation_class, annotation=data[k]) for k in data.keys()
         ]
 
-        return cls(_annotations)
+        return cls(_annotations, sorting=AnnotationSorting.BY_AREA)
 
     @classmethod
     def from_asap_xml(
