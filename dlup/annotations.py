@@ -736,9 +736,9 @@ class WsiAnnotations:
 
     def read_region(
         self,
-        coordinates: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
+        location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        region_size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
+        size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
     ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
@@ -757,8 +757,8 @@ class WsiAnnotations:
 
         Parameters
         ----------
-        coordinates: np.ndarray or tuple
-        region_size : np.ndarray or tuple
+        location: np.ndarray or tuple
+        size : np.ndarray or tuple
         scaling : float
 
         Returns
@@ -778,12 +778,12 @@ class WsiAnnotations:
         >>> wsi = wsi.get_scaled_view(scaling=0.5)
         >>> wsi = wsi.read_region(location=(0,0), size=wsi.size)
         >>> annotations = WsiAnnotations.from_geojson([Path("path/to/geojson.json")], labels=["class_name"])
-        >>> polygons: list[Polygons] = annotations.read_region(coordinates=(0,0), region_size=wsi.size, scaling=0.01)
+        >>> polygons: list[Polygons] = annotations.read_region(location=(0,0), size=wsi.size, scaling=0.01)
 
         The polygons can be converted to masks using `dlup.data.transforms.convert_annotations` or
         `dlup.data.transforms.ConvertAnnotationsToMask`.
         """
-        box = list(coordinates) + list(np.asarray(coordinates) + np.asarray(region_size))
+        box = list(location) + list(np.asarray(location) + np.asarray(size))
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
 
@@ -828,8 +828,8 @@ class WsiAnnotations:
             0,
             0,
             scaling,
-            -coordinates[0],
-            -coordinates[1],
+            -location[0],
+            -location[1],
         ]
 
         output: list[Polygon | Point] = []
