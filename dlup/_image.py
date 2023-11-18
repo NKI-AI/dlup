@@ -240,8 +240,9 @@ class SlideImage:
         if self.__color_transforms is None:
             to_profile = PIL.ImageCms.createProfile("sRGB")
             intent = PIL.ImageCms.getDefaultIntent(self.color_profile)
-            self.__color_transform = PIL.ImageCms.buildTransform(
-                self.color_profile, to_profile, "RGBA", "RGBA", intent, 0
+            self.__color_transform = cast(
+                PIL.ImageCms.ImageCmsTransform,
+                PIL.ImageCms.buildTransform(self.color_profile, to_profile, "RGBA", "RGBA", intent, 0),
             )
         return self.__color_transform
 
