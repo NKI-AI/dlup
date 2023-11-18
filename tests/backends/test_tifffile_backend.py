@@ -1,62 +1,62 @@
 # Copyright (c) dlup contributors
-from unittest.mock import Mock, patch
+import tempfile
 
-import pytest
+import numpy as np
+import PIL.Image
 
+from dlup._image import Resampling
+from dlup.experimental_backends.openslide_backend import OpenSlideSlide
 from dlup.experimental_backends.tifffile_backend import TifffileSlide
+from dlup.writers import TiffCompression, TifffileImageWriter
 
 
-@pytest.fixture
-def mock_tifffile_slide():
-    with patch("tifffile.TiffFile") as MockTiffFile:
-        # List to hold mock pages
-        mock_pages = []
+class TestTiffBackend:
+    # We'll make a tiff with the writer and read it with tifffile to check if the reader works correctly.
+    # Writer is tested independently.
+    with tempfile.NamedTemporaryFile(suffix=".tif") as temp_tiff:
+        # Let's make an array of size 512, 768 with 3 channels and with a square at the top left and bottom right
+        # corners.
+        size = (512, 768)
+        mpp = (1.0, 0.999)  # TODO: Unfortunately we do not support different mpps, so let's get them close
+        array = np.zeros((*size, 3), dtype=np.uint8)
+        array[:256, :256] = 255
+        array[256:, 256:] = 127
 
-        # Starting values
-        size = 4096
-        res_value = (1, 1)  # Using a tuple since the code accesses the numerator and denominator
+        writer = TifffileImageWriter(
+            temp_tiff.name,
+            size=(*size[::-1], 3),
+            mpp=mpp,
+            compression=TiffCompression.NONE,
+            interpolator=Resampling.NEAREST,
+            tile_size=(128, 128),
+            pyramid=False,  # TODO: Why doesn't this work?
+        )
+        image = PIL.Image.fromarray(array, mode="RGB")
+        writer.from_pil(image)
 
-        # Create 3 mock pages (or however many you need)
-        for _ in range(3):
-            # Create mock tags for the current page
-            x_res_mock = Mock(value=res_value)
-            y_res_mock = Mock(value=res_value)
-            unit_mock = Mock(value=3)
+        # Now we can read it back using the tifffile backend
+        tiff_slide = TifffileSlide(temp_tiff.name)
+        # Let's also do the tiff backend to be able to compare
+        openslide_slide = OpenSlideSlide(temp_tiff.name)
 
-            mock_page = Mock()
-            mock_page.shape = [3, size, size]
-            mock_page.tags = {"XResolution": x_res_mock, "YResolution": y_res_mock, "ResolutionUnit": unit_mock}
+        assert tiff_slide.dimensions == image.size
+        assert tiff_slide.dimensions == openslide_slide.dimensions
+        assert np.allclose(mpp, tiff_slide.spacing)
+        assert tiff_slide.spacing == openslide_slide.spacing
 
-            mock_pages.append(mock_page)
+        # Reading from the top left
+        location = (0, 0)
+        level = 0
+        size = (256 + 128, 256 + 128)
 
-            # Halve the values for the next iteration
-            size //= 2
-            # x_res_value = (res_value[0], res_value[1] * 2)  # To halve the resolution
+        tiff_region = tiff_slide.read_region((0, 0), 0, size).convert("RGB")
+        openslide_region = openslide_slide.read_region((0, 0), 0, size).convert("RGB")
 
-        instance = MockTiffFile.return_value
-        instance.pages = mock_pages
-        yield TifffileSlide("path_to_image.tif")
+        assert (np.array(tiff_region) == np.array(openslide_region)).all()
 
+        tiff_array = np.asarray(tiff_region)
+        assert tiff_array.shape == (256 + 128, 256 + 128, 3)
+        assert ((array[:384, :384] - tiff_array) == 0).all()
 
-class TestTifffileSlide:
-    def test_initialization(self, mock_tifffile_slide):
-        slide = mock_tifffile_slide
-        assert slide._level_count == 3  # Checking the initialized _level_count
-
-    def test_properties(self, mock_tifffile_slide):
-        slide = mock_tifffile_slide
-
-        assert slide.vendor is None
-        assert slide.magnification is None
-
-        # Check the properties
-
-    def test_read_region_invalid_level(self, mock_tifffile_slide):
-        slide = mock_tifffile_slide
-        with pytest.raises(RuntimeError, match="Level 4 not present."):
-            slide.read_region((0, 0), 4, (100, 100))
-
-    def test_close(self, mock_tifffile_slide):
-        slide = mock_tifffile_slide
-        slide.close()
-        slide._image.close.assert_called_once()
+        tiff_slide.close()
+        openslide_slide.close()

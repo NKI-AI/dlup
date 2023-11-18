@@ -47,7 +47,7 @@ class TifffileSlide(AbstractSlideBackend):
         for idx, page in enumerate(self._image.pages):
             # Remove channel dimension and swap rows and columns
             if len(page.shape) == 3:
-                self._shapes.append((page.shape[2], page.shape[1]))
+                self._shapes.append((page.shape[1], page.shape[0]))
             else:
                 self._shapes.append((page.shape[1], page.shape[0]))
 
