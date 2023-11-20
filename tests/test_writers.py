@@ -51,6 +51,7 @@ def test_tiff_writer(shape, target_mpp):
         assert np.allclose(np.asarray(pil_image), vips_image_numpy)
 
         # OpenSlide does not read tiff mpp's correctly, so we use pyvips to check.
+        # TODO: 4.0.0 does.
         with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.PYVIPS) as slide:
             slide_mpp = slide.mpp
             assert np.allclose(slide_mpp, target_mpp)
