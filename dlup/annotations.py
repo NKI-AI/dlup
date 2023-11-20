@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import copy
 import errno
+from abc import ABC, abstractmethod
 import json
 import os
 import pathlib
@@ -41,7 +42,7 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
-from dlup.types import GenericNumber, PathLike, ROIType
+from dlup.types import GenericNumber, PathLike, ROIType, GenericFloatArray, GenericIntArray
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
@@ -74,6 +75,20 @@ class GeoJsonDict(TypedDict):
     id: str | None
     type: str
     features: list[dict[str, str | dict[str, str]]]
+
+
+class AbstractRegionView(ABC):
+    """
+    An abstract object which can be used to extract a specific annotation region.
+    """
+
+    def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> list[Polygon | Point]:
+        return self._read_region_impl(location, size)
+
+    @abstractmethod
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> list[Polygon | Point]:
+        """Define a method to return an annotation object containing the region."""
+        pass
 
 
 class Point(shapely.geometry.Point):  # type: ignore
@@ -164,6 +179,25 @@ class Polygon(shapely.geometry.Polygon):  # type: ignore
 
     def __str__(self) -> str:
         return f"{self.annotation_class}, {self.wkt}"
+
+
+class _AnnotationRegionView(AbstractRegionView):
+    """
+    This is a special class for viewing specific regions of the annotations.
+    """
+
+    def __init__(self, annotations: WsiAnnotations, scaling: GenericNumber):
+        """Initialize with a WsiAnnotations object and the scaling level."""
+        super().__init__()
+        self._annotations = annotations
+        self._scaling = scaling
+
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> list[Polygon | Point]:
+        """Returns an annotation region of the level associated to the view."""
+        x, y = location
+        w, h = size
+        scaled_region = self._annotations.read_region((x, y), scaling=self._scaling, region_size=(w, h))
+        return scaled_region
 
 
 def rescale_geometry(geometry: Union[Point, Polygon], scaling: float | None = None) -> Union[Point, Polygon]:
@@ -856,6 +890,22 @@ class WsiAnnotations:
                 # The conversion to an internal format is only done here, because we only support Points and Polygons.
                 output.append(self._cast(annotation_class, annotation))
         return output
+
+    def get_scaled_view(self, scaling: float) -> _AnnotationRegionView:
+        """
+        Obtain the scaled view of annotations of a particular region.
+
+        Parameters
+        ----------
+        scaling: float
+            The scaling at which the view is requested.
+
+        Returns
+        -------
+        scaled_region: _AnnotationRegionView
+            The scaled annotation region
+        """
+        return _AnnotationRegionView(self, scaling)
 
     def _cast(self, annotation_class: AnnotationClass, annotation: ShapelyTypes) -> Point | Polygon:
         """

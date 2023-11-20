@@ -337,7 +337,8 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         if self.annotations is not None:
             if not isinstance(self.annotations, WsiAnnotations):
                 raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
-            sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
+            scaled_annotations = self.annotations.get_scaled_view(scaling=scaling)
+            sample["annotations"] = scaled_annotations.read_region(location=coordinates, size=region_size)
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
