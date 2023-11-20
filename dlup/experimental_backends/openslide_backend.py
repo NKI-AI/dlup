@@ -15,6 +15,40 @@ from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
+TIFF_PROPERTY_NAME_RESOLUTION_UNIT = "tiff.ResolutionUnit"
+TIFF_PROPERTY_NAME_X_RESOLUTION = "tiff.XResolution"
+TIFF_PROPERTY_NAME_Y_RESOLUTION = "tiff.YResolution"
+
+
+def _get_mpp_from_tiff(properties: dict[str, str]) -> tuple[float, float] | None:
+    """Get mpp values from the TIFF tags as parsed by openslide.
+    This only works for openslide < 4.0.0, as newer openslide versions automatically parse this.
+
+    Parameters
+    ----------
+    properties : dict[str, str]
+        The properties as parsed by openslide.
+
+    Returns
+    -------
+    tuple[float, float] or None
+        The mpp values if they are present in the TIFF tags, otherwise None.
+    """
+    # It is possible we now have a TIFF file with the mpp information in the TIFF tags.
+    if LooseVersion(openslide.__library_version__) < LooseVersion("4.0.0"):
+        if properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
+            # Check if the TIFF tags are present
+            resolution_unit = properties.get(TIFF_PROPERTY_NAME_RESOLUTION_UNIT, None)
+            x_resolution = properties.get(TIFF_PROPERTY_NAME_X_RESOLUTION, 0)
+            y_resolution = properties.get(TIFF_PROPERTY_NAME_Y_RESOLUTION, 0)
+
+            if x_resolution > 0 and y_resolution > 0:
+                unit_dict = {"cm": 1000, "centimeter": 1000}
+                mpp_x = unit_dict[resolution_unit] / float(x_resolution)
+                mpp_y = unit_dict[resolution_unit] / float(y_resolution)
+                return (mpp_x, mpp_y)
+    return None
+
 
 def open_slide(filename: PathLike) -> "OpenSlideSlide":
     """
@@ -49,7 +83,10 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
             self.spacing = (mpp_x, mpp_y)
 
         except KeyError:
-            pass
+            # It is possible we now have a TIFF file with the mpp information in the TIFF tags.
+            spacing = _get_mpp_from_tiff(dict(self.properties))
+            if spacing:
+                self.spacing = spacing
 
     @property
     def spacing(self) -> tuple[float, float] | None:
