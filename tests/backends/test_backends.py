@@ -82,16 +82,16 @@ class TestBackends:
         tile_size = (properties["tifffile.level[0].TileWidth"], properties["tifffile.level[0].TileLength"])
         num_levels = int(np.ceil(np.log2(np.asarray(size[::-1]) / np.asarray(tile_size))).min()) + 1
 
-        # Let's try to read outside of the slide levels. This should give a RuntimeError
+        # Let's try to read outside the slide levels. This should give a RuntimeError
         with pytest.raises(RuntimeError):
             tiff_slide.read_region((0, 0), num_levels + 1, (1, 1))
 
         # We need to check a few regions to make sure the backend is working correctly
         # 1. Check the whole image
-        # 2. Check the top right corner
-        # 3. Check the bottom left corner
+        # 2. A part in the upper left
+        # 3. Check a part more towards the bottom.
 
-        # Let's create a list of origins and sizes.
+        # This is needed because the array swaps it with respect to the image (x,y) versus (rows, cols)
         _size = size[::-1]
         regions = [
             ((0, 0), _size),
