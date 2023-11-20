@@ -43,7 +43,7 @@ def _get_mpp_from_tiff(properties: dict[str, str]) -> tuple[float, float] | None
             y_resolution = float(properties.get(TIFF_PROPERTY_NAME_Y_RESOLUTION, 0))
 
             if x_resolution > 0 and y_resolution > 0:
-                unit_dict = {"cm": 1000, "centimeter": 1000}
+                unit_dict = {"cm": 100, "centimeter": 100}
                 mpp_x = unit_dict[resolution_unit] / x_resolution
                 mpp_y = unit_dict[resolution_unit] / y_resolution
                 return mpp_x, mpp_y
