@@ -2,6 +2,8 @@
 The results are also compared against the openslide backend.
 """
 
+from unittest.mock import patch
+
 import numpy as np
 import PIL.Image
 import pytest
@@ -9,7 +11,7 @@ import pytest
 from dlup._image import Resampling
 from dlup.backends.tifffile_backend import TifffileSlide
 from dlup.backends.tifffile_backend import open_slide as open_slide_tifffile
-from dlup.experimental_backends.openslide_backend import OpenSlideSlide
+from dlup.experimental_backends.openslide_backend import OpenSlideSlide, _get_mpp_from_tiff
 from dlup.experimental_backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.writers import TiffCompression, TifffileImageWriter
 
@@ -158,3 +160,35 @@ class TestBackends:
         tiff_slide, openslide_slide = slides  # Unpack the slides from the fixture
         self.property_asserts(tiff_slide, openslide_slide, size, mpp, pyramid)
         self.read_region_and_properties_asserts(tiff_slide, openslide_slide, mode, size, mpp, pyramid, test_image)
+
+
+class TestOpenSlideBackend:
+    @pytest.fixture
+    def tiff_properties(self):
+        return {
+            "tiff.ResolutionUnit": "cm",
+            "tiff.XResolution": "0.5",
+            "tiff.YResolution": "0.5",
+            "openslide.vendor": "generic-tiff",
+        }
+
+    def test_get_mpp_from_tiff_valid(self, tiff_properties):
+        with patch("dlup.experimental_backends.openslide_backend.openslide.__library_version__", "3.4.1"):
+            mpp = _get_mpp_from_tiff(tiff_properties)
+        assert mpp == (20000.0, 20000.0), f"Should return the correct mpp values. Expected {mpp}"
+
+    def test_get_mpp_from_tiff_missing_unit(self, tiff_properties):
+        del tiff_properties["tiff.ResolutionUnit"]
+        mpp = _get_mpp_from_tiff(tiff_properties)
+        assert mpp is None, "Should return None when ResolutionUnit is missing"
+
+    def test_get_mpp_from_tiff_zero_resolution(self, tiff_properties):
+        tiff_properties["tiff.XResolution"] = "0"
+        mpp = _get_mpp_from_tiff(tiff_properties)
+        assert mpp is None, "Should return None when XResolution is zero"
+
+    def test_get_mpp_from_tiff_newer_openslide(self, tiff_properties):
+        # This patch is now inside the class method
+        with patch("dlup.experimental_backends.openslide_backend.openslide.__library_version__", "4.0.0"):
+            mpp = _get_mpp_from_tiff(tiff_properties)
+            assert mpp is None, "Should return None for openslide versions >= 4.0.0"

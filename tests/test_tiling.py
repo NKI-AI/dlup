@@ -70,6 +70,16 @@ class TestTiling:
         dbasis, _ = tiles_grid_coordinates((10, 5), (3, 2), (1.2, 1))
         assert (basis == dbasis).all()
 
+    def test_tiles_grid_coordinates_exceptions(self):
+        with pytest.raises(ValueError):
+            tiles_grid_coordinates([10], [10, 2], [10, 2])
+
+        with pytest.raises(ValueError):
+            tiles_grid_coordinates([-10, 2], [10, 2], [0, 0])
+
+        with pytest.raises(ValueError):
+            tiles_grid_coordinates([10, 2], [-10, 2], [0, 0])
+
     def test_indexed_ndmesh(self):
         """Check ndmesh example access."""
         mesh = indexed_ndmesh(((1, 2, 3), (4, 5, 6)))
