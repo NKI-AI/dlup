@@ -19,7 +19,7 @@ import PIL
 from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
-from dlup.annotations import WsiAnnotations
+from dlup.annotations import WsiAnnotations, Point, Polygon
 from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
@@ -28,7 +28,7 @@ from dlup.types import ROIType
 
 MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "WsiAnnotations"]
 
-_AnnotationsTypes = WsiAnnotations.Point | WsiAnnotations.Polygon
+_AnnotationsTypes = Point | Polygon
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
