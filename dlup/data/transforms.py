@@ -118,7 +118,7 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
+    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0, allow_empty: boolean = False):
         """
         Parameters
         ----------
@@ -132,9 +132,10 @@ class ConvertAnnotationsToMask:
         self._roi_name = roi_name
         self._index_map = index_map
         self._default_value = default_value
+        self._allow_empty = allow_empty
 
     def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData:
-        if not sample["annotations"]:
+        if not sample["annotations"] and not self._allow_empty:
             raise ValueError("No annotations found to convert to mask.")
 
         _annotations = sample["annotations"]
