@@ -118,7 +118,7 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0, allow_empty: boolean = False):
+    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0, allow_empty: bool = False):
         """
         Parameters
         ----------
