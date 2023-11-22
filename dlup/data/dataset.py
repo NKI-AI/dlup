@@ -28,6 +28,8 @@ from dlup.types import ROIType
 
 MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "WsiAnnotations"]
 
+_AnnotationsTypes = WsiAnnotations.Point | WsiAnnotations.Polygon
+
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
 _BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
@@ -42,7 +44,7 @@ class TileSample(TypedDict):
     path: pathlib.Path
     region_index: int
     labels: dict[str, Any] | None
-    annotations: Any | None
+    annotations: Iterable[_AnnotationsTypes]
 
 
 PointType = tuple[float, float]
