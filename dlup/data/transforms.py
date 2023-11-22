@@ -118,10 +118,12 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(
-        self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0, allow_empty: bool = False
-    ):
+    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
         """
+        Converts annotations given my `dlup.annotations.Polygon` or `dlup.annotations.Point` to a mask and a dictionary
+        of points. In case there are no annotations present (i.e. the "annotations" key is None) the sample is returned
+        as is.
+
         Parameters
         ----------
         roi_name : str, optional
@@ -130,19 +132,16 @@ class ConvertAnnotationsToMask:
             Dictionary mapping the label to the integer in the output.
         default_value : int
             The mask will be initialized with this value.
-        allow_empty : bool
-            Allows the annotations passed to this function to be empty and not raise an error
         """
         self._roi_name = roi_name
         self._index_map = index_map
         self._default_value = default_value
-        self._allow_empty = allow_empty
 
-    def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData:
-        if not sample["annotations"] and not self._allow_empty:
-            raise ValueError("No annotations found to convert to mask.")
-
+    def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData | TileSample:
         _annotations = sample["annotations"]
+        if _annotations is None:
+            return sample
+
         points, boxes, mask, roi = convert_annotations(
             _annotations,
             sample["image"].size[::-1],

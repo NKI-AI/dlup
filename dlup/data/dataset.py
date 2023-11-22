@@ -19,7 +19,7 @@ import PIL
 from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
-from dlup.annotations import WsiAnnotations, Point, Polygon
+from dlup.annotations import Point, Polygon, WsiAnnotations
 from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
@@ -44,7 +44,7 @@ class TileSample(TypedDict):
     path: pathlib.Path
     region_index: int
     labels: dict[str, Any] | None
-    annotations: Iterable[_AnnotationsTypes]
+    annotations: Optional[Iterable[_AnnotationsTypes]]
 
 
 PointType = tuple[float, float]
