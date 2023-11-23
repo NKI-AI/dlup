@@ -121,8 +121,13 @@ class ConvertAnnotationsToMask:
     def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
         """
         Converts annotations given my `dlup.annotations.Polygon` or `dlup.annotations.Point` to a mask and a dictionary
-        of points. In case there are no annotations present (i.e. the "annotations" key is None) the sample is returned
-        as is.
+        of points. The mask is initialized with `default_value`, (i.e., background). The values in the mask are
+        subsequently determined by `index_map`, where each value is written to the mask according to this map, in the
+        order of the elements in the annotations. This means that if you have overlapping polygons, the last polygon
+        will overwrite the previous one. The sorting can be handled in the `dlup.annotations.WsiAnnotation` class.
+
+        In case there are no annotations present (i.e. the "annotations" key is None) a `ValueError` is
+        raised.
 
         Parameters
         ----------
@@ -138,6 +143,26 @@ class ConvertAnnotationsToMask:
         self._default_value = default_value
 
     def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData:
+        """
+        Convert the annotations to a mask.
+
+        Parameters
+        ----------
+        sample : TileSample
+            The input sample.
+
+        Raises
+        ------
+        ValueError
+            If no annotations are found.
+
+        Returns
+        -------
+        TileSampleWithAnnotationData
+            The input sample with the annotation data added.
+
+        """
+
         _annotations = sample["annotations"]
         if _annotations is None:
             raise ValueError("No annotations found to convert to mask.")
