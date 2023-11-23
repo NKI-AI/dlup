@@ -140,7 +140,7 @@ class ConvertAnnotationsToMask:
     def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData:
         _annotations = sample["annotations"]
         if _annotations is None:
-            raise AnnotationError("No annotations found to convert to mask.")
+            raise ValueError("No annotations found to convert to mask.")
 
         points, boxes, mask, roi = convert_annotations(
             _annotations,
