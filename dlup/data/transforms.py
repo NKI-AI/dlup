@@ -137,10 +137,10 @@ class ConvertAnnotationsToMask:
         self._index_map = index_map
         self._default_value = default_value
 
-    def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData | TileSample:
+    def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData:
         _annotations = sample["annotations"]
         if _annotations is None:
-            return sample
+            raise AnnotationError("No annotations found to convert to mask.")
 
         points, boxes, mask, roi = convert_annotations(
             _annotations,
