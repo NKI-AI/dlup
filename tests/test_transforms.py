@@ -188,27 +188,43 @@ class MockPolygonAnnotation:
 
 class TestRenameLabels:
     @pytest.fixture
-    def transformer(self):
+    def transformer0(self):
         return RenameLabels(remap_labels={"old_name": "new_name"})
 
-    def test_no_remap(self, transformer):
+    @pytest.fixture
+    def transformer1(self):
+        return RenameLabels(remap_labels={"old_name": "new_name", "some_point": "some_point2", "some_box": "some_box"})
+
+    def test_no_remap(self, transformer0):
         old_annotation = Polygon(
             [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="unchanged_name", a_cls=AnnotationType.POLYGON)
         )
         sample = {"annotations": [old_annotation]}
-        transformed_sample = transformer(sample)
+        transformed_sample = transformer0(sample)
         assert transformed_sample["annotations"][0].label == "unchanged_name"
 
-    def test_remap_polygon(self, transformer):
+    def test_remap_polygon(self, transformer1):
         old_annotation = Polygon(
             [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="old_name", a_cls=AnnotationType.POLYGON)
         )
-        sample = {"annotations": [old_annotation]}
-        transformed_sample = transformer(sample)
-        assert transformed_sample["annotations"][0].label == "new_name"
-        assert isinstance(transformed_sample["annotations"][0], Polygon)
 
-    def test_unsupported_annotation(self, transformer):
+        random_box = Polygon(
+            [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="some_box", a_cls=AnnotationType.BOX)
+        )
+
+        random_point = Point((1, 1), AnnotationClass(label="some_point", a_cls=AnnotationType.POINT))
+
+        sample = {"annotations": [old_annotation, random_box, random_point]}
+        transformed_sample = transformer1(sample)
+        assert transformed_sample["annotations"][0].label == "new_name"
+        assert transformed_sample["annotations"][1].label == "some_box"
+        assert transformed_sample["annotations"][2].label == "some_point2"
+        assert isinstance(transformed_sample["annotations"][0], Polygon)
+        assert transformed_sample["annotations"][0].type == AnnotationType.POLYGON
+        assert transformed_sample["annotations"][1].type == AnnotationType.BOX
+        assert transformed_sample["annotations"][2].type == AnnotationType.POINT
+
+    def test_unsupported_annotation(self, transformer0):
         class UnsupportedAnnotation:
             def __init__(self):
                 self.a_cls = AnnotationClass(label="old_name", a_cls="UNSUPPORTED")
@@ -217,9 +233,9 @@ class TestRenameLabels:
         old_annotation = UnsupportedAnnotation()
         sample = {"annotations": [old_annotation]}
         with pytest.raises(Exception, match="Unsupported annotation type UNSUPPORTED"):
-            transformer(sample)
+            transformer0(sample)
 
-    def test_missing_annotations(self, transformer):
+    def test_missing_annotations(self, transformer0):
         sample = {"annotations": None}
         with pytest.raises(ValueError, match="No annotations found to convert to mask."):
-            transformer(sample)
+            transformer0(sample)
