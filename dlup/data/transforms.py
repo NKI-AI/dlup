@@ -39,6 +39,8 @@ def convert_annotations(
 
     When the polygon has holes, the previous written annotation is used to fill the holes.
 
+    *BE AWARE*: This function will silently ignore annotations which are written out of bounds.
+
     TODO
     ----
     - Convert segmentation index map to an Enum
@@ -47,7 +49,8 @@ def convert_annotations(
 
     Parameters
     ----------
-    annotations
+    annotations : Iterable[_AnnotationsTypes]
+        The annotations as a list, e.g., as output from `dlup.annotations.WsiAnnotations.read_region()`.
     region_size : tuple[int, int]
     index_map : dict[str, int]
         Map mapping annotation name to index number in the output.
@@ -72,12 +75,14 @@ def convert_annotations(
     for curr_annotation in annotations:
         holes_mask = None
         if isinstance(curr_annotation, dlup.annotations.Point):
-            points[curr_annotation.label] += tuple(curr_annotation.coords)
+            coords = tuple(curr_annotation.coords)
+            points[curr_annotation.label] += tuple(coords)
             continue
 
         if isinstance(curr_annotation, dlup.annotations.Polygon) and curr_annotation.type == AnnotationType.BOX:
             min_x, min_y, max_x, max_y = curr_annotation.bounds
             boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
+            continue
 
         if roi_name and curr_annotation.label == roi_name:
             cv2.fillPoly(
@@ -89,7 +94,7 @@ def convert_annotations(
             continue
 
         if not (curr_annotation.label in index_map):
-            continue
+            raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
 
         original_values = None
         interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
