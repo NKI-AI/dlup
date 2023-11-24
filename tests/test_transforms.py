@@ -1,11 +1,18 @@
 # Copyright (c) dlup contributors
 import numpy as np
+import PIL.Image
 import pytest
 from shapely.geometry import Polygon as ShapelyPolygon  # TODO: Our Polygon should support holes as well
 
 from dlup._exceptions import AnnotationError
 from dlup.annotations import Point, Polygon
-from dlup.data.transforms import AnnotationClass, AnnotationType, RenameLabels, convert_annotations
+from dlup.data.transforms import (
+    AnnotationClass,
+    AnnotationType,
+    ConvertAnnotationsToMask,
+    RenameLabels,
+    convert_annotations,
+)
 
 
 def test_convert_annotations_points_only():
@@ -96,22 +103,13 @@ def test_roi_exception():
         _ = convert_annotations(annotations=[box], region_size=(10, 10), index_map={"polygon": 1}, roi_name="roi")
 
 
-def test_convert_annotations_multiple_polygons_and_holes():
+def _create_complex_polygons():
     spolygon = ShapelyPolygon([(1, 1), (1, 7), (7, 7), (7, 1)], holes=[[(2, 2), (2, 4), (4, 4), (4, 1)]])
-
     polygon0 = Polygon(spolygon, AnnotationClass(label="polygon1", a_cls=AnnotationType.POLYGON))
-
     spolygon = ShapelyPolygon([(4, 4), (4, 9), (9, 9), (9, 4)], holes=[[(6, 6), (6, 8), (8, 8), (8, 6)]])
-
     polygon1 = Polygon(spolygon, a_cls=AnnotationClass(label="polygon2", a_cls=AnnotationType.POLYGON))
-
     roi = Polygon([(3, 3), (3, 6), (6, 6), (6, 3)], AnnotationClass(label="roi", a_cls=AnnotationType.POLYGON))
 
-    points, boxes, mask, roi_mask = convert_annotations(
-        [polygon0, polygon1, roi], (10, 10), {"polygon1": 2, "polygon2": 3}, roi_name="roi"
-    )
-
-    # This checks if the square with value 3 overwrites the underlying one
     target = np.asarray(
         [
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -126,6 +124,18 @@ def test_convert_annotations_multiple_polygons_and_holes():
             [0, 0, 0, 0, 3, 3, 3, 3, 3, 3],
         ]
     )
+
+    return [polygon0, polygon1, roi], target
+
+
+def test_convert_annotations_multiple_polygons_and_holes():
+    [polygon0, polygon1, roi], target = _create_complex_polygons()
+    points, boxes, mask, roi_mask = convert_annotations(
+        [polygon0, polygon1, roi], (10, 10), {"polygon1": 2, "polygon2": 3}, roi_name="roi"
+    )
+
+    # This checks if the square with value 3 overwrites the underlying one
+
     assert (mask == target).all()
     assert points == {}
     assert boxes == {}
@@ -140,6 +150,28 @@ def test_convert_annotations_out_of_bounds():
     points, boxes, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
     assert np.all(mask[2:10, 2:10] == 2)
+
+
+def test_ConvertAnnotationsToMask():
+    index_map = {"polygon1": 2, "polygon2": 3}
+    transform = ConvertAnnotationsToMask(roi_name="roi", index_map=index_map)
+    [polygon0, polygon1, roi], target = _create_complex_polygons()
+    image = np.zeros((10, 10, 3))
+    sample = {"annotations": None, "image": PIL.Image.fromarray(image, mode="RGB")}
+
+    with pytest.raises(ValueError, match="No annotations found to convert to mask."):
+        transform(sample)
+
+    sample["annotations"] = [polygon0, polygon1, roi]
+
+    output = transform(sample)["annotation_data"]
+
+    assert (output["mask"] == target).all()
+    roi_mask = output["roi"]
+    assert output["points"] == {}
+    assert output["boxes"] == {}
+    assert roi_mask is not None
+    assert (roi_mask[3:7, 3:7] == 1).all()  # pylint: disable=unsubscriptable-object
 
 
 class MockBoxAnnotation:
@@ -185,4 +217,9 @@ class TestRenameLabels:
         old_annotation = UnsupportedAnnotation()
         sample = {"annotations": [old_annotation]}
         with pytest.raises(Exception, match="Unsupported annotation type UNSUPPORTED"):
+            transformer(sample)
+
+    def test_missing_annotations(self, transformer):
+        sample = {"annotations": None}
+        with pytest.raises(ValueError, match="No annotations found to convert to mask."):
             transformer(sample)
