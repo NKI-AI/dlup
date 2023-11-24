@@ -243,8 +243,8 @@ class RenameLabels:
 
     def __call__(self, sample: TileSample) -> TileSample:
         _annotations = sample["annotations"]
-        if not _annotations:
-            raise ValueError("No annotations found to rename.")
+        if _annotations is None:
+            raise ValueError("No annotations found to convert to mask.")
 
         sample["annotations"] = rename_labels(_annotations, self._remap_labels)
         return sample
@@ -273,8 +273,9 @@ class MajorityClassToLabel:
         self._index_map = index_map
 
     def __call__(self, sample: TileSample) -> TileSample:
-        if not sample["annotations"]:
-            raise ValueError("No annotations found to convert to majority class.")
+        _annotations = sample["annotations"]
+        if _annotations is None:
+            raise ValueError("No annotations found to convert to mask.")
 
         if not sample["labels"]:
             sample["labels"] = {}
@@ -286,7 +287,7 @@ class MajorityClassToLabel:
         if self._roi_name:
             keys.append(self._roi_name)
 
-        for annotation in sample["annotations"]:
+        for annotation in _annotations:
             if annotation.label in keys:
                 areas[annotation.label] += annotation.area
 
@@ -304,7 +305,7 @@ class MajorityClassToLabel:
             # majority class.
             # In this case we mask the image.
             _, _, _, roi = convert_annotations(
-                sample["annotations"],
+                _annotations,
                 sample["image"].size[::-1],
                 roi_name=self._roi_name,
                 index_map={},
@@ -341,17 +342,18 @@ class ContainsPolygonToLabel:
         self._threshold = threshold
 
     def __call__(self, sample: TileSample) -> TileSample:
-        if not sample["annotations"]:
-            raise ValueError("No annotations found to find if contains polygon.")
+        _annotations = sample["annotations"]
+        if _annotations is None:
+            raise ValueError("No annotations found to convert to mask.")
 
         if not sample["labels"]:
             sample["labels"] = {}
         assert sample["labels"]
 
-        requested_polygons = [_ for _ in sample["annotations"] if _.label == self._label]
+        requested_polygons = [_ for _ in _annotations if _.label == self._label]
 
         if self._roi_name:
-            roi = shapely.geometry.MultiPolygon([_ for _ in sample["annotations"] if _.label == self._roi_name])
+            roi = shapely.geometry.MultiPolygon([_ for _ in _annotations if _.label == self._roi_name])
         else:
             roi = shapely.geometry.box(0, 0, *(sample["image"].size[::-1]))
 
