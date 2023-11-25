@@ -488,7 +488,7 @@ class TiledWsiDataset(BaseWsiDataset):
             Backend to use to read the whole slide image.
         limit_bounds : bool
             If the bounds of the grid should be limited to the bounds of the slide given in the `slide_bounds` property
-            of the `SlideImage` class.
+            of the `SlideImage` class. If ROIs are given, this parameter is ignored.
         **kwargs :
             Gets passed to the SlideImage constructor.
 
@@ -506,25 +506,19 @@ class TiledWsiDataset(BaseWsiDataset):
             scaling = slide_image.get_scaling(mpp)
             slide_mpp = slide_image.mpp
 
-            if limit_bounds:
-                if rois is not None:
-                    raise ValueError("Cannot use both `rois` and `limit_bounds` at the same time.")
+            if rois is not None:
+                slide_level_size = slide_image.get_scaled_size(scaling, limit_bounds=False)
+                _rois = parse_rois(rois, slide_level_size, scaling=scaling)
+            elif limit_bounds:
                 if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
                     raise ValueError(
                         "Cannot use AutoDetect as backend and use limit_bounds at the same time. "
                         "This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
                     )
-
-                offset, bounds = slide_image.slide_bounds
-                offset = (int(scaling * offset[0]), int(scaling * offset[1]))
-                size = int(bounds[0] * scaling), int(bounds[1] * scaling)
-                _rois = [
-                    (offset, size),
-                ]
-
+                _rois = [slide_image.get_scaled_slide_bounds(scaling=scaling)]
             else:
-                slide_level_size = slide_image.get_scaled_size(scaling)
-                _rois = parse_rois(rois, slide_level_size, scaling=slide_mpp / mpp if mpp else 1.0)
+                slide_level_size = slide_image.get_scaled_size(scaling, limit_bounds=False)
+                _rois = [((0, 0), slide_level_size)]
 
         grid_mpp = mpp if mpp is not None else slide_mpp
         grids = []
