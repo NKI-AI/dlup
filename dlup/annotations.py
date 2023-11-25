@@ -16,7 +16,11 @@ Assumed:
 - The type of object (point, box, polygon) is fixed per label.
 - The mpp is fixed per label.
 
-Also the ASAP XML data format is supported.
+Supported file formats:
+- ASAP XML
+- Darwin V7 JSON
+- GeoJSON
+- HaloXML
 """
 from __future__ import annotations
 
