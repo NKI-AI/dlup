@@ -319,7 +319,7 @@ class WsiAnnotations:
     """Class to hold the annotations of all labels specific label for a whole slide image."""
 
     def __init__(
-        self, annotations: list[SingleAnnotationWrapper], sorting: AnnotationSorting = AnnotationSorting.NONE
+        self, annotations: list[SingleAnnotationWrapper], sorting: AnnotationSorting = AnnotationSorting.NONE, annotation_offset: tuple[float, float] = (0, 0)
     ):
         self.available_labels = sorted(
             [_.annotation_class for _ in annotations],
@@ -332,6 +332,8 @@ class WsiAnnotations:
         self._annotation_trees = {a_cls: self[a_cls].as_strtree() for a_cls in self.available_labels}
 
         self._sorting = sorting
+
+        self._annotation_offset = annotation_offset
 
     def filter(self, labels: str | list[str] | tuple[str]) -> None:
         """
@@ -553,7 +555,7 @@ class WsiAnnotations:
         return cls(list(annotations.values()), sorting=AnnotationSorting.BY_AREA)
 
     @classmethod
-    def from_halo_xml(cls, halo_xml: PathLike, scaling: float | None = None) -> WsiAnnotations:
+    def from_halo_xml(cls, halo_xml: PathLike, scaling: float | None = None, annotation_offset: tuple[float, float] = (0,0)) -> WsiAnnotations:
         """
         Read annotations as a Halo [1] XML file.
         This function requires `pyhaloxml` [2] to be installed.
@@ -564,6 +566,8 @@ class WsiAnnotations:
             Path to the Halo XML file.
         scaling : float, optional
             The scaling to apply to the annotations.
+        annotation_offset: tuple[float, float]
+            Offset by which we should correct the annotations
 
         References
         ----------
@@ -594,7 +598,7 @@ class WsiAnnotations:
                 )
             )
 
-        return cls(annotations, sorting=AnnotationSorting.NONE)
+        return cls(annotations, sorting=AnnotationSorting.NONE, annotation_offset=annotation_offset)
 
     @classmethod
     def from_darwin_json(cls, darwin_json: PathLike, scaling: float | None = None) -> WsiAnnotations:
@@ -706,7 +710,6 @@ class WsiAnnotations:
         coordinates: np.ndarray | tuple[GenericNumber, GenericNumber],
         scaling: float,
         region_size: np.ndarray | tuple[GenericNumber, GenericNumber],
-        offset: np.nd_array | tuple[GenericNumber, GenericNumber] = (0, 0),
     ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
@@ -753,8 +756,8 @@ class WsiAnnotations:
         """
 
         #  sampling box
-        box = list(np.asarray(coordinates) - np.asarray(offset)) + list(
-	    np.asarray(coordinates) - np.asarray(offset) + np.asarray(region_size)
+        box = list(np.asarray(coordinates) - np.asarray(self._annotation_offset)) + list(
+	    np.asarray(coordinates) - np.asarray(self._annotation_offset) + np.asarray(region_size)
         )
 
         box = (np.asarray(box) / scaling).tolist()

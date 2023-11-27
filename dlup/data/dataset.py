@@ -175,7 +175,6 @@ class SlideImageDatasetBase(Dataset[T_co]):
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
-        annotation_offset: np.ndarray | tuple[int, int] = (0, 0),
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable | None = None,
         backend: Callable = ImageBackend.PYVIPS,
@@ -216,7 +215,6 @@ class SlideImageDatasetBase(Dataset[T_co]):
         self._output_tile_size = output_tile_size
 
         self.annotations = annotations
-        self.annotation_offset = annotation_offset
         self.labels = labels
         self.__transform = transform
         self._backend = backend
@@ -288,7 +286,8 @@ class SlideImageDatasetBase(Dataset[T_co]):
             sample["annotations"] = self.annotations.read_region(coordinates,
                                                                  scaling,
                                                                  region_size,
-                                                                 offset=self.annotation_offset)
+                                                                 annotation_offset = self.slide_image.slide_bounds[0]
+                                                                 )
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
