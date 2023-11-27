@@ -339,14 +339,14 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
 
         # TODO: This needs to move to TiledWsiDataset (v1.0)
         if self.annotations is not None:
-
             if not isinstance(self.annotations, WsiAnnotations):
                 raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
 
-            sample["annotations"] = self.annotations.read_region(coordinates,
-                                                                 scaling,
-                                                                 region_size,
-                                                                 )
+            sample["annotations"] = self.annotations.read_region(
+                coordinates,
+                scaling,
+                region_size,
+            )
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
@@ -529,7 +529,6 @@ class TiledWsiDataset(BaseWsiDataset):
                 _rois = [
                     (offset, size),
                 ]
-
 
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling)

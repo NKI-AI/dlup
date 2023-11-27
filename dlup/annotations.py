@@ -342,7 +342,7 @@ class WsiAnnotations:
         self,
         annotations: list[SingleAnnotationWrapper],
         sorting: AnnotationSorting = AnnotationSorting.NONE,
-        annotation_offset: tuple[float, float] = (0, 0)
+        annotation_offset: tuple[float, float] = (0, 0),
     ):
         self.available_labels = sorted(
             [_.annotation_class for _ in annotations],
@@ -581,7 +581,9 @@ class WsiAnnotations:
         return cls(list(annotations.values()), sorting=AnnotationSorting.BY_AREA)
 
     @classmethod
-    def from_halo_xml(cls, halo_xml: PathLike, scaling: float | None = None, annotation_offset: tuple[float, float] = (0,0)) -> WsiAnnotations:
+    def from_halo_xml(
+        cls, halo_xml: PathLike, scaling: float | None = None, annotation_offset: tuple[float, float] = (0, 0)
+    ) -> WsiAnnotations:
         """
         Read annotations as a Halo [1] XML file.
         This function requires `pyhaloxml` [2] to be installed.
@@ -744,7 +746,7 @@ class WsiAnnotations:
         location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
         size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
-  ) -> list[Polygon | Point]:
+    ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
         The process is as follows:
@@ -791,9 +793,8 @@ class WsiAnnotations:
 
         #  sampling box
         box = list(np.asarray(location) - np.asarray(self._annotation_offset)) + list(
-	    np.asarray(location) - np.asarray(self._annotation_offset) + np.asarray(size)
+            np.asarray(location) - np.asarray(self._annotation_offset) + np.asarray(size)
         )
-
 
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
@@ -832,11 +833,16 @@ class WsiAnnotations:
                     continue
 
             if annotation:
-
                 cropped_annotations.append((annotation_class, annotation))
 
-        transformation_matrix = [scaling, 0, 0, scaling, -location[0] + self._annotation_offset[0], -location[1] + self._annotation_offset[1]]
-
+        transformation_matrix = [
+            scaling,
+            0,
+            0,
+            scaling,
+            -location[0] + self._annotation_offset[0],
+            -location[1] + self._annotation_offset[1],
+        ]
 
         output: list[Polygon | Point] = []
         for annotation_class, annotation in cropped_annotations:
