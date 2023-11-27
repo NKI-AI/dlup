@@ -14,6 +14,7 @@ import warnings
 from math import ceil, floor
 from typing import Any, Callable, Generic, Iterable, Iterator, Optional, Sequence, TypedDict, TypeVar, Union, overload
 
+
 import numpy as np
 import numpy.typing as npt
 import PIL
@@ -341,6 +342,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
 
             if not isinstance(self.annotations, WsiAnnotations):
                 raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
+
             sample["annotations"] = self.annotations.read_region(coordinates,
                                                                  scaling,
                                                                  region_size,
@@ -528,6 +530,7 @@ class TiledWsiDataset(BaseWsiDataset):
                 _rois = [
                     (offset, size),
                 ]
+
 
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling)
