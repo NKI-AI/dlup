@@ -346,7 +346,6 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             sample["annotations"] = self.annotations.read_region(coordinates,
                                                                  scaling,
                                                                  region_size,
-                                                                 annotation_offset = self.slide_image.slide_bounds[0]
                                                                  )
 
         if self.labels:
