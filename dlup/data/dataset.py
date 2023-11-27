@@ -208,7 +208,6 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         mask_threshold: float | None = 0.0,
         output_tile_size: tuple[int, int] | None = None,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
-        annotation_offset: np.ndarray | tuple[int, int] = (0, 0),
         labels: list[tuple[str, _LabelTypes]] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
         apply_color_profile: bool = False,
@@ -253,7 +252,6 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         self._output_tile_size = output_tile_size
 
         self.annotations = annotations
-        self.annotation_offset = annotation_offset
         self.labels = labels
         self._backend = backend
         self._apply_color_profile = apply_color_profile
@@ -346,7 +344,8 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             sample["annotations"] = self.annotations.read_region(coordinates,
                                                                  scaling,
                                                                  region_size,
-                                                                 offset=self.annotation_offset)
+                                                                 annotation_offset = self.slide_image.slide_bounds[0]
+                                                                 )
 
         if self.labels:
             sample["labels"] = {k: v for k, v in self.labels}
