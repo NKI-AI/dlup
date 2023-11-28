@@ -10,7 +10,6 @@ from dlup._image import Resampling
 from dlup.annotations import (
     AnnotationClass,
     AnnotationType,
-    GeoJsonDict,
     Polygon,
     SingleAnnotationWrapper,
     WsiAnnotations,
@@ -88,20 +87,8 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
     if args.simplify is not None:
         slide_annotations.simplify(tolerance=args.simplify)
 
-    if not args.separate:
-        with open(output_filename, "w") as f:
-            json.dump(slide_annotations.as_geojson(split_per_label=False), f, indent=2)
-    else:
-        jsons = slide_annotations.as_geojson(split_per_label=True)
-        if not type(jsons) == list[tuple[str, GeoJsonDict]]:  # noqa
-            raise ValueError("Expected a list of tuples")
-        for label, json_dict in jsons:
-            suffix = output_filename.suffix
-            name = output_filename.with_suffix("").name
-            new_name = name + "-" + label
-            new_filename = (output_filename.parent / new_name).with_suffix(suffix)
-            with open(new_filename, "w") as f:
-                json.dump(json_dict, f, indent=2)
+    with open(output_filename, "w") as f:
+        json.dump(slide_annotations.as_geojson(), f, indent=2)
 
 
 def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore
@@ -118,7 +105,7 @@ def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore
     mask_parser.add_argument(
         "MASK_FILENAME",
         type=file_path,
-        help="Filename of the mask. If `--separate` is set, will create a label <MASK_FILENAME>-<label>.json",
+        help="Filename of the mask.",
     )
     mask_parser.add_argument(
         "OUTPUT_FN",
@@ -134,11 +121,6 @@ def register_parser(parser: argparse._SubParsersAction) -> None:  # type: ignore
         "--silent",
         action="store_true",
         help="If set, will not show progress bar.",
-    )
-    mask_parser.add_argument(
-        "--separate",
-        action="store_true",
-        help="If set, save labels separately.",
     )
     mask_parser.add_argument(
         "--tile-size",
