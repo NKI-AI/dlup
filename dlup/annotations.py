@@ -16,7 +16,11 @@ Assumed:
 - The type of object (point, box, polygon) is fixed per label.
 - The mpp is fixed per label.
 
-Also the ASAP XML data format is supported.
+Supported file formats:
+- ASAP XML
+- Darwin V7 JSON
+- GeoJSON
+- HaloXML
 """
 from __future__ import annotations
 
@@ -55,6 +59,16 @@ class AnnotationType(Enum):
 
 
 class AnnotationSorting(Enum):
+    """The ways to sort the annotations. This is used in the constructors of the `WsiAnnotations` class, and applied
+    to the output of `WsiAnnotations.read_region()`.
+
+    - REVERSE: Sort the output in reverse order.
+    - BY_AREA: Often when the annotation tools do not properly support hierarchical order, one would annotate in a way
+        that the smaller objects are on top of the larger objects. This option sorts the output by area, so that the
+        larger objects appear first in the output and then the smaller objects.
+    - NONE: Do not apply any sorting and output as is presented in the input file.
+    """
+
     REVERSE = "reverse"
     BY_AREA = "by_area"
     NONE = "none"
@@ -447,6 +461,7 @@ class WsiAnnotations:
         cls: Type[_TWsiAnnotations],
         geojsons: PathLike | Iterable[PathLike],
         scaling: float | None = None,
+        sorting: AnnotationSorting = AnnotationSorting.BY_AREA,
     ) -> _TWsiAnnotations:
         """
         Constructs an WsiAnnotations object from geojson.
@@ -458,6 +473,9 @@ class WsiAnnotations:
             object.
         scaling : float, optional
             The scaling to apply to the annotations.
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
+            By default, the annotations are sorted by area.
 
         Returns
         -------
@@ -488,13 +506,14 @@ class WsiAnnotations:
             SingleAnnotationWrapper(a_cls=data[k][0].annotation_class, annotation=data[k]) for k in data.keys()
         ]
 
-        return cls(_annotations, sorting=AnnotationSorting.BY_AREA)
+        return cls(_annotations, sorting=sorting)
 
     @classmethod
     def from_asap_xml(
         cls,
         asap_xml: PathLike,
         scaling: float | None = None,
+        sorting: AnnotationSorting = AnnotationSorting.BY_AREA,
     ) -> WsiAnnotations:
         """
         Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
@@ -504,6 +523,9 @@ class WsiAnnotations:
         asap_xml : PathLike
             Path to ASAP XML annotation file.
         scaling : float, optional
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
+            By default, the annotations are sorted by area.
 
         References
         ----------
@@ -575,10 +597,12 @@ class WsiAnnotations:
 
                     opened_annotations += 1
 
-        return cls(list(annotations.values()), sorting=AnnotationSorting.BY_AREA)
+        return cls(list(annotations.values()), sorting=sorting)
 
     @classmethod
-    def from_halo_xml(cls, halo_xml: PathLike, scaling: float | None = None) -> WsiAnnotations:
+    def from_halo_xml(
+        cls, halo_xml: PathLike, scaling: float | None = None, sorting: AnnotationSorting = AnnotationSorting.NONE
+    ) -> WsiAnnotations:
         """
         Read annotations as a Halo [1] XML file.
         This function requires `pyhaloxml` [2] to be installed.
@@ -589,6 +613,9 @@ class WsiAnnotations:
             Path to the Halo XML file.
         scaling : float, optional
             The scaling to apply to the annotations.
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information. By default
+            the annotations are not sorted as HALO supports hierarchical annotations.
 
         References
         ----------
@@ -622,10 +649,34 @@ class WsiAnnotations:
                 )
             )
 
-        return cls(annotations, sorting=AnnotationSorting.NONE)
+        return cls(annotations, sorting=sorting)
 
     @classmethod
-    def from_darwin_json(cls, darwin_json: PathLike, scaling: float | None = None) -> WsiAnnotations:
+    def from_darwin_json(
+        cls, darwin_json: PathLike, scaling: float | None = None, sorting: AnnotationSorting = AnnotationSorting.NONE
+    ) -> WsiAnnotations:
+        """
+        Read annotations as a V7 Darwin [1] JSON file.
+
+        Parameters
+        ----------
+        darwin_json : PathLike
+            Path to the Darwin JSON file.
+        scaling : float, optional
+            The scaling to apply to the annotations.
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
+            By default, the annotations are not sorted as V7 Darwin supports hierarchical annotations.
+
+        References
+        ----------
+        .. [1] https://darwin.v7labs.com/
+
+        Returns
+        -------
+        WsiAnnotations
+
+        """
         if not DARWIN_SDK_AVAILABLE:
             raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
         import darwin
@@ -673,7 +724,7 @@ class WsiAnnotations:
         output = []
         for an_cls, _annotation in all_annotations.items():
             output.append(SingleAnnotationWrapper(a_cls=an_cls, annotation=_annotation))
-        return cls(output, sorting=AnnotationSorting.NONE)
+        return cls(output, sorting=sorting)
 
     def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
         return self._annotations[a_cls]
