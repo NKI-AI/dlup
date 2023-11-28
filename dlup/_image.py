@@ -403,7 +403,7 @@ class SlideImage:
         region = region.resize(size, resample=self._interpolator, box=box)
         return region
 
-    def get_scaled_size(self, scaling: GenericNumber, use_limit_bounds: Optional[bool] = False) -> tuple[int, int]:
+    def get_scaled_size(self, scaling: GenericNumber, limit_bounds: Optional[bool] = False) -> tuple[int, int]:
         """Compute slide image size at specific scaling.
 
         Parameters
@@ -411,7 +411,7 @@ class SlideImage:
         scaling: GenericNumber
             The factor by which the image needs to be scaled.
 
-        use_limit_bounds: Optional[bool]
+        limit_bounds: Optional[bool]
             If True, the scaled size will be calculated using the slide bounds of the whole slide image.
             This is generally the specific area within a whole slide image where we can find the tissue specimen.
 
@@ -420,7 +420,7 @@ class SlideImage:
         size: tuple[int, int]
             The scaled size of the image.
         """
-        if use_limit_bounds:
+        if limit_bounds:
             _, bounded_size = self.slide_bounds
             size = int(bounded_size[0] * scaling), int(bounded_size[1] * scaling)
         else:
@@ -524,6 +524,25 @@ class SlideImage:
         These bounds are in the format (x, y), (width, height), and are defined at level 0 of the image.
         """
         return self._wsi.slide_bounds
+
+    def get_scaled_slide_bounds(self, scaling: float) -> tuple[tuple[int, int], tuple[int, int]]:
+        """Returns the bounds of the slide at a specific scaling level. This takes the slide bounds into account
+        and scales them to the appropriate scaling level.
+
+        Parameters
+        ----------
+        scaling : float
+            The scaling level to use.
+
+        Returns
+        -------
+        tuple[tuple[int, int], tuple[int, int]]
+            The slide bounds at the given scaling level.
+        """
+        offset, size = self.slide_bounds
+        offset = (int(scaling * offset[0]), int(scaling * offset[1]))
+        size = (int(scaling * size[0]), int(scaling * size[1]))
+        return offset, size
 
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
