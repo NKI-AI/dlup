@@ -237,5 +237,5 @@ class TestRenameLabels:
 
     def test_missing_annotations(self, transformer0):
         sample = {"annotations": None}
-        with pytest.raises(ValueError, match="No annotations found to convert to mask."):
+        with pytest.raises(ValueError, match="No annotations found to rename."):
             transformer0(sample)
