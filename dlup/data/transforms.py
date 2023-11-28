@@ -31,6 +31,9 @@ def convert_annotations(
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
+    - In case of bounding boxes the output is a dictionary mapping the annotation name to a list of bounding boxes.
+      Note that the internal representation of a bounding box is a polygon (`AnnotationType is AnnotationType.BOX`),
+      so the bounding box of that polygon is computed to convert.
     - In case of polygons these are converted into a mask according to `index_map`.
 
     *BE AWARE*: the polygon annotations are processed sequentially and later annotations can overwrite earlier ones.
@@ -244,7 +247,7 @@ class RenameLabels:
     def __call__(self, sample: TileSample) -> TileSample:
         _annotations = sample["annotations"]
         if _annotations is None:
-            raise ValueError("No annotations found to convert to mask.")
+            raise ValueError("No annotations found to rename.")
 
         sample["annotations"] = rename_labels(_annotations, self._remap_labels)
         return sample
@@ -275,7 +278,7 @@ class MajorityClassToLabel:
     def __call__(self, sample: TileSample) -> TileSample:
         _annotations = sample["annotations"]
         if _annotations is None:
-            raise ValueError("No annotations found to convert to mask.")
+            raise ValueError("No annotations found to convert to class label.")
 
         if not sample["labels"]:
             sample["labels"] = {}
@@ -344,7 +347,7 @@ class ContainsPolygonToLabel:
     def __call__(self, sample: TileSample) -> TileSample:
         _annotations = sample["annotations"]
         if _annotations is None:
-            raise ValueError("No annotations found to convert to mask.")
+            raise ValueError("No annotations found to convert to class label.")
 
         if not sample["labels"]:
             sample["labels"] = {}
