@@ -31,6 +31,9 @@ def convert_annotations(
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
+    - In case of bounding boxes the output is a dictionary mapping the annotation name to a list of bounding boxes.
+      Note that the internal representation of a bounding box is a polygon (`AnnotationType is AnnotationType.BOX`),
+      so the bounding box of that polygon is computed to convert.
     - In case of polygons these are converted into a mask according to `index_map`.
 
     *BE AWARE*: the polygon annotations are processed sequentially and later annotations can overwrite earlier ones.
@@ -38,6 +41,8 @@ def convert_annotations(
     The dlup Annotation classes return the polygons with area from large to small.
 
     When the polygon has holes, the previous written annotation is used to fill the holes.
+
+    *BE AWARE*: This function will silently ignore annotations which are written out of bounds.
 
     TODO
     ----
@@ -47,7 +52,8 @@ def convert_annotations(
 
     Parameters
     ----------
-    annotations
+    annotations : Iterable[_AnnotationsTypes]
+        The annotations as a list, e.g., as output from `dlup.annotations.WsiAnnotations.read_region()`.
     region_size : tuple[int, int]
     index_map : dict[str, int]
         Map mapping annotation name to index number in the output.
@@ -72,12 +78,14 @@ def convert_annotations(
     for curr_annotation in annotations:
         holes_mask = None
         if isinstance(curr_annotation, dlup.annotations.Point):
-            points[curr_annotation.label] += tuple(curr_annotation.coords)
+            coords = tuple(curr_annotation.coords)
+            points[curr_annotation.label] += tuple(coords)
             continue
 
         if isinstance(curr_annotation, dlup.annotations.Polygon) and curr_annotation.type == AnnotationType.BOX:
             min_x, min_y, max_x, max_y = curr_annotation.bounds
             boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
+            continue
 
         if roi_name and curr_annotation.label == roi_name:
             cv2.fillPoly(
@@ -89,7 +97,7 @@ def convert_annotations(
             continue
 
         if not (curr_annotation.label in index_map):
-            continue
+            raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
 
         original_values = None
         interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
@@ -238,7 +246,7 @@ class RenameLabels:
 
     def __call__(self, sample: TileSample) -> TileSample:
         _annotations = sample["annotations"]
-        if not _annotations:
+        if _annotations is None:
             raise ValueError("No annotations found to rename.")
 
         sample["annotations"] = rename_labels(_annotations, self._remap_labels)
@@ -268,8 +276,9 @@ class MajorityClassToLabel:
         self._index_map = index_map
 
     def __call__(self, sample: TileSample) -> TileSample:
-        if not sample["annotations"]:
-            raise ValueError("No annotations found to convert to majority class.")
+        _annotations = sample["annotations"]
+        if _annotations is None:
+            raise ValueError("No annotations found to convert to class label.")
 
         if not sample["labels"]:
             sample["labels"] = {}
@@ -281,7 +290,7 @@ class MajorityClassToLabel:
         if self._roi_name:
             keys.append(self._roi_name)
 
-        for annotation in sample["annotations"]:
+        for annotation in _annotations:
             if annotation.label in keys:
                 areas[annotation.label] += annotation.area
 
@@ -299,7 +308,7 @@ class MajorityClassToLabel:
             # majority class.
             # In this case we mask the image.
             _, _, _, roi = convert_annotations(
-                sample["annotations"],
+                _annotations,
                 sample["image"].size[::-1],
                 roi_name=self._roi_name,
                 index_map={},
@@ -336,17 +345,18 @@ class ContainsPolygonToLabel:
         self._threshold = threshold
 
     def __call__(self, sample: TileSample) -> TileSample:
-        if not sample["annotations"]:
-            raise ValueError("No annotations found to find if contains polygon.")
+        _annotations = sample["annotations"]
+        if _annotations is None:
+            raise ValueError("No annotations found to convert to class label.")
 
         if not sample["labels"]:
             sample["labels"] = {}
         assert sample["labels"]
 
-        requested_polygons = [_ for _ in sample["annotations"] if _.label == self._label]
+        requested_polygons = [_ for _ in _annotations if _.label == self._label]
 
         if self._roi_name:
-            roi = shapely.geometry.MultiPolygon([_ for _ in sample["annotations"] if _.label == self._roi_name])
+            roi = shapely.geometry.MultiPolygon([_ for _ in _annotations if _.label == self._roi_name])
         else:
             roi = shapely.geometry.box(0, 0, *(sample["image"].size[::-1]))
 
