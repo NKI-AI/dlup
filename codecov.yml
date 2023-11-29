@@ -8,4 +8,4 @@ coverage:
         threshold: 1%  # allow for 1% reduction of coverage without failing
 
     # do not run coverage on patch nor changes
-    patch: false
+    patch: true
