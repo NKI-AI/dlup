@@ -83,7 +83,7 @@ class TestAnnotations:
             else:
                 raise NotImplementedError("Different shape types not implemented yet.")
 
-            # TODO: Find how two areas compare.
+            # Check if the polygons are equal, as they can have a different parametrization
             assert complete_shape0.equals(complete_shape1)
 
     @pytest.mark.parametrize("region", [((10000, 10000), (5000, 5000), 3756.0), ((0, 0), (5000, 5000), None)])
