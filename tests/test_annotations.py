@@ -65,6 +65,7 @@ class TestAnnotations:
         # TODO: Make sure that the annotations hit the border of the region.
         asap_geojson = self.asap_annotations.as_geojson()
         geojson_geojson = self.geojson_annotations.as_geojson()
+        assert len(asap_geojson) == len(geojson_geojson)
 
         # TODO: Collect the geometries together per name and compare
         for elem0, elem1 in zip(asap_geojson["features"], geojson_geojson["features"]):
