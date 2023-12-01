@@ -339,6 +339,11 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         if self.annotations is not None:
             if not isinstance(self.annotations, WsiAnnotations):
                 raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
+            _requires_offset = getattr(self.annotations, "offset_to_slide_bounds", False)
+            if _requires_offset:
+                _scaled_offset = slide_image.get_scaled_slide_bounds(scaling)[0]
+                coordinates = (coordinates[0] + _scaled_offset[0], coordinates[1] + _scaled_offset[1])
+
             sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
 
         if self.labels:
