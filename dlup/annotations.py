@@ -241,6 +241,35 @@ _POSTPROCESSORS: dict[AnnotationType, Callable[[Polygon | Point, Polygon], Polyg
 }
 
 
+def _geometry_to_geojson(geometry: Polygon | Point, label: str) -> dict[str, Any]:
+    """Function to convert a geometry to a GeoJSON object.
+
+    Parameters
+    ----------
+    geometry : Polygon | Point
+        A polygon or point object
+    label : str
+        The label name
+
+    Returns
+    -------
+    dict[str, Any]
+        Output dictionary representing the data in GeoJSON
+
+    """
+    data = {
+        "type": "Feature",
+        "properties": {
+            "classification": {
+                "name": label,
+                "color": None,
+            },
+        },
+        "geometry": shapely.geometry.mapping(geometry),
+    }
+    return data
+
+
 class SingleAnnotationWrapper:
     """Class to hold the annotations of one specific label (class) for a whole slide image"""
 
@@ -298,19 +327,7 @@ class SingleAnnotationWrapper:
         -------
         dict
         """
-        data = [
-            {
-                "type": "Feature",
-                "properties": {
-                    "classification": {
-                        "name": _.label,
-                        "color": None,
-                    },
-                },
-                "geometry": shapely.geometry.mapping(_),
-            }
-            for _ in self._annotation
-        ]
+        data = [_geometry_to_geojson(_, label=_.label) for _ in self._annotation]
         return data
 
     @staticmethod
@@ -756,41 +773,53 @@ class WsiAnnotations:
     def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
         return self._annotations[a_cls]
 
-    def as_geojson(self, split_per_label: bool = False) -> GeoJsonDict | list[tuple[str, GeoJsonDict]]:
+    def as_geojson(self) -> GeoJsonDict:
         """
-        Output the annotations as proper geojson.
-
-        Parameters
-        ----------
-        split_per_label : bool
-            If set will return a list of a tuple with str, GeoJSON dict for this specific label.
+        Output the annotations as proper geojson. These outputs are sorted according to the `AnnotationSorting` selected
+        for the annotations. This ensures the annotations are correctly sorted in the output.
 
         Returns
         -------
         list of (str, GeoJsonDict)
         """
-        jsons = [(label, self[label].as_json()) for label in self.available_labels]
-        if split_per_label:
-            per_label_jsons = []
-            for label, json_per_label in jsons:
-                per_label_data: GeoJsonDict = {
-                    "type": "FeatureCollection",
-                    "features": [],
-                    "id": None,
-                }
-                for idx, json_dict in enumerate(json_per_label):
-                    per_label_data["features"].append(json_dict)
-                    per_label_data["id"] = str(idx)
-                per_label_jsons.append((label, per_label_data))
-            return per_label_jsons
+        coordinates, size = self.bounding_box
+        region_size = (coordinates[0] + size[0], coordinates[1] + size[1])
+        all_annotations = self.read_region((0, 0), 1.0, region_size)
+
+        # We should group annotations that belong to the same class
+        grouped_annotations = []
+        previous_label = None
+        group = []
+        for annotation in all_annotations:
+            label = annotation.label
+            if not previous_label:
+                previous_label = label
+
+            if previous_label == label:
+                group.append(annotation)
+            else:
+                grouped_annotations.append(group)
+                group = [annotation]
+                previous_label = label
+        # After the loop, add the last group if it's not empty
+        if group:
+            grouped_annotations.append(group)
 
         data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "id": None}
-        index = 0
-        for label, json_per_label in jsons:
-            for json_dict in json_per_label:
-                json_dict["id"] = str(index)
-                data["features"].append(json_dict)
-                index += 1
+        for idx, annotation_list in enumerate(grouped_annotations):
+            label = annotation_list[0].label
+            if len(annotation_list) == 1:
+                json_dict = _geometry_to_geojson(annotation_list[0], label=label)
+            else:
+                if annotation_list[0].type in [AnnotationType.BOX, AnnotationType.POLYGON]:
+                    annotation = shapely.geometry.MultiPolygon(annotation_list)
+                else:
+                    annotation = shapely.geometry.MultiPoint(annotation_list)
+                json_dict = _geometry_to_geojson(annotation, label=label)
+
+            json_dict["id"] = str(idx)
+            data["features"].append(json_dict)
+
         return data
 
     def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:
