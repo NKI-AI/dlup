@@ -9,8 +9,9 @@ import tempfile
 
 import numpy as np
 import pytest
+import shapely.geometry
 
-from dlup.annotations import AnnotationClass, AnnotationType, Polygon, WsiAnnotations
+from dlup.annotations import AnnotationClass, AnnotationType, Polygon, WsiAnnotations, shape
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
@@ -45,7 +46,7 @@ class TestAnnotations:
         asap_annotations = WsiAnnotations.from_asap_xml(pathlib.Path(asap_file.name))
 
     with tempfile.NamedTemporaryFile(suffix=".json") as geojson_out:
-        asap_geojson = asap_annotations.as_geojson(split_per_label=False)
+        asap_geojson = asap_annotations.as_geojson()
         geojson_out.write(json.dumps(asap_geojson).encode("utf-8"))
         geojson_out.flush()
 
@@ -60,10 +61,31 @@ class TestAnnotations:
             self._v7_annotations = WsiAnnotations.from_darwin_json("tests/files/103S.json")
         return self._v7_annotations
 
-    def test_asap_to_geojson(self, split_per_label=False):
-        asap_geojson = self.asap_annotations.as_geojson(split_per_label=split_per_label)
-        geojson_geojson = self.geojson_annotations.as_geojson(split_per_label=split_per_label)
-        assert asap_geojson == geojson_geojson
+    def test_asap_to_geojson(self):
+        # TODO: Make sure that the annotations hit the border of the region.
+        asap_geojson = self.asap_annotations.as_geojson()
+        geojson_geojson = self.geojson_annotations.as_geojson()
+        assert len(asap_geojson) == len(geojson_geojson)
+
+        # TODO: Collect the geometries together per name and compare
+        for elem0, elem1 in zip(asap_geojson["features"], geojson_geojson["features"]):
+            assert elem0["type"] == elem1["type"]
+            assert elem0["properties"] == elem1["properties"]
+            assert elem0["id"] == elem1["id"]
+
+            # Now we need to compare the geometries, given the sorting they could become different
+            shape0 = shape(elem0["geometry"], label="")
+            shape1 = shape(elem1["geometry"], label="")
+            assert len(set([_.label for _ in shape0])) == 1
+            assert len(set([_.label for _ in shape1])) == 1
+            if isinstance(shape0[0], Polygon):
+                complete_shape0 = shapely.geometry.MultiPolygon(shape0)
+                complete_shape1 = shapely.geometry.MultiPolygon(shape1)
+            else:
+                raise NotImplementedError("Different shape types not implemented yet.")
+
+            # Check if the polygons are equal, as they can have a different parametrization
+            assert complete_shape0.equals(complete_shape1)
 
     @pytest.mark.parametrize("region", [((10000, 10000), (5000, 5000), 3756.0), ((0, 0), (5000, 5000), None)])
     def test_read_region(self, region):
