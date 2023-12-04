@@ -29,6 +29,7 @@ import errno
 import json
 import os
 import pathlib
+import warnings
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass
@@ -674,26 +675,53 @@ class WsiAnnotations:
             raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
         import pyhaloxml
         import pyhaloxml.shapely
+        from pyhaloxml.misc import RegionType as HRegionType
+
+        _TRANSLATION_DICT = {
+            HRegionType.Polygon: AnnotationType.POLYGON,
+            HRegionType.Rectangle: AnnotationType.BOX,
+            HRegionType.Ellipse: AnnotationType.POLYGON,
+        }
 
         output = defaultdict(list)
         with pyhaloxml.HaloXMLFile(halo_xml) as hx:  # type: ignore
-            for layer in hx.layers:
-                shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)  # type: ignore
-                _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POLYGON)
-                for shapely_polygon in shapely_multipolygon.geoms:
-                    curr_polygon = rescale_geometry(Polygon(shapely_polygon, a_cls=_cls), scaling=scaling)
-                    output[layer.name].append(Polygon(curr_polygon, a_cls=_cls))
+            for idx, layer in enumerate(hx.layers):
+                # TODO: Do something with the color
+                # color = layer.linecolor
 
-        annotations: list[SingleAnnotationWrapper] = []
+                for region in layer.regions:
+                    if region.type in [HRegionType.Polygon, HRegionType.Rectangle, HRegionType.Ellipse]:
+                        try:
+                            polygon = pyhaloxml.shapely.region_to_shapely(region)  # type: ignore
+                        except ValueError:
+                            warnings.warn(f"Got a ValueError for region with type {region.type}. Skipping.")
+                            continue
+
+                        if polygon.area == 0:
+                            warnings.warn(f"Got a polygon with area 0 for region {region}. Skipping.")
+                            continue
+
+                        _cls = AnnotationClass(label=layer.name, a_cls=_TRANSLATION_DICT[region.type])
+                        curr_polygon = rescale_geometry(Polygon(polygon, a_cls=_cls), scaling=scaling)
+                        output[layer.name].append(Polygon(curr_polygon, a_cls=_cls))
+                    elif region.type == pyhaloxml.misc.RegionType.Ruler:
+                        warnings.warn(
+                            "Got a ruler object in the HaloXML. This is not an annotation and will be ignored."
+                        )
+                        continue
+                    else:
+                        raise NotImplementedError(f"HaloXML annotation type {region.type} is not supported.")
+
+        _annotations: list[SingleAnnotationWrapper] = []
         for label in output:
-            annotations.append(
+            _annotations.append(
                 SingleAnnotationWrapper(
-                    a_cls=AnnotationClass(label=label, a_cls=AnnotationType.POLYGON),
+                    a_cls=output[label][0].a_cls,
                     annotation=output[label],
                 )
             )
 
-        return cls(annotations, sorting=sorting, offset_to_slide_bounds=True)
+        return cls(_annotations, sorting=sorting, offset_to_slide_bounds=True)
 
     @classmethod
     def from_darwin_json(

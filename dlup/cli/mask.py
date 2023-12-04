@@ -7,13 +7,7 @@ from typing import cast
 import shapely
 
 from dlup._image import Resampling
-from dlup.annotations import (
-    AnnotationClass,
-    AnnotationType,
-    Polygon,
-    SingleAnnotationWrapper,
-    WsiAnnotations,
-)
+from dlup.annotations import AnnotationClass, AnnotationType, Polygon, SingleAnnotationWrapper, WsiAnnotations
 from dlup.cli import file_path
 from dlup.data.dataset import TiledWsiDataset
 from dlup.experimental_backends import ImageBackend  # type: ignore
