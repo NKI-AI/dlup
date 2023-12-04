@@ -373,7 +373,21 @@ class WsiAnnotations:
         self,
         annotations: list[SingleAnnotationWrapper],
         sorting: AnnotationSorting = AnnotationSorting.NONE,
+        offset_to_slide_bounds: bool = False,
     ):
+        """
+        Parameters
+        ----------
+        annotations : list[SingleAnnotationWrapper]
+            A list of annotations for a single label.
+        sorting : AnnotationSorting
+            How to sort the annotations returned from the `read_region()` function.
+        offset_to_slide_bounds : bool
+            If true, will set the property `offset_to_slide_bounds` to True. This means that the annotations need
+            to be offset to the slide bounds. This is useful when the annotations are read from a file format which
+            requires this, for instance HaloXML.
+        """
+
         self.available_labels = sorted(
             [_.annotation_class for _ in annotations],
             key=lambda annotation_class: (
@@ -388,6 +402,19 @@ class WsiAnnotations:
         self._annotation_trees = {a_cls: self[a_cls].as_strtree() for a_cls in self.available_labels}
 
         self._sorting = sorting
+        self._offset_to_slide_bounds = offset_to_slide_bounds
+
+    @property
+    def offset_to_slide_bounds(self) -> bool:
+        """
+        If True, the annotations need to be offset to the slide bounds. This is useful when the annotations are read
+        from a file format which requires this, for instance HaloXML.
+
+        Returns
+        -------
+        bool
+        """
+        return self._offset_to_slide_bounds
 
     def filter(self, labels: str | list[str] | tuple[str]) -> None:
         """
@@ -666,7 +693,7 @@ class WsiAnnotations:
                 )
             )
 
-        return cls(annotations, sorting=sorting)
+        return cls(annotations, sorting=sorting, offset_to_slide_bounds=True)
 
     @classmethod
     def from_darwin_json(
