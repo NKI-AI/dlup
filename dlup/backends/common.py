@@ -59,6 +59,11 @@ class AbstractSlideBackend(abc.ABC):
         self._shapes: list[tuple[int, int]] = []
 
     @property
+    def mode(self) -> str | None:
+        """Returns the mode of the image."""
+        return None
+
+    @property
     def level_count(self) -> int:
         """The number of levels in the image."""
         return self._level_count

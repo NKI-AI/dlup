@@ -144,6 +144,19 @@ class PyVipsSlide(AbstractSlideBackend):
         self.__slide_bounds = offset, size
 
     @property
+    def mode(self) -> str | None:
+        """Returns the mode of the image."""
+        bands = self._images[0].bands
+        if bands == 1:
+            return "L"
+        elif bands == 3:
+            return "RGB"
+        elif bands == 4:
+            return "RGBA"
+        else:
+            raise RuntimeError(f"Incorrect number of channels. Got {bands}.")
+
+    @property
     def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
         """Returns the bounds of the slide as ((x,y), (width, height)). These can be smaller than the image itself."""
         return self.__slide_bounds
