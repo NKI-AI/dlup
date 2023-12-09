@@ -2,13 +2,17 @@
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
+import io
 import warnings
+from distutils.version import LooseVersion
 from typing import Any
 
 import numpy as np
 import openslide
 import PIL.Image
+import PIL.ImageCms
 import pyvips
+from PIL.ImageCms import ImageCmsProfile
 
 from dlup import UnsupportedSlideError
 from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
@@ -183,6 +187,32 @@ class PyVipsSlide(AbstractSlideBackend):
 
         keys = self._images[0].get_fields()
         return {key: self._images[0].get_value(key) for key in keys}
+
+    @property
+    def color_profile(self) -> ImageCmsProfile | None:
+        """
+        Returns the color profile of the image if available. Otherwise returns None.
+
+        Returns
+        -------
+        ImageCmsProfile, optional
+            The color profile of the image.
+        """
+        if LooseVersion(openslide.__library_version__) < LooseVersion("4.0.0"):
+            warnings.warn(
+                "Color profile support is only available for openslide >= 4.0.0. "
+                f"You have version {openslide.__library_version__}. "
+                "Please update your openslide installation if you want to use this feature (recommended)."
+            )
+            return None
+
+        if self._loader == "tiffload":
+            raise NotImplementedError("ICC profile is not implemented for tiff loader.")
+
+        if "icc-profile-data" not in self.properties:
+            return None
+
+        return PIL.ImageCms.getOpenProfile(io.BytesIO(self.properties["icc-profile-data"]))
 
     @property
     def magnification(self) -> float | None:
