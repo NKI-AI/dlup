@@ -65,7 +65,7 @@ def vips_to_numpy(vips_image: pyvips.Image) -> npt.NDArray[np.int_]:
     np.ndarray
     """
 
-    output = np.ndarray(
+    output: npt.NDArray[np.int_] = np.ndarray(
         buffer=vips_image.write_to_memory(),
         dtype=VIPS_FORMAT_TO_NUMPY_DTYPE[vips_image.format],
         shape=[vips_image.height, vips_image.width, vips_image.bands],

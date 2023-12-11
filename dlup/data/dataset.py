@@ -9,7 +9,6 @@ import collections
 import functools
 import itertools
 import pathlib
-import warnings
 from math import ceil, floor
 from typing import Any, Callable, Generic, Iterable, Iterator, Optional, Sequence, TypedDict, TypeVar, Union, overload
 
@@ -623,14 +622,3 @@ def parse_rois(rois: list[ROIType] | None, image_size: tuple[int, int], scaling:
         _rois.append((_coords, _size))
 
     return _rois
-
-
-class TiledROIsSlideImageDataset(TiledWsiDataset):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        warnings.warn(
-            "`TiledROIsSlideImageDataset` is deprecated and will be removed in dlup v1.0. "
-            "Use `TiledWsiDataset` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(*args, **kwargs)
