@@ -8,10 +8,25 @@ from dlup.tiling import Grid, TilingMode, indexed_ndmesh, tiles_grid_coordinates
 
 class TestTiling:
     @pytest.mark.parametrize("mode", [TilingMode.skip])
-    def test_all_zero(self, mode):
-        """If all the arguments are zero, an exception should be raised."""
-        with pytest.raises(ValueError):
+    def test_zero(self, mode):
+        # If all the arguments are zero, an exception should be raised.
+        with pytest.raises(ValueError, match="size should always be greater than zero."):
             (basis,) = tiles_grid_coordinates(0, 0, 0, mode=mode)
+
+        # Same with size
+        with pytest.raises(ValueError, match="tile size should always be greater than zero."):
+            (basis,) = tiles_grid_coordinates(1, 0, 0, mode=mode)
+
+    @pytest.mark.parametrize("mode", [TilingMode.skip])
+    @pytest.mark.parametrize("size", [(1, 2), (3, 2, 4)])
+    @pytest.mark.parametrize("tile_size", [(1, 2), (3, 2, 4)])
+    @pytest.mark.parametrize("tile_overlap", [(0, 0), (1, 2, 3)])
+    def test_dimensions(self, size, tile_size, tile_overlap, mode):
+        """If the dimension don't match it should error."""
+        # We should check if any of the three doesn't match
+        if len(size) != len(tile_size) or len(size) != len(tile_overlap) or len(tile_size) != len(tile_overlap):
+            with pytest.raises(ValueError, match="size, tile_size and tile_overlap should have the same dimensions."):
+                tiles_grid_coordinates(size, tile_size, tile_overlap, mode=mode)
 
     @pytest.mark.parametrize("mode", list(TilingMode))
     @pytest.mark.parametrize("tile_overlap", [0, 1, 2])

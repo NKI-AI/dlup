@@ -41,13 +41,7 @@ def numpy_to_vips(data: npt.NDArray[np.int_]) -> pyvips.Image:
     -------
     pyvips.Image
     """
-
-    if data.ndim == 2:
-        height, width = data.shape
-        bands = 1
-    else:
-        height, width, bands = data.shape
-
+    height, width, bands = data.shape
     vips_image = pyvips.Image.new_from_memory(
         np.ascontiguousarray(data).data,
         width,
@@ -70,8 +64,10 @@ def vips_to_numpy(vips_image: pyvips.Image) -> npt.NDArray[np.int_]:
     -------
     np.ndarray
     """
-    return np.ndarray(
+
+    output = np.ndarray(
         buffer=vips_image.write_to_memory(),
         dtype=VIPS_FORMAT_TO_NUMPY_DTYPE[vips_image.format],
         shape=[vips_image.height, vips_image.width, vips_image.bands],
     )
+    return output
