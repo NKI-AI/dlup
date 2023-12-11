@@ -270,14 +270,14 @@ def _geometry_to_geojson(geometry: Polygon | Point, label: str) -> dict[str, Any
     return data
 
 
-class SingleAnnotationWrapper:
+class Annotation:
     """Class to hold the annotations of one specific label (class) for a whole slide image"""
 
-    def __init__(self, a_cls: AnnotationClass, annotation: list[Polygon | Point]):
+    def __init__(self, a_cls: AnnotationClass, data: list[Polygon | Point]):
         self._annotation_class = a_cls
         self._label = a_cls.label
         self._type = a_cls.a_cls
-        self._annotation = annotation
+        self._data = data
 
     @property
     def type(self) -> AnnotationType:
@@ -300,7 +300,7 @@ class SingleAnnotationWrapper:
         self._type = a_cls.a_cls
         # TODO: We also need to rewrite all the polygons. This cannot yet be set in-place
         _annotations = []
-        for _geometry in self._annotation:
+        for _geometry in self._data:
             if isinstance(_geometry, shapely.geometry.Polygon):
                 _annotations.append(Polygon(_geometry, a_cls=a_cls))
             elif isinstance(_geometry, shapely.geometry.Point):
@@ -308,27 +308,16 @@ class SingleAnnotationWrapper:
             else:
                 raise AnnotationError(f"Unknown annotation type {type(_geometry)}.")
 
-        self._annotation = _annotations
+        self._data = _annotations
 
     def append(self, sample: Polygon | Point) -> None:
-        self._annotation.append(sample)
+        self._data.append(sample)
 
     def as_strtree(self) -> STRtree:
-        return STRtree(self._annotation)
+        return STRtree(self._data)
 
     def as_list(self) -> list[Polygon | Point]:
-        return self._annotation
-
-    def as_json(self) -> list[Any]:
-        """
-        Return the annotation as json format.
-
-        Returns
-        -------
-        dict
-        """
-        data = [_geometry_to_geojson(_, label=_.label) for _ in self._annotation]
-        return data
+        return self._data
 
     @staticmethod
     def _get_bbox(z: npt.NDArray[np.int_ | np.float_]) -> ROIType:
@@ -351,19 +340,19 @@ class SingleAnnotationWrapper:
     def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:
         if self.type != AnnotationType.POLYGON:
             return
-        self._annotation = [
+        self._data = [
             Polygon(
                 annotation.simplify(tolerance, preserve_topology=preserve_topology),
                 a_cls=self.annotation_class,
             )
-            for annotation in self._annotation
+            for annotation in self._data
         ]
 
     def __len__(self) -> int:
-        return len(self._annotation)
+        return len(self._data)
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}(label={self.label}, length={self.__len__()})"
+        return f"{type(self).__name__}(label={self.label}, type={self.type}, length={self.__len__()})"
 
 
 class WsiAnnotations:
@@ -371,14 +360,14 @@ class WsiAnnotations:
 
     def __init__(
         self,
-        annotations: list[SingleAnnotationWrapper],
+        annotations: list[Annotation],
         sorting: AnnotationSorting = AnnotationSorting.NONE,
         offset_to_slide_bounds: bool = False,
     ):
         """
         Parameters
         ----------
-        annotations : list[SingleAnnotationWrapper]
+        annotations : list[Annotation]
             A list of annotations for a single label.
         sorting : AnnotationSorting
             How to sort the annotations returned from the `read_region()` function.
@@ -546,8 +535,8 @@ class WsiAnnotations:
                         data[_label].append(_)
 
         # It is assumed that a specific label can only be one type (point or polygon)
-        _annotations: list[SingleAnnotationWrapper] = [
-            SingleAnnotationWrapper(a_cls=data[k][0].annotation_class, annotation=data[k]) for k in data.keys()
+        _annotations: list[Annotation] = [
+            Annotation(a_cls=data[k][0].annotation_class, data=data[k]) for k in data.keys()
         ]
 
         return cls(_annotations, sorting=sorting)
@@ -589,7 +578,7 @@ class WsiAnnotations:
 
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
-        annotations: dict[str, SingleAnnotationWrapper] = dict()
+        annotations: dict[str, Annotation] = dict()
         opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
@@ -632,9 +621,9 @@ class WsiAnnotations:
                         raise NotImplementedError
 
                     if label not in annotations:
-                        annotations[label] = SingleAnnotationWrapper(
+                        annotations[label] = Annotation(
                             a_cls=_cls,
-                            annotation=[coordinates],
+                            data=[coordinates],
                         )
                     else:
                         annotations[label].append(coordinates)
@@ -684,12 +673,12 @@ class WsiAnnotations:
                     curr_polygon = rescale_geometry(Polygon(shapely_polygon, a_cls=_cls), scaling=scaling)
                     output[layer.name].append(Polygon(curr_polygon, a_cls=_cls))
 
-        annotations: list[SingleAnnotationWrapper] = []
+        annotations: list[Annotation] = []
         for label in output:
             annotations.append(
-                SingleAnnotationWrapper(
+                Annotation(
                     a_cls=AnnotationClass(label=label, a_cls=AnnotationType.POLYGON),
-                    annotation=output[label],
+                    data=output[label],
                 )
             )
 
@@ -767,10 +756,10 @@ class WsiAnnotations:
         # Now we can make SingleAnnotationWrapper annotations
         output = []
         for an_cls, _annotation in all_annotations.items():
-            output.append(SingleAnnotationWrapper(a_cls=an_cls, annotation=_annotation))
+            output.append(Annotation(a_cls=an_cls, data=_annotation))
         return cls(output, sorting=sorting)
 
-    def __getitem__(self, a_cls: AnnotationClass) -> SingleAnnotationWrapper:
+    def __getitem__(self, a_cls: AnnotationClass) -> Annotation:
         return self._annotations[a_cls]
 
     def as_geojson(self) -> GeoJsonDict:

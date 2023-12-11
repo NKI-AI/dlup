@@ -6,13 +6,14 @@
 import json
 import pathlib
 import tempfile
+import warnings
 
 import numpy as np
 import pytest
 import shapely.geometry
 
-from dlup.annotations import AnnotationClass, AnnotationType, Polygon, WsiAnnotations, shape
-from dlup.utils.imports import DARWIN_SDK_AVAILABLE
+from dlup.annotations import Annotation, AnnotationClass, AnnotationType, Polygon, WsiAnnotations, shape
+from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
 <ASAP_Annotations>
@@ -53,6 +54,7 @@ class TestAnnotations:
         geojson_annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)], scaling=1)
 
     _v7_annotations = None
+    _halo_annotations = None
 
     @property
     def v7_annotations(self):
@@ -60,6 +62,13 @@ class TestAnnotations:
             assert pathlib.Path("tests/files/103S.json").exists()
             self._v7_annotations = WsiAnnotations.from_darwin_json("tests/files/103S.json")
         return self._v7_annotations
+
+    @property
+    def halo_annotations(self):
+        if self._halo_annotations is None:
+            assert pathlib.Path("tests/files/HaloMultilayerTest.annotations")
+            self._halo_annotations = WsiAnnotations.from_halo_xml("tests/files/HaloMultilayerTest.annotations")
+        return self._halo_annotations
 
     def test_asap_to_geojson(self):
         # TODO: Make sure that the annotations hit the border of the region.
@@ -146,6 +155,7 @@ class TestAnnotations:
 
     def test_read_darwin_v7(self):
         if not DARWIN_SDK_AVAILABLE:
+            warnings.warn("Darwin SDK is not available in the environment. Will skip this test.")
             return None
         assert len(self.v7_annotations.available_labels) == 5
         assert self.v7_annotations.available_labels[0].label == "ROI (segmentation)"
@@ -207,3 +217,23 @@ class TestAnnotations:
             AnnotationType.BOX,
         ]
         assert [_.type for _ in region] == annotation_types
+
+    def test_read_halo_xml(self):
+        if not PYHALOXML_AVAILABLE:
+            warnings.warn("pyhaloxml is not available in the environment. Will skip this test.")
+            return None
+
+        pass
+
+    def test_single_label(self):
+        for idx, available_label in enumerate(self.v7_annotations.available_labels):
+            annotation = self.v7_annotations[available_label]
+            assert isinstance(annotation, Annotation)
+            assert annotation.annotation_class.label == annotation.label
+            assert annotation.annotation_class.a_cls == annotation.type
+            assert (
+                str(annotation)
+                == f"Annotation(label={annotation.label}, type={annotation.type}, length={len(annotation)})"
+            )
+
+        assert idx == 4
