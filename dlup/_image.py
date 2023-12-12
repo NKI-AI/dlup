@@ -38,6 +38,7 @@ class Resampling(IntEnum):
     HAMMING = 5
     BICUBIC = 3
     LANCZOS = 1
+    UNKNOWN = -1
 
 
 class _SlideImageRegionView(RegionView):

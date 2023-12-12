@@ -10,7 +10,7 @@ import pyvips
 from dlup import SlideImage
 from dlup.experimental_backends import ImageBackend
 from dlup.utils.pyvips_utils import vips_to_numpy
-from dlup.writers import TiffCompression, TifffileImageWriter
+from dlup.writers import Resampling, TiffCompression, TifffileImageWriter
 
 
 @pytest.mark.parametrize(
@@ -24,7 +24,8 @@ from dlup.writers import TiffCompression, TifffileImageWriter
         [(1024, 512), 0.7],
     ],
 )
-def test_tiff_writer(shape, target_mpp):
+@pytest.mark.parametrize("interpolator", [None, Resampling.UNKNOWN, Resampling.LANCZOS])
+def test_tiff_writer(shape, target_mpp, interpolator):
     random_array = np.random.randint(low=0, high=255, size=shape, dtype=np.uint8)
     pil_image = PIL.Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
     mode = pil_image.mode
@@ -35,12 +36,20 @@ def test_tiff_writer(shape, target_mpp):
         size = (*pil_image.size, 3)
 
     with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
-        writer = TifffileImageWriter(
-            temp_tiff.name,
-            size=size,
-            mpp=(target_mpp, target_mpp),
-            compression=TiffCompression.NONE,
-        )
+        try:
+            writer = TifffileImageWriter(
+                temp_tiff.name,
+                size=size,
+                mpp=(target_mpp, target_mpp),
+                compression=None,
+                interpolator=interpolator,
+            )
+        except ValueError as e:
+            if interpolator == Resampling.UNKNOWN:
+                assert str(e) == f"Invalid interpolator: {interpolator.name}"
+                return
+            else:
+                raise
 
         writer.from_pil(pil_image)
         vips_image = pyvips.Image.new_from_file(temp_tiff.name)
