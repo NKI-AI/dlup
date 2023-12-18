@@ -757,7 +757,7 @@ class WsiAnnotations:
                     raise ValueError(f"Got unexpected data keys: {curr_data.keys()}")
 
             elif annotation_type == AnnotationType.BOX:
-                x, y, h, w = curr_data.values()
+                x, y, w, h = list(map(curr_data.get, ["x", "y", "w", "h"]))
                 curr_polygon = shapely.geometry.box(x, y, x + w, y + h)
                 curr_polygon = rescale_geometry(curr_polygon, scaling=_scaling)
                 all_annotations[key].append(Polygon(curr_polygon, a_cls=_cls))

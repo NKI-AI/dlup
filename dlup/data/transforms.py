@@ -76,7 +76,15 @@ def convert_annotations(
     roi_mask = np.zeros(region_size, dtype=np.int32)
     has_roi = False
     for curr_annotation in annotations:
-        holes_mask = None
+        if roi_name and curr_annotation.label == roi_name:
+            cv2.fillPoly(
+                roi_mask,
+                [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
+                1,
+            )
+            has_roi = True
+            continue
+
         if isinstance(curr_annotation, dlup.annotations.Point):
             coords = tuple(curr_annotation.coords)
             points[curr_annotation.label] += tuple(coords)
@@ -87,18 +95,10 @@ def convert_annotations(
             boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
             continue
 
-        if roi_name and curr_annotation.label == roi_name:
-            cv2.fillPoly(
-                roi_mask,
-                [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
-                1,
-            )
-            has_roi = True
-            continue
-
         if not (curr_annotation.label in index_map):
             raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
 
+        holes_mask = None
         original_values = None
         interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
         if interiors is not []:
