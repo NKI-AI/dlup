@@ -15,7 +15,6 @@ from PIL import ImageColor
 
 
 class TestTiffWriter:
-
     def __init__(self):
         color_map = {
             1: "green",  # Green for stroma
