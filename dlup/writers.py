@@ -245,12 +245,18 @@ class TifffileImageWriter(ImageWriter):
         **options: Any,
     ) -> None:
         native_resolution = 1 / np.array(self._mpp) * 10000
+        if is_rgb:
+            colorspace = "rgb"
+        elif self._colormap is not None:
+            colorspace = "palette"
+        else:
+            colorspace = "minisblack"
         tiff_writer.write(
             tile_iterator,  # noqa
             shape=(*shapes[level], self._size[-1]) if is_rgb else (*shapes[level], 1),
             dtype="uint8",
             resolution=(*native_resolution / 2**level, "CENTIMETER"),
-            photometric="rgb" if is_rgb else "minisblack",
+            photometric=colorspace,
             compression=compression if not self._quality else (compression, self._quality),  # type: ignore
             tile=self._tile_size,
             colormap=self._colormap,
