@@ -3,7 +3,7 @@
 import tempfile
 
 import numpy as np
-import PIL.Image
+from PIL import Image, ImageColor
 import pytest
 import pyvips
 
@@ -11,7 +11,6 @@ from dlup import SlideImage
 from dlup.experimental_backends import ImageBackend
 from dlup.utils.pyvips_utils import vips_to_numpy
 from dlup.writers import TiffCompression, TifffileImageWriter
-from PIL import ImageColor
 
 
 def _color_dict_to_clut(color_map: dict[int, str]) -> tuple[np.ndarray, dict[int, tuple[int, int, int]]]:
@@ -55,7 +54,7 @@ class TestTiffWriter:
     )
     def test_tiff_writer(self, shape, target_mpp):
         random_array = np.random.randint(low=0, high=255, size=shape, dtype=np.uint8)
-        pil_image = PIL.Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
+        pil_image = Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
         mode = pil_image.mode
 
         if mode == "L":
@@ -101,7 +100,7 @@ class TestTiffWriter:
         random_array[256:512, 0:256] = 2
         # Bottom-right region with 3
         random_array[256:512, 256:512] = 3
-        pil_image = PIL.Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
+        pil_image = Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
         mode = pil_image.mode
 
         if mode == "L":
