@@ -14,6 +14,25 @@ from dlup.writers import TiffCompression, TifffileImageWriter
 from PIL import ImageColor
 
 
+def _color_dict_to_clut(color_map: dict[int, str]) -> tuple[np.ndarray, dict[int, tuple[int, int, int]]]:
+    # Convert color names to RGB values
+    rgb_color_map = {index: ImageColor.getrgb(color_name) for index, color_name in color_map.items()}
+
+    # Initialize a 3x256 CLUT (for 8-bit images)
+    clut = np.zeros((3, 256), dtype=np.uint16)
+
+    # Prepare indices and corresponding colors for assignment
+    indices = np.array(list(rgb_color_map.keys()))
+    colors = np.array(list(rgb_color_map.values())) * 256  # Scale to 16-bit color depth
+
+    # Assign colors to clut using advanced indexing
+    clut[0, indices] = colors[:, 0]  # Red channel
+    clut[1, indices] = colors[:, 1]  # Green channel
+    clut[2, indices] = colors[:, 2]  # Blue channel
+
+    return clut, rgb_color_map
+
+
 class TestTiffWriter:
     def __init__(self):
         color_map = {
@@ -21,18 +40,7 @@ class TestTiffWriter:
             2: "red",  # Red for tumor
             3: "yellow",  # Yellow for ignore
         }
-        self.clut = self._color_dict_to_clut(color_map)
-
-    def _color_dict_to_clut(self, color_map: dict[int, str]) -> np.ndarray:
-        # Convert color names to RGB values
-        self.rgb_color_map = {index: ImageColor.getrgb(color_name) for index, color_name in color_map.items()}
-
-        # Initialize a 3x256 CLUT (for 8-bit images)
-        clut = np.zeros((3, 256), dtype=np.uint16)
-        for index, color in self.rgb_color_map.items():
-            for i, c in enumerate(color):
-                clut[i, index] = c * 256  # Scale to 16-bit color depth (tifffile uses 0-65535 range for RGB)
-        return clut
+        self.clut, self.rgb_color_map = _color_dict_to_clut(color_map)
 
     @pytest.mark.parametrize(
         ["shape", "target_mpp"],
