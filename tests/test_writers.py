@@ -21,15 +21,18 @@ class TestTiffWriter:
             2: "red",  # Red for tumor
             3: "yellow",  # Yellow for ignore
         }
+        self.clut = self._color_dict_to_clut(color_map)
 
+    def _color_dict_to_clut(self, color_map: dict[int, str]) -> np.ndarray:
         # Convert color names to RGB values
         self.rgb_color_map = {index: ImageColor.getrgb(color_name) for index, color_name in color_map.items()}
 
         # Initialize a 3x256 CLUT (for 8-bit images)
-        self.clut = np.zeros((3, 256), dtype=np.uint16)
+        clut = np.zeros((3, 256), dtype=np.uint16)
         for index, color in self.rgb_color_map.items():
             for i, c in enumerate(color):
-                self.clut[i, index] = c * 256  # Scale to 16-bit color depth (tifffile uses 0-65535 range for RGB)
+                clut[i, index] = c * 256  # Scale to 16-bit color depth (tifffile uses 0-65535 range for RGB)
+        return clut
 
     @pytest.mark.parametrize(
         ["shape", "target_mpp"],
