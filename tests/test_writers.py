@@ -3,9 +3,9 @@
 import tempfile
 
 import numpy as np
-from PIL import Image, ImageColor
 import pytest
 import pyvips
+from PIL import Image, ImageColor
 
 from dlup import SlideImage
 from dlup.experimental_backends import ImageBackend
