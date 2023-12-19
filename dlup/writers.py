@@ -245,10 +245,10 @@ class TifffileImageWriter(ImageWriter):
         **options: Any,
     ) -> None:
         native_resolution = 1 / np.array(self._mpp) * 10000
-        if is_rgb:
-            colorspace = "rgb"
-        elif self._colormap is not None:
+        if self._colormap is not None:
             colorspace = "palette"
+        elif is_rgb:
+            colorspace = "rgb"
         else:
             colorspace = "minisblack"
         tiff_writer.write(
