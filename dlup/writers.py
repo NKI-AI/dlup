@@ -76,6 +76,7 @@ class TifffileImageWriter(ImageWriter):
         mpp: float | tuple[float, float],
         tile_size: tuple[int, int] = (512, 512),
         pyramid: bool = False,
+        colormap: npt.NDArray[np.uint16] | None = None,
         compression: TiffCompression | None = TiffCompression.JPEG,
         interpolator: Resampling | None = Resampling.LANCZOS,
         anti_aliasing: bool = False,
@@ -98,6 +99,8 @@ class TifffileImageWriter(ImageWriter):
             Tiff tile_size, defined as (height, width).
         pyramid : bool
             Whether to write a pyramidal image.
+        colormap : np.ndarray
+            Colormap to use for the image. This is only used when the image is a mask.
         compression : TiffCompression
             Compressor to use.
         interpolator : Resampling, optional
@@ -137,6 +140,7 @@ class TifffileImageWriter(ImageWriter):
         self._pyramid = pyramid
         self._quality = quality
         self._metadata = metadata
+        self._colormap = colormap
 
     def from_pil(self, pil_image: PIL.Image.Image) -> None:
         """
@@ -249,6 +253,7 @@ class TifffileImageWriter(ImageWriter):
             photometric="rgb" if is_rgb else "minisblack",
             compression=compression if not self._quality else (compression, self._quality),  # type: ignore
             tile=self._tile_size,
+            colormap=self._colormap,
             **options,
         )
 
