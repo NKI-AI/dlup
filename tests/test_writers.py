@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 import tempfile
 
@@ -10,16 +9,15 @@ from PIL import Image, ImageColor
 from dlup import SlideImage
 from dlup.experimental_backends import ImageBackend
 from dlup.utils.pyvips_utils import vips_to_numpy
-from dlup.writers import TiffCompression, TifffileImageWriter, _color_dict_to_clut
+from dlup.writers import TiffCompression, TifffileImageWriter, _color_dict_to_color_lut
 
-color_map = {
+COLORMAP = {
     1: "green",
     2: "red",
     3: "yellow",
 }
-clut = _color_dict_to_clut(color_map)
-
-rgb_color_map = {index: ImageColor.getrgb(color_name) for index, color_name in color_map.items()}
+COLOR_LUT = _color_dict_to_color_lut(COLORMAP)
+RGB_COLORMAP = {index: ImageColor.getrgb(color_name) for index, color_name in COLORMAP.items()}
 
 
 class TestTiffWriter:
@@ -96,7 +94,7 @@ class TestTiffWriter:
                 size=size,
                 mpp=(target_mpp, target_mpp),
                 compression=TiffCompression.NONE,
-                colormap=color_map,
+                colormap=COLORMAP,
             )
 
             writer.from_pil(pil_image)
@@ -106,11 +104,11 @@ class TestTiffWriter:
                 thumbnail = slide.get_thumbnail(size=shape)
                 assert np.allclose(slide_mpp, target_mpp)
                 top_right = np.asarray(thumbnail).astype(np.uint8)[0:256, 256:512]
-                assert np.all(top_right == rgb_color_map[1])
+                assert np.all(top_right == RGB_COLORMAP[1])
                 bottom_left = np.asarray(thumbnail).astype(np.uint8)[256:512, 0:256]
-                assert np.all(bottom_left == rgb_color_map[2])
+                assert np.all(bottom_left == RGB_COLORMAP[2])
                 bottom_right = np.asarray(thumbnail).astype(np.uint8)[256:512, 256:512]
-                assert np.all(bottom_right == rgb_color_map[3])
+                assert np.all(bottom_right == RGB_COLORMAP[3])
 
     def test_image_type(self):
         # Test to raise a value error if color_map is defined for an RGB image.
@@ -120,7 +118,7 @@ class TestTiffWriter:
 
         with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
             writer = TifffileImageWriter(
-                temp_tiff.name, size=size, mpp=(0.25, 0.25), compression=TiffCompression.NONE, colormap=color_map
+                temp_tiff.name, size=size, mpp=(0.25, 0.25), compression=TiffCompression.NONE, colormap=COLORMAP
             )
-            with pytest.raises(ValueError, match="Cannot use a colormap with an RGB image."):
+            with pytest.raises(ValueError, match=r"Colormaps only work with integer-valued images \(e.g. masks\)."):
                 writer.from_pil(pil_image)

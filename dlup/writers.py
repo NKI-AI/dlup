@@ -63,7 +63,7 @@ INTERPOLATOR_TO_VIPS: dict[int, Kernel] = {
 }
 
 
-def _color_dict_to_clut(color_map: dict[int, str]) -> npt.NDArray[np.uint16]:
+def _color_dict_to_color_lut(color_map: dict[int, str]) -> npt.NDArray[np.uint16]:
     """
     Convert a color map to a color look-up table (LUT).
 
@@ -173,7 +173,7 @@ class TifffileImageWriter(ImageWriter):
         self._pyramid = pyramid
         self._quality = quality
         self._metadata = metadata
-        self._colormap = _color_dict_to_clut(colormap) if colormap is not None else None
+        self._colormap = _color_dict_to_color_lut(colormap) if colormap is not None else None
 
     def from_pil(self, pil_image: PIL.Image.Image) -> None:
         """
@@ -228,7 +228,7 @@ class TifffileImageWriter(ImageWriter):
 
         is_rgb = self._size[-1] in (3, 4)
         if is_rgb and self._colormap is not None:
-            raise ValueError("Cannot use a colormap with an RGB image.")
+            raise ValueError("Colormaps only work with integer-valued images (e.g. masks).")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_filename = pathlib.Path(temp_dir) / filename.name
             tiff_writer = tifffile.TiffWriter(temp_filename, bigtiff=True)
