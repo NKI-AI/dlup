@@ -120,7 +120,7 @@ class TestTiffWriter:
 
         with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
             writer = TifffileImageWriter(
-                temp_tiff.name, size=size, mpp=(0.25, 0.25), compression=TiffCompression.NONE, colormap=clut
+                temp_tiff.name, size=size, mpp=(0.25, 0.25), compression=TiffCompression.NONE, colormap=color_map
             )
             with pytest.raises(ValueError, match="Cannot use a colormap with an RGB image."):
                 writer.from_pil(pil_image)
