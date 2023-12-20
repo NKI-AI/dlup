@@ -13,6 +13,7 @@ from typing import Any, Generator, Iterator
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
+import PIL.ImageColor
 from pyvips.enums import Kernel
 from tifffile import tifffile
 
@@ -60,6 +61,38 @@ INTERPOLATOR_TO_VIPS: dict[int, Kernel] = {
     3: Kernel.CUBIC,
     1: Kernel.LANCZOS3,
 }
+
+
+def _color_dict_to_clut(color_map: dict[int, str]) -> npt.NDArray[np.uint16]:
+    """
+    Convert a color map to a color look-up table (LUT).
+
+    Parameters
+    ----------
+    color_map : dict
+        Color map to convert. The keys are the indices and the values are the color names.
+
+    Returns
+    -------
+    npt.NDArray[np.uint16]
+        Color LUT as a 3x256 array.
+    """
+    # Convert color names to RGB values
+    rgb_color_map = {index: PIL.ImageColor.getrgb(color_name) for index, color_name in color_map.items()}
+
+    # Initialize a 3x256 CLUT (for 8-bit images)
+    color_lut = np.zeros((3, 256), dtype=np.uint16)
+
+    # Prepare indices and corresponding colors for assignment
+    indices = np.array(list(rgb_color_map.keys()))
+    colors = np.array(list(rgb_color_map.values())) * 256  # Scale to 16-bit color depth
+
+    # Assign colors to clut using advanced indexing
+    color_lut[0, indices] = colors[:, 0]  # Red channel
+    color_lut[1, indices] = colors[:, 1]  # Green channel
+    color_lut[2, indices] = colors[:, 2]  # Blue channel
+
+    return color_lut
 
 
 class ImageWriter:
@@ -194,6 +227,8 @@ class TifffileImageWriter(ImageWriter):
         _compression = TIFFFILE_COMPRESSION[self._compression.value]
 
         is_rgb = self._size[-1] in (3, 4)
+        if is_rgb and self._colormap is not None:
+            raise ValueError("Cannot use a colormap with an RGB image.")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_filename = pathlib.Path(temp_dir) / filename.name
             tiff_writer = tifffile.TiffWriter(temp_filename, bigtiff=True)
