@@ -13,6 +13,7 @@ from typing import Any, Generator, Iterator
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
+import PIL.ImageColor
 from pyvips.enums import Kernel
 from tifffile import tifffile
 
@@ -62,6 +63,38 @@ INTERPOLATOR_TO_VIPS: dict[int, Kernel] = {
 }
 
 
+def _color_dict_to_color_lut(color_map: dict[int, str]) -> npt.NDArray[np.uint16]:
+    """
+    Convert a color map to a color look-up table (LUT).
+
+    Parameters
+    ----------
+    color_map : dict
+        Color map to convert. The keys are the indices and the values are the color names.
+
+    Returns
+    -------
+    npt.NDArray[np.uint16]
+        Color LUT as a 3x256 array.
+    """
+    # Convert color names to RGB values
+    rgb_color_map = {index: PIL.ImageColor.getrgb(color_name) for index, color_name in color_map.items()}
+
+    # Initialize a 3x256 CLUT (for 8-bit images)
+    color_lut = np.zeros((3, 256), dtype=np.uint16)
+
+    # Prepare indices and corresponding colors for assignment
+    indices = np.array(list(rgb_color_map.keys()))
+    colors = np.array(list(rgb_color_map.values())) * 256  # Scale to 16-bit color depth
+
+    # Assign colors to clut using advanced indexing
+    color_lut[0, indices] = colors[:, 0]  # Red channel
+    color_lut[1, indices] = colors[:, 1]  # Green channel
+    color_lut[2, indices] = colors[:, 2]  # Blue channel
+
+    return color_lut
+
+
 class ImageWriter:
     """Base writer class"""
 
@@ -76,6 +109,7 @@ class TifffileImageWriter(ImageWriter):
         mpp: float | tuple[float, float],
         tile_size: tuple[int, int] = (512, 512),
         pyramid: bool = False,
+        colormap: dict[int, str] | None = None,
         compression: TiffCompression | None = TiffCompression.JPEG,
         interpolator: Resampling | None = Resampling.LANCZOS,
         anti_aliasing: bool = False,
@@ -98,6 +132,8 @@ class TifffileImageWriter(ImageWriter):
             Tiff tile_size, defined as (height, width).
         pyramid : bool
             Whether to write a pyramidal image.
+        colormap : dict[int, str]
+            Colormap to use for the image. This is only used when the image is a mask.
         compression : TiffCompression
             Compressor to use.
         interpolator : Resampling, optional
@@ -137,6 +173,7 @@ class TifffileImageWriter(ImageWriter):
         self._pyramid = pyramid
         self._quality = quality
         self._metadata = metadata
+        self._colormap = _color_dict_to_color_lut(colormap) if colormap is not None else None
 
     def from_pil(self, pil_image: PIL.Image.Image) -> None:
         """
@@ -190,6 +227,8 @@ class TifffileImageWriter(ImageWriter):
         _compression = TIFFFILE_COMPRESSION[self._compression.value]
 
         is_rgb = self._size[-1] in (3, 4)
+        if is_rgb and self._colormap is not None:
+            raise ValueError("Colormaps only work with integer-valued images (e.g. masks).")
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_filename = pathlib.Path(temp_dir) / filename.name
             tiff_writer = tifffile.TiffWriter(temp_filename, bigtiff=True)
@@ -241,14 +280,21 @@ class TifffileImageWriter(ImageWriter):
         **options: Any,
     ) -> None:
         native_resolution = 1 / np.array(self._mpp) * 10000
+        if self._colormap is not None:
+            colorspace = "palette"
+        elif is_rgb:
+            colorspace = "rgb"
+        else:
+            colorspace = "minisblack"
         tiff_writer.write(
             tile_iterator,  # noqa
             shape=(*shapes[level], self._size[-1]) if is_rgb else (*shapes[level], 1),
             dtype="uint8",
             resolution=(*native_resolution / 2**level, "CENTIMETER"),
-            photometric="rgb" if is_rgb else "minisblack",
+            photometric=colorspace,
             compression=compression if not self._quality else (compression, self._quality),  # type: ignore
             tile=self._tile_size,
+            colormap=self._colormap,
             **options,
         )
 
