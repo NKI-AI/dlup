@@ -96,7 +96,7 @@ class TestTiffWriter:
                 size=size,
                 mpp=(target_mpp, target_mpp),
                 compression=TiffCompression.NONE,
-                colormap=clut,
+                colormap=color_map,
             )
 
             writer.from_pil(pil_image)
