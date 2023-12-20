@@ -33,9 +33,9 @@ def _color_dict_to_clut(color_map: dict[int, str]) -> tuple[np.ndarray, dict[int
 
 
 color_map = {
-    1: "green",  # Green for stroma
-    2: "red",  # Red for tumor
-    3: "yellow",  # Yellow for ignore
+    1: "green",
+    2: "red",
+    3: "yellow",
 }
 clut, rgb_color_map = _color_dict_to_clut(color_map)
 
