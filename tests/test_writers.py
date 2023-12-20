@@ -32,15 +32,15 @@ def _color_dict_to_clut(color_map: dict[int, str]) -> tuple[np.ndarray, dict[int
     return clut, rgb_color_map
 
 
-class TestTiffWriter:
-    def __init__(self):
-        color_map = {
-            1: "green",  # Green for stroma
-            2: "red",  # Red for tumor
-            3: "yellow",  # Yellow for ignore
-        }
-        self.clut, self.rgb_color_map = _color_dict_to_clut(color_map)
+color_map = {
+    1: "green",  # Green for stroma
+    2: "red",  # Red for tumor
+    3: "yellow",  # Yellow for ignore
+}
+clut, rgb_color_map = _color_dict_to_clut(color_map)
 
+
+class TestTiffWriter:
     @pytest.mark.parametrize(
         ["shape", "target_mpp"],
         [
@@ -114,7 +114,7 @@ class TestTiffWriter:
                 size=size,
                 mpp=(target_mpp, target_mpp),
                 compression=TiffCompression.NONE,
-                colormap=self.clut,
+                colormap=clut,
             )
 
             writer.from_pil(pil_image)
@@ -124,8 +124,8 @@ class TestTiffWriter:
                 thumbnail = slide.get_thumbnail(size=shape)
                 assert np.allclose(slide_mpp, target_mpp)
                 top_right = np.asarray(thumbnail).astype(np.uint8)[0:256, 256:512]
-                assert np.all(top_right == self.rgb_color_map[1])
+                assert np.all(top_right == rgb_color_map[1])
                 bottom_left = np.asarray(thumbnail).astype(np.uint8)[256:512, 0:256]
-                assert np.all(bottom_left == self.rgb_color_map[2])
+                assert np.all(bottom_left == rgb_color_map[2])
                 bottom_right = np.asarray(thumbnail).astype(np.uint8)[256:512, 256:512]
-                assert np.all(bottom_right == self.rgb_color_map[3])
+                assert np.all(bottom_right == rgb_color_map[3])
