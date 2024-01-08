@@ -82,6 +82,12 @@ def convert_annotations(
                 [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
                 1,
             )
+
+            if curr_annotation.type == AnnotationType.BOX:
+                min_x, min_y, max_x, max_y = curr_annotation.bounds
+                boxes[curr_annotation.label].append(
+                    ((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y)))
+                )
             has_roi = True
             continue
 
