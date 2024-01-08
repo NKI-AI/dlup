@@ -388,13 +388,7 @@ class WsiAnnotations:
             requires this, for instance HaloXML.
         """
 
-        self.available_labels = sorted(
-            [_.annotation_class for _ in annotations],
-            key=lambda annotation_class: (
-                annotation_class.label,
-                annotation_class.a_cls,
-            ),
-        )
+        self.available_labels = [_.annotation_class for _ in annotations]
 
         # We convert the list internally into a dictionary, so we have an easy way to access the data.
         self._annotations = {annotation.annotation_class: annotation for annotation in annotations}
@@ -464,7 +458,7 @@ class WsiAnnotations:
             mapping[old_annotation_class] = new_annotation_class
 
         # TODO: Is thie correct?
-        self.available_labels = sorted([mapping[label] for label in self.available_labels], key=lambda x: x.label)
+        self.available_labels = [mapping[label] for label in self.available_labels]
 
         _annotations = {}
         for annotation_class, single_label_annotation in self._annotations.items():
