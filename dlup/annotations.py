@@ -387,16 +387,17 @@ class WsiAnnotations:
             to be offset to the slide bounds. This is useful when the annotations are read from a file format which
             requires this, for instance HaloXML.
         """
+        self._sorting = sorting
+        self._offset_to_slide_bounds = offset_to_slide_bounds
 
         self.available_labels = [_.annotation_class for _ in annotations]
+        if self._sorting != AnnotationSorting.NONE:
+            self.available_labels = sorted(self.available_labels, key=lambda x: (x.label, x.a_cls))
 
         # We convert the list internally into a dictionary, so we have an easy way to access the data.
         self._annotations = {annotation.annotation_class: annotation for annotation in annotations}
         # Now we have a dict of label: annotations.
         self._annotation_trees = {a_cls: self[a_cls].as_strtree() for a_cls in self.available_labels}
-
-        self._sorting = sorting
-        self._offset_to_slide_bounds = offset_to_slide_bounds
 
     @property
     def offset_to_slide_bounds(self) -> bool:
@@ -459,6 +460,8 @@ class WsiAnnotations:
 
         # TODO: Is thie correct?
         self.available_labels = [mapping[label] for label in self.available_labels]
+        if self._sorting != AnnotationSorting.NONE:
+            self.available_labels = sorted(self.available_labels, key=lambda x: x.label)
 
         _annotations = {}
         for annotation_class, single_label_annotation in self._annotations.items():
