@@ -18,11 +18,11 @@ from dlup.data.dataset import TiledWsiDataset
 
 def _DFS(
     polygons: list[Polygon],
-    contours: Sequence[npt.NDArray[np.int_]],
-    hierarchy: npt.NDArray[np.int_],
+    contours: Sequence[npt.NDArray[np.generic]],
+    hierarchy: npt.NDArray[np.generic],
     sibling_id: int,
     is_outer: bool,
-    siblings: list[npt.NDArray[np.int_]] | None,
+    siblings: list[npt.NDArray[np.generic]] | None,
     offset: tuple[int | float, int | float] = (0, 0),
     scaling: float = 1.0,
 ) -> None:
@@ -31,7 +31,7 @@ def _DFS(
         contour = contours[sibling_id].squeeze(axis=1)
         if len(contour) >= 3:
             first_child_id = hierarchy[sibling_id][2]
-            children: list[npt.NDArray[np.int_]] | None = [] if is_outer else None
+            children: list[npt.NDArray[np.generic]] | None = [] if is_outer else None
             _DFS(polygons, contours, hierarchy, first_child_id, not is_outer, children)
 
             if is_outer:
