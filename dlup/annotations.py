@@ -200,38 +200,41 @@ class CoordinatesDict(TypedDict):
     coordinates: list[list[list[float]]]
 
 
-def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> list[Polygon | Point]:
+def shape(
+    coordinates: CoordinatesDict, label: str, multiplier: float = 1.0, cast_to_box: bool = False
+) -> list[Polygon | Point]:
     geom_type = coordinates.get("type", None)
     if geom_type is None:
         raise ValueError("No type found in coordinates.")
     geom_type = geom_type.lower()
-    if geom_type == "point":
+    if geom_type in ["point", "multipoint"]:
         annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT)
-        return [
-            Point(
-                np.asarray(coordinates["coordinates"]) * multiplier,
-                a_cls=annotation_class,
-            )
-        ]
-    elif geom_type == "multipoint":
-        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT)
-        return [Point(np.asarray(c) * multiplier, a_cls=annotation_class) for c in coordinates["coordinates"]]
-    elif geom_type == "polygon":
-        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
-        return [
-            Polygon(
-                np.asarray(coordinates["coordinates"][0]) * multiplier,
-                a_cls=annotation_class,
-            )
-        ]
-    elif geom_type == "multipolygon":
-        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
-        multi_polygon = shapely.geometry.MultiPolygon(
-            [[np.asarray(c[0]) * multiplier, np.asarray(c[1:]) * multiplier] for c in coordinates["coordinates"]]
+        if geom_type == "point":
+            return [
+                Point(
+                    np.asarray(coordinates["coordinates"]) * multiplier,
+                    a_cls=annotation_class,
+                )
+            ]
+        elif geom_type == "multipoint":
+            return [Point(np.asarray(c) * multiplier, a_cls=annotation_class) for c in coordinates["coordinates"]]
+    elif geom_type in ["polygon", "multipolygon"]:
+        annotation_class = AnnotationClass(
+            label=label, a_cls=AnnotationType.POLYGON if not cast_to_box else AnnotationType.BOX
         )
-        return [Polygon(_, a_cls=annotation_class) for _ in multi_polygon.geoms]
-    else:
-        raise NotImplementedError(f"Not support geom_type {geom_type}")
+        if geom_type == "polygon":
+            return [
+                Polygon(
+                    np.asarray(coordinates["coordinates"][0]) * multiplier,
+                    a_cls=annotation_class,
+                )
+            ]
+        elif geom_type == "multipolygon":
+            multi_polygon = shapely.geometry.MultiPolygon(
+                [[np.asarray(c[0]) * multiplier, np.asarray(c[1:]) * multiplier] for c in coordinates["coordinates"]]
+            )
+            return [Polygon(_, a_cls=annotation_class) for _ in multi_polygon.geoms]
+    raise NotImplementedError(f"Not support geom_type {geom_type}")
 
 
 _POSTPROCESSORS: dict[AnnotationType, Callable[[Polygon | Point, Polygon], Polygon | Point]] = {
@@ -241,7 +244,7 @@ _POSTPROCESSORS: dict[AnnotationType, Callable[[Polygon | Point, Polygon], Polyg
 }
 
 
-def _geometry_to_geojson(geometry: Polygon | Point, label: str) -> dict[str, Any]:
+def _geometry_to_geojson(geometry: Polygon | Point, label: str, cast_to_box: bool = False) -> dict[str, Any]:
     """Function to convert a geometry to a GeoJSON object.
 
     Parameters
@@ -267,6 +270,8 @@ def _geometry_to_geojson(geometry: Polygon | Point, label: str) -> dict[str, Any
         },
         "geometry": shapely.geometry.mapping(geometry),
     }
+    if cast_to_box:
+        data["properties"]["classification"]["CastToAnnotationTypeBox"] = True
     return data
 
 
@@ -327,7 +332,10 @@ class SingleAnnotationWrapper:
         -------
         dict
         """
-        data = [_geometry_to_geojson(_, label=_.label) for _ in self._annotation]
+        data = [
+            _geometry_to_geojson(_, label=_.label, cast_to_box=self._type == AnnotationType.BOX)
+            for _ in self._annotation
+        ]
         return data
 
     @staticmethod
@@ -529,7 +537,7 @@ class WsiAnnotations:
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
 
         _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
-        for idx, path in enumerate(_geojsons):
+        for _, path in enumerate(_geojsons):
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
@@ -538,7 +546,8 @@ class WsiAnnotations:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
                     _label = x["properties"]["classification"]["name"]
-                    _geometry = shape(x["geometry"], label=_label, multiplier=_scaling)
+                    _cast_to_box = x["properties"]["classification"].get("CastToAnnotationTypeBox", False)
+                    _geometry = shape(x["geometry"], label=_label, multiplier=_scaling, cast_to_box=_cast_to_box)
                     for _ in _geometry:
                         data[_label].append(_)
 
@@ -805,14 +814,20 @@ class WsiAnnotations:
         data: GeoJsonDict = {"type": "FeatureCollection", "features": [], "id": None}
         for idx, annotation_list in enumerate(grouped_annotations):
             label = annotation_list[0].label
+            annotation_type = annotation_list[0].type
+            # Length of one (could be point, box or polygon)
             if len(annotation_list) == 1:
-                json_dict = _geometry_to_geojson(annotation_list[0], label=label)
+                json_dict = _geometry_to_geojson(
+                    annotation_list[0], label=label, cast_to_box=annotation_type == AnnotationType.BOX
+                )
             else:
-                if annotation_list[0].type in [AnnotationType.BOX, AnnotationType.POLYGON]:
+                if annotation_type in [AnnotationType.BOX, AnnotationType.POLYGON]:
                     annotation = shapely.geometry.MultiPolygon(annotation_list)
                 else:
                     annotation = shapely.geometry.MultiPoint(annotation_list)
-                json_dict = _geometry_to_geojson(annotation, label=label)
+                json_dict = _geometry_to_geojson(
+                    annotation, label=label, cast_to_box=annotation_type == AnnotationType.BOX
+                )
 
             json_dict["id"] = str(idx)
             data["features"].append(json_dict)

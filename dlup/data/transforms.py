@@ -84,7 +84,7 @@ def convert_annotations(
 
         if isinstance(curr_annotation, dlup.annotations.Polygon) and curr_annotation.type == AnnotationType.BOX:
             min_x, min_y, max_x, max_y = curr_annotation.bounds
-            boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
+            boxes[curr_annotation.label].append(((min_x, min_y), (max_x - min_x, max_y - min_y)))
             continue
 
         if roi_name and curr_annotation.label == roi_name:
