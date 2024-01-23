@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Iterable, cast
+from typing import Iterable, Optional, cast
 
 import cv2
 import numpy as np
@@ -23,7 +23,8 @@ def convert_annotations(
     annotations: Iterable[_AnnotationsTypes],
     region_size: tuple[int, int],
     index_map: dict[str, int],
-    roi_name: str | None = None,
+    roi_name: Optional[str] = None,
+    ignore_name: Optional[str] = None,
     default_value: int = 0,
 ) -> tuple[
     dict[str, list[PointType]], dict[str, list[BoundingBoxType]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None
@@ -57,8 +58,10 @@ def convert_annotations(
     region_size : tuple[int, int]
     index_map : dict[str, int]
         Map mapping annotation name to index number in the output.
-    roi_name : str
+    roi_name : str, optional
         Name of the region-of-interest key.
+    ignore_name : str, optional
+        Name of the ignore key. Annotations with this label will be skipped.
     default_value : int
         The mask will be initialized with this value.
 
@@ -76,6 +79,9 @@ def convert_annotations(
     roi_mask = np.zeros(region_size, dtype=np.int32)
     has_roi = False
     for curr_annotation in annotations:
+        if ignore_name and curr_annotation.label == ignore_name:
+            continue
+
         holes_mask = None
         if isinstance(curr_annotation, dlup.annotations.Point):
             coords = tuple(curr_annotation.coords)
@@ -113,8 +119,9 @@ def convert_annotations(
             [index_map[curr_annotation.label]],
         )
         if interiors is not []:
-            # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
-            mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
+            # Assert original_values for mypy
+            assert original_values is not None
+            mask = np.where(holes_mask == 1, original_values, mask)
 
     # This is a hard to find bug, so better give an explicit error.
     if not has_roi and roi_name is not None:
