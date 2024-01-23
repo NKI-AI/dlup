@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Iterable, Optional, cast
+from functools import partial
+from typing import Any, Callable, Iterable, Optional, cast
 
 import cv2
 import numpy as np
@@ -17,6 +18,9 @@ from dlup.annotations import AnnotationClass, AnnotationType
 from dlup.data.dataset import BoundingBoxType, PointType, TileSample, TileSampleWithAnnotationData
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
+_ConvertedAnnotationsOutput = tuple[
+    dict[str, list[PointType]], dict[str, list[BoundingBoxType]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None
+]
 
 
 def convert_annotations(
@@ -26,9 +30,7 @@ def convert_annotations(
     roi_name: Optional[str] = None,
     ignore_name: Optional[str] = None,
     default_value: int = 0,
-) -> tuple[
-    dict[str, list[PointType]], dict[str, list[BoundingBoxType]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None
-]:
+) -> _ConvertedAnnotationsOutput:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
@@ -133,7 +135,16 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
+    def __init__(
+        self,
+        *,
+        index_map: dict[str, int],
+        roi_name: Optional[str],
+        ignore_name: Optional[str] = "IGNORE",
+        default_value: int = 0,
+        conversion_fn: Callable[..., _ConvertedAnnotationsOutput] = convert_annotations,
+        **kwargs: dict[str, Any],
+    ):
         """
         Converts annotations given my `dlup.annotations.Polygon` or `dlup.annotations.Point` to a mask and a dictionary
         of points. The mask is initialized with `default_value`, (i.e., background). The values in the mask are
@@ -146,16 +157,25 @@ class ConvertAnnotationsToMask:
 
         Parameters
         ----------
-        roi_name : str, optional
-            Name of the ROI key.
         index_map : dict
             Dictionary mapping the label to the integer in the output.
+        roi_name : str, optional
+            Name of the ROI key.
+        ignore_name : str, optional
+            Name of the annotation key to ignore (skip).
         default_value : int
             The mask will be initialized with this value.
+        conversion_fn : Callable
+            Callable function that will be convert the annotations. Default is `dlup.transforms.convert_annotations`.
         """
-        self._roi_name = roi_name
-        self._index_map = index_map
-        self._default_value = default_value
+        self._conversion_fn = partial(
+            conversion_fn,
+            index_map=index_map,
+            roi_name=roi_name,
+            ignore_name=ignore_name,
+            default_value=default_value,
+            **kwargs,
+        )
 
     def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData:
         """
@@ -182,12 +202,8 @@ class ConvertAnnotationsToMask:
         if _annotations is None:
             raise ValueError("No annotations found to convert to mask.")
 
-        points, boxes, mask, roi = convert_annotations(
-            _annotations,
-            sample["image"].size[::-1],
-            roi_name=self._roi_name,
-            index_map=self._index_map,
-            default_value=self._default_value,
+        points, boxes, mask, roi = self._conversion_fn(
+            annotations=_annotations, region_size=sample["image"].size[::-1]
         )
 
         output: TileSampleWithAnnotationData = cast(TileSampleWithAnnotationData, sample)
