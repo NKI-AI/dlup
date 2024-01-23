@@ -27,9 +27,10 @@ def convert_annotations(
     annotations: Iterable[_AnnotationsTypes],
     region_size: tuple[int, int],
     index_map: dict[str, int],
+    default_value: int = 0,
     roi_name: Optional[str] = None,
     ignore_name: Optional[str] = None,
-    default_value: int = 0,
+    buffer_point_radius: Optional[float] = None,
 ) -> _ConvertedAnnotationsOutput:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
@@ -60,12 +61,14 @@ def convert_annotations(
     region_size : tuple[int, int]
     index_map : dict[str, int]
         Map mapping annotation name to index number in the output.
+    default_value : int
+        The mask will be initialized with this value.
     roi_name : str, optional
         Name of the region-of-interest key.
     ignore_name : str, optional
         Name of the ignore key. Annotations with this label will be skipped.
-    default_value : int
-        The mask will be initialized with this value.
+    buffer_point_radius : float, optional
+        If given, point annotations will be converted using shapely's buffer function into polygons and added as well.
 
     Returns
     -------
@@ -88,7 +91,12 @@ def convert_annotations(
         if isinstance(curr_annotation, dlup.annotations.Point):
             coords = tuple(curr_annotation.coords)
             points[curr_annotation.label] += tuple(coords)
-            continue
+
+            if buffer_point_radius is not None:
+                a_cls = dlup.annotations.AnnotationClass(label=curr_annotation.label, a_cls=AnnotationType.POLYGON)
+                curr_annotation = dlup.annotations.Polygon(curr_annotation.buffer(buffer_point_radius), a_cls=a_cls)
+            else:
+                continue
 
         if isinstance(curr_annotation, dlup.annotations.Polygon) and curr_annotation.type == AnnotationType.BOX:
             min_x, min_y, max_x, max_y = curr_annotation.bounds
@@ -143,7 +151,7 @@ class ConvertAnnotationsToMask:
         ignore_name: Optional[str] = "IGNORE",
         default_value: int = 0,
         conversion_fn: Callable[..., _ConvertedAnnotationsOutput] = convert_annotations,
-        **kwargs: dict[str, Any],
+        **kwargs: Any,
     ):
         """
         Converts annotations given my `dlup.annotations.Polygon` or `dlup.annotations.Point` to a mask and a dictionary
