@@ -271,7 +271,7 @@ def _geometry_to_geojson(geometry: Polygon | Point, label: str, cast_to_box: boo
         "geometry": shapely.geometry.mapping(geometry),
     }
     if cast_to_box:
-        data["properties"]["classification"]["CastToAnnotationTypeBox"] = True
+        data["properties"]["DLUP_CastToAnnotationTypeBox"] = True
     return data
 
 
@@ -537,7 +537,7 @@ class WsiAnnotations:
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
 
         _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
-        for _, path in enumerate(_geojsons):
+        for path in _geojsons:
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
@@ -546,7 +546,7 @@ class WsiAnnotations:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
                     _label = x["properties"]["classification"]["name"]
-                    _cast_to_box = x["properties"]["classification"].get("CastToAnnotationTypeBox", False)
+                    _cast_to_box = x["properties"].get("DLUP_CastToAnnotationTypeBox", False)
                     _geometry = shape(x["geometry"], label=_label, multiplier=_scaling, cast_to_box=_cast_to_box)
                     for _ in _geometry:
                         data[_label].append(_)

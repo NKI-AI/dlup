@@ -165,16 +165,17 @@ class ConvertAnnotationsToMask:
 
         Parameters
         ----------
-        index_map : dict
+        index_map : dict[str, int]
             Dictionary mapping the label to the integer in the output.
         roi_name : str, optional
             Name of the ROI key.
         ignore_name : str, optional
-            Name of the annotation key to ignore (skip).
+            Name of the annotation key to ignore (skip) during conversion.
         default_value : int
-            The mask will be initialized with this value.
-        conversion_fn : Callable
-            Callable function that will be convert the annotations. Default is `dlup.transforms.convert_annotations`.
+            The mask will be initialized with this value, by default 0.
+        conversion_fn : Callable[..., _ConvertedAnnotationsOutput], optional
+            Callable function that will be convert the annotations, by default `dlup.transforms.convert_annotations`.
+            Keyword arguments will be passed to this function when initialzing the partial conversion function.
         """
         self._conversion_fn = partial(
             conversion_fn,
