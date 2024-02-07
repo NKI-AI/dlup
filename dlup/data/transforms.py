@@ -91,7 +91,7 @@ def convert_annotations(
             cv2.fillPoly(
                 roi_mask,
                 [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
-                1,
+                [1],
             )
             has_roi = True
             continue
@@ -105,12 +105,12 @@ def convert_annotations(
             original_values = mask.copy()
             holes_mask = np.zeros(region_size, dtype=np.int32)
             # Get a mask where the holes are
-            cv2.fillPoly(holes_mask, interiors, 1)
+            cv2.fillPoly(holes_mask, interiors, [1])
 
         cv2.fillPoly(
             mask,
             [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
-            index_map[curr_annotation.label],
+            [index_map[curr_annotation.label]],
         )
         if interiors is not []:
             # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
