@@ -206,9 +206,6 @@ class PyVipsSlide(AbstractSlideBackend):
             )
             return None
 
-        if self._loader == "tiffload":
-            raise NotImplementedError("ICC profile is not implemented for tiff loader.")
-
         if "icc-profile-data" not in self.properties:
             return None
 
