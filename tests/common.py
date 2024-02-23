@@ -99,7 +99,9 @@ class OpenSlideImageMock(openslide.ImageSlide):
     @property
     def level_spacings(self):
         spacing = self.spacing
-        return tuple((spacing[0] * downsample**2, spacing[1] * downsample**2) for downsample in self.level_downsamples)
+        return tuple(
+            (spacing[0] * downsample**2, spacing[1] * downsample**2) for downsample in self.level_downsamples
+        )
 
     def get_level_image(self, level):
         return self.image.resize(self.level_dimensions[level])

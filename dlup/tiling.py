@@ -139,10 +139,12 @@ class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
         return len(self.coordinates[0]), len(self.coordinates[1])
 
     @overload
-    def __getitem__(self, key: int) -> npt.NDArray[np.int_ | np.float_]: ...
+    def __getitem__(self, key: int) -> npt.NDArray[np.int_ | np.float_]:
+        ...
 
     @overload
-    def __getitem__(self, key: slice) -> list[npt.NDArray[np.int_ | np.float_]]: ...
+    def __getitem__(self, key: slice) -> list[npt.NDArray[np.int_ | np.float_]]:
+        ...
 
     def __getitem__(
         self, key: Union[int, slice]

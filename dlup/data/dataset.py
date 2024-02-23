@@ -160,10 +160,12 @@ class ConcatDataset(Dataset[T_co]):
         return self.cumulative_sizes[-1]
 
     @overload
-    def __getitem__(self, index: int) -> T_co: ...
+    def __getitem__(self, index: int) -> T_co:
+        ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[T_co]: ...
+    def __getitem__(self, index: slice) -> list[T_co]:
+        ...
 
     def __getitem__(self, index: Union[int, slice]) -> T_co | list[T_co]:
         """Returns the sample at the given index."""
@@ -283,10 +285,12 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         )
 
     @overload
-    def __getitem__(self, index: int) -> TileSample: ...
+    def __getitem__(self, index: int) -> TileSample:
+        ...
 
     @overload
-    def __getitem__(self, index: slice) -> Sequence[TileSample]: ...
+    def __getitem__(self, index: slice) -> Sequence[TileSample]:
+        ...
 
     def __getitem__(self, index: Union[int, slice]) -> Union[TileSample, Sequence[TileSample]]:
         if isinstance(index, slice):
@@ -549,10 +553,12 @@ class TiledWsiDataset(BaseWsiDataset):
         )
 
     @overload
-    def __getitem__(self, index: int) -> RegionFromWsiDatasetSample: ...
+    def __getitem__(self, index: int) -> RegionFromWsiDatasetSample:
+        ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[RegionFromWsiDatasetSample]: ...
+    def __getitem__(self, index: slice) -> list[RegionFromWsiDatasetSample]:
+        ...
 
     def __getitem__(
         self, index: Union[int, slice]
