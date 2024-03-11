@@ -29,10 +29,12 @@ class MapSequence(collections.abc.Sequence[T]):
         return len(self._sequence)
 
     @overload
-    def __getitem__(self, key: int) -> T: ...
+    def __getitem__(self, key: int) -> T:
+        ...
 
     @overload
-    def __getitem__(self, key: slice) -> Sequence[T]: ...
+    def __getitem__(self, key: slice) -> Sequence[T]:
+        ...
 
     def __getitem__(self, key: Union[int, slice]) -> Union[T, Sequence[T]]:
         if isinstance(key, slice):
@@ -59,10 +61,12 @@ class ConcatSequences(collections.abc.Sequence[T]):
         self._len = cumsum[-1]
 
     @overload
-    def __getitem__(self, key: int) -> T: ...
+    def __getitem__(self, key: int) -> T:
+        ...
 
     @overload
-    def __getitem__(self, key: slice) -> Sequence[T]: ...
+    def __getitem__(self, key: slice) -> Sequence[T]:
+        ...
 
     def __getitem__(self, key: Union[int, slice]) -> Union[T, Sequence[T]]:
         if isinstance(key, slice):
