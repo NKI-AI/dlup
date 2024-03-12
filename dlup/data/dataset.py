@@ -24,7 +24,7 @@ from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
-from dlup.types import ROIType
+from dlup.types import PathLike, ROIType
 
 MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "WsiAnnotations"]
 
@@ -41,7 +41,7 @@ class TileSample(TypedDict):
     image: PIL.Image.Image
     coordinates: tuple[int | float, int | float]
     mpp: float
-    path: pathlib.Path
+    path: PathLike
     region_index: int
     labels: dict[str, Any] | None
     annotations: Optional[Iterable[_AnnotationsTypes]]
@@ -198,7 +198,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
 
     def __init__(
         self,
-        path: pathlib.Path,
+        path: PathLike,
         regions: collections.abc.Sequence[tuple[float, float, int, int, float]],
         crop: bool = False,
         mask: MaskTypes | None = None,
@@ -213,7 +213,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         """
         Parameters
         ----------
-        path :
+        path : PathLike
             Path to the image.
         regions :
             Sequence of rectangular regions as (x, y, h, w, mpp)
@@ -266,7 +266,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             self.masked_indices = np.argwhere(boolean_mask).flatten()
 
     @property
-    def path(self) -> pathlib.Path:
+    def path(self) -> PathLike:
         """Path of whole slide image"""
         return self._path
 
@@ -392,7 +392,7 @@ class TiledWsiDataset(BaseWsiDataset):
 
     def __init__(
         self,
-        path: pathlib.Path,
+        path: PathLike,
         grids: list[tuple[Grid, tuple[int, int], float]],
         crop: bool = False,
         mask: MaskTypes | None = None,

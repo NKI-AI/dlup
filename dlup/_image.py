@@ -271,8 +271,10 @@ class SlideImage:
         if isinstance(backend, str):
             backend = ImageBackend[backend]
 
-        if not wsi_file_path.exists():
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
+        if isinstance(wsi_file_path, pathlib.Path):
+            wsi_file_path = wsi_file_path.resolve()
+            if not wsi_file_path.exists():
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:
             wsi = backend(wsi_file_path)
         except UnsupportedSlideError:
