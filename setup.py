@@ -65,6 +65,9 @@ setup(
             "pydantic>=2.1.1",
             "types-requests",
         ],
+        "darwin-v7": [
+            "boto3",
+        ],
     },
     license="Apache Software License 2.0",
     include_package_data=True,
