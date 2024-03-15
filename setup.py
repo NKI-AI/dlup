@@ -65,8 +65,11 @@ setup(
             "pydantic>=2.1.1",
             "types-requests",
         ],
-        "darwin-v7": [
+        "s3_remote": [
             "boto3",
+            "botocore",
+            "boto3-stubs",
+            "botocore-stubs",
         ],
     },
     license="Apache Software License 2.0",
