@@ -38,11 +38,12 @@ _LabelTypes = Union[str, bool, int, float]
 
 
 class TileSample(TypedDict):
-    image: PIL.Image.Image
+    image: Optional[PIL.Image.Image]
     coordinates: tuple[int | float, int | float]
     mpp: float
     path: pathlib.Path
     region_index: int
+    region_size: tuple[int, int]
     labels: dict[str, Any] | None
     annotations: Optional[Iterable[_AnnotationsTypes]]
 
@@ -210,6 +211,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         labels: list[tuple[str, _LabelTypes]] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
         apply_color_profile: bool = False,
+        create_annotation_weights: bool = False,
         **kwargs: Any,
     ):
         """
@@ -267,6 +269,21 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
                 boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
 
+        # Count pixels per tile for weight distributions
+        self.tile_weight_matrix: Optional[NDArray[np.float64]] = None
+        if create_annotation_weights:
+            self.annotations_only = True
+            for idx, tile_sample in enumerate(self):
+                sample_target = np.asarray(tile_sample.get("target", []), dtype=bool)  # type: ignore
+                if len(sample_target) == 0:
+                    raise ValueError("Cannot convert None target to distribution.")
+                if idx == 0:
+                    num_channels, width, height = sample_target.shape
+                    self.tile_weight_matrix = np.zeros((len(self), num_channels))
+                    total_pixels = width * height
+                self.tile_weight_matrix[idx] = sample_target.sum(axis=(1, 2)) / total_pixels  # type: ignore
+        self.annotations_only = False
+
     @property
     def path(self) -> pathlib.Path:
         """Path of whole slide image"""
@@ -312,8 +329,6 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         coordinates: tuple[int | float, int | float] = x, y
         region_size: tuple[int, int] = w, h
         scaling: float = slide_image.mpp / mpp
-        region_view = slide_image.get_scaled_view(scaling)
-        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
         if self._output_tile_size is not None:
             # If we have an output tile_size, we extract a region around the center of the given region.
@@ -323,17 +338,21 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             coordinates = (coordinates_x, coordinates_y)
             region_size = self._output_tile_size
 
-        region = region_view.read_region(coordinates, region_size)
-
         sample: TileSample = {
-            "image": region,
+            "image": None,
             "coordinates": coordinates,
             "mpp": mpp,
             "path": self.path,
             "region_index": region_index,
+            "region_size": region_size[::-1],
             "labels": None,
             "annotations": None,
         }
+
+        if not self.annotations_only:
+            region_view = slide_image.get_scaled_view(scaling)
+            region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
+            sample["image"] = region_view.read_region(coordinates, region_size)
 
         # TODO: This needs to move to TiledWsiDataset (v1.0)
         if self.annotations is not None:
@@ -406,6 +425,7 @@ class TiledWsiDataset(BaseWsiDataset):
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
         backend: ImageBackend = ImageBackend.OPENSLIDE,
+        create_annotation_weights: bool = False,
         **kwargs: Any,
     ) -> None:
         self._grids = grids
@@ -415,6 +435,7 @@ class TiledWsiDataset(BaseWsiDataset):
             regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))  # type: ignore
 
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
+        self._transform = transform
 
         super().__init__(
             path,
@@ -426,9 +447,9 @@ class TiledWsiDataset(BaseWsiDataset):
             annotations=annotations,
             labels=labels,
             backend=backend,
+            create_annotation_weights=create_annotation_weights,
             **kwargs,
         )
-        self._transform = transform
 
     @property
     def grids(self) -> list[tuple[Grid, tuple[int, int], float]]:
@@ -452,6 +473,7 @@ class TiledWsiDataset(BaseWsiDataset):
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[TileSample], RegionFromWsiDatasetSample] | None = None,
         backend: ImageBackend = ImageBackend.PYVIPS,
+        create_annotation_weights: bool = False,
         limit_bounds: bool = True,
         **kwargs: Any,
     ) -> "TiledWsiDataset":
@@ -549,6 +571,7 @@ class TiledWsiDataset(BaseWsiDataset):
             labels=labels,
             transform=transform,
             backend=backend,
+            create_annotation_weights=create_annotation_weights,
             **kwargs,
         )
 
@@ -589,6 +612,7 @@ class TiledWsiDataset(BaseWsiDataset):
             "mpp": region_data["mpp"],
             "path": region_data["path"],
             "region_index": region_data["region_index"],
+            "region_size": region_data["region_size"],
             "labels": region_data["labels"],
             "annotations": region_data["annotations"],
             "grid_local_coordinates": (int(grid_local_coordinates[0]), int(grid_local_coordinates[1])),

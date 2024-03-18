@@ -211,9 +211,7 @@ class ConvertAnnotationsToMask:
         if _annotations is None:
             raise ValueError("No annotations found to convert to mask.")
 
-        points, boxes, mask, roi = self._conversion_fn(
-            annotations=_annotations, region_size=sample["image"].size[::-1]
-        )
+        points, boxes, mask, roi = self._conversion_fn(annotations=_annotations, region_size=sample["region_size"])
 
         output: TileSampleWithAnnotationData = cast(TileSampleWithAnnotationData, sample)
         output["annotation_data"] = {
@@ -326,6 +324,8 @@ class MajorityClassToLabel:
             if annotation.label in keys:
                 areas[annotation.label] += annotation.area
 
+        if sample["image"] is None:
+            raise ValueError("No image found in TileSample.")
         tile_area = np.prod(sample["image"].size)
         roi_non_cover = 0.0
         if self._roi_name:
@@ -390,7 +390,7 @@ class ContainsPolygonToLabel:
         if self._roi_name:
             roi = shapely.geometry.MultiPolygon([_ for _ in _annotations if _.label == self._roi_name])
         else:
-            roi = shapely.geometry.box(0, 0, *(sample["image"].size[::-1]))
+            roi = shapely.geometry.box(0, 0, *sample["region_size"])
 
         multi_polygon = shapely.geometry.MultiPolygon(requested_polygons)
         if not multi_polygon.is_valid:
