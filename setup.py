@@ -71,6 +71,7 @@ setup(
             "boto3-stubs",
             "botocore-stubs",
         ],
+        "slidescore_remote": ["asyncio", "aiohttp"],
     },
     license="Apache Software License 2.0",
     include_package_data=True,

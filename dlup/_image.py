@@ -266,8 +266,6 @@ class SlideImage:
         backend: ImageBackend = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> _TSlideImage:
-        wsi_file_path = pathlib.Path(wsi_file_path)
-
         if isinstance(backend, str):
             backend = ImageBackend[backend]
 
