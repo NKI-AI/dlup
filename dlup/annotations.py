@@ -678,7 +678,7 @@ class WsiAnnotations:
             hx.matchnegative()
             for layer in hx.layers:
                 for region in layer.regions:
-                    shapelyregion, _ = region_to_shapely(region)
+                    shapelyregion = region_to_shapely(region)
                     if region.type == RegionType.Rectangle:
                         _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.BOX)
                     if region.type in [RegionType.Ellipse, RegionType.Polygon]:
