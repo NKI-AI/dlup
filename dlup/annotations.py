@@ -669,21 +669,19 @@ class WsiAnnotations:
         """
         if not PYHALOXML_AVAILABLE:
             raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
-        import pyhaloxml
-        from pyhaloxml.shapely import region_to_shapely
-        from pyhaloxml import RegionType
+        import pyhaloxml.shapely
 
         output = defaultdict(list)
         with pyhaloxml.HaloXMLFile(halo_xml) as hx:
             hx.matchnegative()
             for layer in hx.layers:
                 for region in layer.regions:
-                    shapelyregion = region_to_shapely(region)
-                    if region.type == RegionType.Rectangle:
+                    shapelyregion = pyhaloxml.shapely.region_to_shapely(region)
+                    if region.type == pyhaloxml.RegionType.Rectangle:
                         _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.BOX)
-                    if region.type in [RegionType.Ellipse, RegionType.Polygon]:
+                    if region.type in [pyhaloxml.RegionType.Ellipse, pyhaloxml.RegionType.Polygon]:
                         _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POLYGON)
-                    if region.type == RegionType.Pin:
+                    if region.type == pyhaloxml.RegionType.Pin:
                         _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POINT)
                     else:
                         raise NotImplementedError(f"Regiontype {region.type} is not implemented in DLUP")
