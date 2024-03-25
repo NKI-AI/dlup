@@ -678,15 +678,15 @@ class WsiAnnotations:
             hx.matchnegative()
             for layer in hx.layers:
                 for region in layer.regions:
-                    shapelyregion, regiontype = region_to_shapely(region)
-                    if regiontype == RegionType.Rectangle:
+                    shapelyregion, _ = region_to_shapely(region)
+                    if region.type == RegionType.Rectangle:
                         _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.BOX)
-                    if regiontype in [RegionType.Ellipse, RegionType.Polygon]:
+                    if region.type in [RegionType.Ellipse, RegionType.Polygon]:
                         _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POLYGON)
-                    if regiontype == RegionType.Pin:
+                    if region.type == RegionType.Pin:
                         _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POINT)
                     else:
-                        raise NotImplementedError(f"Regiontype {regiontype} is not implemented in DLUP")
+                        raise NotImplementedError(f"Regiontype {region.type} is not implemented in DLUP")
                     curr_polygon = rescale_geometry(Polygon(shapelyregion, a_cls=_cls), scaling=scaling)
                     output[layer.name].append(Polygon(curr_polygon, a_cls=_cls))
 
