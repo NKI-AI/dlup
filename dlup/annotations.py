@@ -669,16 +669,23 @@ class WsiAnnotations:
         """
         if not PYHALOXML_AVAILABLE:
             raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
-        import pyhaloxml
         import pyhaloxml.shapely
 
         output = defaultdict(list)
-        with pyhaloxml.HaloXMLFile(halo_xml) as hx:  # type: ignore
+        with pyhaloxml.HaloXMLFile(halo_xml) as hx:
+            hx.matchnegative()
             for layer in hx.layers:
-                shapely_multipolygon = pyhaloxml.shapely.layer_to_shapely(layer)  # type: ignore
-                _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POLYGON)
-                for shapely_polygon in shapely_multipolygon.geoms:
-                    curr_polygon = rescale_geometry(Polygon(shapely_polygon, a_cls=_cls), scaling=scaling)
+                for region in layer.regions:
+                    shapelyregion = pyhaloxml.shapely.region_to_shapely(region)
+                    if region.type == pyhaloxml.RegionType.Rectangle:
+                        _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.BOX)
+                    if region.type in [pyhaloxml.RegionType.Ellipse, pyhaloxml.RegionType.Polygon]:
+                        _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POLYGON)
+                    if region.type == pyhaloxml.RegionType.Pin:
+                        _cls = AnnotationClass(label=layer.name, a_cls=AnnotationType.POINT)
+                    else:
+                        raise NotImplementedError(f"Regiontype {region.type} is not implemented in DLUP")
+                    curr_polygon = rescale_geometry(Polygon(shapelyregion, a_cls=_cls), scaling=scaling)
                     output[layer.name].append(Polygon(curr_polygon, a_cls=_cls))
 
         annotations: list[SingleAnnotationWrapper] = []
