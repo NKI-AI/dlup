@@ -269,8 +269,11 @@ class SlideImage:
         if isinstance(backend, str):
             backend = ImageBackend[backend]
 
-        if isinstance(wsi_file_path, pathlib.Path):
+        # We don't convert to Path for SlideScore URLs
+        if backend not in [ImageBackend.SLIDESCORE.value, ImageBackend.SLIDESCORE]:
+            wsi_file_path = pathlib.Path(wsi_file_path)
             wsi_file_path = wsi_file_path.resolve()
+            # TODO: AUTODETECT should check SlideScoreSlide/RemoteBackend here if AIOHTTP_AVAILABLE
             if not wsi_file_path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:

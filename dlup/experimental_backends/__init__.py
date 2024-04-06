@@ -5,6 +5,7 @@ import pathlib
 from enum import Enum
 from functools import lru_cache
 from typing import Callable
+from xml.etree.ElementTree import ParseError
 
 import numpy as np
 import openslide
@@ -16,6 +17,8 @@ from dlup import UnsupportedSlideError
 from dlup.backends.tifffile_backend import TifffileSlide
 
 from ..backends.common import AbstractSlideBackend
+from ..backends.slidescore_backend import SlideScoreSlide
+from .deepzoom_backend import DeepZoomSlide
 from .openslide_backend import OpenSlideSlide
 from .pyvips_backend import PyVipsSlide
 
@@ -49,6 +52,12 @@ def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
         except UnsupportedSlideError:
             raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or tifffile.")
 
+    if filename.suffix == ".dzi":
+        try:
+            return _try_deepzoom(filename)
+        except UnsupportedSlideError:
+            raise UnsupportedSlideError(f"Cannot read {filename} with deepzoom.")
+
     try:
         return _try_openslide(filename)
     except UnsupportedSlideError:
@@ -58,6 +67,28 @@ def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
         return _try_pyvips(filename)
     except UnsupportedSlideError:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or openslide.")
+
+
+def _try_deepzoom(filename: os.PathLike) -> DeepZoomSlide:
+    """
+    Attempt to read the slide with deep zoom backend. Will open the slide and extract a region at the highest level.
+
+    Parameters
+    ----------
+    filename : PathLike
+
+    Returns
+    -------
+    DeepZoomSlide
+    """
+    try:
+        slide = DeepZoomSlide(filename)
+        size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
+        slide.read_region((0, 0), slide.level_count - 1, size)
+        slide.close()
+        return DeepZoomSlide(filename)
+    except (ParseError, FileNotFoundError):
+        raise UnsupportedSlideError(f"Cannot read {filename} with deepzoom.")
 
 
 def _try_openslide(filename: os.PathLike) -> OpenSlideSlide:
@@ -104,6 +135,29 @@ def _try_pyvips(filename: os.PathLike) -> PyVipsSlide:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips.")
 
 
+def _try_slidescore(filename: str) -> SlideScoreSlide:
+    """
+    Attempt to read the slide with slidescore. Will open the slide and extract a region at the highest level.
+    NOTE: This is not integrated into AUTODETECT because a local file does not exist.
+
+    Parameters
+    ----------
+    filename : PathLike
+
+    Returns
+    -------
+    SlideScoreSlide
+    """
+    try:
+        slide = SlideScoreSlide(filename)
+        size = np.clip(0, 256, slide.level_dimensions[slide.level_count - 1]).tolist()
+        slide.read_region((0, 0), slide.level_count - 1, size)
+        slide.close()
+        return SlideScoreSlide(filename)
+    except (ValueError, RuntimeError):
+        raise UnsupportedSlideError(f"Cannot read {filename} with SlideScore.")
+
+
 def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
     """
     Attempt to read the slide with tifffile. Will open the slide and extract a region at the highest level.
@@ -129,8 +183,10 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
 class ImageBackend(Enum):
     """Available image experimental_backends."""
 
+    DEEPZOOM: Callable = DeepZoomSlide
     OPENSLIDE: Callable = OpenSlideSlide
     PYVIPS: Callable = PyVipsSlide
+    SLIDESCORE: Callable = SlideScoreSlide
     TIFFFILE: Callable = TifffileSlide
     AUTODETECT: Callable = autodetect_backend
 

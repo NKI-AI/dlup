@@ -23,15 +23,11 @@ if dlup.utils.imports.AIOHTTP_AVAILABLE:
     import aiohttp
 
 
-# TODO: Remove magic numbers
 METADATA_CACHE = 128
-JPEG_QUALITY = 85
-SLIDESCORE_MAX_TILE_SIZE = 2000  # SlideScore GetRawTile max size
-DEFAULT_ASYNC_REQUESTS = 6  # This is the normal number of requests to make asynchornously
-DEFAULT_API_METHOD = "deepzoom"
+DEFAULT_ASYNC_REQUESTS = 6  # This is the number of requests to make asynchronously
 
 
-def open_slide(filename: PathLike) -> "SlideScoreBackend":
+def open_slide(filename: PathLike) -> "SlideScoreSlide":
     """
     Read slide with SlideScore backend.
 
@@ -40,18 +36,15 @@ def open_slide(filename: PathLike) -> "SlideScoreBackend":
     filename : PathLike
         SlideScore URL of format https://<slidescore_server>/Image/Details?imageId=<image_id>&studyId=<study_id>
     """
-    return SlideScoreBackend(filename)
+    return SlideScoreSlide(filename)
 
 
-class SlideScoreBackend(AbstractSlideBackend):
-    _max_tile_size = SLIDESCORE_MAX_TILE_SIZE
+class SlideScoreSlide(AbstractSlideBackend):
     _max_async_request = DEFAULT_ASYNC_REQUESTS
-    _jpeg_quality = JPEG_QUALITY
-    _api_method = DEFAULT_API_METHOD
 
     def __init__(self, filename: PathLike):
         if isinstance(filename, pathlib.Path):
-            raise ValueError("Filename should be SlideScore URL for SlideScoreBackend.")
+            raise ValueError("Filename should be SlideScore URL for SlideScoreSlide.")
         super().__init__(filename)
 
         # Parse URL with regex
@@ -75,6 +68,7 @@ class SlideScoreBackend(AbstractSlideBackend):
 
     @functools.lru_cache(maxsize=METADATA_CACHE)
     def _fetch_properties(self) -> dict[str, Any]:
+        """Fetch properties from GetImageMetadata SlideScore API endpoint"""
         response = self.run_fetch_requests(
             urls=[f"{self._server_url}/Api/GetImageMetadata"], data_dicts=[{"imageid": self._image_id}]
         )[0]
@@ -90,6 +84,7 @@ class SlideScoreBackend(AbstractSlideBackend):
 
     @functools.lru_cache(maxsize=METADATA_CACHE)
     def _fetch_dz_properties(self) -> dict[str, Any]:
+        """Fetch deepzoom properties from GetTileServer SlideScore API endpoint and parse XML resonse"""
         dz_properties = {}
         tile_server_response = self.run_fetch_requests(
             urls=[f"{self._server_url}/Api/GetTileServer"], data_dicts=[{"imageid": self._image_id}]
@@ -98,7 +93,7 @@ class SlideScoreBackend(AbstractSlideBackend):
         tile_server: dict[str, Any] = json.loads(tile_server_response)
         dz_properties.update(tile_server)
 
-        # Set cookies here to make deepzoom request
+        # Set cookies here first to make deepzoom request
         self.cookies = {"t": dz_properties["cookiePart"]}
         dzi_url = f"{self._server_url}/i/{self._image_id}/{dz_properties['urlPart']}/i.dzi"
         dzi_response = self.run_fetch_requests(urls=[dzi_url])[0]
@@ -146,6 +141,7 @@ class SlideScoreBackend(AbstractSlideBackend):
         if api_token is None:
             raise RuntimeError("SlideScore API token not found. Please set SLIDESCORE_API_TOKEN in os environment")
         self.headers = {"Accept": "application/json", "Authorization": f"Bearer {api_token}"}
+        self.cookies = {"t": self.dz_properties["cookiePart"]}
 
         # Sanity check for study_id
         response = self.run_fetch_requests(
@@ -157,105 +153,31 @@ class SlideScoreBackend(AbstractSlideBackend):
                 f"Slidescore Study ID does not correspond got {slide_details['studyID']} but expected {self._study_id}"
             )
 
-        # Setting properties check `Can get pixels` rights by calling `GetImageMetaData`
-        self._level_count = self.properties["levelCount"]
-        self._downsamples = self.properties["downsamples"]
+        # Setting properties also checks `Can get pixels` rights by calling `GetImageMetaData`
         self._spacings = [(float(self.properties["mppX"]), float(self.properties["mppY"]))]
-        self._shapes = [(lW, lH) for lW, lH in zip(self.properties["levelWidths"], self.properties["levelHeights"])]
-
-        if self._api_method == "deepzoom":
-            self.cookies = {"t": self.dz_properties["cookiePart"]}
-            self._dz_level_count = math.ceil(
-                math.log2(
-                    max(
-                        self.dz_properties["Image"]["Size"]["Width"],
-                        self.dz_properties["Image"]["Size"]["Height"],
-                    )
+        self._level_count = 1 + math.ceil(
+            math.log2(
+                max(
+                    self.dz_properties["Image"]["Size"]["Width"],
+                    self.dz_properties["Image"]["Size"]["Height"],
                 )
             )
-            self._dz_tile_size = (self.dz_properties["Image"]["TileSize"],) * 2
-            self._dz_stride = (self.dz_properties["Image"]["TileSize"] - self.dz_properties["Image"]["Overlap"],) * 2
+        )
+        self._tile_size = (self.dz_properties["Image"]["TileSize"],) * 2
+        self._overlap = self.dz_properties["Image"]["Overlap"]
 
+        self._downsamples = [2**level for level in range(self._level_count)]
+        self._shapes = [
+            (
+                math.ceil(self.dz_properties["Image"]["Size"]["Width"] / downsample),
+                math.ceil(self.dz_properties["Image"]["Size"]["Height"] / downsample),
+            )
+            for downsample in self._downsamples
+        ]
+        self._tile_files = f"{self._server_url}/i/{self._image_id}/{self.dz_properties['urlPart']}/i_files"
         return None
 
     def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[int, int]) -> Image.Image:
-        """
-        Parameters
-        ----------
-        coordinates : tuple
-            Coordinates of the region in level 0.
-        level : int
-            Level of the image pyramid.
-        size : tuple
-            Size of the region to be extracted.
-
-        Returns
-        -------
-        PIL.Image
-            The requested region.
-        """
-        if self._api_method == "openslide":
-            read_fn = self.read_region_openslide
-        elif self._api_method == "deepzoom":
-            read_fn = self.read_region_deep_zoom
-        else:
-            raise NotImplementedError("API method of retrieving tiles not implemented.")
-        return read_fn(coordinates=coordinates, level=level, size=size)
-
-    def read_region_openslide(self, coordinates: tuple[Any, ...], level: int, size: tuple[int, int]) -> Image.Image:
-        """Read region by stitching Openslide tiles together. For smaller regions, the whole region is retrieved at
-        once.
-
-        Parameters
-        ----------
-        coordinates : tuple
-            Coordinates of the region in level 0.
-        level : int
-            Level of the image pyramid.
-        size : tuple
-            Size of the region to be extracted.
-
-        Returns
-        -------
-        PIL.Image
-            The requested region.
-        """
-
-        def _create_scaled_range(_coordinate: int, _scale: float, _size: int) -> list[tuple[int, int]]:
-            _max_tile_size = math.ceil(_scale * self._max_tile_size)
-            _scaled_size = math.ceil(_scale * _size)
-            _num_tiles = _scaled_size // _max_tile_size
-            _mod_tile_size = _scaled_size % _max_tile_size
-            _range = [(_coordinate + _max_tile_size * idx, self._max_tile_size) for idx in range(_num_tiles)]
-            # Append risidual tile if modulo is not zero. Scale width / height to appropriate level
-            if _mod_tile_size > 0:
-                _range.append((_coordinate + _scaled_size - _mod_tile_size, math.ceil(_mod_tile_size / _scale)))
-            return _range
-
-        level_downsample = self._downsamples[level]
-        x_range = _create_scaled_range(coordinates[0], level_downsample, size[0])
-        y_range = _create_scaled_range(coordinates[1], level_downsample, size[1])
-
-        data_dicts = [
-            self._request_openslide_data_dict(coordinates=(x, y), level=level, size=(width, height))
-            for (y, height), (x, width) in itertools.product(y_range, x_range)
-        ]
-        tile_urls = [f"{self._server_url}/Api/GetRawTile"] * len(data_dicts)
-
-        tile_responses = self.run_fetch_requests(tile_urls, data_dicts)
-        if len(tile_responses) == 1:
-            return Image.open(BytesIO(tile_responses[0]))
-
-        _region = Image.new(self.mode, size, (255,) * len(self.mode))
-        for tile_data, data in zip(tile_responses, data_dicts):
-            _region_tile = Image.open(BytesIO(tile_data))
-            x, y = (data["x"], data["y"])
-            start_x = math.floor((x - coordinates[0]) / level_downsample)
-            start_y = math.floor((y - coordinates[1]) / level_downsample)
-            _region.paste(_region_tile, (start_x, start_y))
-        return _region
-
-    def read_region_deep_zoom(self, coordinates: tuple[Any, ...], level: int, size: tuple[int, int]) -> Image.Image:
         """Read region by stitching DeepZoom tiles together.
 
         Parameters
@@ -272,46 +194,54 @@ class SlideScoreBackend(AbstractSlideBackend):
         PIL.Image
             The requested region.
         """
-        level_downsample = round(self._downsamples[level])
-        level_dz = self._dz_level_count - round(math.log2(level_downsample))
-        level_image_width = math.ceil(self.dz_properties["Image"]["Size"]["Width"] * level_downsample)
-        level_image_height = math.ceil(self.dz_properties["Image"]["Size"]["Height"] * level_downsample)
+        level_downsample = self._downsamples[level]
+        level_image_width, level_image_height = self._shapes[level]
+        tile_w, tile_h = self._tile_size
 
         x, y = (coordinates[0] // level_downsample, coordinates[1] // level_downsample)
         w, h = size
 
-        dz_tile_w, dz_tile_h = self._dz_tile_size
-        h_stride, v_stride = self._dz_stride
-
         # Calculate the range of rows and columns for tiles covering the specified region
-        start_row = y // dz_tile_h
-        end_row = min(math.ceil((y + h) / dz_tile_h), level_image_height // dz_tile_h + 1)
-        start_col = x // dz_tile_w
-        end_col = min(math.ceil((x + w) / dz_tile_w), level_image_width // dz_tile_w + 1)
+        start_row = y // tile_h
+        level_end_row = level_image_height // tile_h + 1
+        end_row = min(math.ceil((y + h) / tile_h), level_end_row)
+        start_col = x // tile_w
+        level_end_col = level_image_width // tile_w + 1
+        end_col = min(math.ceil((x + w) / tile_w), level_end_col)
 
         indices = list(itertools.product(range(start_row, end_row), range(start_col, end_col)))
+        level_dz = self._level_count - level - 1
         tile_urls = [self._request_deepzoom_url(level_dz, col, row) for row, col in indices]
         tile_responses = self.run_fetch_requests(tile_urls)
 
         _region = Image.new(self.mode, size, (255,) * len(self.mode))
         for (row, col), tile_data in zip(indices, tile_responses):
             _region_tile = Image.open(BytesIO(tile_data))
-            # Crop tile
-            start_y = row * v_stride - y
-            end_y = start_y + dz_tile_h
-            start_x = col * h_stride - x
-            end_x = start_x + dz_tile_w
+            start_x = col * tile_w - x
+            start_y = row * tile_h - y
 
-            img_start_y = max(0, start_y)
-            img_end_y = min(h, end_y)
             img_start_x = max(0, start_x)
-            img_end_x = min(w, end_x)
+            img_end_x = min(w, start_x + tile_w)
+            img_start_y = max(0, start_y)
+            img_end_y = min(h, start_y + tile_h)
 
-            crop_start_y = img_start_y - start_y
-            crop_end_y = img_end_y - start_y
             crop_start_x = img_start_x - start_x
             crop_end_x = img_end_x - start_x
+            crop_start_y = img_start_y - start_y
+            crop_end_y = img_end_y - start_y
 
+            # Correctly offset for overlap. Edge tile do not have outside padding
+            if col > 0:
+                crop_start_x += self._overlap
+                crop_end_x += self._overlap
+            if row > 0:
+                crop_start_y += self._overlap
+                crop_end_y += self._overlap
+
+            if col == level_end_col:
+                crop_end_x -= self._overlap
+            if row == level_end_row:
+                crop_end_y -= self._overlap
             _cropped_region_tile = _region_tile.crop((crop_start_x, crop_start_y, crop_end_x, crop_end_y))
             _region.paste(_cropped_region_tile, (img_start_x, img_start_y))
         return _region
@@ -390,39 +320,7 @@ class SlideScoreBackend(AbstractSlideBackend):
         list[Any]
             List of server responses.
         """
-        return asyncio.get_event_loop().run_until_complete(self.fetch_requests(urls, data_dicts=data_dicts))
-
-    def _request_openslide_data_dict(
-        self, coordinates: tuple[Any, ...], level: int, size: tuple[int, int]
-    ) -> dict[str, Any]:
-        """Generate dictionary with relevant parameters for SlideScore request for a region.
-
-        Parameters
-        ----------
-        coordinates : tuple
-            Coordinates of the region in level 0.
-        level : int
-            Level of the image pyramid.
-        size : tuple
-            Size of the region to be extracted.
-
-        Returns
-        -------
-        dict[str, Any]
-            The SlideScore API request parameters for a certain region
-        """
-        # SlideScore images will crash with negative sizes when using GetRawTile for some reason (which is bad)
-        assert all(p >= 0 for p in coordinates) and all(p > 0 for p in size) and level >= 0
-        return {
-            "studyid": self._study_id,
-            "imageid": self._image_id,
-            "x": coordinates[0],
-            "y": coordinates[1],
-            "level": level,
-            "width": size[0],
-            "height": size[1],
-            "jpegQuality": self._jpeg_quality,
-        }
+        return asyncio.run(self.fetch_requests(urls, data_dicts=data_dicts))
 
     def _request_deepzoom_url(self, level: int, col: int, row: int) -> str:
         """Generates the url where the JPEG encoded tile is stored
@@ -441,17 +339,13 @@ class SlideScoreBackend(AbstractSlideBackend):
         str
             SlideScore URL for tile.
         """
-        return (
-            f"{self._server_url}/i/{self._image_id}/{self.dz_properties['urlPart']}"
-            f"/i_files/{level}/{col}_{row}.{self.dz_properties['Image']['Format']}"
-        )
+        return f"{self._tile_files}/{level}/{col}_{row}.{self.dz_properties['Image']['Format']}"
 
     def close(self) -> None:
         """Close the underlying slide"""
         del self.headers
         del self.cookies
-        if self._api_method == "deepzoom":
-            del self._dz_properties
+        del self._dz_properties
         return
 
 
@@ -469,24 +363,3 @@ def export_api_key(file_path: PathLike, os_variable_name: str = "SLIDESCORE_API_
         api_token = file.read().strip()
     os.environ[os_variable_name] = api_token
     return
-
-
-if __name__ == "__main__":
-    from tqdm import tqdm
-
-    from dlup.data.dataset import TiledWsiDataset
-
-    api_token_path = "/path/to/slide_score_api.key"
-    export_api_key(api_token_path)
-    # TCGA breast wsi
-    URL_PATH = "https://slidescore.nki.nl/Image/Details?imageId=85162&studyId=638"
-
-    # deepzoom should outperform openslide, but this is not always the case
-    for api_method in ["deepzoom", "openslide"]:
-        SlideScoreBackend._api_method = api_method
-        # Bigger tile_size causes Server disconnected (probably because too many request are made?)
-        for tile_size in [(2048, 2048), (256, 256)]:
-            dataset = TiledWsiDataset.from_standard_tiling(URL_PATH, 5, tile_size, (0, 0), backend=SlideScoreBackend)
-
-            for tile_region in tqdm(dataset, desc=f"{api_method=}, {tile_size=}"):
-                continue
