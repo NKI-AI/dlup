@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 import functools
-import itertools
 import json
-import math
 import os
 import pathlib
 import re
-import xml.etree.ElementTree as ET
 from io import BytesIO
 from typing import Any, Optional
 
-from PIL import Image
-
 import dlup.utils.imports
-from dlup.backends.common import AbstractSlideBackend
+from dlup.experimental_backends.deepzoom_backend import (
+    DeepZoomSlide,
+    TileResponseTypes,
+    dict_to_snake_case,
+    parse_xml_to_dict,
+)
 from dlup.types import PathLike
 
 if dlup.utils.imports.AIOHTTP_AVAILABLE:
@@ -39,13 +39,12 @@ def open_slide(filename: PathLike) -> "SlideScoreSlide":
     return SlideScoreSlide(filename)
 
 
-class SlideScoreSlide(AbstractSlideBackend):
+class SlideScoreSlide(DeepZoomSlide):
     _max_async_request = DEFAULT_ASYNC_REQUESTS
 
     def __init__(self, filename: PathLike):
         if isinstance(filename, pathlib.Path):
             raise ValueError("Filename should be SlideScore URL for SlideScoreSlide.")
-        super().__init__(filename)
 
         # Parse URL with regex
         parsed_url = re.search(r"(https?://[^/]+).*imageId=(\d+).*studyId=(\d+)", filename)
@@ -58,13 +57,7 @@ class SlideScoreSlide(AbstractSlideBackend):
         self.cookies: Optional[dict[str, str]] = None
         self.headers: Optional[dict[str, str]] = None
         self._set_metadata()
-
-    @property
-    def properties(self) -> dict[str, Any]:
-        """Properties of slide"""
-        if not hasattr(self, "_properties"):
-            self._properties = self._fetch_properties()
-        return self._properties
+        super().__init__(filename)
 
     @functools.lru_cache(maxsize=METADATA_CACHE)
     def _fetch_properties(self) -> dict[str, Any]:
@@ -72,15 +65,8 @@ class SlideScoreSlide(AbstractSlideBackend):
         response = self.run_fetch_requests(
             urls=[f"{self._server_url}/Api/GetImageMetadata"], data_dicts=[{"imageid": self._image_id}]
         )[0]
-        metadata: dict[str, Any] = json.loads(response)["metadata"]
-        return metadata
-
-    @property
-    def dz_properties(self) -> dict[str, Any]:
-        """DeepZoom properties of slide"""
-        if not hasattr(self, "_dz_properties"):
-            self._dz_properties = self._fetch_dz_properties()
-        return self._dz_properties
+        metadata: dict[str, Any] = json.load(response)["metadata"]
+        return dict_to_snake_case(metadata)
 
     @functools.lru_cache(maxsize=METADATA_CACHE)
     def _fetch_dz_properties(self) -> dict[str, Any]:
@@ -90,41 +76,25 @@ class SlideScoreSlide(AbstractSlideBackend):
             urls=[f"{self._server_url}/Api/GetTileServer"], data_dicts=[{"imageid": self._image_id}]
         )[0]
         # Contains JSON object with cookiePart, urlPart (to be used in the calls to /i/ endpoint) and expiresOn
-        tile_server: dict[str, Any] = json.loads(tile_server_response)
-        dz_properties.update(tile_server)
+        tile_server: dict[str, Any] = json.load(tile_server_response)
+        dz_properties.update(dict_to_snake_case(tile_server))
 
-        # Set cookies here first to make deepzoom request
-        self.cookies = {"t": dz_properties["cookiePart"]}
-        dzi_url = f"{self._server_url}/i/{self._image_id}/{dz_properties['urlPart']}/i.dzi"
+        # Set cookies here to make deepzoom request
+        self.cookies = {"t": dz_properties["cookie_part"]}
+        dzi_url = f"{self._server_url}/i/{self._image_id}/{dz_properties['url_part']}/i.dzi"
         dzi_response = self.run_fetch_requests(urls=[dzi_url])[0]
-        dzi_et_root = ET.fromstring(dzi_response)
-        dzi_dict = {
-            dzi_et_root.tag.split("}")[1]: {k: int(v) if k != "Format" else v for k, v in dzi_et_root.attrib.items()}
-        }
-        for child in dzi_et_root:
-            dzi_dict[dzi_et_root.tag.split("}")[1]][child.tag.split("}")[1]] = {
-                k: int(v) for k, v in child.attrib.items()
-            }
-        dz_properties.update(dzi_dict)
+        dz_properties.update(parse_xml_to_dict(dzi_response))
         return dz_properties
 
     @property
-    def magnification(self) -> float | None:
-        """Returns the objective power at which the WSI was sampled."""
-        value = self.properties.get("objectivePower", None)
-        if value is not None:
-            return int(value)
-        return value
-
-    @property
-    def vendor(self) -> str | None:
+    def vendor(self) -> str:
         """Returns the scanner vendor."""
         return "SlideScore"
 
     @property
-    def mode(self) -> str:
-        """Returns the mode of the image. This is always RGB for SlideScore"""
-        return "RGB"
+    def tile_files(self) -> str:
+        """Returns the SlideScore API endpoint where deep zoom tiles are stored."""
+        return f"{self._server_url}/i/{self._image_id}/{self.dz_properties['url_part']}/i_files"
 
     def _set_metadata(self) -> None:
         """Set up metadata for SlideScore server requests and image metadata.
@@ -141,117 +111,24 @@ class SlideScoreSlide(AbstractSlideBackend):
         if api_token is None:
             raise RuntimeError("SlideScore API token not found. Please set SLIDESCORE_API_TOKEN in os environment")
         self.headers = {"Accept": "application/json", "Authorization": f"Bearer {api_token}"}
-        self.cookies = {"t": self.dz_properties["cookiePart"]}
+        self.cookies = {"t": self.dz_properties["cookie_part"]}
 
         # Sanity check for study_id
         response = self.run_fetch_requests(
             urls=[f"{self._server_url}/Api/GetSlideDetails"], data_dicts=[{"imageid": self._image_id}]
         )[0]
-        slide_details = json.loads(response)
+        slide_details = json.load(response)
         if self._study_id != int(slide_details["studyID"]):
             raise RuntimeError(
                 f"Slidescore Study ID does not correspond got {slide_details['studyID']} but expected {self._study_id}"
             )
-
-        # Setting properties also checks `Can get pixels` rights by calling `GetImageMetaData`
-        self._spacings = [(float(self.properties["mppX"]), float(self.properties["mppY"]))]
-        self._level_count = 1 + math.ceil(
-            math.log2(
-                max(
-                    self.dz_properties["Image"]["Size"]["Width"],
-                    self.dz_properties["Image"]["Size"]["Height"],
-                )
-            )
-        )
-        self._tile_size = (self.dz_properties["Image"]["TileSize"],) * 2
-        self._overlap = self.dz_properties["Image"]["Overlap"]
-
-        self._downsamples = [2**level for level in range(self._level_count)]
-        self._shapes = [
-            (
-                math.ceil(self.dz_properties["Image"]["Size"]["Width"] / downsample),
-                math.ceil(self.dz_properties["Image"]["Size"]["Height"] / downsample),
-            )
-            for downsample in self._downsamples
-        ]
-        self._tile_files = f"{self._server_url}/i/{self._image_id}/{self.dz_properties['urlPart']}/i_files"
-        return None
-
-    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[int, int]) -> Image.Image:
-        """Read region by stitching DeepZoom tiles together.
-
-        Parameters
-        ----------
-        coordinates : tuple
-            Coordinates of the region in level 0.
-        level : int
-            Level of the image pyramid.
-        size : tuple
-            Size of the region to be extracted.
-
-        Returns
-        -------
-        PIL.Image
-            The requested region.
-        """
-        level_downsample = self._downsamples[level]
-        level_image_width, level_image_height = self._shapes[level]
-        tile_w, tile_h = self._tile_size
-
-        x, y = (coordinates[0] // level_downsample, coordinates[1] // level_downsample)
-        w, h = size
-
-        # Calculate the range of rows and columns for tiles covering the specified region
-        start_row = y // tile_h
-        level_end_row = level_image_height // tile_h + 1
-        end_row = min(math.ceil((y + h) / tile_h), level_end_row)
-        start_col = x // tile_w
-        level_end_col = level_image_width // tile_w + 1
-        end_col = min(math.ceil((x + w) / tile_w), level_end_col)
-
-        indices = list(itertools.product(range(start_row, end_row), range(start_col, end_col)))
-        level_dz = self._level_count - level - 1
-        tile_urls = [self._request_deepzoom_url(level_dz, col, row) for row, col in indices]
-        tile_responses = self.run_fetch_requests(tile_urls)
-
-        _region = Image.new(self.mode, size, (255,) * len(self.mode))
-        for (row, col), tile_data in zip(indices, tile_responses):
-            _region_tile = Image.open(BytesIO(tile_data))
-            start_x = col * tile_w - x
-            start_y = row * tile_h - y
-
-            img_start_x = max(0, start_x)
-            img_end_x = min(w, start_x + tile_w)
-            img_start_y = max(0, start_y)
-            img_end_y = min(h, start_y + tile_h)
-
-            crop_start_x = img_start_x - start_x
-            crop_end_x = img_end_x - start_x
-            crop_start_y = img_start_y - start_y
-            crop_end_y = img_end_y - start_y
-
-            # Correctly offset for overlap. Edge tile do not have outside padding
-            if col > 0:
-                crop_start_x += self._overlap
-                crop_end_x += self._overlap
-            if row > 0:
-                crop_start_y += self._overlap
-                crop_end_y += self._overlap
-
-            if col == level_end_col:
-                crop_end_x -= self._overlap
-            if row == level_end_row:
-                crop_end_y -= self._overlap
-            _cropped_region_tile = _region_tile.crop((crop_start_x, crop_start_y, crop_end_x, crop_end_y))
-            _region.paste(_cropped_region_tile, (img_start_x, img_start_y))
-        return _region
 
     async def fetch_request(
         self,
         session: aiohttp.ClientSession,
         url: str,
         data: Optional[dict[str, Any]],
-    ) -> Any:
+    ) -> BytesIO:
         """Perform a HTTP get request to the url (with extra data)
 
         Parameters
@@ -265,20 +142,22 @@ class SlideScoreSlide(AbstractSlideBackend):
 
         Returns
         -------
-        Any
-            Server response if status == 200 (succes), raises response status otherwise.
+        BytesIO
+            Server response as a BytesIO object if status == 200 (succes), raises response status otherwise.
         """
         async with session.get(url, data=data) as response:
             if response.status == 200:
-                return await response.read()
+                byte_data = await response.read()
+                return BytesIO(byte_data)
             else:
                 response.raise_for_status()
+                raise RuntimeError("Failed to get response from server")  # Raise error for mypy
 
     async def fetch_requests(
         self,
         urls: list[str],
-        data_dicts: Optional[list[dict[str, Any]]] = None,
-    ) -> list[Any]:
+        data_dicts: Optional[list[dict[str, Any] | None]] = None,
+    ) -> list[BytesIO]:
         """Asychronously fetch a list of requests with optional extra data.
 
         Parameters
@@ -291,10 +170,10 @@ class SlideScoreSlide(AbstractSlideBackend):
         Returns
         -------
         list[Any]
-            List of server responses.
+            List of server responses as BytesIO objects.
         """
         if data_dicts is None:
-            data_dicts = [None] * len(urls)  # type: ignore
+            data_dicts = [None] * len(urls)
 
         connector = aiohttp.TCPConnector(limit=self._max_async_request)
         async with aiohttp.ClientSession(cookies=self.cookies, headers=self.headers, connector=connector) as session:
@@ -304,7 +183,7 @@ class SlideScoreSlide(AbstractSlideBackend):
     def run_fetch_requests(
         self,
         urls: list[str],
-        data_dicts: Optional[list[dict[str, Any]]] = None,
+        data_dicts: Optional[list[dict[str, Any] | None]] = None,
     ) -> list[Any]:
         """Collect and return all asychronously fetched requests.
 
@@ -312,34 +191,36 @@ class SlideScoreSlide(AbstractSlideBackend):
         ----------
         urls : list[str]
             List of (base) URLs to get response.
-        data_dicts : Optional[list[dict[str, Any]]], optional
+        data_dicts : Optional[list[dict[str, Any] | None]], optional
             Optionally, add dictionary with data per URL, by default None
 
         Returns
         -------
-        list[Any]
-            List of server responses.
+        list[BytesIO]
+            List of server responses as BytesIO objects.
         """
         return asyncio.run(self.fetch_requests(urls, data_dicts=data_dicts))
 
-    def _request_deepzoom_url(self, level: int, col: int, row: int) -> str:
-        """Generates the url where the JPEG encoded tile is stored
+    def retrieve_deepzoom_tiles(self, level: int, indices: list[tuple[int, int]]) -> list[TileResponseTypes]:
+        """Retrieve ByteIO objects for tile indices of deepzoom level. These tiles will be opened with Pillow
+        and stitched together in `read_region`. The server requests are made asynchronously.
 
         Parameters
         ----------
         level : int
-            Deepzoom level of tile.
-        col : int
-            Column of requested tile.
-        row : int
-            Row of requested tile.
+            Deep zoom level for tiles
+        indices : list[tuple[int, int]]
+            List of (col, row) tuples for column and row at specified deepzoom level
 
         Returns
         -------
-        str
-            SlideScore URL for tile.
+        list[BytesIO]
+            List of ByteIO objects for unprocessed DeepZoom tiles.
         """
-        return f"{self._tile_files}/{level}/{col}_{row}.{self.dz_properties['Image']['Format']}"
+        # Super will return list of urls as string
+        tile_urls: list[str] = super().retrieve_deepzoom_tiles(level, indices)  # type: ignore
+        tile_responses = self.run_fetch_requests(tile_urls)
+        return tile_responses
 
     def close(self) -> None:
         """Close the underlying slide"""
