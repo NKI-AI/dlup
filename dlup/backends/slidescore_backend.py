@@ -47,10 +47,10 @@ class SlideScoreSlide(DeepZoomSlide):
             raise ValueError("Filename should be SlideScore URL for SlideScoreSlide.")
 
         # Parse URL with regex
-        parsed_url = re.search(r"(https?://[^/]+).*imageId=(\d+).*studyId=(\d+)", filename)
+        parsed_url = re.search(r"(https?://[^/?]+)(?=.*\bstudyId=(\d+))(?=.*\bimageId=(\d+)).*$", filename)
         if parsed_url is None:
             raise ValueError("Could not parse URL into valid SlideScore parameters.")
-        server_url, image_id, study_id = parsed_url.groups()
+        server_url, study_id, image_id = parsed_url.groups()
         self._server_url = server_url
         self._study_id = int(study_id)
         self._image_id = int(image_id)
