@@ -65,6 +65,13 @@ setup(
             "pydantic>=2.1.1",
             "types-requests",
         ],
+        "s3_remote": [
+            "boto3",
+            "botocore",
+            "boto3-stubs",
+            "botocore-stubs",
+        ],
+        "slidescore_remote": ["asyncio", "aiohttp"],
     },
     license="Apache Software License 2.0",
     include_package_data=True,

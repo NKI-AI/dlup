@@ -23,6 +23,7 @@ from PIL.ImageCms import ImageCmsProfile
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
 from dlup.backends.common import AbstractSlideBackend
+from dlup.backends.remote_backends import RemoteSlideBackend
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
@@ -266,12 +267,12 @@ class SlideImage:
         backend: ImageBackend = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> _TSlideImage:
-        wsi_file_path = pathlib.Path(wsi_file_path)
-
         if isinstance(backend, str):
             backend = ImageBackend[backend]
 
-        if isinstance(wsi_file_path, pathlib.Path):
+        # We don't convert to Path for RemoteSlideBackend
+        if not issubclass(backend.value if isinstance(backend, ImageBackend) else backend, RemoteSlideBackend):
+            wsi_file_path = pathlib.Path(wsi_file_path)
             wsi_file_path = wsi_file_path.resolve()
             if not wsi_file_path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))

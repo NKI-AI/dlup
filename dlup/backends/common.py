@@ -1,4 +1,3 @@
-# Copyright (c) dlup contributors
 from __future__ import annotations
 
 import abc

@@ -433,7 +433,7 @@ class TiledWsiDataset(BaseWsiDataset):
     @classmethod
     def from_standard_tiling(
         cls,
-        path: pathlib.Path,
+        path: PathLike,
         mpp: float | None,
         tile_size: tuple[int, int],
         tile_overlap: tuple[int, int],
