@@ -23,6 +23,7 @@ from PIL.ImageCms import ImageCmsProfile
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
 from dlup.backends.common import AbstractSlideBackend
+from dlup.backends.remote_backends import RemoteSlideBackend
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
@@ -269,11 +270,10 @@ class SlideImage:
         if isinstance(backend, str):
             backend = ImageBackend[backend]
 
-        # We don't convert to Path for SlideScore URLs
-        if backend not in [ImageBackend.SLIDESCORE.value, ImageBackend.SLIDESCORE]:
+        # We don't convert to Path for RemoteSlideBackend
+        if not issubclass(backend.value if isinstance(backend, ImageBackend) else backend, RemoteSlideBackend):
             wsi_file_path = pathlib.Path(wsi_file_path)
             wsi_file_path = wsi_file_path.resolve()
-            # TODO: AUTODETECT should check SlideScoreSlide/RemoteBackend here if AIOHTTP_AVAILABLE
             if not wsi_file_path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
         try:

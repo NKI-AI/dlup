@@ -9,6 +9,7 @@ from io import BytesIO
 from typing import Any, Optional
 
 import dlup.utils.imports
+from dlup.backends.remote_backends import RemoteSlideBackend
 from dlup.experimental_backends.deepzoom_backend import (
     DeepZoomSlide,
     TileResponseTypes,
@@ -39,7 +40,7 @@ def open_slide(filename: PathLike) -> "SlideScoreSlide":
     return SlideScoreSlide(filename)
 
 
-class SlideScoreSlide(DeepZoomSlide):
+class SlideScoreSlide(RemoteSlideBackend, DeepZoomSlide):
     _max_async_request = DEFAULT_ASYNC_REQUESTS
 
     def __init__(self, filename: PathLike):
@@ -56,7 +57,7 @@ class SlideScoreSlide(DeepZoomSlide):
         self._image_id = int(image_id)
         self.cookies: Optional[dict[str, str]] = None
         self.headers: Optional[dict[str, str]] = None
-        self._set_metadata()
+        # MRO will take care of setting up metadata: RemoteSlide -> DeepZoomSlide -> AbstractSlide
         super().__init__(filename)
 
     @functools.lru_cache(maxsize=METADATA_CACHE)
