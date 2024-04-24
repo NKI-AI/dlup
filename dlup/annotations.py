@@ -228,8 +228,13 @@ def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> 
         annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
         # the first element is the outer polygon, the rest are holes.
         multi_polygon = shapely.geometry.MultiPolygon(
-            [[np.asarray(c[0]) * multiplier, [np.asarray(hole) * multiplier for hole in c[1:]]] for c in
-             coordinates["coordinates"]]
+            [
+                [
+                    np.asarray(c[0]) * multiplier,
+                    [np.asarray(hole) * multiplier for hole in c[1:]],
+                ]
+                for c in coordinates["coordinates"]
+            ]
         )
         return [Polygon(_, a_cls=annotation_class) for _ in multi_polygon.geoms]
     else:
