@@ -239,12 +239,15 @@ class SlideImage:
 
         if self.__color_transforms is None:
             to_profile = PIL.ImageCms.createProfile("sRGB")
-            intent = PIL.ImageCms.getDefaultIntent(self.color_profile)
-            self.__color_transform = cast(
-                PIL.ImageCms.ImageCmsTransform,
-                PIL.ImageCms.buildTransform(self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0),
+            intent = PIL.ImageCms.getDefaultIntent(self.color_profile)  # type: ignore
+            self.__color_transform = PIL.ImageCms.buildTransform(
+                self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0
             )
-        return self.__color_transform
+        return (
+            cast(PIL.ImageCms.ImageCmsTransform, self.__color_transform)
+            if self.__color_transform is not None
+            else None
+        )
 
     def __enter__(self) -> "SlideImage":
         return self

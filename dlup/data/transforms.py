@@ -294,7 +294,7 @@ class MajorityClassToLabel:
             if annotation.label in keys:
                 areas[annotation.label] += annotation.area
 
-        tile_area = np.prod(sample["image"].size)
+        tile_area = float(np.prod(sample["image"].size))
         roi_non_cover = 0.0
         if self._roi_name:
             roi_non_cover = (tile_area - areas[self._roi_name]) / tile_area
