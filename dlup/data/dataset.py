@@ -11,7 +11,20 @@ import itertools
 import pathlib
 import warnings
 from math import ceil, floor
-from typing import Any, Callable, Generic, Iterable, Iterator, Optional, Sequence, TypedDict, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Iterator,
+    Optional,
+    Sequence,
+    Type,
+    TypedDict,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import numpy as np
 import numpy.typing as npt
@@ -20,6 +33,7 @@ from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import Point, Polygon, WsiAnnotations
+from dlup.backends.common import AbstractSlideBackend
 from dlup.background import is_foreground
 from dlup.experimental_backends import ImageBackend  # type: ignore
 from dlup.tiling import Grid, GridOrder, TilingMode
@@ -180,7 +194,7 @@ LRU_CACHE_SIZE = 32
 
 @functools.lru_cache(LRU_CACHE_SIZE)
 def _get_cached_slide_image(
-    path: pathlib.Path, backend: ImageBackend, apply_color_profile: bool, **kwargs: Any
+    path: pathlib.Path, backend: ImageBackend | Type[AbstractSlideBackend], apply_color_profile: bool, **kwargs: Any
 ) -> "SlideImage":
     return SlideImage.from_file_path(path, backend=backend, apply_color_profile=apply_color_profile, **kwargs)
 
@@ -206,7 +220,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         output_tile_size: tuple[int, int] | None = None,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        backend: ImageBackend = ImageBackend.PYVIPS,
+        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
         apply_color_profile: bool = False,
         **kwargs: Any,
     ):
@@ -401,7 +415,7 @@ class TiledWsiDataset(BaseWsiDataset):
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
-        backend: ImageBackend = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> None:
         self._grids = grids
@@ -447,7 +461,7 @@ class TiledWsiDataset(BaseWsiDataset):
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[TileSample], RegionFromWsiDatasetSample] | None = None,
-        backend: ImageBackend = ImageBackend.PYVIPS,
+        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
         limit_bounds: bool = True,
         **kwargs: Any,
     ) -> "TiledWsiDataset":

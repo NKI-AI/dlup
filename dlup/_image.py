@@ -263,24 +263,30 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: ImageBackend = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> _TSlideImage:
-        wsi_file_path = pathlib.Path(wsi_file_path)
+        wsi_file_path = pathlib.Path(wsi_file_path).resolve()
+        if not wsi_file_path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
 
         if isinstance(backend, str):
             backend = ImageBackend[backend]
 
-        if isinstance(wsi_file_path, pathlib.Path):
-            wsi_file_path = wsi_file_path.resolve()
-            if not wsi_file_path.exists():
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
+        # Adjust how the backend is used depending on its type
+        if isinstance(backend, ImageBackend):
+            backend_callable = backend.value  # Get the callable from Enum
+        elif issubclass(backend, AbstractSlideBackend):
+            backend_callable = backend  # Directly use the class if it's a subclass of AbstractSlideBackend
+        else:
+            raise TypeError("backend must be either an ImageBackend enum or a subclass of AbstractSlideBackend")
+
         try:
-            wsi = backend(wsi_file_path)
+            wsi = backend_callable(wsi_file_path)  # Instantiate the backend with the path
         except UnsupportedSlideError:
             raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
 
-        return cls(wsi, str(wsi_file_path) if identifier is None else identifier, **kwargs)
+        return cls(wsi, identifier if identifier is not None else str(wsi_file_path), **kwargs)
 
     def read_region(
         self,

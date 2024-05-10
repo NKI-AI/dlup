@@ -96,7 +96,7 @@ def convert_annotations(
             has_roi = True
             continue
 
-        if not (curr_annotation.label in index_map):
+        if curr_annotation.label not in index_map:
             raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
 
         original_values = None
