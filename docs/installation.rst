@@ -70,9 +70,7 @@ submodules directory :code:`third_party/dlup`.
 
 
 .. _Singularity: https://sylabs.io/singularity/
-.. _OpenSlide: https://openslide.org
 .. _fork of OpenSlide: https://github.com/NKI-AI/OpenSlide
-.. _openslide-python: https://github.com/NKI-AI/openslide-python
 .. _Github repo: https://github.com/NKI-AI/dlup
 .. _this GitHub issue: https://github.com/NKI-AI/dlup/issues/20
 .. _dlup Dockerfile: https://github.com/NKI-AI/dlup/blob/main/docker/Dockerfile
