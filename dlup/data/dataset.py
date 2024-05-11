@@ -229,11 +229,11 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         ----------
         path : PathLike
             Path to the image.
-        regions :
+        regions : collections.abc.Sequence[tuple[float, float, int, int, float]]
             Sequence of rectangular regions as (x, y, h, w, mpp)
-        crop :
+        crop : bool
             Whether to crop overflowing tiles.
-        mask :
+        mask : np.ndarray or SlideImage or WsiAnnotations
             Binary mask used to filter each region together with a threshold.
         mask_threshold : float, optional
             Threshold to check against. The foreground percentage should be strictly larger than threshold.
@@ -242,13 +242,13 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         output_tile_size: tuple[int, int], optional
             If this value is set, this value will be used as the tile size of the output tiles. If this value
             is different from the underlying grid, this tile will be extracted around the center of the region.
-        annotations :
+        annotations : WsiAnnotations
             Annotation classes.
         labels : list
             Image-level labels. Will be added to each individual tile.
         transform :
             Transforming function. To be used for augmentations or other model specific preprocessing.
-        backend : ImageBackend
+        backend : ImageBackend or AbstractSlideBackend
            Backend to pass to SlideImage
         apply_color_profile : bool
             Whether to apply the ICC profile to the image if available.
