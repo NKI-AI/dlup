@@ -1,10 +1,10 @@
-# type: ignore
 # Copyright (c) dlup contributors
-import os
+from __future__ import annotations
+
 import pathlib
 from enum import Enum
 from functools import lru_cache
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 import openslide
@@ -14,6 +14,7 @@ import tifffile
 
 from dlup import UnsupportedSlideError
 from dlup.backends.tifffile_backend import TifffileSlide
+from dlup.types import PathLike
 
 from ..backends.common import AbstractSlideBackend
 from .openslide_backend import OpenSlideSlide
@@ -21,7 +22,7 @@ from .pyvips_backend import PyVipsSlide
 
 
 @lru_cache(maxsize=None)
-def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
+def autodetect_backend(filename: PathLike) -> AbstractSlideBackend:
     """
     Try to read the file in consecutive order of pyvips, openslide, tifffile,
     by trying to a tile at the lowest resolution.
@@ -60,7 +61,7 @@ def autodetect_backend(filename: os.PathLike) -> AbstractSlideBackend:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips or openslide.")
 
 
-def _try_openslide(filename: os.PathLike) -> OpenSlideSlide:
+def _try_openslide(filename: PathLike) -> OpenSlideSlide:
     """
     Attempt to read the slide with openslide. Will open the slide and extract a region at the highest level.
 
@@ -82,7 +83,7 @@ def _try_openslide(filename: os.PathLike) -> OpenSlideSlide:
         raise UnsupportedSlideError(f"Cannot read {filename} with openslide.")
 
 
-def _try_pyvips(filename: os.PathLike) -> PyVipsSlide:
+def _try_pyvips(filename: PathLike) -> PyVipsSlide:
     """
     Attempt to read the slide with pyvips. Will open the slide and extract a region at the highest level.
 
@@ -104,7 +105,7 @@ def _try_pyvips(filename: os.PathLike) -> PyVipsSlide:
         raise UnsupportedSlideError(f"Cannot read {filename} with pyvips.")
 
 
-def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
+def _try_tifffile(filename: PathLike) -> TifffileSlide:
     """
     Attempt to read the slide with tifffile. Will open the slide and extract a region at the highest level.
 
@@ -129,10 +130,10 @@ def _try_tifffile(filename: os.PathLike) -> TifffileSlide:
 class ImageBackend(Enum):
     """Available image experimental_backends."""
 
-    OPENSLIDE: Callable = OpenSlideSlide
-    PYVIPS: Callable = PyVipsSlide
-    TIFFFILE: Callable = TifffileSlide
-    AUTODETECT: Callable = autodetect_backend
+    OPENSLIDE: Callable[[PathLike], OpenSlideSlide] = OpenSlideSlide
+    PYVIPS: Callable[[PathLike], PyVipsSlide] = PyVipsSlide
+    TIFFFILE: Callable[[PathLike], TifffileSlide] = TifffileSlide
+    AUTODETECT: Callable[[PathLike], AbstractSlideBackend] = autodetect_backend
 
-    def __call__(self, *args):
+    def __call__(self, *args: "ImageBackend" | str) -> Any:
         return self.value(*args)

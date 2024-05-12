@@ -35,7 +35,7 @@ from dlup import BoundaryMode, SlideImage
 from dlup.annotations import Point, Polygon, WsiAnnotations
 from dlup.backends.common import AbstractSlideBackend
 from dlup.background import is_foreground
-from dlup.experimental_backends import ImageBackend  # type: ignore
+from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.types import PathLike, ROIType
@@ -525,7 +525,7 @@ class TiledWsiDataset(BaseWsiDataset):
                 slide_level_size = slide_image.get_scaled_size(scaling, limit_bounds=False)
                 _rois = parse_rois(rois, slide_level_size, scaling=scaling)
             elif limit_bounds:
-                if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
+                if backend == ImageBackend.AUTODETECT:
                     raise ValueError(
                         "Cannot use AutoDetect as backend and use limit_bounds at the same time. "
                         "This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
