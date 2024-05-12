@@ -1,4 +1,3 @@
-# type: ignore
 # Copyright (c) dlup contributors
 from typing import Any
 
@@ -67,7 +66,7 @@ class TifffileSlide(AbstractSlideBackend):
                 self._downsamples.append(downsample)
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> dict[str, Any]:
         """Metadata about the image as given by tifffile."""
 
         properties = {}
@@ -87,7 +86,7 @@ class TifffileSlide(AbstractSlideBackend):
 
         return properties
 
-    def set_cache(self, cache):
+    def set_cache(self, cache: Any) -> None:
         """Cache for tifffile."""
         raise NotImplementedError
 

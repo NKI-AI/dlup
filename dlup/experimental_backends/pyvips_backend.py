@@ -1,11 +1,10 @@
-# type: ignore
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
 import io
 import warnings
 from distutils.version import LooseVersion
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import openslide
@@ -90,7 +89,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         self.__slide_bounds = (0, 0), self._shapes[0]
 
-    def _read_as_openslide(self, path: PathLike):
+    def _read_as_openslide(self, path: PathLike) -> None:
         """
         Read all other pages except the first using the openslide backend of pyvips.
 
@@ -181,7 +180,7 @@ class PyVipsSlide(AbstractSlideBackend):
         self._spacings = [(np.array([mpp_x, mpp_y]) * downsample).tolist() for downsample in self._downsamples]
 
     @property
-    def properties(self):
+    def properties(self) -> dict[str, Any]:
         """Metadata about the image as given by pyvips,
         which includes openslide tags in case openslide is the selected reader."""
 
@@ -209,7 +208,8 @@ class PyVipsSlide(AbstractSlideBackend):
         if "icc-profile-data" not in self.properties:
             return None
 
-        return PIL.ImageCms.getOpenProfile(io.BytesIO(self.properties["icc-profile-data"]))
+        profile = PIL.ImageCms.getOpenProfile(io.BytesIO(self.properties["icc-profile-data"]))  # type: ignore
+        return cast(PIL.ImageCms.ImageCmsProfile, profile)
 
     @property
     def magnification(self) -> float | None:
@@ -235,7 +235,7 @@ class PyVipsSlide(AbstractSlideBackend):
         # associated_images = (_.strip() for _ in self.properties["slide-associated-images"].split(","))
         raise NotImplementedError
 
-    def set_cache(self, cache) -> None:
+    def set_cache(self, cache: Any) -> None:
         raise NotImplementedError
 
     def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
