@@ -36,7 +36,7 @@ def numpy_to_pil(tile: npt.NDArray[np.uint8]) -> PIL.Image.Image:
     else:
         raise RuntimeError("Incorrect number of channels.")
 
-    return PIL.Image.fromarray(tile, mode=mode)
+    return PIL.Image.fromarray(tile, mode=mode)  # type: ignore
 
 
 class AbstractSlideBackend(abc.ABC):

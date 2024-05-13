@@ -240,9 +240,17 @@ class SlideImage:
         if self.__color_transforms is None:
             to_profile = PIL.ImageCms.createProfile("sRGB")
             intent = PIL.ImageCms.getDefaultIntent(self.color_profile)
-            self.__color_transform = cast(
+            flag = 0
+            self.__color_transform = cast(  # type: ignore
                 PIL.ImageCms.ImageCmsTransform,
-                PIL.ImageCms.buildTransform(self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0),
+                PIL.ImageCms.buildTransform(
+                    self.color_profile,
+                    to_profile,
+                    str(self._wsi.mode),
+                    str(self._wsi.mode),
+                    intent,  #  type: ignore
+                    flag,  #  type: ignore
+                ),
             )
         return self.__color_transform
 
@@ -382,6 +390,8 @@ class SlideImage:
         )
 
         if self._apply_color_profile and self.color_profile is not None:
+            if self._color_transform is None:
+                raise ValueError("If apply_color_profile is True, color transform cannot be None")
             PIL.ImageCms.applyTransform(region, self._color_transform, True)
             # Remove the ICC profile from the region to make sure it's not applied twice by accident.
             # Should always be available if a color profile is present.

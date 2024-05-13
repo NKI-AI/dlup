@@ -297,7 +297,7 @@ class MajorityClassToLabel:
         tile_area = np.prod(sample["image"].size)
         roi_non_cover = 0.0
         if self._roi_name:
-            roi_non_cover = (tile_area - areas[self._roi_name]) / tile_area
+            roi_non_cover = float((tile_area - areas[self._roi_name]) / tile_area)
             del areas[self._roi_name]
 
         max_key = max(areas, key=lambda x: areas[x])
@@ -315,7 +315,7 @@ class MajorityClassToLabel:
             )
             assert roi
             masked_image = np.asarray(sample["image"]) * roi[..., np.newaxis]
-            sample["image"] = PIL.Image.fromarray(masked_image.astype(np.uint8), mode=sample["image"].mode)
+            sample["image"] = PIL.Image.fromarray(masked_image.astype(np.uint8), mode=sample["image"].mode)  # type: ignore
 
         sample["labels"].update({"majority_class": self._index_map[max_key]})
         return sample
