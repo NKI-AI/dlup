@@ -77,7 +77,7 @@ viewdocs:
 	$(BROWSER) docs/_build/html/index.html
 
 uploaddocs: docs # Compile the docs
-	rsync -avh docs/_build/html/ docs@aiforoncology.nl:/var/www/html/dlup --delete
+	rsync -avh docs/_build/html/ docs@aiforoncology.nl:/var/www/html/docs/dlup --delete
 
 servedocs: docs ## compile the docs watching for changes
 	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .

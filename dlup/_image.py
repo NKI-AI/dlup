@@ -23,7 +23,7 @@ from PIL.ImageCms import ImageCmsProfile
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
 from dlup.backends.common import AbstractSlideBackend
-from dlup.experimental_backends import ImageBackend  # type: ignore
+from dlup.experimental_backends import ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
@@ -239,12 +239,15 @@ class SlideImage:
 
         if self.__color_transforms is None:
             to_profile = PIL.ImageCms.createProfile("sRGB")
-            intent = PIL.ImageCms.getDefaultIntent(self.color_profile)
-            self.__color_transform = cast(
-                PIL.ImageCms.ImageCmsTransform,
-                PIL.ImageCms.buildTransform(self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0),
+            intent = PIL.ImageCms.getDefaultIntent(self.color_profile)  # type: ignore
+            self.__color_transform = PIL.ImageCms.buildTransform(
+                self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0
             )
-        return self.__color_transform
+        return (
+            cast(PIL.ImageCms.ImageCmsTransform, self.__color_transform)
+            if self.__color_transform is not None
+            else None
+        )
 
     def __enter__(self) -> "SlideImage":
         return self
@@ -263,24 +266,30 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: ImageBackend = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> _TSlideImage:
-        wsi_file_path = pathlib.Path(wsi_file_path)
+        wsi_file_path = pathlib.Path(wsi_file_path).resolve()
+        if not wsi_file_path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
 
         if isinstance(backend, str):
             backend = ImageBackend[backend]
 
-        if isinstance(wsi_file_path, pathlib.Path):
-            wsi_file_path = wsi_file_path.resolve()
-            if not wsi_file_path.exists():
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
+        # Adjust how the backend is used depending on its type
+        if isinstance(backend, ImageBackend):
+            backend_callable = backend.value  # Get the callable from Enum
+        elif issubclass(backend, AbstractSlideBackend):
+            backend_callable = backend  # Directly use the class if it's a subclass of AbstractSlideBackend
+        else:
+            raise TypeError("backend must be either an ImageBackend enum or a subclass of AbstractSlideBackend")
+
         try:
-            wsi = backend(wsi_file_path)
+            wsi = backend_callable(wsi_file_path)  # Instantiate the backend with the path
         except UnsupportedSlideError:
             raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
 
-        return cls(wsi, str(wsi_file_path) if identifier is None else identifier, **kwargs)
+        return cls(wsi, identifier if identifier is not None else str(wsi_file_path), **kwargs)
 
     def read_region(
         self,

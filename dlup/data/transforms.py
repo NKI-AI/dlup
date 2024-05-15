@@ -96,7 +96,7 @@ def convert_annotations(
             has_roi = True
             continue
 
-        if not (curr_annotation.label in index_map):
+        if curr_annotation.label not in index_map:
             raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
 
         original_values = None
@@ -294,7 +294,7 @@ class MajorityClassToLabel:
             if annotation.label in keys:
                 areas[annotation.label] += annotation.area
 
-        tile_area = np.prod(sample["image"].size)
+        tile_area = float(np.prod(sample["image"].size))
         roi_non_cover = 0.0
         if self._roi_name:
             roi_non_cover = (tile_area - areas[self._roi_name]) / tile_area

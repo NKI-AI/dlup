@@ -1,4 +1,3 @@
-# type: ignore
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -39,6 +38,8 @@ def _get_mpp_from_tiff(properties: dict[str, str]) -> tuple[float, float] | None
         if properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
             # Check if the TIFF tags are present
             resolution_unit = properties.get(TIFF_PROPERTY_NAME_RESOLUTION_UNIT, None)
+            if not resolution_unit:
+                return None
             x_resolution = float(properties.get(TIFF_PROPERTY_NAME_X_RESOLUTION, 0))
             y_resolution = float(properties.get(TIFF_PROPERTY_NAME_Y_RESOLUTION, 0))
 
@@ -62,7 +63,7 @@ def open_slide(filename: PathLike) -> "OpenSlideSlide":
     return OpenSlideSlide(filename)
 
 
-class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
+class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):  # type: ignore
     """
     Backend for openslide.
     """
@@ -75,7 +76,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
             Path to image.
         """
         super().__init__(str(filename))
-        self._spacings = None
+        self._spacings: list[tuple[float, float]] = []
 
         try:
             mpp_x = float(self.properties[openslide.PROPERTY_NAME_MPP_X])
@@ -135,12 +136,15 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
             )
             return None
 
-        return super().color_profile
+        return cast(ImageCmsProfile, super().color_profile)
 
     @property
-    def vendor(self) -> str:
+    def vendor(self) -> str | None:
         """Returns the scanner vendor."""
-        return self.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
+        vendor = self.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
+        if vendor is not None:
+            return str(vendor)
+        return None
 
     @property
     def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:

@@ -137,8 +137,10 @@ def _is_foreground_numpy(
     if clipped_h == 0 or clipped_w == 0:
         return False
 
+    # Better for mypy
+    _box = (float(box[0]), float(box[1]), float(box[2]), float(box[3]))
     mask_tile[:clipped_h, :clipped_w] = np.asarray(
-        _background_mask.resize((clipped_w, clipped_h), PIL.Image.Resampling.BICUBIC, box=box), dtype=float
+        _background_mask.resize((clipped_w, clipped_h), PIL.Image.Resampling.BICUBIC, box=_box), dtype=float
     )
 
     if threshold == 1.0 and mask_tile.mean() == 1.0:

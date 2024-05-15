@@ -11,7 +11,20 @@ import itertools
 import pathlib
 import warnings
 from math import ceil, floor
-from typing import Any, Callable, Generic, Iterable, Iterator, Optional, Sequence, TypedDict, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Iterator,
+    Optional,
+    Sequence,
+    Type,
+    TypedDict,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import numpy as np
 import numpy.typing as npt
@@ -20,8 +33,9 @@ from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import Point, Polygon, WsiAnnotations
+from dlup.backends.common import AbstractSlideBackend
 from dlup.background import is_foreground
-from dlup.experimental_backends import ImageBackend  # type: ignore
+from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.types import PathLike, ROIType
@@ -180,7 +194,7 @@ LRU_CACHE_SIZE = 32
 
 @functools.lru_cache(LRU_CACHE_SIZE)
 def _get_cached_slide_image(
-    path: pathlib.Path, backend: ImageBackend, apply_color_profile: bool, **kwargs: Any
+    path: pathlib.Path, backend: ImageBackend | Type[AbstractSlideBackend], apply_color_profile: bool, **kwargs: Any
 ) -> "SlideImage":
     return SlideImage.from_file_path(path, backend=backend, apply_color_profile=apply_color_profile, **kwargs)
 
@@ -206,7 +220,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         output_tile_size: tuple[int, int] | None = None,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        backend: ImageBackend = ImageBackend.PYVIPS,
+        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
         apply_color_profile: bool = False,
         **kwargs: Any,
     ):
@@ -215,11 +229,11 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         ----------
         path : PathLike
             Path to the image.
-        regions :
+        regions : collections.abc.Sequence[tuple[float, float, int, int, float]]
             Sequence of rectangular regions as (x, y, h, w, mpp)
-        crop :
+        crop : bool
             Whether to crop overflowing tiles.
-        mask :
+        mask : np.ndarray or SlideImage or WsiAnnotations
             Binary mask used to filter each region together with a threshold.
         mask_threshold : float, optional
             Threshold to check against. The foreground percentage should be strictly larger than threshold.
@@ -228,13 +242,13 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         output_tile_size: tuple[int, int], optional
             If this value is set, this value will be used as the tile size of the output tiles. If this value
             is different from the underlying grid, this tile will be extracted around the center of the region.
-        annotations :
+        annotations : WsiAnnotations
             Annotation classes.
         labels : list
             Image-level labels. Will be added to each individual tile.
         transform :
             Transforming function. To be used for augmentations or other model specific preprocessing.
-        backend : ImageBackend
+        backend : ImageBackend or AbstractSlideBackend
            Backend to pass to SlideImage
         apply_color_profile : bool
             Whether to apply the ICC profile to the image if available.
@@ -401,7 +415,7 @@ class TiledWsiDataset(BaseWsiDataset):
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
-        backend: ImageBackend = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> None:
         self._grids = grids
@@ -447,7 +461,7 @@ class TiledWsiDataset(BaseWsiDataset):
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[TileSample], RegionFromWsiDatasetSample] | None = None,
-        backend: ImageBackend = ImageBackend.PYVIPS,
+        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
         limit_bounds: bool = True,
         **kwargs: Any,
     ) -> "TiledWsiDataset":
@@ -511,7 +525,7 @@ class TiledWsiDataset(BaseWsiDataset):
                 slide_level_size = slide_image.get_scaled_size(scaling, limit_bounds=False)
                 _rois = parse_rois(rois, slide_level_size, scaling=scaling)
             elif limit_bounds:
-                if backend == ImageBackend.AUTODETECT or backend == "AUTODETECT":
+                if backend == ImageBackend.AUTODETECT:
                     raise ValueError(
                         "Cannot use AutoDetect as backend and use limit_bounds at the same time. "
                         "This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
