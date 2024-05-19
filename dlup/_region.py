@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import cast
 
 import numpy as np
-import PIL.Image
 import pyvips
 
 from dlup.types import GenericFloatArray, GenericIntArray

@@ -2,23 +2,42 @@
 from __future__ import annotations
 
 import warnings
+from ctypes import Array, c_uint32
 from distutils.version import LooseVersion
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import openslide
-import PIL.Image
+import openslide.lowlevel as openslide_lowlevel
 import pyvips
 from PIL.ImageCms import ImageCmsProfile
 
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
-from dlup.utils.pyvips_utils import pil_to_vips
 
 TIFF_PROPERTY_NAME_RESOLUTION_UNIT = "tiff.ResolutionUnit"
 TIFF_PROPERTY_NAME_X_RESOLUTION = "tiff.XResolution"
 TIFF_PROPERTY_NAME_Y_RESOLUTION = "tiff.YResolution"
+
+
+def _load_image_vips(buffer: Array[c_uint32], size: tuple[int, int]) -> pyvips.Image:
+    """Convert the raw buffer to a pyvips.Image."""
+    openslide_lowlevel._convert.argb2rgba(buffer)
+    mem_view = memoryview(buffer).cast("B")
+    return pyvips.Image.new_from_memory(mem_view, size[0], size[1], 4, "uchar")
+
+
+def read_region(slide: Any, x: int, y: int, level: int, w: int, h: int) -> pyvips.Image:
+    if w < 0 or h < 0:
+        # OpenSlide would catch this, but not before we tried to allocate
+        # a negative-size buffer
+        raise openslide_lowlevel.OpenSlideError(f"negative width ({w}) or negative height ({h}) not allowed")
+    if w == 0 or h == 0:
+        return pyvips.Image.black(w, h, bands=4)
+    buf = (w * h * c_uint32)()
+    openslide_lowlevel._read_region(slide, buf, x, y, level, w, h)
+    return _load_image_vips(buf, (w, h))
 
 
 def _get_mpp_from_tiff(properties: dict[str, str]) -> tuple[float, float] | None:
@@ -65,7 +84,7 @@ def open_slide(filename: PathLike) -> "OpenSlideSlide":
     return OpenSlideSlide(filename)
 
 
-class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):  # type: ignore
+class OpenSlideSlide(AbstractSlideBackend):
     """
     Backend for openslide.
     """
@@ -78,6 +97,8 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):  # type: ignore
             Path to image.
         """
         super().__init__(str(filename))
+        self._filename = filename
+        self._owsi = openslide_lowlevel.open(str(filename))
         self._spacings: list[tuple[float, float]] = []
 
         try:
@@ -161,26 +182,33 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):  # type: ignore
 
         return offset, size
 
-    def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
-        """
-        Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
-        Aspect ratio is preserved.
+    @property
+    def properties(self) -> dict[str, str]:
+        """Metadata about the image as given by openslide."""
+        keys = openslide_lowlevel.get_property_names(self._owsi)
+        if keys:
+            return dict((key, openslide_lowlevel.get_property_value(self._owsi, key)) for key in keys)
+        return {}
 
-        Parameters
-        ----------
-        size : int or tuple[int, int]
-            Output size of the thumbnail, will take the maximal value for the output and preserve aspect ratio.
+    @property
+    def level_count(self) -> int:
+        """The number of levels in the image."""
+        return cast(int, openslide_lowlevel.get_level_count(self._owsi))
 
-        Returns
-        -------
-        PIL.Image
-            The thumbnail.
-        """
-        if isinstance(size, int):
-            size = (size, size)
+    @property
+    def level_dimensions(self) -> tuple[tuple[int, int], ...]:
+        """A list of (width, height) tuples, one for each level of the image."""
+        return tuple(openslide_lowlevel.get_level_dimensions(self._owsi, idx) for idx in range(self.level_count))
 
-        return super().get_thumbnail(size)
+    @property
+    def level_downsamples(self) -> tuple[float, ...]:
+        """A list of downsampling factors for each level of the image."""
+        return tuple(openslide_lowlevel.get_level_downsample(self._owsi, idx) for idx in range(self.level_count))
 
     def read_region(self, coordinates: tuple[int, int], level: int, size: tuple[int, int]) -> pyvips.Image:
-        region = super().read_region(coordinates, level, size)
-        return pil_to_vips(region)
+        region = read_region(self._owsi, coordinates[0], coordinates[1], level, size[0], size[1])
+        return region
+
+    def close(self) -> None:
+        """Close the openslide object."""
+        openslide_lowlevel.close(self._owsi)

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -10,7 +10,8 @@ import PIL.Image
 import pyvips
 from PIL.ImageCms import ImageCmsProfile
 
-from dlup.types import GenericNumber, PathLike
+from dlup.types import PathLike
+from dlup.utils.image import check_if_mpp_is_valid
 from dlup.utils.pyvips_utils import vips_to_pil
 
 
@@ -71,7 +72,7 @@ class AbstractSlideBackend(abc.ABC):
         return self._level_count
 
     @property
-    def level_dimensions(self) -> list[tuple[int, int]]:
+    def level_dimensions(self) -> tuple[tuple[int, int], ...]:
         """A list of (width, height) tuples, one for each level of the image.
         This property level_dimensions[n] contains the dimensions of the image at level n.
 
@@ -80,7 +81,7 @@ class AbstractSlideBackend(abc.ABC):
         list
 
         """
-        return self._shapes
+        return tuple(self._shapes)
 
     @property
     def dimensions(self) -> tuple[int, int]:
@@ -107,7 +108,13 @@ class AbstractSlideBackend(abc.ABC):
 
     @spacing.setter
     def spacing(self, value: tuple[float, float]) -> None:
-        """Set the spacing as a (mpp_x, mpp_y) tuple"""
+        if not isinstance(value, tuple) and len(value) != 2:
+            raise ValueError("`.spacing` has to be of the form (mpp_x, mpp_y).")
+
+        mpp_x, mpp_y = value
+        check_if_mpp_is_valid(mpp_x, mpp_y)
+        mpp = np.array([mpp_x, mpp_y])
+        self._spacings = [cast(tuple[float, float], tuple(mpp * downsample)) for downsample in self.level_downsamples]
 
     @property
     def level_spacings(self) -> tuple[tuple[float, float], ...]:
