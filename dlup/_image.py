@@ -10,7 +10,7 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
-from enum import IntEnum
+from enum import Enum
 from types import TracebackType
 from typing import Any, Literal, Optional, Type, TypeVar, cast
 
@@ -20,6 +20,7 @@ import PIL
 import PIL.Image
 import pyvips
 from PIL.ImageCms import ImageCmsProfile
+from pyvips.enums import Kernel as VipsKernel
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
@@ -33,13 +34,13 @@ _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 
 
-class Resampling(IntEnum):
-    NEAREST = 0
-    BOX = 4
-    BILINEAR = 2
-    HAMMING = 5
-    BICUBIC = 3
-    LANCZOS = 1
+class Resampling(Enum):
+    NEAREST = "nearest"
+    LANCZOS = "lanczos"
+
+
+_RESAMPLE_TO_PIL = {Resampling.NEAREST: PIL.Image.Resampling.NEAREST, Resampling.LANCZOS: PIL.Image.Resampling.LANCZOS}
+_RESAMPLE_TO_VIPS = {Resampling.NEAREST: VipsKernel.NEAREST, Resampling.LANCZOS: VipsKernel.LANCZOS3}
 
 
 class _SlideImageRegionView(RegionView):
@@ -159,7 +160,7 @@ class SlideImage:
             A user-defined identifier for the slide, used in e.g. exceptions.
         interpolator : Resampling, optional
             The interpolator to use when reading regions. For images typically LANCZOS is the best choice. Masks
-            can use NEAREST. If set to None, will use LANCZOS.
+            can use NEAREST. By default will use LANCZOS
         overwrite_mpp : tuple[float, float], optional
             Overwrite the mpp of the slide. For instance, if the mpp is not available, or when sourcing from
             and external database.
@@ -181,10 +182,7 @@ class SlideImage:
         self._wsi = wsi
         self._identifier = identifier
 
-        if interpolator is not None:
-            self._interpolator = PIL.Image.Resampling[interpolator.name]
-        else:
-            self._interpolator = PIL.Image.Resampling.LANCZOS
+        self._interpolator = interpolator if interpolator else Resampling.LANCZOS
 
         if overwrite_mpp is not None:
             self._wsi.spacing = overwrite_mpp
@@ -428,7 +426,12 @@ class SlideImage:
             # Within this region, there are a bunch of extra pixels, we interpolate to sample
             # the pixel in the right position to retain the right sample weight.
             # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
-            pil_region = vips_to_pil(region).resize(size, resample=self._interpolator, box=box)
+
+            pil_region = vips_to_pil(region).resize(
+                size,
+                resample=_RESAMPLE_TO_PIL[self._interpolator],
+                box=box,
+            )
             return pil_to_vips(pil_region)
 
         elif self._internal_handler == "vips":
@@ -451,7 +454,9 @@ class SlideImage:
 
             # Resize the cropped region to the target size
             resized_region = crop_region.resize(
-                target_width / crop_region.width, vscale=target_height / crop_region.height, kernel="lanczos3"
+                target_width / crop_region.width,
+                vscale=target_height / crop_region.height,
+                kernel=_RESAMPLE_TO_VIPS[self._interpolator],
             )
 
             return resized_region

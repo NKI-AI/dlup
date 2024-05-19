@@ -14,11 +14,10 @@ import numpy as np
 import numpy.typing as npt
 import PIL.Image
 import PIL.ImageColor
-from pyvips.enums import Kernel
 from tifffile import tifffile
 
 import dlup
-from dlup._image import Resampling
+from dlup._image import _RESAMPLE_TO_VIPS, Resampling
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.types import PathLike
 from dlup.utils.pyvips_utils import numpy_to_vips, vips_to_numpy
@@ -52,14 +51,6 @@ TIFFFILE_COMPRESSION = {
     "jp2k": "jpeg2000",
     "jp2k_lossy": "jpeg_2000_lossy",
     "png": "png",
-}
-
-# Mapping to map TiffCompression to their respective values in VIPS.
-INTERPOLATOR_TO_VIPS: dict[int, Kernel] = {
-    0: Kernel.NEAREST,
-    2: Kernel.LINEAR,
-    3: Kernel.CUBIC,
-    1: Kernel.LANCZOS3,
 }
 
 
@@ -159,7 +150,7 @@ class TifffileImageWriter(ImageWriter):
         if interpolator is None:
             interpolator = Resampling.LANCZOS
 
-        if interpolator.value not in INTERPOLATOR_TO_VIPS:
+        if interpolator not in _RESAMPLE_TO_VIPS:
             raise ValueError(f"Invalid interpolator: {interpolator.name}")
 
         if anti_aliasing and interpolator == Resampling.NEAREST:
@@ -379,7 +370,7 @@ def _tile_iterator_from_page(
         _size = size[::-1]
 
         tile = get_tile(page, (_coordinates[0], _coordinates[1]), (_size[0], _size[1]))[0]
-        vips_tile = numpy_to_vips(tile).resize(1 / scale, kernel=INTERPOLATOR_TO_VIPS[interpolator.value])
+        vips_tile = numpy_to_vips(tile).resize(1 / scale, kernel=_RESAMPLE_TO_VIPS[interpolator])
         output = vips_to_numpy(vips_tile)
         if not is_rgb:
             output = output[..., 0]
