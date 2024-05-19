@@ -8,11 +8,13 @@ from typing import cast
 import numpy as np
 import openslide
 import PIL.Image
+import pyvips
 from PIL.ImageCms import ImageCmsProfile
 
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
+from dlup.utils.pyvips_utils import pil_to_vips
 
 TIFF_PROPERTY_NAME_RESOLUTION_UNIT = "tiff.ResolutionUnit"
 TIFF_PROPERTY_NAME_X_RESOLUTION = "tiff.XResolution"
@@ -178,3 +180,7 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):  # type: ignore
             size = (size, size)
 
         return super().get_thumbnail(size)
+
+    def read_region(self, coordinates: tuple[int, int], level: int, size: tuple[int, int]) -> pyvips.Image:
+        region = super().read_region(coordinates, level, size)
+        return pil_to_vips(region)

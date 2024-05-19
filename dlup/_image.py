@@ -18,6 +18,7 @@ import numpy as np
 import numpy.typing as npt
 import PIL
 import PIL.Image
+import pyvips
 from PIL.ImageCms import ImageCmsProfile
 
 from dlup import UnsupportedSlideError
@@ -26,6 +27,7 @@ from dlup.backends.common import AbstractSlideBackend
 from dlup.experimental_backends import ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
+from dlup.utils.pyvips_utils import pil_to_vips, vips_to_pil
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
@@ -143,6 +145,7 @@ class SlideImage:
         interpolator: Optional[Resampling] = Resampling.LANCZOS,
         overwrite_mpp: Optional[tuple[float, float]] = None,
         apply_color_profile: bool = False,
+        internal_handler: Literal["pil", "vips"] = "pil",
     ) -> None:
         """Initialize a whole slide image and validate its properties. This class allows to read whole-slide images
         at any arbitrary resolution. This class can read images from any backend that implements the
@@ -162,6 +165,8 @@ class SlideImage:
             and external database.
         apply_color_profile : bool
             Whether to apply the color profile to the output regions.
+        internal_handler : Literal["pil", "vips"]
+            The internal handler to use for processing the regions. This can be either PIL or VIPS.
 
         Raises
         ------
@@ -195,6 +200,17 @@ class SlideImage:
 
         self._apply_color_profile = apply_color_profile
         self.__color_transforms = None
+        self._internal_handler = internal_handler
+
+    @property
+    def internal_handler(self) -> Literal["pil", "vips"]:
+        """Returns the internal handler used for processing the regions."""
+        return self._internal_handler
+
+    @property
+    def interpolator(self) -> Resampling:
+        """Returns the interpolator used for processing the regions."""
+        return self._interpolator
 
     def close(self) -> None:
         """Close the underlying image."""
@@ -296,7 +312,7 @@ class SlideImage:
         location: GenericNumberArray | tuple[GenericNumber, GenericNumber],
         scaling: float,
         size: npt.NDArray[np.int_] | tuple[int, int],
-    ) -> PIL.Image.Image:
+    ) -> PIL.Image.Image | pyvips.Image:
         """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
@@ -390,29 +406,55 @@ class SlideImage:
             (native_size_adapted[0], native_size_adapted[1]),
         )
 
-        if self._apply_color_profile and self.color_profile is not None:
-            PIL.ImageCms.applyTransform(region, self._color_transform, True)
-            # Remove the ICC profile from the region to make sure it's not applied twice by accident.
-            # Should always be available if a color profile is present.
-            del region.info["icc_profile"]
-
-        # Within this region, there are a bunch of extra pixels, we interpolate to sample
-        # the pixel in the right position to retain the right sample weight.
-        # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
         fractional_coordinates = native_location - native_location_adapted
-        # TODO: This clipping could be in an error in OpenSlide mirax reader, but it's a minor thing for now
         box = (
             *fractional_coordinates,
             *np.clip(
                 (fractional_coordinates + native_size),
                 a_min=0,
-                a_max=np.asarray(region.size),
+                a_max=(region.width, region.height),
             ),
         )
         box = cast(tuple[float, float, float, float], box)
         size = cast(tuple[int, int], size)
-        region = region.resize(size, resample=self._interpolator, box=box)
-        return region
+
+        if self._internal_handler == "pil":
+            if self._apply_color_profile and self.color_profile is not None:
+                PIL.ImageCms.applyTransform(region, self._color_transform, True)
+                # Remove the ICC profile from the region to make sure it's not applied twice by accident.
+                # Should always be available if a color profile is present.
+                del region.info["icc_profile"]
+
+            # Within this region, there are a bunch of extra pixels, we interpolate to sample
+            # the pixel in the right position to retain the right sample weight.
+            # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
+            pil_region = vips_to_pil(region).resize(size, resample=self._interpolator, box=box)
+            return pil_to_vips(pil_region)
+
+        elif self._internal_handler == "vips":
+            # TODO: Add support for color profiles in VIPS
+            region_vips = pil_to_vips(region)
+            crop_box = (
+                int(np.floor(fractional_coordinates[0])),
+                int(np.floor(fractional_coordinates[1])),
+                int(np.ceil(fractional_coordinates[0] + native_size[0])),
+                int(np.ceil(fractional_coordinates[1] + native_size[1])),
+            )
+
+            # Crop the region
+            crop_region = region_vips.crop(
+                crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]
+            )
+
+            # Calculate the size of the target region
+            target_width, target_height = size
+
+            # Resize the cropped region to the target size
+            resized_region = crop_region.resize(
+                target_width / crop_region.width, vscale=target_height / crop_region.height, kernel="lanczos3"
+            )
+
+            return resized_region
 
     def get_scaled_size(self, scaling: GenericNumber, limit_bounds: Optional[bool] = False) -> tuple[int, int]:
         """Compute slide image size at specific scaling.
@@ -557,7 +599,7 @@ class SlideImage:
 
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
-        props = ("identifier", "vendor", "mpp", "magnification", "size")
+        props = ("identifier", "vendor", "mpp", "magnification", "size", "internal_handler", "interpolator")
         props_str = []
         for key in props:
             value = getattr(self, key, None)

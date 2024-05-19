@@ -17,6 +17,7 @@ from dlup import UnsupportedSlideError
 from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
+from dlup.utils.pyvips_utils import numpy_to_vips
 
 
 def open_slide(filename: PathLike) -> "PyVipsSlide":
@@ -238,7 +239,7 @@ class PyVipsSlide(AbstractSlideBackend):
     def set_cache(self, cache: Any) -> None:
         raise NotImplementedError
 
-    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> pyvips.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -265,7 +266,9 @@ class PyVipsSlide(AbstractSlideBackend):
             int(width), int(height), -1
         )
 
-        return numpy_to_pil(region)
+        # TODO: Is all this resizing necessary?
+
+        return numpy_to_vips(region)
 
     def close(self) -> None:
         """Close the underlying slide"""

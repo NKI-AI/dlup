@@ -7,9 +7,11 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
+import pyvips
 from PIL.ImageCms import ImageCmsProfile
 
 from dlup.types import GenericNumber, PathLike
+from dlup.utils.pyvips_utils import vips_to_pil
 
 
 def numpy_to_pil(tile: npt.NDArray[np.uint8]) -> PIL.Image.Image:
@@ -164,7 +166,7 @@ class AbstractSlideBackend(abc.ABC):
         level = self.get_best_level_for_downsample(downsample)
 
         thumbnail = (
-            self.read_region((0, 0), level, self.level_dimensions[level])
+            vips_to_pil(self.read_region((0, 0), level, self.level_dimensions[level]))
             .convert("RGB")
             .resize(
                 np.floor(np.asarray(self.dimensions) / downsample).astype(int).tolist(),
@@ -188,9 +190,7 @@ class AbstractSlideBackend(abc.ABC):
         """Properties of slide"""
 
     @abc.abstractmethod
-    def read_region(
-        self, coordinates: tuple[GenericNumber, GenericNumber], level: int, size: tuple[int, int]
-    ) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[int, int], level: int, size: tuple[int, int]) -> pyvips.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -205,8 +205,8 @@ class AbstractSlideBackend(abc.ABC):
 
         Returns
         -------
-        PIL.Image
-            The requested region.
+        pyvips.Image
+            The requested region as a pyvips image.
         """
 
     @property
