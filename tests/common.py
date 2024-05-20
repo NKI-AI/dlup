@@ -104,7 +104,7 @@ class OpenSlideImageMock(openslide.ImageSlide):
         return tuple((spacing[0] * downsample**2, spacing[1] * downsample**2) for downsample in self.level_downsamples)
 
     def get_level_image(self, level):
-        return self.image.resize(self.level_dimensions[level])
+        return pil_to_vips(self.image.resize(self.level_dimensions[level]))
 
     def read_region(self, location, level, size):
         image = np.array(self.get_level_image(level))

@@ -525,11 +525,6 @@ class TiledWsiDataset(BaseWsiDataset):
                 slide_level_size = slide_image.get_scaled_size(scaling, limit_bounds=False)
                 _rois = parse_rois(rois, slide_level_size, scaling=scaling)
             elif limit_bounds:
-                if backend == ImageBackend.AUTODETECT:
-                    raise ValueError(
-                        "Cannot use AutoDetect as backend and use limit_bounds at the same time. "
-                        "This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
-                    )
                 _rois = [slide_image.get_scaled_slide_bounds(scaling=scaling)]
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling, limit_bounds=False)

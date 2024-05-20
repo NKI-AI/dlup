@@ -29,12 +29,10 @@ def _load_image_vips(buffer: Array[c_uint32], size: tuple[int, int]) -> pyvips.I
 
 
 def read_region(slide: Any, x: int, y: int, level: int, w: int, h: int) -> pyvips.Image:
-    if w < 0 or h < 0:
+    if w <= 0 or h <= 0:
         # OpenSlide would catch this, but not before we tried to allocate
         # a negative-size buffer
-        raise openslide_lowlevel.OpenSlideError(f"negative width ({w}) or negative height ({h}) not allowed")
-    if w == 0 or h == 0:
-        return pyvips.Image.black(w, h, bands=4)
+        raise openslide_lowlevel.OpenSlideError(f"width ({w}) or height ({h}) must be positive")
     buf = (w * h * c_uint32)()
     openslide_lowlevel._read_region(slide, buf, x, y, level, w, h)
     return _load_image_vips(buf, (w, h))
@@ -186,9 +184,7 @@ class OpenSlideSlide(AbstractSlideBackend):
     def properties(self) -> dict[str, str]:
         """Metadata about the image as given by openslide."""
         keys = openslide_lowlevel.get_property_names(self._owsi)
-        if keys:
-            return dict((key, openslide_lowlevel.get_property_value(self._owsi, key)) for key in keys)
-        return {}
+        return dict((key, openslide_lowlevel.get_property_value(self._owsi, key)) for key in keys)
 
     @property
     def level_count(self) -> int:

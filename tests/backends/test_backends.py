@@ -8,10 +8,10 @@ import pytest
 import pyvips
 
 from dlup._image import Resampling
+from dlup.backends.openslide_backend import OpenSlideSlide
+from dlup.backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.backends.tifffile_backend import TifffileSlide
 from dlup.backends.tifffile_backend import open_slide as open_slide_tifffile
-from dlup.experimental_backends.openslide_backend import OpenSlideSlide
-from dlup.experimental_backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.utils.pyvips_utils import pil_to_vips, vips_to_numpy, vips_to_pil
 from dlup.writers import TiffCompression, TifffileImageWriter
 
