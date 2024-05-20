@@ -239,7 +239,7 @@ class PyVipsSlide(AbstractSlideBackend):
     def set_cache(self, cache: Any) -> None:
         raise NotImplementedError
 
-    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> pyvips.Image:
+    def read_region(self, coordinates: tuple[int, int], level: int, size: tuple[int, int]) -> pyvips.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -262,13 +262,9 @@ class PyVipsSlide(AbstractSlideBackend):
         x, y = coordinates
         height, width = size
 
-        region = np.asarray(image.fetch(int(x // ratio), int(y // ratio), int(height), int(width))).reshape(
-            int(width), int(height), -1
-        )
-
-        # TODO: Is all this resizing necessary?
-
-        return numpy_to_vips(region)
+        buffer = image.fetch(int(x // ratio), int(y // ratio), int(height), int(width))
+        bands = len(buffer) // (width * height)
+        return pyvips.Image.new_from_memory(buffer, width, height, bands, "uchar")
 
     def close(self) -> None:
         """Close the underlying slide"""
