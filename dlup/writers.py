@@ -281,7 +281,8 @@ class TifffileImageWriter(ImageWriter):
             tile_iterator,  # noqa
             shape=(*shapes[level], self._size[-1]) if is_rgb else (*shapes[level], 1),
             dtype="uint8",
-            resolution=(*native_resolution / 2**level, "CENTIMETER"),
+            resolution=(native_resolution[0] / 2**level, native_resolution[1] / 2**level),
+            resolutionunit="CENTIMETER",
             photometric=colorspace,
             compression=compression if not self._quality else (compression, self._quality),  # type: ignore
             tile=self._tile_size,

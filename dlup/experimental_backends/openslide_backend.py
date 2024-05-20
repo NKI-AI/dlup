@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import warnings
 from ctypes import Array, c_uint32
-from distutils.version import LooseVersion
 from typing import Any, cast
 
 import numpy as np
 import openslide
 import openslide.lowlevel as openslide_lowlevel
 import pyvips
+from packaging.version import Version
 from PIL.ImageCms import ImageCmsProfile
 
 from dlup.backends.common import AbstractSlideBackend
@@ -55,7 +55,7 @@ def _get_mpp_from_tiff(properties: dict[str, str]) -> tuple[float, float] | None
         The mpp values if they are present in the TIFF tags, otherwise None.
     """
     # It is possible we now have a TIFF file with the mpp information in the TIFF tags.
-    if LooseVersion(openslide.__library_version__) < LooseVersion("4.0.0"):
+    if Version(openslide.__library_version__) < Version("4.0.0"):
         if properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
             # Check if the TIFF tags are present
             resolution_unit = properties.get(TIFF_PROPERTY_NAME_RESOLUTION_UNIT, None)
@@ -151,7 +151,7 @@ class OpenSlideSlide(AbstractSlideBackend):
         ImageCmsProfile, optional
             The color profile of the image.
         """
-        if LooseVersion(openslide.__library_version__) < LooseVersion("4.0.0"):
+        if Version(openslide.__library_version__) < Version("4.0.0"):
             warnings.warn(
                 "Color profile support is only available for openslide >= 4.0.0. "
                 f"You have version {openslide.__library_version__}. "

@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
-
 """The setup script."""
 
 import ast
@@ -29,6 +27,7 @@ install_requires = [
     "openslide-python>=1.3.1",
     "opencv-python>=4.9.0.80",
     "shapely>=2.0.0",
+    "packaging>=24.0",
 ]
 
 setup(
