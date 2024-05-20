@@ -12,7 +12,6 @@ from PIL.ImageCms import ImageCmsProfile
 
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
-from dlup.utils.pyvips_utils import vips_to_pil
 
 
 def numpy_to_pil(tile: npt.NDArray[np.uint8]) -> PIL.Image.Image:

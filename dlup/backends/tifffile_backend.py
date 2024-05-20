@@ -2,11 +2,10 @@
 from typing import Any
 
 import numpy as np
-import PIL.Image
 import pyvips
 import tifffile
 
-from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
+from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.pyvips_utils import numpy_to_vips
 from dlup.utils.tifffile_utils import get_tile

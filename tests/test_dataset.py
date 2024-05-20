@@ -2,9 +2,6 @@
 # Copyright (c) dlup contributors
 
 """Test the datasets facility classes."""
-
-import numpy as np
-
 import dlup
 from dlup.data.dataset import TiledWsiDataset, TilingMode
 from dlup.utils.pyvips_utils import vips_to_numpy

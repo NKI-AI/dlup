@@ -37,12 +37,12 @@ class TestSlideImage:
     def test_properties(self, openslide_image):
         """Test properties."""
         dlup_wsi = SlideImage(openslide_image, identifier="mock")
-        # assert dlup_wsi.aspect_ratio == openslide_image.image.width / openslide_image.image.height
-        # assert dlup_wsi.mpp == openslide_image.properties[openslide.PROPERTY_NAME_MPP_X]
-        # assert dlup_wsi.magnification == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
-        # assert isinstance(repr(dlup_wsi), str)
-        # assert dlup_wsi.identifier == "mock"
-        # assert isinstance(dlup_wsi.thumbnail, pyvips.Image)
+        assert dlup_wsi.aspect_ratio == openslide_image.image.width / openslide_image.image.height
+        assert dlup_wsi.mpp == openslide_image.properties[openslide.PROPERTY_NAME_MPP_X]
+        assert dlup_wsi.magnification == openslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]
+        assert isinstance(repr(dlup_wsi), str)
+        assert dlup_wsi.identifier == "mock"
+        assert isinstance(dlup_wsi.thumbnail, pyvips.Image)
 
     def test_set_mpp(self, openslide_image):
         """Test setting of the mpp."""
