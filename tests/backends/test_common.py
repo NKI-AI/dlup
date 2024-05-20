@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+import pyvips
 from PIL import Image
 
 from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
@@ -40,7 +41,7 @@ class TestAbstractBackend:
             self._level_count = 3
             self._downsamples = [1.0, 2.0, 4.0]
             self._spacings = [(0.5, 0.5), (1.0, 1.0), (2.0, 2.0)]
-            self._shapes = [(1000, 1000), (500, 500), (250, 250)]
+            self._shapes = ((1000, 1000), (500, 500), (250, 250))
 
         def read_region(self, coordinates, level, size) -> Image.Image:
             return Image.new("RGB", size, color="white")
@@ -73,7 +74,7 @@ class TestAbstractBackend:
         assert slide.spacing == (0.5, 0.5)
 
         # Testing the level_dimensions
-        assert slide.level_dimensions == [(1000, 1000), (500, 500), (250, 250)]
+        assert slide.level_dimensions == ((1000, 1000), (500, 500), (250, 250))
 
         # Testing the level_spacings
         assert slide.level_spacings == ((0.5, 0.5), (1.0, 1.0), (2.0, 2.0))
@@ -105,11 +106,11 @@ class TestAbstractBackend:
 
         # Getting a 200x200 thumbnail
         thumbnail = slide.get_thumbnail(200)
-        assert isinstance(thumbnail, Image.Image)
-        assert thumbnail.size == (200, 200)
+        assert isinstance(thumbnail, pyvips.Image)
+        assert (thumbnail.width, thumbnail.height) == (200, 200)
 
         # Getting a 300x150 thumbnail
         thumbnail = slide.get_thumbnail((300, 150))
-        assert isinstance(thumbnail, Image.Image)
+        assert isinstance(thumbnail, pyvips.Image)
         # The aspect ratio should be preserved, so width might be less than 300
-        assert thumbnail.size[1] == 150
+        assert thumbnail.height == 150

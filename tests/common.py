@@ -11,6 +11,8 @@ from PIL.Image import Image
 from pydantic import BaseModel, ConfigDict, Field
 from scipy.interpolate import RegularGridInterpolator
 
+from dlup.utils.pyvips_utils import numpy_to_vips, pil_to_vips
+
 
 def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
     """Generate a non-uniform sample image."""
@@ -109,13 +111,22 @@ class OpenSlideImageMock(openslide.ImageSlide):
 
         # Add a single pixel padding
         image = np.pad(image, [(0, 1), (0, 1), (0, 0)])
-        image = PIL.Image.fromarray(image)
+        image = numpy_to_vips(image)
         location = np.asarray(location) / self.level_downsamples[level]
-        return image.resize(
-            size,
-            resample=PIL.Image.Resampling.LANCZOS,
-            box=(*location, *(location + size)),
+        crop_box = (
+            int(np.floor(location[0])),
+            int(np.floor(location[1])),
+            int(np.ceil(location[0] + size[0])),
+            int(np.ceil(location[1] + size[1])),
         )
+        crop_region = image.crop(crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1])
+        target_width, target_height = size
+        resized_region = crop_region.resize(
+            target_width / crop_region.width,
+            vscale=target_height / crop_region.height,
+            kernel="lanczos3",
+        )
+        return resized_region
 
     @property
     def spacing(self):
@@ -132,6 +143,11 @@ class OpenSlideImageMock(openslide.ImageSlide):
     @property
     def magnification(self):
         return self.properties.get("openslide.objective-power", None)
+
+    def get_thumbnail(self, size):
+        if isinstance(size, int):
+            size = (size, size)
+        return pil_to_vips(self.image.resize(size))
 
     @classmethod
     def from_slide_config(cls, slide_config):

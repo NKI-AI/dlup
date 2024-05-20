@@ -10,6 +10,7 @@ from __future__ import annotations
 import errno
 import os
 import pathlib
+import warnings
 from enum import Enum
 from types import TracebackType
 from typing import Any, Literal, Optional, Type, TypeVar, cast
@@ -146,7 +147,7 @@ class SlideImage:
         interpolator: Optional[Resampling] = Resampling.LANCZOS,
         overwrite_mpp: Optional[tuple[float, float]] = None,
         apply_color_profile: bool = False,
-        internal_handler: Literal["pil", "vips"] = "pil",
+        internal_handler: Optional[Literal["pil", "vips"]] = None,
     ) -> None:
         """Initialize a whole slide image and validate its properties. This class allows to read whole-slide images
         at any arbitrary resolution. This class can read images from any backend that implements the
@@ -160,14 +161,15 @@ class SlideImage:
             A user-defined identifier for the slide, used in e.g. exceptions.
         interpolator : Resampling, optional
             The interpolator to use when reading regions. For images typically LANCZOS is the best choice. Masks
-            can use NEAREST. By default will use LANCZOS
+            can use NEAREST. By default, will use LANCZOS
         overwrite_mpp : tuple[float, float], optional
             Overwrite the mpp of the slide. For instance, if the mpp is not available, or when sourcing from
             and external database.
         apply_color_profile : bool
             Whether to apply the color profile to the output regions.
-        internal_handler : Literal["pil", "vips"]
-            The internal handler to use for processing the regions. This can be either PIL or VIPS.
+        internal_handler : Literal["pil", "vips"], optional
+            The internal handler to use for processing the regions. This can be either PIL or VIPS. PIL is the behavior
+            for all dlup versions prior to v0.4. It is recommended to migrate your code and use VIPS instead.
 
         Raises
         ------
@@ -198,7 +200,16 @@ class SlideImage:
 
         self._apply_color_profile = apply_color_profile
         self.__color_transforms = None
-        self._internal_handler = internal_handler
+
+        if not internal_handler:
+            warnings.warn(
+                "The internal handler is not set. Defaulting to PIL. "
+                "This behavior will be changed in dlup v1.0 where the default handler will become vips. "
+                'If you want your code to keep working as before you will need to set internal_handler="pil".',
+                UserWarning,
+            )
+
+        self._internal_handler = internal_handler if internal_handler is not None else "pil"
 
     @property
     def internal_handler(self) -> Literal["pil", "vips"]:
@@ -520,7 +531,7 @@ class SlideImage:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
-    def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> PIL.Image.Image:
+    def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> pyvips.Image:
         """Returns an RGB `PIL.Image.Image` thumbnail for the current slide.
 
         Parameters
@@ -536,7 +547,7 @@ class SlideImage:
         return self._wsi.get_thumbnail(size)
 
     @property
-    def thumbnail(self) -> PIL.Image.Image:
+    def thumbnail(self) -> pyvips.Image:
         """Returns the thumbnail."""
         return self.get_thumbnail()
 

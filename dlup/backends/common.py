@@ -151,10 +151,10 @@ class AbstractSlideBackend(abc.ABC):
         level = 0 if downsample < 1 else int(np.where(level_downsamples <= downsample)[0][-1])
         return level
 
-    def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
+    def get_thumbnail(self, size: int | tuple[int, int]) -> pyvips.Image:
         """
         Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
-        Aspect ratio is preserved.
+        Aspect ratio is preserved, so the given size is the maximum size of the thumbnail respecting that aspect ratio.
 
         Parameters
         ----------
@@ -163,7 +163,7 @@ class AbstractSlideBackend(abc.ABC):
 
         Returns
         -------
-        PIL.Image
+        pyvips.Image
             The thumbnail.
         """
         if isinstance(size, int):
@@ -172,14 +172,10 @@ class AbstractSlideBackend(abc.ABC):
         downsample = max(*(dim / thumb for dim, thumb in zip(self.dimensions, size)))
         level = self.get_best_level_for_downsample(downsample)
 
-        thumbnail = (
-            vips_to_pil(self.read_region((0, 0), level, self.level_dimensions[level]))
-            .convert("RGB")
-            .resize(
-                np.floor(np.asarray(self.dimensions) / downsample).astype(int).tolist(),
-                resample=PIL.Image.Resampling.LANCZOS,
-            )
-        )
+        thumbnail = self.read_region((0, 0), level, self.level_dimensions[level])
+
+        scale_factor = min(size[0] / thumbnail.width, size[1] / thumbnail.height)
+        thumbnail = thumbnail.resize(scale_factor, kernel="lanczos3")
         return thumbnail
 
     @property

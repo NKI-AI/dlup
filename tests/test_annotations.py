@@ -150,14 +150,14 @@ class TestAnnotations:
         assert len(self.v7_annotations.available_labels) == 5
         assert self.v7_annotations.available_labels[0].label == "ROI (segmentation)"
         assert self.v7_annotations.available_labels[0].a_cls == AnnotationType.BOX
-        assert self.v7_annotations.available_labels[1].label == "lymphocyte (cell)"
-        assert self.v7_annotations.available_labels[1].a_cls == AnnotationType.POINT
-        assert self.v7_annotations.available_labels[2].label == "stroma (area)"
-        assert self.v7_annotations.available_labels[2].a_cls == AnnotationType.POLYGON
-        assert self.v7_annotations.available_labels[3].label == "tumor (area)"
-        assert self.v7_annotations.available_labels[3].a_cls == AnnotationType.POLYGON
-        assert self.v7_annotations.available_labels[4].label == "tumor (cell)"
-        assert self.v7_annotations.available_labels[4].a_cls == AnnotationType.BOX
+        assert self.v7_annotations.available_labels[1].label == "stroma (area)"
+        assert self.v7_annotations.available_labels[1].a_cls == AnnotationType.POLYGON
+        assert self.v7_annotations.available_labels[2].label == "lymphocyte (cell)"
+        assert self.v7_annotations.available_labels[2].a_cls == AnnotationType.POINT
+        assert self.v7_annotations.available_labels[3].label == "tumor (cell)"
+        assert self.v7_annotations.available_labels[3].a_cls == AnnotationType.BOX
+        assert self.v7_annotations.available_labels[4].label == "tumor (area)"
+        assert self.v7_annotations.available_labels[4].a_cls == AnnotationType.POLYGON
 
         assert self.v7_annotations.bounding_box == (
             (15291.49, 18094.48),
@@ -168,15 +168,13 @@ class TestAnnotations:
 
         areas = [
             6250000.0,
-            0.0,
-            0.0,
-            0.0,
             103262.97951705178,
             1616768.0657540846,
             5124.669950000004,
             398284.54274999996,
-            10985.104649999945,
-            7705.718799999957,
+            0.0,
+            0.0,
+            0.0,
             15.387299999994807,
             141.48810000001885,
             181.86480000001157,
@@ -184,26 +182,28 @@ class TestAnnotations:
             132.57199999999034,
             100.99829999999875,
             585.8432999999652,
+            10985.104649999945,
+            7705.718799999957,
         ]
         assert [_.area for _ in region] == areas
 
         annotation_types = [
             AnnotationType.BOX,
+            AnnotationType.POLYGON,
+            AnnotationType.POLYGON,
+            AnnotationType.POLYGON,
+            AnnotationType.POLYGON,
             AnnotationType.POINT,
             AnnotationType.POINT,
             AnnotationType.POINT,
+            AnnotationType.BOX,
+            AnnotationType.BOX,
+            AnnotationType.BOX,
+            AnnotationType.BOX,
+            AnnotationType.BOX,
+            AnnotationType.BOX,
+            AnnotationType.BOX,
             AnnotationType.POLYGON,
             AnnotationType.POLYGON,
-            AnnotationType.POLYGON,
-            AnnotationType.POLYGON,
-            AnnotationType.POLYGON,
-            AnnotationType.POLYGON,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
         ]
         assert [_.type for _ in region] == annotation_types

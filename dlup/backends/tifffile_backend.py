@@ -3,10 +3,12 @@ from typing import Any
 
 import numpy as np
 import PIL.Image
+import pyvips
 import tifffile
 
 from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
 from dlup.types import PathLike
+from dlup.utils.pyvips_utils import numpy_to_vips
 from dlup.utils.tifffile_utils import get_tile
 
 
@@ -90,7 +92,7 @@ class TifffileSlide(AbstractSlideBackend):
         """Cache for tifffile."""
         raise NotImplementedError
 
-    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[int, int], level: int, size: tuple[int, int]) -> pyvips.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -116,7 +118,7 @@ class TifffileSlide(AbstractSlideBackend):
         coordinates = (np.asarray(coordinates) / ratio).astype(int).tolist()
         tile = get_tile(page, coordinates, size)[0]  # type: ignore
 
-        return numpy_to_pil(tile)
+        return numpy_to_vips(tile)
 
     @property
     def vendor(self) -> None:

@@ -7,6 +7,7 @@ import numpy as np
 
 import dlup
 from dlup.data.dataset import TiledWsiDataset, TilingMode
+from dlup.utils.pyvips_utils import vips_to_numpy
 
 
 def test_tiled_level_slide_image_dataset(monkeypatch, dlup_wsi):
@@ -27,5 +28,5 @@ def test_tiled_level_slide_image_dataset(monkeypatch, dlup_wsi):
 
     # Numpy array has height, width, channels.
     # Images have width, height, channels.
-    assert np.asarray(tile).shape == (24, 32, 4)
+    assert vips_to_numpy(tile).shape == (24, 32, 4)
     assert len(coordinates) == 2

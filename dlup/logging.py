@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
