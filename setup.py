@@ -53,7 +53,7 @@ setup(
     extras_require={
         "dev": [
             "pytest",
-            "mypy>=1.10.1",
+            "mypy>=1.10.0",
             "pytest-mock",
             "sphinx_copybutton",
             "numpydoc",
