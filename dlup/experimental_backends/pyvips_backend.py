@@ -17,7 +17,6 @@ from dlup import UnsupportedSlideError
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
-from dlup.utils.pyvips_utils import numpy_to_vips
 
 
 def open_slide(filename: PathLike) -> "PyVipsSlide":

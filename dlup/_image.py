@@ -353,11 +353,11 @@ class SlideImage:
 
         Parameters
         ----------
-        location :
+        location : tuple[int, int]
             Location from the top left (x, y) in pixel coordinates given at the requested scaling.
-        scaling :
+        scaling : float
             The scaling to be applied compared to level 0.
-        size :
+        size : tuple[int, int]
             Region size of the resulting region.
 
         Returns

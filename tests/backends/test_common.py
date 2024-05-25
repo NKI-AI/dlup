@@ -2,46 +2,9 @@
 
 import numpy as np
 import pytest
-import pyvips
 from PIL import Image
-from scipy.interpolate import RegularGridInterpolator
 
 from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
-from dlup.utils.pyvips_utils import pil_to_vips
-
-
-def get_sample_nonuniform_image(size: tuple[int, int] = (256, 256)) -> pyvips.Image:
-    """Generate a non-uniform sample image."""
-    if not (np.array(size) % 2 == 0).all():
-        raise ValueError("Size should be a tuple of values divisible by two.")
-
-    # Define data for interpolation
-    x = np.linspace(0, 1, size[0])
-    y = np.linspace(0, 1, size[1])
-
-    # Define the values at each grid point
-    X, Y = np.meshgrid(x, y)
-    values = X + Y
-
-    # Use RegularGridInterpolator
-    f = RegularGridInterpolator((x, y), values)
-
-    # Sample it
-    Z = np.stack([X, Y], axis=-1)
-    z = f(Z).reshape(size)
-
-    # Interpret it as HSV, so we get funny colors
-    im = np.zeros((*size, 3))
-    im[:, :, 0] = z
-    im[:, :, 1] = 1
-
-    # Set the value to a pixel-level checkerboard.
-    im[size[1] // 2, size[0] // 2, 2] = 1
-    im[:, :, 2] = np.sign(np.fft.ifft2(im[:, :, 2]).real)
-    im = im * 255
-    im = im.astype("uint8")
-    im = Image.fromarray(im, mode="HSV")
-    return pil_to_vips(im.convert(mode="RGBA"))
 
 
 def test_numpy_to_pil_single_channel():
