@@ -1,3 +1,4 @@
+import math
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -6,6 +7,7 @@ import openslide.lowlevel as openslide_lowlevel
 import pytest
 import pyvips
 
+from dlup import UnsupportedSlideError
 from dlup.backends.openslide_backend import (
     TIFF_PROPERTY_NAME_RESOLUTION_UNIT,
     TIFF_PROPERTY_NAME_X_RESOLUTION,
@@ -21,15 +23,15 @@ SLIDE_CONFIGS = [
     SlideConfig.from_parameters(
         filename="dummy1.svs",
         num_levels=3,
-        level_0_dimensions=(10000, 10000),
+        level_0_dimensions=(2000, 2000),
         mpp=(0.25, 0.25),
-        objective_power=20,
+        objective_power=40,
         vendor="dummy",
     ),
     SlideConfig.from_parameters(
         filename="dummy2.svs",
         num_levels=3,
-        level_0_dimensions=(10000, 10000),
+        level_0_dimensions=(1800, 2000),
         mpp=(0.50, 0.50),
         objective_power=20,
         vendor="test_vendor",
@@ -50,17 +52,16 @@ class MockOpenSlideLowLevel:
         self.mock_close = MagicMock()
 
         self.mock_read_region = MagicMock(side_effect=self.mock_read_region_fn)
+        self.base_image = get_sample_nonuniform_image(config.levels[0].dimensions)
 
     def mock_read_region_fn(self, _owsi, x, y, level, w, h):
         downsample_factor = self.config.levels[level].downsample
-        base_image = get_sample_nonuniform_image((2000, 2000))  # Create base image at level 0
 
         # Calculate coordinates and size at level 0
-        x0, y0 = int(x * downsample_factor), int(y * downsample_factor)
-        w0, h0 = int(w * downsample_factor), int(h * downsample_factor)
+        w0, h0 = math.ceil(w * downsample_factor), math.ceil(h * downsample_factor)
 
         # Crop the base image
-        cropped_image = base_image.crop(x0, y0, w0, h0)
+        cropped_image = self.base_image.crop(x, y, w0, h0)
 
         # Resize the cropped image to the requested level
         if downsample_factor != 1.0:
@@ -188,6 +189,16 @@ class TestMockOpenSlideSlide:
         assert isinstance(region, pyvips.Image)
         assert region.width == region_size[0]
         assert region.height == region_size[1]
+
+    def test_broken_mpp(self):
+        config = SlideConfig.from_parameters("dummy.svs", 3, (1000, 1000), (0.0, 0.25), 40, "dummy")
+        with pytest.raises(UnsupportedSlideError, match=r"Unable to parse mpp."):
+            _ = MockOpenSlideSlide.from_config(config)
+
+        config = SlideConfig.from_parameters("dummy.svs", 3, (1000, 1000), (0.25, 3.0), 40, "dummy")
+        with pytest.raises(UnsupportedSlideError) as exc_info:
+            _ = MockOpenSlideSlide.from_config(config)
+        assert "cannot deal with slides having anisotropic mpps." in str(exc_info.value)
 
     def test_mock_calls(self):
         config = SLIDE_CONFIGS[0]  # Use the first config for mock call tests

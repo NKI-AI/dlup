@@ -4,13 +4,10 @@
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import openslide  # type: ignore
-import PIL
-import pytest  # noqa
+import openslide
 from pydantic import BaseModel
-from scipy.interpolate import RegularGridInterpolator
 
-from dlup.utils.pyvips_utils import pil_to_vips
+from dlup.utils.pyvips_utils import numpy_to_vips
 
 
 class LevelConfig(BaseModel):
@@ -53,38 +50,45 @@ class SlideConfig(BaseModel):
         return cls(filename=filename, properties=properties, levels=levels)
 
 
-def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
-    """Generate a non-uniform sample image."""
-    if not (np.array(size) % 2 == 0).all():
-        raise ValueError("Size should be a tuple of values divisible by two.")
+def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256), divisions: int = 10):
+    """Generate a test image with a grid pattern."""
+    width, height = size
+    x_divisions = min(divisions, width)
+    y_divisions = min(divisions, height)
 
-    # Define data for interpolation
-    x = np.linspace(0, 1, size[0])
-    y = np.linspace(0, 1, size[1])
+    # Calculate the width and height of each grid cell
+    cell_width = width // x_divisions
+    cell_height = height // y_divisions
 
-    # Define the values at each grid point
-    X, Y = np.meshgrid(x, y)
-    values = X + Y
+    # Create an array to store the image
+    image_array = np.zeros((height, width, 4), dtype=np.uint8)
 
-    # Use RegularGridInterpolator
-    f = RegularGridInterpolator((x, y), values)
+    # Define a set of distinct colors
+    color_palette = [
+        (255, 0, 0, 255),  # Red
+        (0, 255, 0, 255),  # Green
+        (0, 0, 255, 255),  # Blue
+        (255, 255, 0, 255),  # Yellow
+        (255, 0, 255, 255),  # Magenta
+        (0, 255, 255, 255),  # Cyan
+        (128, 0, 0, 255),  # Maroon
+        (0, 128, 0, 255),  # Dark Green
+        (0, 0, 128, 255),  # Navy
+        (128, 128, 0, 255),  # Olive
+    ]
 
-    # Sample it
-    Z = np.stack([X, Y], axis=-1)
-    z = f(Z).reshape(size)
+    # Extend the palette to cover all cells
+    num_colors = len(color_palette)
+    extended_palette = [color_palette[i % num_colors] for i in range(x_divisions * y_divisions)]
 
-    # Sample it
-    z = f(Z).reshape(size)
+    # Assign colors to each grid cell
+    for i in range(x_divisions):
+        for j in range(y_divisions):
+            x_start = i * cell_width
+            y_start = j * cell_height
+            x_end = x_start + cell_width if (i != x_divisions - 1) else width
+            y_end = y_start + cell_height if (j != y_divisions - 1) else height
+            color = extended_palette[i * y_divisions + j]
+            image_array[y_start:y_end, x_start:x_end, :] = color
 
-    # Interpret it as HSV, so we get funny colors
-    im = np.zeros((*size, 3))
-    im[:, :, 0] = z
-    im[:, :, 1] = 1
-
-    # Set the value to a pixel-level checkerboard.
-    im[size[1] // 2, size[0] // 2, 2] = 1
-    im[:, :, 2] = np.sign(np.fft.ifft2(im[:, :, 2]).real)
-    im = im * 255
-    im = im.astype("uint8")
-    im = PIL.Image.fromarray(im, mode="HSV")
-    return pil_to_vips(im.convert(mode="RGBA"))
+    return numpy_to_vips(image_array)
