@@ -18,15 +18,14 @@ with open("README.md") as f:
 
 install_requires = [
     "numpy>=1.21",
-    "scikit-image>=0.19",
     "tifftools",
-    "tifffile>=2023.8.12",
-    "pyvips>=2.2.1",
+    "tifffile>=2024.5.22",
+    "pyvips>=2.2.3",
     "tqdm",
     "pillow>=10.3.0",
     "openslide-python>=1.3.1",
     "opencv-python>=4.9.0.80",
-    "shapely>=2.0.0",
+    "shapely>=2.0.4",
     "packaging>=24.0",
 ]
 
@@ -54,7 +53,7 @@ setup(
     extras_require={
         "dev": [
             "pytest",
-            "mypy>=1.4.1",
+            "mypy>=1.10.1",
             "pytest-mock",
             "sphinx_copybutton",
             "numpydoc",
