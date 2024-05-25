@@ -71,7 +71,7 @@ def tiles_grid_coordinates(
     tile_overlap = _flattened_array(tile_overlap)
 
     if not (size.shape == tile_size.shape == tile_overlap.shape):
-        raise ValueError("size, tile_size and tile_overlap " "should have the same dimensions.")
+        raise ValueError("size, tile_size and tile_overlap should have the same dimensions.")
 
     if (size <= 0).any():
         raise ValueError("size should always be greater than zero.")
@@ -112,11 +112,7 @@ class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
     def __init__(self, coordinates: list[npt.NDArray[np.int_ | np.float_]], order: str | GridOrder = GridOrder.C):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
-        self.order = order
-
-        if isinstance(order, str):
-            order = GridOrder[order]
-        self.order = order
+        self._order = order if isinstance(order, GridOrder) else GridOrder(order)
 
     @classmethod
     def from_tiling(
@@ -132,6 +128,11 @@ class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)
         coordinates = [c + o for c, o in zip(coordinates, offset)]
         return cls(coordinates, order=order)
+
+    @property
+    def order(self) -> GridOrder:
+        """Return the order of the grid."""
+        return self._order
 
     @property
     def size(self) -> tuple[int, int]:
@@ -151,13 +152,7 @@ class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
             start, stop, step = key.indices(len(self))
             return [self[i] for i in range(start, stop, step or 1)]
 
-        if isinstance(self.order, str):
-            _order = GridOrder[self.order]
-        else:
-            _order = self.order
-
-        order_literal: Literal["C", "F"] = "F" if _order == GridOrder.C else "C"
-        index = np.unravel_index(key, self.size, order=order_literal)
+        index = np.unravel_index(key, self.size, order="F" if self.order == "C" else "C")
         return np.array([c[i] for c, i in zip(self.coordinates, index)])
 
     def __len__(self) -> int:

@@ -548,7 +548,7 @@ class SlideImage:
 
     @property
     def thumbnail(self) -> pyvips.Image:
-        """Returns the thumbnail."""
+        """Returns the thumbnail with a bounding box of (512, 512)."""
         return self.get_thumbnail()
 
     @property
