@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import abc
+import io
 from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
 import pyvips
-from PIL.ImageCms import ImageCmsProfile
 
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
@@ -183,7 +183,7 @@ class AbstractSlideBackend(abc.ABC):
         return (0, 0), self.dimensions
 
     @property
-    def color_profile(self) -> ImageCmsProfile | None:
+    def color_profile(self) -> io.BytesIO | None:
         raise NotImplementedError("Color profiles are currently not implemented in this backend.")
 
     @property

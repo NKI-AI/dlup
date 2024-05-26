@@ -53,7 +53,7 @@ def resample(args: argparse.Namespace) -> None:
     writer.from_tiles_iterator(tiles_iterator(dataset))
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Resample a WSI to a TIFF file.")
     parser.add_argument("input", type=Path, help="Path to the WSI file.")
     parser.add_argument("output", type=Path, help="Path to the output TIFF file.")

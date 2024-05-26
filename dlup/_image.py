@@ -8,6 +8,7 @@ of discrete-levels pyramidal images in a continuous way, supporting multiple dif
 from __future__ import annotations
 
 import errno
+import io
 import os
 import pathlib
 import warnings
@@ -20,7 +21,6 @@ import numpy.typing as npt
 import PIL
 import PIL.Image
 import pyvips
-from PIL.ImageCms import ImageCmsProfile
 from pyvips.enums import Kernel as VipsKernel
 
 from dlup import UnsupportedSlideError
@@ -69,7 +69,7 @@ class _SlideImageRegionView(RegionView):
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> pyvips.Image:
         """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
@@ -226,45 +226,40 @@ class SlideImage:
         self._wsi.close()
 
     @property
-    def color_profile(self) -> ImageCmsProfile | None:
+    def color_profile(self) -> io.BytesIO | None:
         """Returns the ICC profile of the image.
-
         Each image in the pyramid has the same ICC profile, but the associated images might have their own.
-        If you wish to apply the ICC profile (which is also available as a property in the region itself).
 
-        TODO
-        ----
-        The color profile is attached to each region, but in our approach it is possible that at some point the
-        color profile is dropped due to casting to numpy arrays. This is not a problem for the moment, but
-        it might be in the future.
-
-        You can use the profile as follows:
-
+        Examples
+        --------
         >>> import dlup
         >>> from PIL import ImageCms
         >>> wsi = dlup.SlideImage.from_file_path("path/to/slide.svs")
         >>> region = wsi.read_region((0, 0), 1.0, (512, 512))
         >>> to_profile = ImageCms.createProfile("sRGB")
-        >>> intent = ImageCms.getDefaultIntent(wsi.color_profile)
-        >>> transform = ImageCms.buildTransform(wsi.color_profile, to_profile, "RGBA", "RGBA", intent, 0)
+        >>> color_profile = PIL.ImageCms.getOpenProfile(wsi.color_profile)
+        >>> intent = ImageCms.getDefaultIntent(color_profile)
+        >>> transform = ImageCms.buildTransform(color_profile, to_profile, "RGBA", "RGBA", intent, 0)
         >>> # Now you can apply the transform to the region (or any other PIL image)
         >>> ImageCms.applyTransform(region, transform, True)
 
         Returns
         -------
-        ImageCmsProfile
+        io.BytesIO
             The ICC profile of the image.
         """
         return getattr(self._wsi, "color_profile", None)
 
     @property
-    def _color_transform(self) -> PIL.ImageCms.ImageCmsTransform | None:
+    def _pil_color_transform(self) -> PIL.ImageCms.ImageCmsTransform | None:
         if self.color_profile is None:
             return None
 
+        color_profile = PIL.ImageCms.getOpenProfile(self.color_profile)  # type: ignore
+
         if self.__color_transforms is None:
             to_profile = PIL.ImageCms.createProfile("sRGB")
-            intent = PIL.ImageCms.getDefaultIntent(self.color_profile)  # type: ignore
+            intent = PIL.ImageCms.getDefaultIntent(color_profile)  # type: ignore
             self.__color_transform = PIL.ImageCms.buildTransform(
                 self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0
             )
@@ -409,7 +404,7 @@ class SlideImage:
         native_size_adapted = np.ceil(native_size_adapted).astype(int)
 
         # We extract the region via the slide backend with the required extra border
-        region = wsi.read_region(
+        vips_region = wsi.read_region(
             (level_zero_location_adapted[0], level_zero_location_adapted[1]),
             native_level,
             (native_size_adapted[0], native_size_adapted[1]),
@@ -424,30 +419,27 @@ class SlideImage:
                 *np.clip(
                     (fractional_coordinates + native_size),
                     a_min=0,
-                    a_max=(region.width, region.height),
+                    a_max=(vips_region.width, vips_region.height),
                 ),
             )
             box = cast(tuple[float, float, float, float], box)
-            if self._apply_color_profile and self.color_profile is not None:
-                PIL.ImageCms.applyTransform(region, self._color_transform, True)
-                # Remove the ICC profile from the region to make sure it's not applied twice by accident.
-                # Should always be available if a color profile is present.
-                del region.info["icc_profile"]
 
             # Within this region, there are a bunch of extra pixels, we interpolate to sample
             # the pixel in the right position to retain the right sample weight.
             # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
 
-            pil_region = vips_to_pil(region).resize(
+            pil_region = vips_to_pil(vips_region).resize(
                 size,
                 resample=_RESAMPLE_TO_PIL[self._interpolator],
                 box=box,
             )
+
+            if self._apply_color_profile and self._pil_color_transform is not None:
+                PIL.ImageCms.applyTransform(pil_region, self._pil_color_transform, inPlace=True)
+
             return pil_to_vips(pil_region)
 
         elif self._internal_handler == "vips":
-            # TODO: Add support for color profiles in VIPS
-            region_vips = pil_to_vips(region)
             crop_box = (
                 int(np.floor(fractional_coordinates[0])),
                 int(np.floor(fractional_coordinates[1])),
@@ -456,10 +448,12 @@ class SlideImage:
             )
 
             # Crop the region
-            crop_region = region_vips.crop(
+            crop_region = vips_region.crop(
                 crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]
             )
 
+            if self._apply_color_profile and self.color_profile is not None:
+                raise NotImplementedError("Color profile is not supported with VIPS backend.")
             # Calculate the size of the target region
             target_width, target_height = size
 

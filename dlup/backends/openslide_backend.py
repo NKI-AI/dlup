@@ -1,6 +1,7 @@
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
+import io
 import warnings
 from ctypes import Array, c_uint32
 from typing import Any, cast
@@ -10,7 +11,6 @@ import openslide
 import openslide.lowlevel as openslide_lowlevel
 import pyvips
 from packaging.version import Version
-from PIL.ImageCms import ImageCmsProfile
 
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
@@ -110,6 +110,11 @@ class OpenSlideSlide(AbstractSlideBackend):
             if spacing:
                 self.spacing = spacing
 
+        if openslide_lowlevel.read_icc_profile.available:
+            self._profile = openslide_lowlevel.read_icc_profile(self._owsi)
+        else:
+            self._profile = None
+
     @property
     def spacing(self) -> tuple[float, float] | None:
         if not self._spacings:
@@ -140,16 +145,16 @@ class OpenSlideSlide(AbstractSlideBackend):
         return value
 
     @property
-    def color_profile(self) -> ImageCmsProfile | None:
+    def color_profile(self) -> io.BytesIO | None:
         """
         Returns the color profile of the image if available. Otherwise returns None.
 
         Returns
         -------
-        ImageCmsProfile, optional
+        io.BytesIO, optional
             The color profile of the image.
         """
-        if Version(openslide.__library_version__) < Version("4.0.0"):
+        if Version(openslide.__library_version__) < Version("4.0.0") or not self._profile:
             warnings.warn(
                 "Color profile support is only available for openslide >= 4.0.0. "
                 f"You have version {openslide.__library_version__}. "
@@ -157,7 +162,10 @@ class OpenSlideSlide(AbstractSlideBackend):
             )
             return None
 
-        return cast(ImageCmsProfile, super().color_profile)
+        if self._profile is None:
+            return None
+
+        return io.BytesIO(self._profile)
 
     @property
     def vendor(self) -> str | None:

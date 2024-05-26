@@ -4,14 +4,13 @@ from __future__ import annotations
 import io
 import warnings
 from distutils.version import LooseVersion
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import openslide
 import PIL.Image
 import PIL.ImageCms
 import pyvips
-from PIL.ImageCms import ImageCmsProfile
 
 from dlup import UnsupportedSlideError
 from dlup.backends.common import AbstractSlideBackend
@@ -188,7 +187,7 @@ class PyVipsSlide(AbstractSlideBackend):
         return {key: self._images[0].get_value(key) for key in keys}
 
     @property
-    def color_profile(self) -> ImageCmsProfile | None:
+    def color_profile(self) -> io.BytesIO | None:
         """
         Returns the color profile of the image if available. Otherwise returns None.
 
@@ -208,8 +207,8 @@ class PyVipsSlide(AbstractSlideBackend):
         if "icc-profile-data" not in self.properties:
             return None
 
-        profile = PIL.ImageCms.getOpenProfile(io.BytesIO(self.properties["icc-profile-data"]))  # type: ignore
-        return cast(PIL.ImageCms.ImageCmsProfile, profile)
+        profile = io.BytesIO(self.properties["icc-profile-data"])
+        return profile
 
     @property
     def magnification(self) -> float | None:
