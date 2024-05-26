@@ -122,7 +122,7 @@ class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
         tile_size: _GenericNumberArray,
         tile_overlap: _GenericNumberArray | _GenericNumber = 0,
         mode: TilingMode = TilingMode.skip,
-        order: GridOrder = GridOrder.C,
+        order: GridOrder | str = GridOrder.C,
     ) -> "Grid":
         """Generate a grid from a set of tiling parameters."""
         coordinates = tiles_grid_coordinates(size, tile_size, tile_overlap, mode)

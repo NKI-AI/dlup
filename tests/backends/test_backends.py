@@ -1,3 +1,4 @@
+# Copyright (c) dlup contributors
 """Test for the TiffFile backend. Works by creating a tiff file and then reading it with the TiffFile backend.
 The results are also compared against the openslide backend.
 """
@@ -7,7 +8,6 @@ import PIL.Image
 import pytest
 import pyvips
 
-from dlup._image import Resampling
 from dlup.backends.openslide_backend import OpenSlideSlide
 from dlup.backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.backends.tifffile_backend import TifffileSlide
@@ -31,7 +31,7 @@ def write_image_to_tiff(file_path, image, mpp, size, pyramid):
         size=(*size[::-1], channels),
         mpp=mpp,
         compression=TiffCompression.NONE,
-        interpolator=Resampling.NEAREST,
+        is_mask=False,
         tile_size=(128, 128),
         pyramid=pyramid,
     )

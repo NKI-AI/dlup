@@ -65,7 +65,7 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.mpp / self._scaling
 
     @property
-    def size(self) -> tuple[int, ...]:
+    def size(self) -> tuple[int, int]:
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
@@ -416,18 +416,18 @@ class SlideImage:
         )
 
         fractional_coordinates = native_location - native_location_adapted
-        box = (
-            *fractional_coordinates,
-            *np.clip(
-                (fractional_coordinates + native_size),
-                a_min=0,
-                a_max=(region.width, region.height),
-            ),
-        )
-        box = cast(tuple[float, float, float, float], box)
         size = cast(tuple[int, int], size)
 
         if self._internal_handler == "pil":
+            box = (
+                *fractional_coordinates,
+                *np.clip(
+                    (fractional_coordinates + native_size),
+                    a_min=0,
+                    a_max=(region.width, region.height),
+                ),
+            )
+            box = cast(tuple[float, float, float, float], box)
             if self._apply_color_profile and self.color_profile is not None:
                 PIL.ImageCms.applyTransform(region, self._color_transform, True)
                 # Remove the ICC profile from the region to make sure it's not applied twice by accident.

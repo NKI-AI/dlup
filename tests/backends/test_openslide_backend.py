@@ -126,6 +126,10 @@ class MockOpenSlideSlide(OpenSlideSlide):
             raise openslide_lowlevel.OpenSlideError(f"width ({size[0]}) or height ({size[1]}) must be positive")
         return mock_lowlevel.mock_read_region(self._owsi, coordinates[0], coordinates[1], level, size[0], size[1])
 
+    def get_level_image(self, level: int) -> pyvips.Image:
+        base_image = mock_lowlevel.base_image.resize(1.0 / self.level_downsamples[level])
+        return base_image
+
     def close(self) -> None:
         mock_lowlevel.mock_close(self._owsi)
 

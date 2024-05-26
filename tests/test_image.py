@@ -6,6 +6,7 @@ at a selected level by minimizing the information loss during
 interpolation as well as ensuring the tiles are extracted
 from the right level and locations of the original image.
 """
+import math
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -54,9 +55,9 @@ class TestSlideImage:
         dlup_wsi = SlideImage(openslide_image, identifier=slide_config.filename, overwrite_mpp=(0.7, 0.7))
         assert dlup_wsi.mpp == 0.7
 
-    @pytest.mark.parametrize("out_region_x", [0, 4.1, 1.5, 3.9])
-    @pytest.mark.parametrize("out_region_y", [0, 0.03, 4.2])
-    @pytest.mark.parametrize("out_region_size", [(4, 4), (7, 3), (1, 5)])
+    @pytest.mark.parametrize("out_region_x", [0, 4, 3, 11])
+    @pytest.mark.parametrize("out_region_y", [0, 1, 6, 9])
+    @pytest.mark.parametrize("out_region_size", [(100, 100), (57, 38), (100, 50)])
     @pytest.mark.parametrize(
         "scaling",
         [
@@ -73,6 +74,7 @@ class TestSlideImage:
         out_region_y,
         out_region_size,
         scaling,
+        mocker,
     ):
         pass
 
@@ -82,48 +84,49 @@ class TestSlideImage:
         downsampling the whole image and extracting that region using PIL.
 
         """
-        dlup_wsi = SlideImage(openslideslide_image, identifier="mock")
+        # Mock the read_region method of openslideslide_image
+        mocker.patch.object(openslideslide_image, "read_region", wraps=openslideslide_image.read_region)
+
+        dlup_wsi = SlideImage(openslideslide_image, identifier="mock", internal_handler="vips")
 
         # Compute output image global coordinates.
         out_region_location = np.array((out_region_x, out_region_y))
         out_region_size = np.array(out_region_size)
 
         # Get the target layer from which we downsample.
-        # downsampling = 1 / scaling
-        # expected_level = openslideslide_image.get_best_level_for_downsample(downsampling)
-        # expected_level_image = openslideslide_image.get_level_image(expected_level)
-        # relative_scaling = scaling * openslideslide_image.level_downsamples[expected_level]
+        downsample = 1 / scaling
+        expected_level = openslideslide_image.get_best_level_for_downsample(downsample)
+        expected_level_image = openslideslide_image.get_level_image(expected_level)
+        relative_scaling = scaling * openslideslide_image.level_downsamples[expected_level]
 
-        # Notice that PIL box uses upper left and lower right rectangle coordinates.
-        # box = (*out_region_location, *(out_region_location + out_region_size))
+        # Resize the entire expected level image to the target scaling
+        resized_image = expected_level_image.resize(relative_scaling, vscale=relative_scaling, kernel="lanczos3")
 
-        #     expected_level_box = np.array(box) / relative_scaling
-        #     pil_extracted_region = expected_level_image.resize(
-        #         out_region_size,
-        #         resample=PIL.Image.Resampling.LANCZOS,
-        #         box=expected_level_box,
-        #     )
-        #
-        #     # Spy on how our mock object was called
-        #     mocker.spy(openslide_image, "read_region")
-        #
-        # Use dlup read_region to extract the same location
+        # Calculate the cropping box for the resized image
+        box = np.array([*out_region_location, *(out_region_location + out_region_size)])
+
+        # Crop the region from the resized image
+        vips_extracted_region = resized_image.crop(
+            math.floor(box[0]), math.floor(box[1]), math.ceil(box[2] - box[0]), math.ceil(box[3] - box[1])
+        )
+
+        assert isinstance(vips_extracted_region, pyvips.Image)
         extracted_region = dlup_wsi.read_region(out_region_location, scaling, out_region_size)
-
-        # Is a pyvips Image
         assert isinstance(extracted_region, pyvips.Image)
 
-    #     # Check that the right layer was indeed requested from our mock function.
-    #     call_args_list = openslide_image.read_region.call_args_list
-    #     assert len(call_args_list) == 1
-    #     (call,) = call_args_list
-    #     _, selected_level, _ = call.args
-    #     assert selected_level == expected_level
-    #
-    #     # Check that the output corresponding shape and value.
-    #     assert np.asarray(pil_extracted_region).shape == np.asarray(extracted_region).shape
-    #     assert np.allclose(pil_extracted_region, extracted_region)
-    #
+        # Verify the call arguments of read_region
+        call_args_list = openslideslide_image.read_region.call_args_list
+        assert len(call_args_list) == 1
+        (call,) = call_args_list
+        _, selected_level, _ = call.args
+        assert selected_level == expected_level
+
+        # Check that the output corresponding shape and value.
+        arr0 = vips_to_numpy(vips_extracted_region)
+        arr1 = vips_to_numpy(extracted_region)
+
+        assert arr0.shape == arr1.shape
+
     @pytest.mark.parametrize("shift_x", list(np.linspace(0, 2, 10)))
     def test_border_region(self, shift_x):
         """Test border region."""

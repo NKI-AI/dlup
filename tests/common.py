@@ -91,4 +91,14 @@ def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256), divisions: i
             color = extended_palette[i * y_divisions + j]
             image_array[y_start:y_end, x_start:x_end, :] = color
 
+    # Apply a sine wave pattern for non-uniformity
+    x = np.linspace(0, np.pi * 4, width)
+    y = np.linspace(0, np.pi * 4, height)
+    X, Y = np.meshgrid(x, y)
+    sine_wave = (np.sin(X) + np.cos(Y)) / 2 + 0.5  # Normalized to range [0, 1]
+
+    # Multiply sine wave pattern with the image
+    for k in range(3):  # Apply only to RGB channels, not alpha
+        image_array[:, :, k] = image_array[:, :, k] * sine_wave
+
     return numpy_to_vips(image_array)
