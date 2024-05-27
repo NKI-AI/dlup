@@ -230,6 +230,8 @@ class SlideImage:
         """Returns the ICC profile of the image.
         Each image in the pyramid has the same ICC profile, but the associated images might have their own.
 
+        # TODO: Vips can apply the color profile directly when loading the image!
+
         Examples
         --------
         >>> import dlup
@@ -453,7 +455,8 @@ class SlideImage:
             )
 
             if self._apply_color_profile and self.color_profile is not None:
-                raise NotImplementedError("Color profile is not supported with VIPS backend.")
+                crop_region.set_type(pyvips.GValue.blob_type, "icc-profile-data", self.color_profile.read())
+                crop_region = crop_region.icc_transform("srgb")
             # Calculate the size of the target region
             target_width, target_height = size
 
