@@ -19,7 +19,7 @@ from tifffile import tifffile
 import dlup
 from dlup.tiling import Grid, TilingMode
 from dlup.types import PathLike
-from dlup.utils.pyvips_utils import numpy_to_vips, vips_to_numpy
+from dlup.utils.pyvips_utils import numpy_to_vips
 from dlup.utils.tifffile_utils import get_tile
 
 
@@ -227,7 +227,6 @@ class TifffileImageWriter(ImageWriter):
                     page,  # type: ignore
                     self._tile_size,
                     shapes[level],
-                    is_rgb=is_rgb,
                     is_mask=self._is_mask,
                 )
                 self._write_page(
@@ -312,7 +311,6 @@ def _tile_iterator_from_page(
     page: tifffile.TiffPage,
     tile_size: tuple[int, int],
     region_size: tuple[int, int],
-    is_rgb: bool = True,
     is_mask: bool = False,
 ) -> Generator[npt.NDArray[np.int_], None, None]:
     """
@@ -324,8 +322,6 @@ def _tile_iterator_from_page(
     page : tifffile.TiffPage
     tile_size : tuple
     region_size : tuple
-    is_rgb : bool
-        Whether color image or mask
     is_mask : bool
         Whether the image is a mask (important for the downsampling)
 
@@ -352,7 +348,5 @@ def _tile_iterator_from_page(
 
         vips_tile = numpy_to_vips(tile).reduce(2, 2, kernel="nearest" if is_mask else "linear")
 
-        output = vips_to_numpy(vips_tile)
-        if not is_rgb:
-            output = output[..., 0]
+        output = vips_tile.numpy()
         yield output

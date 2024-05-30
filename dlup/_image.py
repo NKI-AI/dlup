@@ -29,7 +29,7 @@ from dlup.backends.common import AbstractSlideBackend
 from dlup.experimental_backends import ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
-from dlup.utils.pyvips_utils import pil_to_vips, vips_to_pil
+from dlup.utils.pyvips_utils import pil_to_vips
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
@@ -430,7 +430,7 @@ class SlideImage:
             # the pixel in the right position to retain the right sample weight.
             # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
 
-            pil_region = vips_to_pil(vips_region).resize(
+            pil_region = PIL.Image.fromarray(np.asarray(vips_region)).resize(
                 size,
                 resample=_RESAMPLE_TO_PIL[self._interpolator],
                 box=box,
