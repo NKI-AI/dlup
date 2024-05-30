@@ -12,7 +12,7 @@ from dlup.backends.openslide_backend import OpenSlideSlide
 from dlup.backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.backends.tifffile_backend import TifffileSlide
 from dlup.backends.tifffile_backend import open_slide as open_slide_tifffile
-from dlup.utils.pyvips_utils import pil_to_vips, vips_to_numpy, vips_to_pil
+from dlup.utils.pyvips_utils import pil_to_vips
 from dlup.writers import TiffCompression, TifffileImageWriter
 
 
@@ -24,7 +24,7 @@ def file_path(tmp_path):
 
 
 def write_image_to_tiff(file_path, image, mpp, size, pyramid):
-    array = vips_to_numpy(image)
+    array = image.numpy()
     channels = array.shape[2] if array.ndim == 3 else 1
     writer = TifffileImageWriter(
         file_path,
@@ -35,7 +35,7 @@ def write_image_to_tiff(file_path, image, mpp, size, pyramid):
         tile_size=(128, 128),
         pyramid=pyramid,
     )
-    writer.from_pil(vips_to_pil(image))
+    writer.from_pil(PIL.Image.fromarray(array))
 
 
 def create_test_image(size, channels, color1, color2):
@@ -101,9 +101,11 @@ class TestBackends:
             ((_size[0] // 7, _size[1] // 7), (_size[0] - _size[0] // 7, _size[1] - _size[1] // 7)),
         ]
         for location, region_size in regions:
-            tiff_region = vips_to_pil(tiff_slide.read_region(location, 0, region_size))
+            tiff_region = PIL.Image.fromarray(np.asarray(tiff_slide.read_region(location, 0, region_size)))
             assert tiff_region.mode == mode
-            openslide_region = vips_to_pil(openslide_slide.read_region(location, 0, region_size)).convert(mode)
+            openslide_region = PIL.Image.fromarray(
+                np.asarray(openslide_slide.read_region(location, 0, region_size))
+            ).convert(mode)
 
             cropped_array = original_array[
                 location[1] : location[1] + region_size[1], location[0] : location[0] + region_size[0]

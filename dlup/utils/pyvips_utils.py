@@ -90,30 +90,6 @@ def pil_to_vips(pil_image: PIL.Image.Image) -> pyvips.Image:
     -------
     pyvips.Image
     """
-    np_image = np.array(pil_image)
-    vips_image = numpy_to_vips(np_image)
+    vips_image = numpy_to_vips(np.asarray(pil_image))
 
     return vips_image
-
-
-def vips_to_pil(vips_image: pyvips.Image) -> PIL.Image.Image:
-    """
-    Convert a pyvips image to a PIL image.
-
-    Parameters
-    ----------
-    vips_image : pyvips.Image
-
-    Returns
-    -------
-    PIL.Image.Image
-    """
-    # Use the existing vips_to_numpy function to convert the pyvips image to a NumPy array
-    np_image = vips_to_numpy(vips_image)
-
-    # Convert the NumPy array to a PIL image
-    if np_image.shape[2] == 1:  # Grayscale image
-        np_image = np_image.reshape((np_image.shape[0], np_image.shape[1]))
-    pil_image = PIL.Image.fromarray(np_image)
-
-    return pil_image

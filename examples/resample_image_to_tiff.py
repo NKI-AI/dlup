@@ -12,10 +12,10 @@ from typing import Iterator
 
 import numpy as np
 import numpy.typing as npt
+import PIL.Image
 
 from dlup import SlideImage
 from dlup.data.dataset import TiledWsiDataset
-from dlup.utils.pyvips_utils import vips_to_pil
 from dlup.writers import TiffCompression, TifffileImageWriter
 
 
@@ -47,7 +47,8 @@ def resample(args: argparse.Namespace) -> None:
 
     def tiles_iterator(dataset: TiledWsiDataset) -> Iterator[npt.NDArray[np.int_]]:
         for tile in dataset:
-            arr = np.asarray(vips_to_pil(tile["image"]).convert("RGB"))
+            # TODO: Convert VIPS image to RGB directly
+            arr = np.asarray(PIL.Image.fromarray(np.asarray(tile["image"])).convert("RGB"))
             yield arr
 
     writer.from_tiles_iterator(tiles_iterator(dataset))
