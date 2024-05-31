@@ -28,7 +28,7 @@ from typing import (
 
 import numpy as np
 import numpy.typing as npt
-import PIL
+import pyvips
 from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
@@ -52,7 +52,7 @@ _LabelTypes = Union[str, bool, int, float]
 
 
 class TileSample(TypedDict):
-    image: PIL.Image.Image
+    image: pyvips.Image
     coordinates: tuple[int | float, int | float]
     mpp: float
     path: PathLike
