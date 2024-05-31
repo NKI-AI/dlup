@@ -8,7 +8,6 @@ from PIL import Image, ImageColor
 
 from dlup import SlideImage
 from dlup.experimental_backends import ImageBackend, OpenSlideSlide
-from dlup.utils.pyvips_utils import vips_to_numpy
 from dlup.writers import TiffCompression, TifffileImageWriter, _color_dict_to_color_lut
 
 COLORMAP = {
@@ -48,14 +47,12 @@ class TestTiffWriter:
                 size=size,
                 mpp=(target_mpp, target_mpp),
                 compression=TiffCompression.NONE,
+                pyramid=False,
             )
 
             writer.from_pil(pil_image)
             vips_image = pyvips.Image.new_from_file(temp_tiff.name)
-            vips_image_numpy = vips_to_numpy(vips_image)
-            if mode == "L":
-                vips_image_numpy = vips_image_numpy[..., 0]
-
+            vips_image_numpy = np.asarray(vips_image)
             assert np.allclose(np.asarray(pil_image), vips_image_numpy)
 
             with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.PYVIPS) as slide:
@@ -70,6 +67,39 @@ class TestTiffWriter:
             with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.OPENSLIDE) as slide:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
+
+    @pytest.mark.parametrize("pyramid", [True, False])
+    def test_tiff_writer_pyramid(self, pyramid):
+        size = (1010, 2173, 3)
+        target_mpp = 1.0
+        tile_size = (128, 128)
+
+        random_array = np.random.randint(low=0, high=255, size=size, dtype=np.uint8)
+        pil_image = Image.fromarray(random_array, mode="RGB")
+        size = (*pil_image.size, 3)
+
+        with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
+            writer = TifffileImageWriter(
+                temp_tiff.name,
+                size=size,
+                mpp=(target_mpp, target_mpp),
+                tile_size=tile_size,
+                compression=TiffCompression.NONE,
+                pyramid=True,
+            )
+            writer.from_pil(pil_image)
+
+            vips_image = pyvips.Image.new_from_file(temp_tiff.name)
+
+            n_pages = vips_image.get("n-pages")
+
+            assert n_pages == int(np.ceil(np.log2(np.asarray(size[:-1]) / np.asarray([tile_size]))).min()) + 1
+            assert vips_image.get("xres") == 1000.0 and vips_image.get("yres") == 1000.0
+
+            for page in range(1, n_pages):
+                vips_page = pyvips.Image.tiffload(temp_tiff.name, page=page)
+                assert vips_page.get("height") == size[1] // 2**page
+                assert vips_page.get("width") == size[0] // 2**page
 
     @pytest.mark.parametrize(
         ["shape", "target_mpp"],

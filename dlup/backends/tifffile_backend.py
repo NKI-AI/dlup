@@ -7,7 +7,6 @@ import tifffile
 
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
-from dlup.utils.pyvips_utils import numpy_to_vips
 from dlup.utils.tifffile_utils import get_tile
 
 
@@ -106,18 +105,20 @@ class TifffileSlide(AbstractSlideBackend):
 
         Returns
         -------
-        PIL.Image
+        pyvips.Image
             The requested region.
         """
         if level > self._level_count - 1:
             raise RuntimeError(f"Level {level} not present.")
 
         page = self._image.pages[level]
+        # To make mypy happy
+        assert isinstance(page, tifffile.TiffPage)
         ratio = self._downsamples[level]
         coordinates = (np.asarray(coordinates) / ratio).astype(int).tolist()
-        tile = get_tile(page, coordinates, size)[0]  # type: ignore
+        tile = get_tile(page, coordinates, size)
 
-        return numpy_to_vips(tile)
+        return tile
 
     @property
     def vendor(self) -> None:

@@ -19,7 +19,6 @@ from tifffile import tifffile
 import dlup
 from dlup.tiling import Grid, TilingMode
 from dlup.types import PathLike
-from dlup.utils.pyvips_utils import numpy_to_vips
 from dlup.utils.tifffile_utils import get_tile
 
 
@@ -344,9 +343,7 @@ def _tile_iterator_from_page(
         region_end = coordinates + resized_tile_size
         size = np.clip(region_end, 0, region_size) - coordinates
 
-        tile = get_tile(page, (coordinates[1], coordinates[0]), (size[1], size[0]))[0]
+        vips_tile = get_tile(page, (coordinates[1], coordinates[0]), (size[1], size[0]))
 
-        vips_tile = numpy_to_vips(tile).reduce(2, 2, kernel="nearest" if is_mask else "linear")
-
-        output = vips_tile.numpy()
+        output = vips_tile.reduce(2, 2, kernel="nearest" if is_mask else "linear").numpy()
         yield output

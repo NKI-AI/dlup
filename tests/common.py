@@ -5,9 +5,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import openslide
+import pyvips
 from pydantic import BaseModel
-
-from dlup.utils.pyvips_utils import numpy_to_vips
 
 
 class LevelConfig(BaseModel):
@@ -50,7 +49,7 @@ class SlideConfig(BaseModel):
         return cls(filename=filename, properties=properties, levels=levels)
 
 
-def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256), divisions: int = 10):
+def get_sample_nonuniform_image(size: tuple[int, int] = (256, 256), divisions: int = 10) -> pyvips.Image:
     """Generate a test image with a grid pattern."""
     width, height = size
     x_divisions = min(divisions, width)
@@ -101,4 +100,4 @@ def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256), divisions: i
     for k in range(3):  # Apply only to RGB channels, not alpha
         image_array[:, :, k] = image_array[:, :, k] * sine_wave
 
-    return numpy_to_vips(image_array)
+    return pyvips.Image.new_from_array(image_array)
