@@ -12,7 +12,6 @@ from dlup.backends.openslide_backend import OpenSlideSlide
 from dlup.backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.backends.tifffile_backend import TifffileSlide
 from dlup.backends.tifffile_backend import open_slide as open_slide_tifffile
-from dlup.utils.pyvips_utils import pil_to_vips
 from dlup.writers import TiffCompression, TifffileImageWriter
 
 
@@ -48,7 +47,7 @@ def create_test_image(size, channels, color1, color2):
         array = np.zeros(size, dtype=np.uint8)
         array[: half_size[0], : half_size[1]] = color1
         array[half_size[0] :, half_size[1] :] = color2
-    return pil_to_vips(PIL.Image.fromarray(array, mode="RGB" if channels == 3 else "L"))
+    return pyvips.Image.new_from_array(array)
 
 
 @pytest.fixture
