@@ -29,7 +29,6 @@ from dlup.backends.common import AbstractSlideBackend
 from dlup.experimental_backends import ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
-from dlup.utils.pyvips_utils import pil_to_vips
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
@@ -439,7 +438,7 @@ class SlideImage:
             if self._apply_color_profile and self._pil_color_transform is not None:
                 PIL.ImageCms.applyTransform(pil_region, self._pil_color_transform, inPlace=True)
 
-            return pil_to_vips(pil_region)
+            return pyvips.Image.new_from_array(np.asarray(pil_region), interpretation=vips_region.interpretation)
 
         elif self._internal_handler == "vips":
             crop_box = (

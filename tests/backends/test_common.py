@@ -3,10 +3,8 @@
 import numpy as np
 import pytest
 import pyvips
-from PIL import Image
 
 from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
-from dlup.utils.pyvips_utils import pil_to_vips
 
 
 def test_numpy_to_pil_single_channel():
@@ -45,7 +43,7 @@ class TestAbstractBackend:
             self._shapes = ((1000, 1000), (500, 500), (250, 250))
 
         def read_region(self, coordinates, level, size) -> pyvips.Image:
-            return pil_to_vips(Image.new("RGB", size, color="white"))
+            return pyvips.Image.black(*size, bands=3)
 
         @property
         def properties(self):

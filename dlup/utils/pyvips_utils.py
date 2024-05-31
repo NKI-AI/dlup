@@ -1,7 +1,6 @@
 # Copyright (c) dlup contributors
 import numpy as np
 import numpy.typing as npt
-import PIL.Image
 import pyvips
 
 NUMPY_DTYPE_TO_VIPS_FORMAT = {
@@ -76,20 +75,3 @@ def vips_to_numpy(vips_image: pyvips.Image) -> npt.NDArray[np.int_]:
         dtype=VIPS_FORMAT_TO_NUMPY_DTYPE[vips_image.format],
         shape=[vips_image.height, vips_image.width, vips_image.bands],
     )
-
-
-def pil_to_vips(pil_image: PIL.Image.Image) -> pyvips.Image:
-    """
-    Convert a PIL image to a pyvips image.
-
-    Parameters
-    ----------
-    pil_image : PIL.Image.Image
-
-    Returns
-    -------
-    pyvips.Image
-    """
-    vips_image = numpy_to_vips(np.asarray(pil_image))
-
-    return vips_image
