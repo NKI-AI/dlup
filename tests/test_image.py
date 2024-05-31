@@ -15,7 +15,6 @@ import pytest
 import pyvips
 
 from dlup import SlideImage, UnsupportedSlideError
-from dlup.utils.pyvips_utils import vips_to_numpy
 
 from .backends.test_openslide_backend import SLIDE_CONFIGS, MockOpenSlideSlide, SlideConfig
 
@@ -122,8 +121,8 @@ class TestSlideImage:
         assert selected_level == expected_level
 
         # Check that the output corresponding shape and value.
-        arr0 = vips_to_numpy(vips_extracted_region)
-        arr1 = vips_to_numpy(extracted_region)
+        arr0 = np.asarray(vips_extracted_region)
+        arr1 = np.asarray(extracted_region)
 
         assert arr0.shape == arr1.shape
 
@@ -225,6 +224,6 @@ def test_scaled_view(dlup_wsi, scaling):
     location = (3.7, 0)
     size = (10, 15)
     assert (
-        vips_to_numpy(view.read_region(location, size)) == vips_to_numpy(dlup_wsi.read_region(location, scaling, size))
+        np.asarray(view.read_region(location, size)) == np.asarray(dlup_wsi.read_region(location, scaling, size))
     ).all()
     assert dlup_wsi.get_scaled_size(scaling) == view.size

@@ -3,11 +3,11 @@
 """Test the datasets facility classes."""
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 
 import dlup
 from dlup.data.dataset import ConcatDataset, Dataset, TiledWsiDataset, TilingMode
-from dlup.utils.pyvips_utils import vips_to_numpy
 
 
 @patch.object(dlup.SlideImage, "from_file_path")
@@ -31,7 +31,7 @@ def test_tiled_level_slide_image_dataset(mock_slide_image, mock_from_file_path, 
 
         # Numpy array has height, width, channels.
         # Images have width, height, channels.
-        assert vips_to_numpy(tile).shape == (24, 32, 4)
+        assert np.asarray(tile).shape == (24, 32, 4)
         assert len(coordinates) == 2
 
         assert len(dataset) == 70
@@ -39,7 +39,7 @@ def test_tiled_level_slide_image_dataset(mock_slide_image, mock_from_file_path, 
         # Let's grab a few samples instead of one
         tile_data = dataset[0:2]
         assert len(tile_data) == 2
-        assert all([vips_to_numpy(tile["image"]).shape == (24, 32, 4) for tile in tile_data])
+        assert all([np.asarray(tile["image"]).shape == (24, 32, 4) for tile in tile_data])
 
 
 class TestConcatDataset:
