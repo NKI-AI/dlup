@@ -137,11 +137,11 @@ class OpenSlideSlide(AbstractSlideBackend):
         return "RGBA"
 
     @property
-    def magnification(self) -> int | None:
+    def magnification(self) -> float | None:
         """Returns the objective power at which the WSI was sampled."""
         value = self.properties.get(openslide.PROPERTY_NAME_OBJECTIVE_POWER, None)
         if value is not None:
-            return int(value)
+            return float(value)
         return value
 
     @property

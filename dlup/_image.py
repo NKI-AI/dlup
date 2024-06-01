@@ -20,13 +20,14 @@ import numpy as np
 import numpy.typing as npt
 import PIL
 import PIL.Image
+import PIL.ImageCms
 import pyvips
 from pyvips.enums import Kernel as VipsKernel
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
+from dlup.backends import ImageBackend
 from dlup.backends.common import AbstractSlideBackend
-from dlup.experimental_backends import ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 

@@ -12,6 +12,7 @@ Whole Slide Images.
 
 ## Features
 - Read whole-slide images at any arbitrary resolution by seamlessly interpolating between the pyramidal levels
+- Supports multiple backends, including [OpenSlide](https://openslide.org/) and [VIPS](https://libvips.github.io/libvips/), with the possibility to add custom backends
 - Dataset classes to handle whole-slide images in a tile-by-tile manner compatible with pytorch
 - Annotation classes which can load GeoJSON, [V7 Darwin](https://www.v7labs.com/), [HALO](https://indicalab.com/halo/) and [ASAP](https://computationalpathologygroup.github.io/ASAP/) formats and read parts of it (e.g. a tile)
 - Transforms to handle annotations per tile, resulting, together with the dataset classes a dataset consisting of tiles of whole-slide images with corresponding masks as targets, readily useable with a pytorch dataloader

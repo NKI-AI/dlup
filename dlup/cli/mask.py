@@ -8,9 +8,9 @@ import shapely
 
 from dlup._image import Resampling
 from dlup.annotations import AnnotationClass, AnnotationType, Polygon, SingleAnnotationWrapper, WsiAnnotations
+from dlup.backends import ImageBackend
 from dlup.cli import file_path
 from dlup.data.dataset import TiledWsiDataset
-from dlup.experimental_backends import ImageBackend
 from dlup.tiling import TilingMode
 from dlup.utils.mask import dataset_to_polygon
 

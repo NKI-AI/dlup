@@ -7,7 +7,8 @@ import pyvips
 from PIL import Image, ImageColor
 
 from dlup import SlideImage
-from dlup.experimental_backends import ImageBackend, OpenSlideSlide
+from dlup.backends import ImageBackend, OpenSlideSlide, PyVipsSlide
+from dlup.backends.pyvips_backend import open_slide as open_pyvips_slide
 from dlup.writers import TiffCompression, TifffileImageWriter, _color_dict_to_color_lut
 
 COLORMAP = {
@@ -47,13 +48,30 @@ class TestTiffWriter:
                 size=size,
                 mpp=(target_mpp, target_mpp),
                 compression=TiffCompression.NONE,
-                pyramid=False,
+                pyramid=True,
             )
 
             writer.from_pil(pil_image)
             vips_image = pyvips.Image.new_from_file(temp_tiff.name)
             vips_image_numpy = np.asarray(vips_image)
             assert np.allclose(np.asarray(pil_image), vips_image_numpy)
+
+            # Let's test the pyvips open
+            slide = open_pyvips_slide(temp_tiff.name)
+            assert np.allclose(slide.spacing, (target_mpp, target_mpp))
+            slide.close()
+
+            # TODO, let's make a test like this with a mockup too
+            # Let's force it to open with openslide
+            with PyVipsSlide(temp_tiff.name) as slide0, PyVipsSlide(
+                temp_tiff.name, load_with_openslide=True
+            ) as slide1:
+                assert slide0._loader == "tiffload"
+                assert slide1._loader == "openslideload"
+                assert np.allclose(slide0.spacing, slide1.spacing)
+                assert slide0.level_count == slide1.level_count
+                assert slide0.dimensions == slide1.dimensions
+                assert np.allclose(slide0.level_downsamples, slide1.level_downsamples)
 
             with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.PYVIPS) as slide:
                 slide_mpp = slide.mpp

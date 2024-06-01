@@ -93,7 +93,14 @@ class TestAbstractBackend:
 
     def test_repr(self):
         slide = self.DummySlideBackend("test_filename.tiff")
-        assert repr(slide) == "<DummySlideBackend(test_filename.tiff)>"
+        assert (
+            repr(slide) == "<DummySlideBackend(filename=test_filename.tiff, "
+            "dimensions=(1000, 1000), spacing=(0.5, 0.5), "
+            "magnification=10.0, "
+            "vendor=TestVendor, "
+            "level_count=3, "
+            "mode=None)>"
+        )
 
     def test_spacing_without_set(self):
         slide = self.DummySlideBackend("test_filename.tiff")

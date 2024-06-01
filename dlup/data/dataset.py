@@ -33,9 +33,9 @@ from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import Point, Polygon, WsiAnnotations
+from dlup.backends import ImageBackend
 from dlup.backends.common import AbstractSlideBackend
 from dlup.background import is_foreground
-from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.types import PathLike, ROIType

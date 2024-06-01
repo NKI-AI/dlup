@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import abc
 import io
-from typing import Any, cast
+from types import TracebackType
+from typing import Any, Literal, Optional, Type, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -175,6 +176,9 @@ class AbstractSlideBackend(abc.ABC):
 
         scale_factor = min(size[0] / thumbnail.width, size[1] / thumbnail.height)
         thumbnail = thumbnail.resize(scale_factor, kernel="lanczos3")
+        if thumbnail.hasalpha():
+            thumbnail = thumbnail.flatten(background=(255, 255, 255))
+
         return thumbnail
 
     @property
@@ -225,5 +229,28 @@ class AbstractSlideBackend(abc.ABC):
     def close(self) -> None:
         """Close the underlying slide"""
 
+    def __enter__(self) -> AbstractSlideBackend:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Literal[False]:
+        self.close()
+        return False
+
+    def __close__(self) -> None:
+        self.close()
+
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}({self._filename})>"
+        return (
+            f"<{self.__class__.__name__}(filename={self._filename}, "
+            f"dimensions={self.dimensions}, "
+            f"spacing={self.spacing}, "
+            f"magnification={self.magnification}, "
+            f"vendor={self.vendor}, "
+            f"level_count={self.level_count}, "
+            f"mode={self.mode})>"
+        )
