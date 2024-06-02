@@ -38,22 +38,3 @@ max-line-length = "120"
 
 [tool.pylint.'TYPECHECK']
 generated-members=['numpy.*', 'torch.*', 'np.*', 'cv2.*', 'openslide.*']
-
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = py38, py39
-skip_missing_interpreters=true
-
-[gh-actions]
-python =
-    3.8: py38
-    3.9: py39
-
-[testenv]
-extras = dev
-allowlist_externals = sh
-commands=
-     sh -c "make test"
-     sh -c "dlup --help > /dev/null"
-"""
