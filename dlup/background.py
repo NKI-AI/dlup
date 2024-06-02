@@ -50,14 +50,13 @@ def is_foreground(
     if isinstance(background_mask, np.ndarray):
         return _is_foreground_numpy(slide_image, background_mask, region, threshold)
 
-    elif isinstance(background_mask, SlideImage):
+    if isinstance(background_mask, SlideImage):
         return _is_foreground_wsiannotations(background_mask, region, threshold)
 
-    elif isinstance(background_mask, WsiAnnotations):
+    if isinstance(background_mask, WsiAnnotations):
         return _is_foreground_polygon(slide_image, background_mask, region, threshold)
 
-    else:
-        raise DlupError(f"Unknown background mask type. Got {type(background_mask)}")
+    raise DlupError(f"Unknown background mask type. Got {type(background_mask)}")
 
 
 def _is_foreground_polygon(
@@ -72,7 +71,7 @@ def _is_foreground_polygon(
     scaling = slide_image.get_scaling(mpp)
 
     polygon_region = background_mask.read_region((x, y), scaling, (w, h))
-    total_area = sum([_.area for _ in polygon_region])
+    total_area = sum(_.area for _ in polygon_region)
 
     if threshold == 1.0 and total_area == w * h:
         return True

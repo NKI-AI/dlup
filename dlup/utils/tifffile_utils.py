@@ -1,4 +1,5 @@
 # Copyright (c) dlup contributors
+"""Utilities for handling tifffile objects."""
 import numpy as np
 import pyvips
 import tifffile
@@ -78,7 +79,7 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[int, int], size: tuple[
 
             fh.seek(offset)
             data = fh.read(bytecount)
-            tile, indices, shape = page.decode(data, index, jpegtables=jpeg_tables)
+            tile, _, _ = page.decode(data, index, jpegtables=jpeg_tables)
 
             image_y = (idx_y - tile_y0) * tile_height
             image_x = (idx_x - tile_x0) * tile_width

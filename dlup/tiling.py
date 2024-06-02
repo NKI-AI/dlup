@@ -70,7 +70,7 @@ def tiles_grid_coordinates(
     tile_size = _flattened_array(tile_size)
     tile_overlap = _flattened_array(tile_overlap)
 
-    if not (size.shape == tile_size.shape == tile_overlap.shape):
+    if not size.shape == tile_size.shape == tile_overlap.shape:
         raise ValueError("size, tile_size and tile_overlap should have the same dimensions.")
 
     if (size <= 0).any():

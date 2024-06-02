@@ -7,39 +7,10 @@ from types import TracebackType
 from typing import Any, Literal, Optional, Type, cast
 
 import numpy as np
-import numpy.typing as npt
-import PIL.Image
 import pyvips
 
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
-
-
-def numpy_to_pil(tile: npt.NDArray[np.uint8]) -> PIL.Image.Image:
-    """
-    Convert a numpy tile to a PIL image, assuming the last axis is the channels
-
-    Parameters
-    ----------
-    tile : np.ndarray
-
-    Returns
-    -------
-    PIL.Image
-    """
-    bands = tile.shape[-1]
-
-    if bands == 1:
-        mode = "L"
-        tile = tile[:, :, 0]
-    elif bands == 3:
-        mode = "RGB"
-    elif bands == 4:
-        mode = "RGBA"
-    else:
-        raise RuntimeError("Incorrect number of channels.")
-
-    return PIL.Image.fromarray(tile, mode=mode)
 
 
 class AbstractSlideBackend(abc.ABC):

@@ -51,6 +51,7 @@ class PyVipsSlide(AbstractSlideBackend):
         else:
             self._image = pyvips.Image.openslideload(self._filename)
 
+        self._images: list[pyvips.Image]
         self._loader = self._image.get("vips-loader")
         self._shapes: List[Tuple[int, int]] = []
         self._downsamples: List[float] = []

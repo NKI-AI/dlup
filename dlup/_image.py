@@ -36,6 +36,8 @@ _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 
 
 class Resampling(Enum):
+    """Resampling methods SlideImage (e.g. for images or masks)."""
+
     NEAREST = "nearest"
     LANCZOS = "lanczos"
 
@@ -210,6 +212,7 @@ class SlideImage:
             )
 
         self._internal_handler = internal_handler if internal_handler is not None else "pil"
+        self.__color_transform: PIL.ImageCms.ImageCmsTransform | None = None
 
     @property
     def internal_handler(self) -> Literal["pil", "vips"]:
@@ -265,11 +268,7 @@ class SlideImage:
             self.__color_transform = PIL.ImageCms.buildTransform(
                 self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0
             )
-        return (
-            cast(PIL.ImageCms.ImageCmsTransform, self.__color_transform)
-            if self.__color_transform is not None
-            else None
-        )
+        return self.__color_transform
 
     def __enter__(self) -> "SlideImage":
         return self
@@ -288,7 +287,7 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path).resolve()
@@ -308,8 +307,8 @@ class SlideImage:
 
         try:
             wsi = backend_callable(wsi_file_path)  # Instantiate the backend with the path
-        except UnsupportedSlideError:
-            raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
+        except UnsupportedSlideError as exc:
+            raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}") from exc
 
         return cls(wsi, identifier if identifier is not None else str(wsi_file_path), **kwargs)
 
@@ -441,7 +440,7 @@ class SlideImage:
 
             return pyvips.Image.new_from_array(np.asarray(pil_region), interpretation=vips_region.interpretation)
 
-        elif self._internal_handler == "vips":
+        if self._internal_handler == "vips":
             crop_box = (
                 int(np.floor(fractional_coordinates[0])),
                 int(np.floor(fractional_coordinates[1])),

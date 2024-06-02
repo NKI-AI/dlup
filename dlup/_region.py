@@ -38,7 +38,6 @@ class RegionView(ABC):
     @abstractmethod
     def size(self) -> tuple[int, ...]:
         """Returns size of the region in U units."""
-        pass
 
     def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> pyvips.Image:
         """Returns the requested region as a vips image."""
@@ -78,4 +77,3 @@ class RegionView(ABC):
     @abstractmethod
     def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> pyvips.Image:
         """Define a method to return a pyvips image containing the region."""
-        pass

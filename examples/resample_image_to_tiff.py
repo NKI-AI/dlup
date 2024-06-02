@@ -12,7 +12,6 @@ from typing import Iterator
 
 import numpy as np
 import numpy.typing as npt
-import PIL.Image
 
 from dlup import SlideImage
 from dlup.data.dataset import TiledWsiDataset
@@ -32,6 +31,7 @@ def resample(args: argparse.Namespace) -> None:
         mpp=mpp,
         crop=False,
         internal_handler="vips",
+        backend="PYVIPS",
     )
     scaled_region_view = dataset.slide_image.get_scaled_view(dataset.slide_image.get_scaling(mpp))
 
@@ -48,7 +48,7 @@ def resample(args: argparse.Namespace) -> None:
     def tiles_iterator(dataset: TiledWsiDataset) -> Iterator[npt.NDArray[np.int_]]:
         for tile in dataset:
             # TODO: Convert VIPS image to RGB directly
-            arr = np.asarray(PIL.Image.fromarray(np.asarray(tile["image"])).convert("RGB"))
+            arr = tile["image"].flatten(background=(255, 255, 255)).numpy()
             yield arr
 
     writer.from_tiles_iterator(tiles_iterator(dataset))

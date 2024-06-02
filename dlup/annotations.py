@@ -58,6 +58,15 @@ class AnnotationType(Enum):
     POLYGON = "polygon"
 
 
+_ASAP_TYPES = {
+    "polygon": AnnotationType.POLYGON,
+    "rectangle": AnnotationType.BOX,
+    "dot": AnnotationType.POINT,
+    "spline": AnnotationType.POLYGON,
+    "pointset": AnnotationType.POINT,
+}
+
+
 class AnnotationSorting(Enum):
     """The ways to sort the annotations. This is used in the constructors of the `WsiAnnotations` class, and applied
     to the output of `WsiAnnotations.read_region()`.
@@ -76,6 +85,18 @@ class AnnotationSorting(Enum):
 
 @dataclass(frozen=True)  # Frozen makes the class hashable
 class AnnotationClass:
+    """An annotation class. An annotation has two properties:
+    - label: The name of the annotation, e.g., "lymphocyte".
+    - a_cls: The type of annotation, e.g., AnnotationType.POINT.
+
+    Parameters
+    ----------
+    label : str
+        The name of the annotation.
+    a_cls : AnnotationType
+        The type of annotation.
+    """
+
     label: str
     a_cls: AnnotationType
 
@@ -189,10 +210,11 @@ def rescale_geometry(geometry: Union[Point, Polygon], scaling: float | None = No
     scaled_geometry = shapely.affinity.scale(geometry, scaling, scaling)
     if isinstance(geometry, Polygon):
         return Polygon(scaled_geometry, a_cls=geometry.annotation_class)
-    elif isinstance(geometry, Point):
+
+    if isinstance(geometry, Point):
         return Point(scaled_geometry, a_cls=geometry.annotation_class)
-    else:
-        raise ValueError(f"geometry type {type(geometry)} is not a valid dlup type.")
+
+    raise AnnotationError(f"geometry type {type(geometry)} is not a valid dlup type.")
 
 
 class CoordinatesDict(TypedDict):
@@ -205,6 +227,7 @@ def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> 
     if geom_type is None:
         raise ValueError("No type found in coordinates.")
     geom_type = geom_type.lower()
+
     if geom_type == "point":
         annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT)
         return [
@@ -213,10 +236,12 @@ def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> 
                 a_cls=annotation_class,
             )
         ]
-    elif geom_type == "multipoint":
+
+    if geom_type == "multipoint":
         annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT)
         return [Point(np.asarray(c) * multiplier, a_cls=annotation_class) for c in coordinates["coordinates"]]
-    elif geom_type == "polygon":
+
+    if geom_type == "polygon":
         annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
         return [
             Polygon(
@@ -224,14 +249,15 @@ def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> 
                 a_cls=annotation_class,
             )
         ]
-    elif geom_type == "multipolygon":
+
+    if geom_type == "multipolygon":
         annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
         multi_polygon = shapely.geometry.MultiPolygon(
             [[np.asarray(c[0]) * multiplier, np.asarray(c[1:]) * multiplier] for c in coordinates["coordinates"]]
         )
         return [Polygon(_, a_cls=annotation_class) for _ in multi_polygon.geoms]
-    else:
-        raise NotImplementedError(f"Not support geom_type {geom_type}")
+
+    raise AnnotationError(f"Unsupported geom_type {geom_type}")
 
 
 _POSTPROCESSORS: dict[AnnotationType, Callable[[Polygon | Point, Polygon], Polygon | Point]] = {
@@ -349,6 +375,15 @@ class SingleAnnotationWrapper:
         return tuple([self._get_bbox(_) for _ in data])
 
     def simplify(self, tolerance: float, *, preserve_topology: bool = True) -> None:
+        """Simplify the polygons in the annotation in-place using the Douglas-Peucker algorithm.
+
+        Parameters
+        ----------
+        tolerance : float
+            The tolerance parameter for the Douglas-Peucker algorithm.
+        preserve_topology : bool
+            If True, the algorithm will preserve the topology of the polygons.
+        """
         if self.type != AnnotationType.POLYGON:
             return
         self._annotation = [
@@ -529,7 +564,7 @@ class WsiAnnotations:
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
 
         _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
-        for idx, path in enumerate(_geojsons):
+        for path in _geojsons:
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
@@ -576,14 +611,6 @@ class WsiAnnotations:
         -------
         WsiAnnotations
         """
-        _ASAP_TYPES = {
-            "polygon": AnnotationType.POLYGON,
-            "rectangle": AnnotationType.BOX,
-            "dot": AnnotationType.POINT,
-            "spline": AnnotationType.POLYGON,
-            "pointset": AnnotationType.POINT,
-        }
-
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
         annotations: dict[str, SingleAnnotationWrapper] = dict()
@@ -985,18 +1012,19 @@ class WsiAnnotations:
         # TODO: There are weird things now with the annotation class and the type. Fix this.
         if self[annotation_class].type == AnnotationType.POINT:
             return Point(annotation, a_cls=annotation_class)
-        elif self[annotation_class].type == AnnotationType.POLYGON:
+
+        if self[annotation_class].type == AnnotationType.POLYGON:
             return Polygon(annotation, a_cls=annotation_class)
-        elif self[annotation_class].type == AnnotationType.BOX:
+
+        if self[annotation_class].type == AnnotationType.BOX:
             return Polygon(annotation, a_cls=annotation_class)
-        else:
-            raise RuntimeError(f"Unexpected type. Got {self[annotation_class].type}.")
+
+        raise AnnotationError(f"Unexpected type. Got {self[annotation_class].type}.")
 
     def __contains__(self, item: Union[str, AnnotationClass]) -> bool:
         if isinstance(item, str):
             return item in [_.label for _ in self.available_labels]
-        else:
-            return item in self.available_labels
+        return item in self.available_labels
 
     def __add__(self, other: WsiAnnotations) -> WsiAnnotations:
         if set(self.available_labels).intersection(other.available_labels) != set():
@@ -1106,7 +1134,7 @@ def _parse_asap_coordinates(
     elif annotation_type == AnnotationType.POINT:
         coordinates = shapely.geometry.MultiPoint(coordinates)
     else:
-        raise RuntimeError(f"Annotation type not supported. Got {annotation_type}.")
+        raise AnnotationError(f"Annotation type not supported. Got {annotation_type}.")
 
     return coordinates
 
@@ -1126,9 +1154,11 @@ def _v7_annotation_type_to_dlup_annotation_type(annotation_type: str) -> Annotat
     """
     if annotation_type == "bounding_box":
         return AnnotationType.BOX
-    elif annotation_type in ["polygon", "complex_polygon"]:
+
+    if annotation_type in ["polygon", "complex_polygon"]:
         return AnnotationType.POLYGON
-    elif annotation_type == "keypoint":
+
+    if annotation_type == "keypoint":
         return AnnotationType.POINT
-    else:
-        raise NotImplementedError(f"annotation_type {annotation_type} is not implemented or not a valid dlup type.")
+
+    raise NotImplementedError(f"annotation_type {annotation_type} is not implemented or not a valid dlup type.")

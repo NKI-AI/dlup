@@ -23,6 +23,8 @@ from dlup.utils.tifffile_utils import get_tile
 
 
 class TiffCompression(str, Enum):
+    """Compression types for tiff files."""
+
     NONE = "none"  # No compression
     CCITTFAX4 = "ccittfax4"  # Fax4 compression
     JPEG = "jpeg"  # Jpeg compression
