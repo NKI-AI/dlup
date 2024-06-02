@@ -74,8 +74,8 @@ class TestTiffWriter:
 
                 if Version(openslide.__library_version__) < Version("4.0.0"):
                     warnings.warn("Openslide version is too old, skipping some tests.")
-                    slide1.mpp = (target_mpp, target_mpp)
-                assert np.allclose(slide0.spacing, slide1.spacing)
+                else:
+                    assert np.allclose(slide0.spacing, slide1.spacing)
                 assert slide0.level_count == slide1.level_count
                 assert slide0.dimensions == slide1.dimensions
                 assert np.allclose(slide0.level_downsamples, slide1.level_downsamples)
