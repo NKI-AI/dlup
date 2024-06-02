@@ -33,8 +33,8 @@ class TestTiffWriter:
         ],
     )
     def test_tiff_writer(self, shape, target_mpp):
-        random_array = np.random.randint(low=0, high=255, size=shape, dtype=np.uint8)
-        pil_image = Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
+        array = (255 * np.arange(np.prod(shape)) / np.prod(shape)).astype(np.uint8).reshape(shape)
+        pil_image = Image.fromarray(array, mode="RGB" if len(shape) == 3 else "L")
         mode = pil_image.mode
 
         if mode == "L":
@@ -88,12 +88,12 @@ class TestTiffWriter:
 
     @pytest.mark.parametrize("pyramid", [True, False])
     def test_tiff_writer_pyramid(self, pyramid):
-        size = (1010, 2173, 3)
+        shape = (1010, 2173, 3)
         target_mpp = 1.0
         tile_size = (128, 128)
 
-        random_array = np.random.randint(low=0, high=255, size=size, dtype=np.uint8)
-        pil_image = Image.fromarray(random_array, mode="RGB")
+        array = (255 * np.arange(np.prod(shape)) / np.prod(shape)).astype(np.uint8).reshape(shape)
+        pil_image = Image.fromarray(array, mode="RGB")
         size = (*pil_image.size, 3)
 
         with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
@@ -126,16 +126,16 @@ class TestTiffWriter:
         ],
     )
     def test_color_map(self, shape, target_mpp):
-        random_array = np.zeros(shape, dtype=np.uint8)
+        array = np.zeros(shape, dtype=np.uint8)
         # Fill regions with 0, 1, 2, 3
         # Top-left region with 0 (already filled since the array is initialized with zeros)
         # Top-right region with 1
-        random_array[0:256, 256:512] = 1
+        array[0:256, 256:512] = 1
         # Bottom-left region with 2
-        random_array[256:512, 0:256] = 2
+        array[256:512, 0:256] = 2
         # Bottom-right region with 3
-        random_array[256:512, 256:512] = 3
-        pil_image = Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
+        array[256:512, 256:512] = 3
+        pil_image = Image.fromarray(array, mode="RGB" if len(shape) == 3 else "L")
         mode = pil_image.mode
 
         if mode == "L":
@@ -167,8 +167,9 @@ class TestTiffWriter:
 
     def test_image_type(self):
         # Test to raise a value error if color_map is defined for an RGB image.
-        random_array = np.random.randint(low=0, high=255, size=(512, 512, 3), dtype=np.uint8)
-        pil_image = Image.fromarray(random_array, mode="RGB")
+        shape = (512, 512, 3)
+        array = (255 * np.arange(np.prod(shape)) / np.prod(shape)).astype(np.uint8).reshape(shape)
+        pil_image = Image.fromarray(array, mode="RGB")
         size = (*pil_image.size, 3)
 
         with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
