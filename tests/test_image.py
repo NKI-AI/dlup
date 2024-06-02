@@ -33,7 +33,7 @@ class TestSlideImage:
 
     def test_properties(self, openslideslide_image):
         """Test properties."""
-        dlup_wsi = SlideImage(openslideslide_image, identifier="mock")
+        dlup_wsi = SlideImage(openslideslide_image, identifier="mock", internal_handler="vips")
         # assert dlup_wsi.aspect_ratio == openslideslide_image.image.width / openslideslide_image.image.height
         assert dlup_wsi.mpp == float(openslideslide_image.properties[openslide.PROPERTY_NAME_MPP_X])
         assert dlup_wsi.magnification == int(openslideslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
@@ -49,9 +49,13 @@ class TestSlideImage:
 
         if mpp[0] != mpp[1]:
             with pytest.raises(UnsupportedSlideError):
-                _ = SlideImage(openslide_image, identifier=slide_config.filename, overwrite_mpp=mpp)
+                _ = SlideImage(
+                    openslide_image, identifier=slide_config.filename, overwrite_mpp=mpp, internal_handler="vips"
+                )
             return
-        dlup_wsi = SlideImage(openslide_image, identifier=slide_config.filename, overwrite_mpp=(0.7, 0.7))
+        dlup_wsi = SlideImage(
+            openslide_image, identifier=slide_config.filename, overwrite_mpp=(0.7, 0.7), internal_handler="vips"
+        )
         assert dlup_wsi.mpp == 0.7
 
     @pytest.mark.parametrize("out_region_x", [0, 4, 3, 11])
@@ -135,7 +139,7 @@ class TestSlideImage:
 
         openslide_image = MockOpenSlideSlide.from_config(SLIDE_CONFIGS[0])
 
-        wsi = SlideImage(openslide_image, identifier="mock")
+        wsi = SlideImage(openslide_image, identifier="mock", internal_handler="vips")
         ssize = np.array(wsi.get_scaled_size(scaling))
 
         out_region_location = ssize - out_region_size - 1 + shift_x
@@ -186,7 +190,7 @@ class TestSlideImage:
         openslideslide_image.close = MagicMock(side_effect=original_close)
 
         # Create a SlideImage instance using the original openslideslide_image
-        with SlideImage(openslideslide_image) as image:
+        with SlideImage(openslideslide_image, internal_handler="vips") as image:
             # Access some attribute to ensure the context is active
             image.mpp
             # Ensure the close method has not been called yet
@@ -203,7 +207,7 @@ class TestSlideImage:
         original_close = openslideslide_image.close
         openslideslide_image.close = MagicMock(side_effect=original_close)
 
-        slide = SlideImage(openslideslide_image)
+        slide = SlideImage(openslideslide_image, internal_handler="vips")
         # Call the close method
         slide.close()
         # Check how often slide.close() has been called

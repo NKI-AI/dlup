@@ -11,7 +11,7 @@ from tests.test_image import _BASE_CONFIG
 @pytest.fixture
 def dlup_wsi():
     openslide_slide = MockOpenSlideSlide.from_config(_BASE_CONFIG)
-    return SlideImage(openslide_slide)
+    return SlideImage(openslide_slide, internal_handler="vips")
 
 
 @pytest.fixture
