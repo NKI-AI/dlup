@@ -1,9 +1,12 @@
 # Copyright (c) dlup contributors
 import tempfile
+import warnings
 
 import numpy as np
+import openslide
 import pytest
 import pyvips
+from packaging.version import Version
 from PIL import Image, ImageColor
 
 from dlup import SlideImage
@@ -68,6 +71,10 @@ class TestTiffWriter:
             ) as slide1:
                 assert slide0._loader == "tiffload"
                 assert slide1._loader == "openslideload"
+
+                if Version(openslide.__library_version__) <= Version("3.4.0"):
+                    warnings.warn("Openslide version is too old, skipping some tests.")
+                    slide1.mpp = (target_mpp, target_mpp)
                 assert np.allclose(slide0.spacing, slide1.spacing)
                 assert slide0.level_count == slide1.level_count
                 assert slide0.dimensions == slide1.dimensions
