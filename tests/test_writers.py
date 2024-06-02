@@ -72,7 +72,7 @@ class TestTiffWriter:
                 assert slide0._loader == "tiffload"
                 assert slide1._loader == "openslideload"
 
-                if Version(openslide.__library_version__) <= Version("3.4.0"):
+                if Version(openslide.__library_version__) < Version("4.0.0"):
                     warnings.warn("Openslide version is too old, skipping some tests.")
                     slide1.mpp = (target_mpp, target_mpp)
                 assert np.allclose(slide0.spacing, slide1.spacing)
