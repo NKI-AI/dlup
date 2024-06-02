@@ -50,14 +50,14 @@ setup(
         ],
     },
     install_requires=install_requires,
-    extras_requires={
+    extras_require={
         "dev": [
             "pytest>=8.2.1",
             "mypy>=1.10.0",
-            "pytest-mock>=3.15.0",
+            "pytest-mock>=3.14.0",
             "sphinx_copybutton>=0.5.2",
             "numpydoc>=1.7.0",
-            "myst_parser>-3.0.1",
+            "myst_parser>=3.0.1",
             "sphinx-book-theme>=1.1.2",
             "pylint>=3.2.2",
             "pydantic>=2.7.2",
