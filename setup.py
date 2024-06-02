@@ -50,7 +50,7 @@ setup(
         ],
     },
     install_requires=install_requires,
-    extras_require={
+    extras_requires={
         "dev": [
             "pytest>=8.2.1",
             "mypy>=1.10.0",
