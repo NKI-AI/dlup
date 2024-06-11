@@ -28,14 +28,14 @@ from typing import (
 
 import numpy as np
 import numpy.typing as npt
-import PIL
+import pyvips
 from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
 from dlup.annotations import Point, Polygon, WsiAnnotations
+from dlup.backends import ImageBackend
 from dlup.backends.common import AbstractSlideBackend
 from dlup.background import is_foreground
-from dlup.experimental_backends import ImageBackend
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.types import PathLike, ROIType
@@ -52,7 +52,11 @@ _LabelTypes = Union[str, bool, int, float]
 
 
 class TileSample(TypedDict):
-    image: PIL.Image.Image
+    """
+    A sample from a dlup dataset.
+    """
+
+    image: pyvips.Image
     coordinates: tuple[int | float, int | float]
     mpp: float
     path: PathLike
@@ -76,10 +80,14 @@ AnnotationData = TypedDict(
 
 
 class TileSampleWithAnnotationData(TypedDict):
+    """A sample from a dlup dataset with annotation data."""
+
     annotation_data: AnnotationData
 
 
 class RegionFromWsiDatasetSample(TileSample):
+    """A sample from a dlup dataset with additional information about the grid."""
+
     grid_local_coordinates: tuple[int, int]
     grid_index: int
 
@@ -194,7 +202,10 @@ LRU_CACHE_SIZE = 32
 
 @functools.lru_cache(LRU_CACHE_SIZE)
 def _get_cached_slide_image(
-    path: pathlib.Path, backend: ImageBackend | Type[AbstractSlideBackend], apply_color_profile: bool, **kwargs: Any
+    path: pathlib.Path,
+    backend: ImageBackend | Type[AbstractSlideBackend] | str,
+    apply_color_profile: bool,
+    **kwargs: Any,
 ) -> "SlideImage":
     return SlideImage.from_file_path(path, backend=backend, apply_color_profile=apply_color_profile, **kwargs)
 
@@ -220,7 +231,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         output_tile_size: tuple[int, int] | None = None,
         annotations: list[_AnnotationTypes] | _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
-        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
         apply_color_profile: bool = False,
         **kwargs: Any,
     ):
@@ -248,7 +259,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             Image-level labels. Will be added to each individual tile.
         transform :
             Transforming function. To be used for augmentations or other model specific preprocessing.
-        backend : ImageBackend or AbstractSlideBackend
+        backend : ImageBackend, AbstractSlideBackend or str
            Backend to pass to SlideImage
         apply_color_profile : bool
             Whether to apply the ICC profile to the image if available.
@@ -357,7 +368,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
 
         if self.labels:
-            sample["labels"] = {k: v for k, v in self.labels}
+            sample["labels"] = dict(self.labels)
 
         return sample
 
@@ -415,7 +426,7 @@ class TiledWsiDataset(BaseWsiDataset):
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[RegionFromWsiDatasetSample], RegionFromWsiDatasetSample] | None = None,
-        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> None:
         self._grids = grids
@@ -461,7 +472,7 @@ class TiledWsiDataset(BaseWsiDataset):
         annotations: _AnnotationTypes | None = None,
         labels: list[tuple[str, _LabelTypes]] | None = None,
         transform: Callable[[TileSample], RegionFromWsiDatasetSample] | None = None,
-        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
         limit_bounds: bool = True,
         **kwargs: Any,
     ) -> "TiledWsiDataset":
@@ -499,7 +510,7 @@ class TiledWsiDataset(BaseWsiDataset):
             Image-level labels. Will be added to each individual tile.
         transform : Callable
             Transform to be applied to the sample.
-        backend : ImageBackend
+        backend : ImageBackend, AbstractSlideBackend or str
             Backend to use to read the whole slide image.
         limit_bounds : bool
             If the bounds of the grid should be limited to the bounds of the slide given in the `slide_bounds` property
@@ -525,11 +536,6 @@ class TiledWsiDataset(BaseWsiDataset):
                 slide_level_size = slide_image.get_scaled_size(scaling, limit_bounds=False)
                 _rois = parse_rois(rois, slide_level_size, scaling=scaling)
             elif limit_bounds:
-                if backend == ImageBackend.AUTODETECT:
-                    raise ValueError(
-                        "Cannot use AutoDetect as backend and use limit_bounds at the same time. "
-                        "This is related to issue #151. See https://github.com/NKI-AI/dlup/issues/151"
-                    )
                 _rois = [slide_image.get_scaled_slide_bounds(scaling=scaling)]
             else:
                 slide_level_size = slide_image.get_scaled_size(scaling, limit_bounds=False)
@@ -614,14 +620,30 @@ class TiledWsiDataset(BaseWsiDataset):
 
 
 def parse_rois(rois: list[ROIType] | None, image_size: tuple[int, int], scaling: float = 1.0) -> list[ROIType]:
+    """Parse the ROIs to be used in the dataset.
+
+    Parameters
+    ----------
+    rois : list[ROIType]
+        List of ROIs.
+    image_size : tuple[int, int]
+        Size of the image.
+    scaling : float
+        Scaling factor.
+
+    Returns
+    -------
+    list[ROIType]
+        List of ROIs.
+    """
     if rois is None:
         return [((0, 0), image_size)]
-    else:
-        # Do some checks whether the ROIs are within the image
-        origin_positive = [np.all(np.asarray(coords) > 0) for coords, size in rois]
-        image_within_borders = [np.all((np.asarray(coords) + size) <= image_size) for coords, size in rois]
-        if not origin_positive or not image_within_borders:
-            raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
+
+    # Do some checks whether the ROIs are within the image
+    origin_positive = [np.all(np.asarray(coords) > 0) for coords, size in rois]
+    image_within_borders = [np.all((np.asarray(coords) + size) <= image_size) for coords, size in rois]
+    if not origin_positive or not image_within_borders:
+        raise ValueError(f"ROIs should be within image boundaries. Got {rois}.")
 
     _rois = []
     for coords, size in rois:

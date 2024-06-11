@@ -1,3 +1,5 @@
+# Copyright (c) dlup contributors
+"""Utilities for handling WSIs."""
 import math
 
 from dlup import UnsupportedSlideError

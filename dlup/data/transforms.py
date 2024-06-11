@@ -1,5 +1,4 @@
 # Copyright (c) dlup contributors
-# pylint: disable=unsubscriptable-object
 from __future__ import annotations
 
 from collections import defaultdict
@@ -8,8 +7,6 @@ from typing import Iterable, cast
 import cv2
 import numpy as np
 import numpy.typing as npt
-import PIL.Image
-import shapely
 
 import dlup.annotations
 from dlup._exceptions import AnnotationError
@@ -175,9 +172,10 @@ class ConvertAnnotationsToMask:
         if _annotations is None:
             raise ValueError("No annotations found to convert to mask.")
 
+        image = sample["image"]
         points, boxes, mask, roi = convert_annotations(
             _annotations,
-            sample["image"].size[::-1],
+            (image.height, image.width),
             roi_name=self._roi_name,
             index_map=self._index_map,
             default_value=self._default_value,
@@ -250,121 +248,4 @@ class RenameLabels:
             raise ValueError("No annotations found to rename.")
 
         sample["annotations"] = rename_labels(_annotations, self._remap_labels)
-        return sample
-
-
-class MajorityClassToLabel:
-    """Transform which the majority class in the annotations to a label.
-
-    The function works as follows:
-    - The total area for each label in the sample is computed, the label with the maximum area is determined.
-    - The total area *not* covered by the ROI is computed.
-    - If the area the roi doesn't cover is larger than the label with the maximum area the image is masked on the ROI.
-    - The label is added to the output dictionary in ["labels"]["majority_label"]
-    """
-
-    def __init__(self, *, roi_name: str | None, index_map: dict[str, int]):
-        """
-        Parameters
-        ----------
-        roi_name : str
-            Name of the ROI key.
-        index_map : dict
-            Dictionary mapping the label to the integer in the output.
-        """
-        self._roi_name = roi_name
-        self._index_map = index_map
-
-    def __call__(self, sample: TileSample) -> TileSample:
-        _annotations = sample["annotations"]
-        if _annotations is None:
-            raise ValueError("No annotations found to convert to class label.")
-
-        if not sample["labels"]:
-            sample["labels"] = {}
-        # mypy doesn't understand that sample["labels"] is not None anymore
-        assert sample["labels"]
-
-        areas: dict[str, int] = defaultdict(int)
-        keys = list(self._index_map.keys())
-        if self._roi_name:
-            keys.append(self._roi_name)
-
-        for annotation in _annotations:
-            if annotation.label in keys:
-                areas[annotation.label] += annotation.area
-
-        tile_area = float(np.prod(sample["image"].size))
-        roi_non_cover = 0.0
-        if self._roi_name:
-            roi_non_cover = (tile_area - areas[self._roi_name]) / tile_area
-            del areas[self._roi_name]
-
-        max_key = max(areas, key=lambda x: areas[x])
-        max_proportion = areas[max_key] / tile_area
-
-        if roi_non_cover > max_proportion:
-            # In this case we cannot be certain about the label as the non-covering part of the ROI is larger than the
-            # majority class.
-            # In this case we mask the image.
-            _, _, _, roi = convert_annotations(
-                _annotations,
-                sample["image"].size[::-1],
-                roi_name=self._roi_name,
-                index_map={},
-            )
-            assert roi
-            masked_image = np.asarray(sample["image"]) * roi[..., np.newaxis]
-            sample["image"] = PIL.Image.fromarray(masked_image.astype(np.uint8), mode=sample["image"].mode)
-
-        sample["labels"].update({"majority_class": self._index_map[max_key]})
-        return sample
-
-
-class ContainsPolygonToLabel:
-    """Transform which transforms annotations into a sample-level label whether the label is present above a threshold.
-
-    The area of the label within the ROI (if given) is first computed. If the proportion of this label in the
-    image itself is above the threshold, the ["labels"]["has <label>"] is set to True, otherwise False.
-
-    """
-
-    def __init__(self, *, roi_name: str | None, label: str, threshold: float):
-        """
-        Parameters
-        ----------
-        roi_name : str
-            Name of the ROI key.
-        label : str
-            Which label to test.
-        threshold : float
-            Threshold as number between 0 and 1 that denotes when we should consider the label to be present.
-        """
-        self._roi_name = roi_name
-        self._label = label
-        self._threshold = threshold
-
-    def __call__(self, sample: TileSample) -> TileSample:
-        _annotations = sample["annotations"]
-        if _annotations is None:
-            raise ValueError("No annotations found to convert to class label.")
-
-        if not sample["labels"]:
-            sample["labels"] = {}
-        assert sample["labels"]
-
-        requested_polygons = [_ for _ in _annotations if _.label == self._label]
-
-        if self._roi_name:
-            roi = shapely.geometry.MultiPolygon([_ for _ in _annotations if _.label == self._roi_name])
-        else:
-            roi = shapely.geometry.box(0, 0, *(sample["image"].size[::-1]))
-
-        multi_polygon = shapely.geometry.MultiPolygon(requested_polygons)
-        if not multi_polygon.is_valid:
-            multi_polygon = shapely.make_valid(multi_polygon)
-        label_area = multi_polygon.intersection(roi).area
-
-        proportion = label_area / roi.area
-        sample["labels"].update({f"has {self._label}": proportion > self._threshold})
         return sample

@@ -1,3 +1,4 @@
+# Copyright (c) dlup contributors
 """Test for the TiffFile backend. Works by creating a tiff file and then reading it with the TiffFile backend.
 The results are also compared against the openslide backend.
 """
@@ -5,12 +6,12 @@ The results are also compared against the openslide backend.
 import numpy as np
 import PIL.Image
 import pytest
+import pyvips
 
-from dlup._image import Resampling
+from dlup.backends.openslide_backend import OpenSlideSlide
+from dlup.backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.backends.tifffile_backend import TifffileSlide
 from dlup.backends.tifffile_backend import open_slide as open_slide_tifffile
-from dlup.experimental_backends.openslide_backend import OpenSlideSlide
-from dlup.experimental_backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.writers import TiffCompression, TifffileImageWriter
 
 
@@ -22,18 +23,18 @@ def file_path(tmp_path):
 
 
 def write_image_to_tiff(file_path, image, mpp, size, pyramid):
-    array = np.asarray(image)
+    array = image.numpy()
     channels = array.shape[2] if array.ndim == 3 else 1
     writer = TifffileImageWriter(
         file_path,
         size=(*size[::-1], channels),
         mpp=mpp,
         compression=TiffCompression.NONE,
-        interpolator=Resampling.NEAREST,
+        is_mask=False,
         tile_size=(128, 128),
         pyramid=pyramid,
     )
-    writer.from_pil(image)
+    writer.from_pil(PIL.Image.fromarray(array))
 
 
 def create_test_image(size, channels, color1, color2):
@@ -46,7 +47,7 @@ def create_test_image(size, channels, color1, color2):
         array = np.zeros(size, dtype=np.uint8)
         array[: half_size[0], : half_size[1]] = color1
         array[half_size[0] :, half_size[1] :] = color2
-    return PIL.Image.fromarray(array, mode="RGB" if channels == 3 else "L")
+    return pyvips.Image.new_from_array(array)
 
 
 @pytest.fixture
@@ -99,9 +100,11 @@ class TestBackends:
             ((_size[0] // 7, _size[1] // 7), (_size[0] - _size[0] // 7, _size[1] - _size[1] // 7)),
         ]
         for location, region_size in regions:
-            tiff_region = tiff_slide.read_region(location, 0, region_size)
+            tiff_region = PIL.Image.fromarray(np.asarray(tiff_slide.read_region(location, 0, region_size)))
             assert tiff_region.mode == mode
-            openslide_region = openslide_slide.read_region(location, 0, region_size).convert(mode)
+            openslide_region = PIL.Image.fromarray(
+                np.asarray(openslide_slide.read_region(location, 0, region_size))
+            ).convert(mode)
 
             cropped_array = original_array[
                 location[1] : location[1] + region_size[1], location[0] : location[0] + region_size[0]
@@ -154,6 +157,7 @@ class TestBackends:
         color2 = 127
         mode = "RGB" if channels == 3 else "L"
         test_image = create_test_image(size, channels, color1, color2)
+        assert isinstance(test_image, pyvips.Image)
 
         tiff_slide, openslide_slide = slides  # Unpack the slides from the fixture
         self.property_asserts(tiff_slide, openslide_slide, size, mpp, pyramid)

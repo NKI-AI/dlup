@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 """General utilities for module imports"""
 from importlib.util import find_spec

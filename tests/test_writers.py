@@ -1,14 +1,17 @@
 # Copyright (c) dlup contributors
 import tempfile
+import warnings
 
 import numpy as np
+import openslide
 import pytest
 import pyvips
+from packaging.version import Version
 from PIL import Image, ImageColor
 
 from dlup import SlideImage
-from dlup.experimental_backends import ImageBackend, OpenSlideSlide
-from dlup.utils.pyvips_utils import vips_to_numpy
+from dlup.backends import ImageBackend, OpenSlideSlide, PyVipsSlide
+from dlup.backends.pyvips_backend import open_slide as open_pyvips_slide
 from dlup.writers import TiffCompression, TifffileImageWriter, _color_dict_to_color_lut
 
 COLORMAP = {
@@ -33,8 +36,8 @@ class TestTiffWriter:
         ],
     )
     def test_tiff_writer(self, shape, target_mpp):
-        random_array = np.random.randint(low=0, high=255, size=shape, dtype=np.uint8)
-        pil_image = Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
+        array = (255 * np.arange(np.prod(shape)) / np.prod(shape)).astype(np.uint8).reshape(shape)
+        pil_image = Image.fromarray(array, mode="RGB" if len(shape) == 3 else "L")
         mode = pil_image.mode
 
         if mode == "L":
@@ -48,28 +51,84 @@ class TestTiffWriter:
                 size=size,
                 mpp=(target_mpp, target_mpp),
                 compression=TiffCompression.NONE,
+                pyramid=True,
             )
 
             writer.from_pil(pil_image)
             vips_image = pyvips.Image.new_from_file(temp_tiff.name)
-            vips_image_numpy = vips_to_numpy(vips_image)
-            if mode == "L":
-                vips_image_numpy = vips_image_numpy[..., 0]
-
+            vips_image_numpy = np.asarray(vips_image)
             assert np.allclose(np.asarray(pil_image), vips_image_numpy)
 
-            with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.PYVIPS) as slide:
+            # Let's test the pyvips open
+            slide = open_pyvips_slide(temp_tiff.name)
+            assert np.allclose(slide.spacing, (target_mpp, target_mpp))
+            slide.close()
+
+            # TODO, let's make a test like this with a mockup too
+            # Let's force it to open with openslide
+            with PyVipsSlide(temp_tiff.name) as slide0, PyVipsSlide(
+                temp_tiff.name, load_with_openslide=True
+            ) as slide1:
+                assert slide0._loader == "tiffload"
+                assert slide1._loader == "openslideload"
+
+                if Version(openslide.__library_version__) < Version("4.0.0"):
+                    warnings.warn("Openslide version is too old, skipping some tests.")
+                else:
+                    assert np.allclose(slide0.spacing, slide1.spacing)
+                assert slide0.level_count == slide1.level_count
+                assert slide0.dimensions == slide1.dimensions
+                assert np.allclose(slide0.level_downsamples, slide1.level_downsamples)
+
+            with SlideImage.from_file_path(
+                temp_tiff.name, backend=ImageBackend.PYVIPS, internal_handler="vips"
+            ) as slide:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
 
             # Let's try the same with directly the backend
-            with SlideImage.from_file_path(temp_tiff.name, backend=OpenSlideSlide) as slide:
+            with SlideImage.from_file_path(temp_tiff.name, backend=OpenSlideSlide, internal_handler="vips") as slide:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
 
-            with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.OPENSLIDE) as slide:
+            with SlideImage.from_file_path(
+                temp_tiff.name, backend=ImageBackend.OPENSLIDE, internal_handler="vips"
+            ) as slide:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
+
+    @pytest.mark.parametrize("pyramid", [True, False])
+    def test_tiff_writer_pyramid(self, pyramid):
+        shape = (1010, 2173, 3)
+        target_mpp = 1.0
+        tile_size = (128, 128)
+
+        array = (255 * np.arange(np.prod(shape)) / np.prod(shape)).astype(np.uint8).reshape(shape)
+        pil_image = Image.fromarray(array, mode="RGB")
+        size = (*pil_image.size, 3)
+
+        with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
+            writer = TifffileImageWriter(
+                temp_tiff.name,
+                size=size,
+                mpp=(target_mpp, target_mpp),
+                tile_size=tile_size,
+                compression=TiffCompression.NONE,
+                pyramid=True,
+            )
+            writer.from_pil(pil_image)
+
+            vips_image = pyvips.Image.new_from_file(temp_tiff.name)
+
+            n_pages = vips_image.get("n-pages")
+
+            assert n_pages == int(np.ceil(np.log2(np.asarray(size[:-1]) / np.asarray([tile_size]))).min()) + 1
+            assert vips_image.get("xres") == 1000.0 and vips_image.get("yres") == 1000.0
+
+            for page in range(1, n_pages):
+                vips_page = pyvips.Image.tiffload(temp_tiff.name, page=page)
+                assert vips_page.get("height") == size[1] // 2**page
+                assert vips_page.get("width") == size[0] // 2**page
 
     @pytest.mark.parametrize(
         ["shape", "target_mpp"],
@@ -78,16 +137,16 @@ class TestTiffWriter:
         ],
     )
     def test_color_map(self, shape, target_mpp):
-        random_array = np.zeros(shape, dtype=np.uint8)
+        array = np.zeros(shape, dtype=np.uint8)
         # Fill regions with 0, 1, 2, 3
         # Top-left region with 0 (already filled since the array is initialized with zeros)
         # Top-right region with 1
-        random_array[0:256, 256:512] = 1
+        array[0:256, 256:512] = 1
         # Bottom-left region with 2
-        random_array[256:512, 0:256] = 2
+        array[256:512, 0:256] = 2
         # Bottom-right region with 3
-        random_array[256:512, 256:512] = 3
-        pil_image = Image.fromarray(random_array, mode="RGB" if len(shape) == 3 else "L")
+        array[256:512, 256:512] = 3
+        pil_image = Image.fromarray(array, mode="RGB" if len(shape) == 3 else "L")
         mode = pil_image.mode
 
         if mode == "L":
@@ -106,7 +165,9 @@ class TestTiffWriter:
 
             writer.from_pil(pil_image)
 
-            with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.PYVIPS) as slide:
+            with SlideImage.from_file_path(
+                temp_tiff.name, backend=ImageBackend.PYVIPS, internal_handler="vips"
+            ) as slide:
                 slide_mpp = slide.mpp
                 thumbnail = slide.get_thumbnail(size=shape)
                 assert np.allclose(slide_mpp, target_mpp)
@@ -119,8 +180,9 @@ class TestTiffWriter:
 
     def test_image_type(self):
         # Test to raise a value error if color_map is defined for an RGB image.
-        random_array = np.random.randint(low=0, high=255, size=(512, 512, 3), dtype=np.uint8)
-        pil_image = Image.fromarray(random_array, mode="RGB")
+        shape = (512, 512, 3)
+        array = (255 * np.arange(np.prod(shape)) / np.prod(shape)).astype(np.uint8).reshape(shape)
+        pil_image = Image.fromarray(array, mode="RGB")
         size = (*pil_image.size, 3)
 
         with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:

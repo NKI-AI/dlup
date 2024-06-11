@@ -2,41 +2,15 @@
 from __future__ import annotations
 
 import abc
-from typing import Any
+import io
+from types import TracebackType
+from typing import Any, Literal, Optional, Type, cast
 
 import numpy as np
-import numpy.typing as npt
-import PIL.Image
-from PIL.ImageCms import ImageCmsProfile
+import pyvips
 
-from dlup.types import GenericNumber, PathLike
-
-
-def numpy_to_pil(tile: npt.NDArray[np.uint8]) -> PIL.Image.Image:
-    """
-    Convert a numpy tile to a PIL image, assuming the last axis is the channels
-
-    Parameters
-    ----------
-    tile : np.ndarray
-
-    Returns
-    -------
-    PIL.Image
-    """
-    bands = tile.shape[-1]
-
-    if bands == 1:
-        mode = "L"
-        tile = tile[:, :, 0]
-    elif bands == 3:
-        mode = "RGB"
-    elif bands == 4:
-        mode = "RGBA"
-    else:
-        raise RuntimeError("Incorrect number of channels.")
-
-    return PIL.Image.fromarray(tile, mode=mode)
+from dlup.types import PathLike
+from dlup.utils.image import check_if_mpp_is_valid
 
 
 class AbstractSlideBackend(abc.ABC):
@@ -69,7 +43,7 @@ class AbstractSlideBackend(abc.ABC):
         return self._level_count
 
     @property
-    def level_dimensions(self) -> list[tuple[int, int]]:
+    def level_dimensions(self) -> tuple[tuple[int, int], ...]:
         """A list of (width, height) tuples, one for each level of the image.
         This property level_dimensions[n] contains the dimensions of the image at level n.
 
@@ -78,7 +52,7 @@ class AbstractSlideBackend(abc.ABC):
         list
 
         """
-        return self._shapes
+        return tuple(self._shapes)
 
     @property
     def dimensions(self) -> tuple[int, int]:
@@ -105,7 +79,13 @@ class AbstractSlideBackend(abc.ABC):
 
     @spacing.setter
     def spacing(self, value: tuple[float, float]) -> None:
-        """Set the spacing as a (mpp_x, mpp_y) tuple"""
+        if not isinstance(value, tuple) and len(value) != 2:
+            raise ValueError("`.spacing` has to be of the form (mpp_x, mpp_y).")
+
+        mpp_x, mpp_y = value
+        check_if_mpp_is_valid(mpp_x, mpp_y)
+        mpp = np.array([mpp_x, mpp_y])
+        self._spacings = [cast(tuple[float, float], tuple(mpp * downsample)) for downsample in self.level_downsamples]
 
     @property
     def level_spacings(self) -> tuple[tuple[float, float], ...]:
@@ -142,10 +122,10 @@ class AbstractSlideBackend(abc.ABC):
         level = 0 if downsample < 1 else int(np.where(level_downsamples <= downsample)[0][-1])
         return level
 
-    def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
+    def get_thumbnail(self, size: int | tuple[int, int]) -> pyvips.Image:
         """
         Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
-        Aspect ratio is preserved.
+        Aspect ratio is preserved, so the given size is the maximum size of the thumbnail respecting that aspect ratio.
 
         Parameters
         ----------
@@ -154,7 +134,7 @@ class AbstractSlideBackend(abc.ABC):
 
         Returns
         -------
-        PIL.Image
+        pyvips.Image
             The thumbnail.
         """
         if isinstance(size, int):
@@ -163,14 +143,13 @@ class AbstractSlideBackend(abc.ABC):
         downsample = max(*(dim / thumb for dim, thumb in zip(self.dimensions, size)))
         level = self.get_best_level_for_downsample(downsample)
 
-        thumbnail = (
-            self.read_region((0, 0), level, self.level_dimensions[level])
-            .convert("RGB")
-            .resize(
-                np.floor(np.asarray(self.dimensions) / downsample).astype(int).tolist(),
-                resample=PIL.Image.Resampling.LANCZOS,
-            )
-        )
+        thumbnail = self.read_region((0, 0), level, self.level_dimensions[level])
+
+        scale_factor = min(size[0] / thumbnail.width, size[1] / thumbnail.height)
+        thumbnail = thumbnail.resize(scale_factor, kernel="lanczos3")
+        if thumbnail.hasalpha():
+            thumbnail = thumbnail.flatten(background=(255, 255, 255))
+
         return thumbnail
 
     @property
@@ -179,7 +158,7 @@ class AbstractSlideBackend(abc.ABC):
         return (0, 0), self.dimensions
 
     @property
-    def color_profile(self) -> ImageCmsProfile | None:
+    def color_profile(self) -> io.BytesIO | None:
         raise NotImplementedError("Color profiles are currently not implemented in this backend.")
 
     @property
@@ -188,9 +167,7 @@ class AbstractSlideBackend(abc.ABC):
         """Properties of slide"""
 
     @abc.abstractmethod
-    def read_region(
-        self, coordinates: tuple[GenericNumber, GenericNumber], level: int, size: tuple[int, int]
-    ) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[int, int], level: int, size: tuple[int, int]) -> pyvips.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -205,8 +182,8 @@ class AbstractSlideBackend(abc.ABC):
 
         Returns
         -------
-        PIL.Image
-            The requested region.
+        pyvips.Image
+            The requested region as a pyvips image.
         """
 
     @property
@@ -223,5 +200,28 @@ class AbstractSlideBackend(abc.ABC):
     def close(self) -> None:
         """Close the underlying slide"""
 
+    def __enter__(self) -> AbstractSlideBackend:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Literal[False]:
+        self.close()
+        return False
+
+    def __close__(self) -> None:
+        self.close()
+
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}({self._filename})>"
+        return (
+            f"<{self.__class__.__name__}(filename={self._filename}, "
+            f"dimensions={self.dimensions}, "
+            f"spacing={self.spacing}, "
+            f"magnification={self.magnification}, "
+            f"vendor={self.vendor}, "
+            f"level_count={self.level_count}, "
+            f"mode={self.mode})>"
+        )

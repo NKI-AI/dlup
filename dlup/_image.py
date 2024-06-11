@@ -8,9 +8,11 @@ of discrete-levels pyramidal images in a continuous way, supporting multiple dif
 from __future__ import annotations
 
 import errno
+import io
 import os
 import pathlib
-from enum import IntEnum
+import warnings
+from enum import Enum
 from types import TracebackType
 from typing import Any, Literal, Optional, Type, TypeVar, cast
 
@@ -18,12 +20,14 @@ import numpy as np
 import numpy.typing as npt
 import PIL
 import PIL.Image
-from PIL.ImageCms import ImageCmsProfile
+import PIL.ImageCms
+import pyvips
+from pyvips.enums import Kernel as VipsKernel
 
 from dlup import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
+from dlup.backends import ImageBackend
 from dlup.backends.common import AbstractSlideBackend
-from dlup.experimental_backends import ImageBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
@@ -31,13 +35,15 @@ _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 
 
-class Resampling(IntEnum):
-    NEAREST = 0
-    BOX = 4
-    BILINEAR = 2
-    HAMMING = 5
-    BICUBIC = 3
-    LANCZOS = 1
+class Resampling(Enum):
+    """Resampling methods SlideImage (e.g. for images or masks)."""
+
+    NEAREST = "nearest"
+    LANCZOS = "lanczos"
+
+
+_RESAMPLE_TO_PIL = {Resampling.NEAREST: PIL.Image.Resampling.NEAREST, Resampling.LANCZOS: PIL.Image.Resampling.LANCZOS}
+_RESAMPLE_TO_VIPS = {Resampling.NEAREST: VipsKernel.NEAREST, Resampling.LANCZOS: VipsKernel.LANCZOS3}
 
 
 class _SlideImageRegionView(RegionView):
@@ -61,11 +67,11 @@ class _SlideImageRegionView(RegionView):
         return self._wsi.mpp / self._scaling
 
     @property
-    def size(self) -> tuple[int, ...]:
+    def size(self) -> tuple[int, int]:
         """Size"""
         return self._wsi.get_scaled_size(self._scaling)
 
-    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> pyvips.Image:
         """Returns a region of the level associated to the view."""
         x, y = location
         w, h = size
@@ -143,6 +149,7 @@ class SlideImage:
         interpolator: Optional[Resampling] = Resampling.LANCZOS,
         overwrite_mpp: Optional[tuple[float, float]] = None,
         apply_color_profile: bool = False,
+        internal_handler: Optional[Literal["pil", "vips"]] = None,
     ) -> None:
         """Initialize a whole slide image and validate its properties. This class allows to read whole-slide images
         at any arbitrary resolution. This class can read images from any backend that implements the
@@ -156,12 +163,15 @@ class SlideImage:
             A user-defined identifier for the slide, used in e.g. exceptions.
         interpolator : Resampling, optional
             The interpolator to use when reading regions. For images typically LANCZOS is the best choice. Masks
-            can use NEAREST. If set to None, will use LANCZOS.
+            can use NEAREST. By default, will use LANCZOS
         overwrite_mpp : tuple[float, float], optional
             Overwrite the mpp of the slide. For instance, if the mpp is not available, or when sourcing from
             and external database.
         apply_color_profile : bool
             Whether to apply the color profile to the output regions.
+        internal_handler : Literal["pil", "vips"], optional
+            The internal handler to use for processing the regions. This can be either PIL or VIPS. PIL is the behavior
+            for all dlup versions prior to v0.4. It is recommended to migrate your code and use VIPS instead.
 
         Raises
         ------
@@ -176,10 +186,7 @@ class SlideImage:
         self._wsi = wsi
         self._identifier = identifier
 
-        if interpolator is not None:
-            self._interpolator = PIL.Image.Resampling[interpolator.name]
-        else:
-            self._interpolator = PIL.Image.Resampling.LANCZOS
+        self._interpolator = interpolator if interpolator else Resampling.LANCZOS
 
         if overwrite_mpp is not None:
             self._wsi.spacing = overwrite_mpp
@@ -196,58 +203,72 @@ class SlideImage:
         self._apply_color_profile = apply_color_profile
         self.__color_transforms = None
 
+        if not internal_handler:
+            warnings.warn(
+                "The internal handler is not set. Defaulting to PIL. "
+                "This behavior will be changed in dlup v1.0 where the default handler will become vips. "
+                'If you want your code to keep working as before you will need to set internal_handler="pil".',
+                UserWarning,
+            )
+
+        self._internal_handler = internal_handler if internal_handler is not None else "pil"
+        self.__color_transform: PIL.ImageCms.ImageCmsTransform | None = None
+
+    @property
+    def internal_handler(self) -> Literal["pil", "vips"]:
+        """Returns the internal handler used for processing the regions."""
+        return self._internal_handler
+
+    @property
+    def interpolator(self) -> Resampling:
+        """Returns the interpolator used for processing the regions."""
+        return self._interpolator
+
     def close(self) -> None:
         """Close the underlying image."""
         self._wsi.close()
 
     @property
-    def color_profile(self) -> ImageCmsProfile | None:
+    def color_profile(self) -> io.BytesIO | None:
         """Returns the ICC profile of the image.
-
         Each image in the pyramid has the same ICC profile, but the associated images might have their own.
-        If you wish to apply the ICC profile (which is also available as a property in the region itself).
 
-        TODO
-        ----
-        The color profile is attached to each region, but in our approach it is possible that at some point the
-        color profile is dropped due to casting to numpy arrays. This is not a problem for the moment, but
-        it might be in the future.
+        # TODO: Vips can apply the color profile directly when loading the image!
 
-        You can use the profile as follows:
-
+        Examples
+        --------
         >>> import dlup
         >>> from PIL import ImageCms
         >>> wsi = dlup.SlideImage.from_file_path("path/to/slide.svs")
         >>> region = wsi.read_region((0, 0), 1.0, (512, 512))
         >>> to_profile = ImageCms.createProfile("sRGB")
-        >>> intent = ImageCms.getDefaultIntent(wsi.color_profile)
-        >>> transform = ImageCms.buildTransform(wsi.color_profile, to_profile, "RGBA", "RGBA", intent, 0)
+        >>> color_profile = PIL.ImageCms.getOpenProfile(wsi.color_profile)
+        >>> intent = ImageCms.getDefaultIntent(color_profile)
+        >>> transform = ImageCms.buildTransform(color_profile, to_profile, "RGBA", "RGBA", intent, 0)
         >>> # Now you can apply the transform to the region (or any other PIL image)
         >>> ImageCms.applyTransform(region, transform, True)
 
         Returns
         -------
-        ImageCmsProfile
+        io.BytesIO
             The ICC profile of the image.
         """
         return getattr(self._wsi, "color_profile", None)
 
     @property
-    def _color_transform(self) -> PIL.ImageCms.ImageCmsTransform | None:
+    def _pil_color_transform(self) -> PIL.ImageCms.ImageCmsTransform | None:
         if self.color_profile is None:
             return None
 
+        color_profile = PIL.ImageCms.getOpenProfile(self.color_profile)  # type: ignore
+
         if self.__color_transforms is None:
             to_profile = PIL.ImageCms.createProfile("sRGB")
-            intent = PIL.ImageCms.getDefaultIntent(self.color_profile)  # type: ignore
+            intent = PIL.ImageCms.getDefaultIntent(color_profile)  # type: ignore
             self.__color_transform = PIL.ImageCms.buildTransform(
                 self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0
             )
-        return (
-            cast(PIL.ImageCms.ImageCmsTransform, self.__color_transform)
-            if self.__color_transform is not None
-            else None
-        )
+        return self.__color_transform
 
     def __enter__(self) -> "SlideImage":
         return self
@@ -266,7 +287,7 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: ImageBackend | Type[AbstractSlideBackend] = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path).resolve()
@@ -286,8 +307,8 @@ class SlideImage:
 
         try:
             wsi = backend_callable(wsi_file_path)  # Instantiate the backend with the path
-        except UnsupportedSlideError:
-            raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}")
+        except UnsupportedSlideError as exc:
+            raise UnsupportedSlideError(f"Unsupported file: {wsi_file_path}") from exc
 
         return cls(wsi, identifier if identifier is not None else str(wsi_file_path), **kwargs)
 
@@ -296,7 +317,7 @@ class SlideImage:
         location: GenericNumberArray | tuple[GenericNumber, GenericNumber],
         scaling: float,
         size: npt.NDArray[np.int_] | tuple[int, int],
-    ) -> PIL.Image.Image:
+    ) -> PIL.Image.Image | pyvips.Image:
         """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
@@ -328,11 +349,11 @@ class SlideImage:
 
         Parameters
         ----------
-        location :
+        location : tuple[int, int]
             Location from the top left (x, y) in pixel coordinates given at the requested scaling.
-        scaling :
+        scaling : float
             The scaling to be applied compared to level 0.
-        size :
+        size : tuple[int, int]
             Region size of the resulting region.
 
         Returns
@@ -384,35 +405,68 @@ class SlideImage:
         native_size_adapted = np.ceil(native_size_adapted).astype(int)
 
         # We extract the region via the slide backend with the required extra border
-        region = wsi.read_region(
+        vips_region = wsi.read_region(
             (level_zero_location_adapted[0], level_zero_location_adapted[1]),
             native_level,
             (native_size_adapted[0], native_size_adapted[1]),
         )
 
-        if self._apply_color_profile and self.color_profile is not None:
-            PIL.ImageCms.applyTransform(region, self._color_transform, True)
-            # Remove the ICC profile from the region to make sure it's not applied twice by accident.
-            # Should always be available if a color profile is present.
-            del region.info["icc_profile"]
-
-        # Within this region, there are a bunch of extra pixels, we interpolate to sample
-        # the pixel in the right position to retain the right sample weight.
-        # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
         fractional_coordinates = native_location - native_location_adapted
-        # TODO: This clipping could be in an error in OpenSlide mirax reader, but it's a minor thing for now
-        box = (
-            *fractional_coordinates,
-            *np.clip(
-                (fractional_coordinates + native_size),
-                a_min=0,
-                a_max=np.asarray(region.size),
-            ),
-        )
-        box = cast(tuple[float, float, float, float], box)
         size = cast(tuple[int, int], size)
-        region = region.resize(size, resample=self._interpolator, box=box)
-        return region
+
+        if self._internal_handler == "pil":
+            box = (
+                *fractional_coordinates,
+                *np.clip(
+                    (fractional_coordinates + native_size),
+                    a_min=0,
+                    a_max=(vips_region.width, vips_region.height),
+                ),
+            )
+            box = cast(tuple[float, float, float, float], box)
+
+            # Within this region, there are a bunch of extra pixels, we interpolate to sample
+            # the pixel in the right position to retain the right sample weight.
+            # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
+
+            pil_region = PIL.Image.fromarray(np.asarray(vips_region)).resize(
+                size,
+                resample=_RESAMPLE_TO_PIL[self._interpolator],
+                box=box,
+            )
+
+            if self._apply_color_profile and self._pil_color_transform is not None:
+                PIL.ImageCms.applyTransform(pil_region, self._pil_color_transform, inPlace=True)
+
+            return pyvips.Image.new_from_array(np.asarray(pil_region), interpretation=vips_region.interpretation)
+
+        if self._internal_handler == "vips":
+            crop_box = (
+                int(np.floor(fractional_coordinates[0])),
+                int(np.floor(fractional_coordinates[1])),
+                int(np.round(fractional_coordinates[0] + native_size[0])),
+                int(np.round(fractional_coordinates[1] + native_size[1])),
+            )
+
+            # Crop the region
+            crop_region = vips_region.crop(
+                crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]
+            )
+
+            if self._apply_color_profile and self.color_profile is not None:
+                crop_region.set_type(pyvips.GValue.blob_type, "icc-profile-data", self.color_profile.read())
+                crop_region = crop_region.icc_transform("srgb")
+            # Calculate the size of the target region
+            target_width, target_height = size
+
+            # Resize the cropped region to the target size
+            resized_region = crop_region.resize(
+                target_width / crop_region.width,
+                vscale=target_height / crop_region.height,
+                kernel=_RESAMPLE_TO_VIPS[self._interpolator],
+            )
+
+            return resized_region
 
     def get_scaled_size(self, scaling: GenericNumber, limit_bounds: Optional[bool] = False) -> tuple[int, int]:
         """Compute slide image size at specific scaling.
@@ -473,7 +527,7 @@ class SlideImage:
         """Returns a RegionView at a specific level."""
         return _SlideImageRegionView(self, scaling)
 
-    def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> PIL.Image.Image:
+    def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> pyvips.Image:
         """Returns an RGB `PIL.Image.Image` thumbnail for the current slide.
 
         Parameters
@@ -489,8 +543,8 @@ class SlideImage:
         return self._wsi.get_thumbnail(size)
 
     @property
-    def thumbnail(self) -> PIL.Image.Image:
-        """Returns the thumbnail."""
+    def thumbnail(self) -> pyvips.Image:
+        """Returns the thumbnail with a bounding box of (512, 512)."""
         return self.get_thumbnail()
 
     @property
@@ -557,9 +611,12 @@ class SlideImage:
 
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
-        props = ("identifier", "vendor", "mpp", "magnification", "size")
+        props = ("identifier", "vendor", "mpp", "magnification", "size", "internal_handler", "interpolator", "backend")
         props_str = []
         for key in props:
-            value = getattr(self, key, None)
+            if key == "backend":
+                value = self._wsi.__class__.__name__
+            else:
+                value = getattr(self, key, "N/A")
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"

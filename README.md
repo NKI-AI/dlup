@@ -12,6 +12,7 @@ Whole Slide Images.
 
 ## Features
 - Read whole-slide images at any arbitrary resolution by seamlessly interpolating between the pyramidal levels
+- Supports multiple backends, including [OpenSlide](https://openslide.org/) and [VIPS](https://libvips.github.io/libvips/), with the possibility to add custom backends
 - Dataset classes to handle whole-slide images in a tile-by-tile manner compatible with pytorch
 - Annotation classes which can load GeoJSON, [V7 Darwin](https://www.v7labs.com/), [HALO](https://indicalab.com/halo/) and [ASAP](https://computationalpathologygroup.github.io/ASAP/) formats and read parts of it (e.g. a tile)
 - Transforms to handle annotations per tile, resulting, together with the dataset classes a dataset consisting of tiles of whole-slide images with corresponding masks as targets, readily useable with a pytorch dataloader
@@ -31,10 +32,10 @@ If you use DLUP in your research, please use the following BiBTeX entry:
 ```
 @software{dlup,
   author = {Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus, E.},
-  month = {5},
+  month = {6},
   title = {{DLUP: Deep Learning Utilities for Pathology}},
   url = {https://github.com/NKI-AI/dlup},
-  version = {0.3.38},
+  version = {0.4.0},
   year = {2024}
 }
 ```
