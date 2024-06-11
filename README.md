@@ -32,10 +32,10 @@ If you use DLUP in your research, please use the following BiBTeX entry:
 ```
 @software{dlup,
   author = {Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus, E.},
-  month = {5},
+  month = {6},
   title = {{DLUP: Deep Learning Utilities for Pathology}},
   url = {https://github.com/NKI-AI/dlup},
-  version = {0.3.38},
+  version = {0.4.0},
   year = {2024}
 }
 ```
