@@ -611,9 +611,12 @@ class SlideImage:
 
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
-        props = ("identifier", "vendor", "mpp", "magnification", "size", "internal_handler", "interpolator")
+        props = ("identifier", "vendor", "mpp", "magnification", "size", "internal_handler", "interpolator", "backend")
         props_str = []
         for key in props:
-            value = getattr(self, key, None)
+            if key == "backend":
+                value = self._wsi.__class__.__name__
+            else:
+                value = getattr(self, key, "N/A")
             props_str.append(f"{key}={value}")
         return f"{self.__class__.__name__}({', '.join(props_str)})"

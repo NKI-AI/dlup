@@ -62,7 +62,7 @@ def main() -> None:
     parser.add_argument("--mpp", type=float, required=False, help="Microns per pixel of the output TIFF file.")
     args = parser.parse_args()
 
-    with SlideImage.from_file_path(args.input, internal_handler="vips") as img:
+    with SlideImage.from_file_path(args.input, internal_handler="vips", backend="PYVIPS") as img:
         print("Image information: %s" % img)
         native_mpp = img.mpp
 
