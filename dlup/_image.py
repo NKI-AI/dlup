@@ -444,8 +444,8 @@ class SlideImage:
             crop_box = (
                 int(np.floor(fractional_coordinates[0])),
                 int(np.floor(fractional_coordinates[1])),
-                int(np.ceil(fractional_coordinates[0] + native_size[0])),
-                int(np.ceil(fractional_coordinates[1] + native_size[1])),
+                int(np.round(fractional_coordinates[0] + native_size[0])),
+                int(np.round(fractional_coordinates[1] + native_size[1])),
             )
 
             # Crop the region
