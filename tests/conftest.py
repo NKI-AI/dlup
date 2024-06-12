@@ -4,23 +4,16 @@
 import pytest
 
 from dlup import SlideImage
-
-from .common import OpenSlideImageMock, SlideConfig
-
-
-@pytest.fixture
-def slide_config():
-    """Fixture returning a slide."""
-    return SlideConfig()
+from tests.backends.test_openslide_backend import MockOpenSlideSlide
+from tests.test_image import _BASE_CONFIG
 
 
 @pytest.fixture
-def openslide_image(slide_config):
-    """Fixture returning a mock image."""
-    return OpenSlideImageMock.from_slide_config(slide_config)
+def dlup_wsi():
+    openslide_slide = MockOpenSlideSlide.from_config(_BASE_CONFIG)
+    return SlideImage(openslide_slide, internal_handler="vips")
 
 
 @pytest.fixture
-def dlup_wsi(openslide_image):
-    """Generate sample SlideImage object to test."""
-    return SlideImage(openslide_image, identifier="mock")
+def openslideslide_image():
+    return MockOpenSlideSlide.from_config(_BASE_CONFIG)

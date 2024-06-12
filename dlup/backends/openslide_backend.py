@@ -1,15 +1,16 @@
-# type: ignore
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
+import io
 import warnings
-from distutils.version import LooseVersion
-from typing import cast
+from ctypes import Array, c_uint32
+from typing import Any, cast
 
 import numpy as np
 import openslide
-import PIL.Image
-from PIL.ImageCms import ImageCmsProfile
+import openslide.lowlevel as openslide_lowlevel
+import pyvips
+from packaging.version import Version
 
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
@@ -18,6 +19,23 @@ from dlup.utils.image import check_if_mpp_is_valid
 TIFF_PROPERTY_NAME_RESOLUTION_UNIT = "tiff.ResolutionUnit"
 TIFF_PROPERTY_NAME_X_RESOLUTION = "tiff.XResolution"
 TIFF_PROPERTY_NAME_Y_RESOLUTION = "tiff.YResolution"
+
+
+def _load_image_vips(buffer: Array[c_uint32], size: tuple[int, int]) -> pyvips.Image:
+    """Convert the raw buffer to a pyvips.Image."""
+    openslide_lowlevel._convert.argb2rgba(buffer)
+    mem_view = memoryview(buffer).cast("B")
+    return pyvips.Image.new_from_memory(mem_view, size[0], size[1], 4, "uchar")
+
+
+def read_region(slide: Any, x: int, y: int, level: int, w: int, h: int) -> pyvips.Image:
+    if w <= 0 or h <= 0:
+        # OpenSlide would catch this, but not before we tried to allocate
+        # a negative-size buffer
+        raise openslide_lowlevel.OpenSlideError(f"width ({w}) or height ({h}) must be positive")
+    buf = (w * h * c_uint32)()
+    openslide_lowlevel._read_region(slide, buf, x, y, level, w, h)
+    return _load_image_vips(buf, (w, h))
 
 
 def _get_mpp_from_tiff(properties: dict[str, str]) -> tuple[float, float] | None:
@@ -35,10 +53,12 @@ def _get_mpp_from_tiff(properties: dict[str, str]) -> tuple[float, float] | None
         The mpp values if they are present in the TIFF tags, otherwise None.
     """
     # It is possible we now have a TIFF file with the mpp information in the TIFF tags.
-    if LooseVersion(openslide.__library_version__) < LooseVersion("4.0.0"):
+    if Version(openslide.__library_version__) < Version("4.0.0"):
         if properties[openslide.PROPERTY_NAME_VENDOR] == "generic-tiff":
             # Check if the TIFF tags are present
             resolution_unit = properties.get(TIFF_PROPERTY_NAME_RESOLUTION_UNIT, None)
+            if not resolution_unit:
+                return None
             x_resolution = float(properties.get(TIFF_PROPERTY_NAME_X_RESOLUTION, 0))
             y_resolution = float(properties.get(TIFF_PROPERTY_NAME_Y_RESOLUTION, 0))
 
@@ -62,7 +82,7 @@ def open_slide(filename: PathLike) -> "OpenSlideSlide":
     return OpenSlideSlide(filename)
 
 
-class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
+class OpenSlideSlide(AbstractSlideBackend):
     """
     Backend for openslide.
     """
@@ -75,7 +95,9 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
             Path to image.
         """
         super().__init__(str(filename))
-        self._spacings = None
+        self._filename = filename
+        self._owsi = openslide_lowlevel.open(str(filename))
+        self._spacings: list[tuple[float, float]] = []
 
         try:
             mpp_x = float(self.properties[openslide.PROPERTY_NAME_MPP_X])
@@ -87,6 +109,11 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
             spacing = _get_mpp_from_tiff(dict(self.properties))
             if spacing:
                 self.spacing = spacing
+
+        if openslide_lowlevel.read_icc_profile.available:
+            self._profile = openslide_lowlevel.read_icc_profile(self._owsi)
+        else:
+            self._profile = None
 
     @property
     def spacing(self) -> tuple[float, float] | None:
@@ -110,24 +137,24 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
         return "RGBA"
 
     @property
-    def magnification(self) -> int | None:
+    def magnification(self) -> float | None:
         """Returns the objective power at which the WSI was sampled."""
         value = self.properties.get(openslide.PROPERTY_NAME_OBJECTIVE_POWER, None)
         if value is not None:
-            return int(value)
+            return float(value)
         return value
 
     @property
-    def color_profile(self) -> ImageCmsProfile | None:
+    def color_profile(self) -> io.BytesIO | None:
         """
         Returns the color profile of the image if available. Otherwise returns None.
 
         Returns
         -------
-        ImageCmsProfile, optional
+        io.BytesIO, optional
             The color profile of the image.
         """
-        if LooseVersion(openslide.__library_version__) < LooseVersion("4.0.0"):
+        if Version(openslide.__library_version__) < Version("4.0.0") or not self._profile:
             warnings.warn(
                 "Color profile support is only available for openslide >= 4.0.0. "
                 f"You have version {openslide.__library_version__}. "
@@ -135,12 +162,18 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
             )
             return None
 
-        return super().color_profile
+        if self._profile is None:
+            return None
+
+        return io.BytesIO(self._profile)
 
     @property
-    def vendor(self) -> str:
+    def vendor(self) -> str | None:
         """Returns the scanner vendor."""
-        return self.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
+        vendor = self.properties.get(openslide.PROPERTY_NAME_VENDOR, None)
+        if vendor is not None:
+            return str(vendor)
+        return None
 
     @property
     def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -155,22 +188,31 @@ class OpenSlideSlide(openslide.OpenSlide, AbstractSlideBackend):
 
         return offset, size
 
-    def get_thumbnail(self, size: int | tuple[int, int]) -> PIL.Image.Image:
-        """
-        Return a PIL.Image as an RGB image with the thumbnail with maximum size given by size.
-        Aspect ratio is preserved.
+    @property
+    def properties(self) -> dict[str, str]:
+        """Metadata about the image as given by openslide."""
+        keys = openslide_lowlevel.get_property_names(self._owsi)
+        return dict((key, openslide_lowlevel.get_property_value(self._owsi, key)) for key in keys)
 
-        Parameters
-        ----------
-        size : int or tuple[int, int]
-            Output size of the thumbnail, will take the maximal value for the output and preserve aspect ratio.
+    @property
+    def level_count(self) -> int:
+        """The number of levels in the image."""
+        return cast(int, openslide_lowlevel.get_level_count(self._owsi))
 
-        Returns
-        -------
-        PIL.Image
-            The thumbnail.
-        """
-        if isinstance(size, int):
-            size = (size, size)
+    @property
+    def level_dimensions(self) -> tuple[tuple[int, int], ...]:
+        """A list of (width, height) tuples, one for each level of the image."""
+        return tuple(openslide_lowlevel.get_level_dimensions(self._owsi, idx) for idx in range(self.level_count))
 
-        return super().get_thumbnail(size)
+    @property
+    def level_downsamples(self) -> tuple[float, ...]:
+        """A list of downsampling factors for each level of the image."""
+        return tuple(openslide_lowlevel.get_level_downsample(self._owsi, idx) for idx in range(self.level_count))
+
+    def read_region(self, coordinates: tuple[int, int], level: int, size: tuple[int, int]) -> pyvips.Image:
+        region = read_region(self._owsi, coordinates[0], coordinates[1], level, size[0], size[1])
+        return region
+
+    def close(self) -> None:
+        """Close the openslide object."""
+        openslide_lowlevel.close(self._owsi)

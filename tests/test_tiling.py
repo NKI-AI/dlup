@@ -1,9 +1,8 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 import numpy as np
 import pytest
 
-from dlup.tiling import Grid, TilingMode, indexed_ndmesh, tiles_grid_coordinates
+from dlup.tiling import Grid, GridOrder, TilingMode, indexed_ndmesh, tiles_grid_coordinates
 
 
 class TestTiling:
@@ -82,7 +81,7 @@ class TestTiling:
         assert (mesh[0, 1, 0] == (1, 5, 7)).all()
         assert (mesh[2, 1, 1] == (3, 5, 8)).all()
 
-    @pytest.mark.parametrize("order", ["F", "C"])
+    @pytest.mark.parametrize("order", ["F", "C", GridOrder.C])
     def test_grid(self, order):
         """Test Grid basic api."""
         grid = Grid([np.array((0, 1)), np.array((2, 3, 4))], order=order)
@@ -91,11 +90,26 @@ class TestTiling:
         assert len(grid) == 6
 
         # First row, first column
-        assert (grid[0] == (0, 2)).all()  # pylint: disable=no-member
+        assert (grid[0] == (0, 2)).all()
 
         if order == "F":
             # First row, second column
-            assert (grid[1] == (0, 3)).all()  # pylint: disable=no-member
+            assert (grid[1] == (0, 3)).all()
+            assert [_.tolist() for _ in grid[0:2]] == [[0, 2], [0, 3]]
         else:
             # In C order we need to look at the third element
-            assert (grid[2] == (0, 3)).all()  # pylint: disable=no-member
+            assert (grid[2] == (0, 3)).all()
+            assert [_.tolist() for _ in grid[0:3]] == [[0, 2], [1, 2], [0, 3]]
+
+        assert grid.order == order
+
+    @pytest.mark.parametrize("tile_size", [(1, 2), (-1, 0)])
+    def test_exceptions(self, tile_size: tuple[int, int]):
+        """Test exceptions."""
+
+        if tile_size[0] < 0 or tile_size[1] < 0:
+            with pytest.raises(ValueError, match="tile size should always be greater than zero."):
+                Grid.from_tiling(offset=(0, 0), size=(2, 1), tile_size=tile_size, tile_overlap=(3, 2))
+        else:
+            with pytest.raises(ValueError, match="size, tile_size and tile_overlap should have the same dimensions."):
+                Grid.from_tiling(offset=(0, 0), size=(2,), tile_size=tile_size, tile_overlap=(3, 2))

@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import cast
 
 import numpy as np
-import PIL.Image
+import pyvips
 
 from dlup.types import GenericFloatArray, GenericIntArray
 
@@ -39,10 +38,9 @@ class RegionView(ABC):
     @abstractmethod
     def size(self) -> tuple[int, ...]:
         """Returns size of the region in U units."""
-        pass
 
-    def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
-        """Returns the requested region as a numpy array."""
+    def read_region(self, location: GenericFloatArray, size: GenericIntArray) -> pyvips.Image:
+        """Returns the requested region as a vips image."""
         location = np.asarray(location)
         size = np.asarray(size)
 
@@ -61,21 +59,21 @@ class RegionView(ABC):
 
         if self.boundary_mode == BoundaryMode.zero:
             if np.any(size != clipped_region_size) or np.any(location < 0):
-                size = tuple(size)
+                new_region = pyvips.Image.black(size[0], size[1])
+                coordinates = tuple(np.floor(offset).astype(int))
+                insert_x = max(0, coordinates[0])
+                insert_y = max(0, coordinates[1])
+                region_width = min(region.width, size[0] - insert_x)
+                region_height = min(region.height, size[1] - insert_y)
 
-                if len(size) != 2:
-                    raise ValueError(f"Size should be of length 2, got {len(size)}")
+                region = region.crop(0, 0, region_width, region_height)
 
-                new_region = PIL.Image.new(str(region.mode), size)
-                # Now we need to paste the region into the new region.
-                # We do some rounding to int.
-                coordinates = cast(tuple[int, int], tuple(np.floor(offset).astype(int)))
-                new_region.paste(region, coordinates)
+                new_region = new_region.insert(region, insert_x, insert_y, expand=True)
+
                 return new_region
 
         return region
 
     @abstractmethod
-    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> PIL.Image.Image:
-        """Define a method to return an array containing the region."""
-        pass
+    def _read_region_impl(self, location: GenericFloatArray, size: GenericIntArray) -> pyvips.Image:
+        """Define a method to return a pyvips image containing the region."""

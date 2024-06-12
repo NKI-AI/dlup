@@ -1,12 +1,11 @@
-# type: ignore
 # Copyright (c) dlup contributors
 from typing import Any
 
 import numpy as np
-import PIL.Image
+import pyvips
 import tifffile
 
-from dlup.backends.common import AbstractSlideBackend, numpy_to_pil
+from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.tifffile_utils import get_tile
 
@@ -52,11 +51,11 @@ class TifffileSlide(AbstractSlideBackend):
                 self._shapes.append((page.shape[1], page.shape[0]))
 
             # TODO: The order of the x and y tag need to be verified
-            x_res = page.tags["XResolution"].value  # type: ignore
+            x_res = page.tags["XResolution"].value
             x_res = x_res[0] / x_res[1]
-            y_res = page.tags["YResolution"].value  # type: ignore
+            y_res = page.tags["YResolution"].value
             y_res = y_res[0] / y_res[1]
-            unit = int(page.tags["ResolutionUnit"].value)  # type: ignore
+            unit = int(page.tags["ResolutionUnit"].value)
 
             mpp_x = unit_dict[unit] / x_res
             mpp_y = unit_dict[unit] / y_res
@@ -67,12 +66,12 @@ class TifffileSlide(AbstractSlideBackend):
                 self._downsamples.append(downsample)
 
     @property
-    def properties(self) -> dict:
+    def properties(self) -> dict[str, Any]:
         """Metadata about the image as given by tifffile."""
 
         properties = {}
         for idx, page in enumerate(self._image.pages):
-            for tag in page.tags:  # type: ignore
+            for tag in page.tags:
                 # These tags are not so relevant at this point and have a lot of output
                 if tag.name in [
                     "TileOffsets",
@@ -87,11 +86,11 @@ class TifffileSlide(AbstractSlideBackend):
 
         return properties
 
-    def set_cache(self, cache):
+    def set_cache(self, cache: Any) -> None:
         """Cache for tifffile."""
         raise NotImplementedError
 
-    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[Any, ...]) -> PIL.Image.Image:
+    def read_region(self, coordinates: tuple[int, int], level: int, size: tuple[int, int]) -> pyvips.Image:
         """
         Return the best level for displaying the given image level.
 
@@ -106,18 +105,20 @@ class TifffileSlide(AbstractSlideBackend):
 
         Returns
         -------
-        PIL.Image
+        pyvips.Image
             The requested region.
         """
         if level > self._level_count - 1:
             raise RuntimeError(f"Level {level} not present.")
 
         page = self._image.pages[level]
+        # To make mypy happy
+        assert isinstance(page, tifffile.TiffPage)
         ratio = self._downsamples[level]
         coordinates = (np.asarray(coordinates) / ratio).astype(int).tolist()
-        tile = get_tile(page, coordinates, size)[0]  # type: ignore
+        tile = get_tile(page, coordinates, size)
 
-        return numpy_to_pil(tile)
+        return tile
 
     @property
     def vendor(self) -> None:

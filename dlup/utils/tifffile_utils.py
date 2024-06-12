@@ -1,12 +1,11 @@
 # Copyright (c) dlup contributors
-from typing import Any
-
+"""Utilities for handling tifffile objects."""
 import numpy as np
-import numpy.typing as npt
+import pyvips
 import tifffile
 
 
-def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[Any, ...]) -> npt.NDArray[np.int_]:
+def get_tile(page: tifffile.TiffPage, coordinates: tuple[int, int], size: tuple[int, int]) -> pyvips.Image:
     """Extract a crop from a TIFF image file directory (IFD).
 
     Only the tiles englobing the crop area are loaded and not the whole page.
@@ -19,7 +18,7 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
     page : TiffPage
         TIFF image file directory (IFD) from which the crop must be extracted.
     coordinates: (int, int)
-        Coordinates of the top left and right corner corner of the desired crop.
+        Coordinates of the top left and right corner of the desired crop.
     size: (int, int)
         Desired crop height and width.
 
@@ -29,7 +28,7 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
 
     Returns
     -------
-    out : ndarray of shape (imagedepth, h, w, sampleperpixel)
+    out : pyvips.Image
         Extracted crop.
 
     """
@@ -80,7 +79,7 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
 
             fh.seek(offset)
             data = fh.read(bytecount)
-            tile, indices, shape = page.decode(data, index, jpegtables=jpeg_tables)
+            tile, _, _ = page.decode(data, index, jpegtables=jpeg_tables)
 
             image_y = (idx_y - tile_y0) * tile_height
             image_x = (idx_x - tile_x0) * tile_width
@@ -89,4 +88,7 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[Any, ...], size: tuple[
     image_y0 = y0 - tile_y0 * tile_height
     image_x0 = x0 - tile_x0 * tile_width
 
-    return out[:, image_y0 : image_y0 + h, image_x0 : image_x0 + w, :]
+    if not out.shape[0] == 1:
+        raise ValueError("Only single channel images are supported.")
+
+    return pyvips.Image.new_from_array(out[0, image_y0 : image_y0 + h, image_x0 : image_x0 + w, :])

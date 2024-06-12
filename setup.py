@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
-
 """The setup script."""
 
 import ast
@@ -19,16 +17,16 @@ with open("README.md") as f:
     LONG_DESCRIPTION = f.read()
 
 install_requires = [
-    "numpy>=1.21",
-    "scikit-image>=0.19",
-    "tifftools",
-    "tifffile>=2023.8.12",
-    "pyvips>=2.2.1",
-    "tqdm",
-    "pillow>=9.2.0",
+    "numpy>=1.26.0",
+    "tifftools>=1.5.2",
+    "tifffile>=2024.5.22",
+    "pyvips>=2.2.3",
+    "tqdm>=2.66.4",
+    "pillow>=10.3.0",
     "openslide-python>=1.3.1",
-    "opencv-python>=4.8.1.78",
-    "shapely>=2.0.0",
+    "opencv-python>=4.9.0.80",
+    "shapely>=2.0.4",
+    "packaging>=24.0",
 ]
 
 setup(
@@ -54,17 +52,18 @@ setup(
     install_requires=install_requires,
     extras_require={
         "dev": [
-            "pytest",
-            "mypy>=1.4.1",
-            "pytest-mock",
-            "sphinx_copybutton",
-            "numpydoc",
-            "myst_parser",
-            "sphinx-book-theme",
-            "pylint",
-            "pydantic>=2.1.1",
-            "types-requests",
+            "pytest>=8.2.1",
+            "mypy>=1.10.0",
+            "pytest-mock>=3.14.0",
+            "sphinx_copybutton>=0.5.2",
+            "numpydoc>=1.7.0",
+            "myst_parser>=3.0.1",
+            "sphinx-book-theme>=1.1.2",
+            "pylint>=3.2.2",
+            "pydantic>=2.7.2",
+            "types-Pillow>=10.2.0",
         ],
+        "darwin": ["darwin-py>=0.8.59"],
     },
     license="Apache Software License 2.0",
     include_package_data=True,

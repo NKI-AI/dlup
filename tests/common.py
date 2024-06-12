@@ -1,142 +1,103 @@
 # Copyright (c) dlup contributors
 
 """Utilities to simplify the mocking of SlideImages."""
-from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import openslide  # type: ignore
-import PIL
-import pytest  # noqa
-from PIL.Image import Image
-from pydantic import BaseModel, ConfigDict, Field
-from scipy.interpolate import RegularGridInterpolator
+import openslide
+import pyvips
+from pydantic import BaseModel
 
 
-def get_sample_nonuniform_image(size: Tuple[int, int] = (256, 256)):
-    """Generate a non-uniform sample image."""
-    if not (np.array(size) % 2 == 0).all():
-        raise ValueError("Size should be a tuple of values divisible by two.")
-
-    # Define data for interpolation
-    x = np.linspace(0, 1, size[0])
-    y = np.linspace(0, 1, size[1])
-
-    # Define the values at each grid point
-    X, Y = np.meshgrid(x, y)
-    values = X + Y
-
-    # Use RegularGridInterpolator
-    f = RegularGridInterpolator((x, y), values)
-
-    # Sample it
-    Z = np.stack([X, Y], axis=-1)
-    z = f(Z).reshape(size)
-
-    # Sample it
-    z = f(Z).reshape(size)
-
-    # Interpret it as HSV, so we get funny colors
-    im = np.zeros((*size, 3))
-    im[:, :, 0] = z
-    im[:, :, 1] = 1
-
-    # Set the value to a pixel-level checkerboard.
-    im[size[1] // 2, size[0] // 2, 2] = 1
-    im[:, :, 2] = np.sign(np.fft.ifft2(im[:, :, 2]).real)
-    im = im * 255
-    im = im.astype("uint8")
-    im = PIL.Image.fromarray(im, mode="HSV")
-    return im.convert(mode="RGBA")
-
-
-class SlideProperties(BaseModel):
-    """Mock configuration properties."""
-
-    mpp_x: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_X)
-    mpp_y: Optional[float] = Field(1.0, alias=openslide.PROPERTY_NAME_MPP_Y)
-    mag: Optional[float] = Field(40.0, alias=openslide.PROPERTY_NAME_OBJECTIVE_POWER)
-    vendor: str = Field("dummy", alias=openslide.PROPERTY_NAME_VENDOR)
-    model_config = ConfigDict(populate_by_name=True)
+class LevelConfig(BaseModel):
+    dimensions: Tuple[int, int]
+    downsample: float
 
 
 class SlideConfig(BaseModel):
-    """Mock slide configuration."""
-
-    image: Type[Image] = get_sample_nonuniform_image()
-    properties: SlideProperties = SlideProperties()
-    level_downsamples: Tuple[float, ...] = (1.0, 2.0)
-
-
-class OpenSlideImageMock(openslide.ImageSlide):
-    """Mock OpenSlide object also with layers.
-
-    NOTE: read_region works a bit differently than the actual openslide.
-    Openslide *does* project the float base layer values to the best layer
-    and then performs different operations such as adding saturation and translations.
-    https://github.com/openslide/openslide/blob/main/src/openslide.c#L488-L493
-    """
-
-    properties: Dict[Any, Any] = {}
-    level_downsamples: Sequence[Union[float, int]] = (1.0,)
-
-    def __init__(self, image: PIL.Image, properties: Dict, level_downsamples: Tuple):
-        self.properties = properties
-        self.image = image
-        self.level_downsamples = sorted(level_downsamples)
-        base_size = np.array((self.image.width, self.image.height))
-        self._level_dimensions = tuple([tuple((base_size / d).astype(int)) for d in self.level_downsamples])
-        super().__init__(image)
-
-    def get_best_level_for_downsample(self, downsample):
-        level_downsamples = np.array(self.level_downsamples)
-        level = 0 if downsample < 1 else np.where(level_downsamples <= downsample)[0][-1]
-        return level
-
-    @property
-    def level_dimensions(self):
-        return self._level_dimensions
-
-    @property
-    def level_spacings(self):
-        spacing = self.spacing
-        return tuple((spacing[0] * downsample**2, spacing[1] * downsample**2) for downsample in self.level_downsamples)
-
-    def get_level_image(self, level):
-        return self.image.resize(self.level_dimensions[level])
-
-    def read_region(self, location, level, size):
-        image = np.array(self.get_level_image(level))
-
-        # Add a single pixel padding
-        image = np.pad(image, [(0, 1), (0, 1), (0, 0)])
-        image = PIL.Image.fromarray(image)
-        location = np.asarray(location) / self.level_downsamples[level]
-        return image.resize(
-            size,
-            resample=PIL.Image.Resampling.LANCZOS,
-            box=(*location, *(location + size)),
-        )
-
-    @property
-    def spacing(self):
-        return self.properties.get("openslide.mpp-x", None), self.properties.get("openslide.mpp-y", None)
-
-    @property
-    def slide_bounds(self):
-        return (0, 0), self.dimensions
-
-    @property
-    def vendor(self):
-        return self.properties.get("openslide.vendor", None)
-
-    @property
-    def magnification(self):
-        return self.properties.get("openslide.objective-power", None)
+    filename: str
+    properties: Dict[str, str]
+    levels: List[LevelConfig]
 
     @classmethod
-    def from_slide_config(cls, slide_config):
-        return cls(
-            slide_config.image,
-            slide_config.properties.model_dump(by_alias=True, exclude_none=True),
-            slide_config.level_downsamples,
-        )
+    def from_parameters(
+        cls,
+        filename: str,
+        num_levels: int,
+        level_0_dimensions: Tuple[int, int],
+        mpp: Tuple[float, float],
+        objective_power: Optional[int],
+        vendor: str,
+    ):
+        # Calculate the dimensions and downsample for each level
+        levels = []
+        for level in range(num_levels):
+            downsample = 2**level
+            dimensions = (level_0_dimensions[0] // downsample, level_0_dimensions[1] // downsample)
+            levels.append(LevelConfig(dimensions=dimensions, downsample=downsample))
+
+        # Create the properties dictionary
+        properties = {
+            openslide.PROPERTY_NAME_MPP_X: str(mpp[0]),
+            openslide.PROPERTY_NAME_MPP_Y: str(mpp[1]),
+            openslide.PROPERTY_NAME_VENDOR: vendor,
+        }
+        if objective_power:
+            properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER] = str(objective_power)
+
+        # Return an instance of SlideConfig
+        return cls(filename=filename, properties=properties, levels=levels)
+
+
+def get_sample_nonuniform_image(size: tuple[int, int] = (256, 256), divisions: int = 10) -> pyvips.Image:
+    """Generate a test image with a grid pattern."""
+    width, height = size
+    x_divisions = min(divisions, width)
+    y_divisions = min(divisions, height)
+
+    # Calculate the width and height of each grid cell
+    cell_width = width // x_divisions
+    cell_height = height // y_divisions
+
+    # Create an array to store the image
+    image_array = np.zeros((height, width, 4), dtype=np.uint8)
+
+    # Define a set of distinct colors
+    color_palette = [
+        (255, 0, 0, 255),  # Red
+        (0, 255, 0, 255),  # Green
+        (0, 0, 255, 255),  # Blue
+        (255, 255, 0, 255),  # Yellow
+        (255, 0, 255, 255),  # Magenta
+        (0, 255, 255, 255),  # Cyan
+        (128, 0, 0, 255),  # Maroon
+        (0, 128, 0, 255),  # Dark Green
+        (0, 0, 128, 255),  # Navy
+        (128, 128, 0, 255),  # Olive
+    ]
+
+    # Extend the palette to cover all cells
+    num_colors = len(color_palette)
+    extended_palette = [color_palette[i % num_colors] for i in range(x_divisions * y_divisions)]
+
+    # Assign colors to each grid cell
+    for i in range(x_divisions):
+        for j in range(y_divisions):
+            x_start = i * cell_width
+            y_start = j * cell_height
+            x_end = x_start + cell_width if (i != x_divisions - 1) else width
+            y_end = y_start + cell_height if (j != y_divisions - 1) else height
+            color = extended_palette[i * y_divisions + j]
+            image_array[y_start:y_end, x_start:x_end, :] = color
+
+    # Apply a sine wave pattern for non-uniformity
+    x = np.linspace(0, np.pi * 4, width)
+    y = np.linspace(0, np.pi * 4, height)
+    X, Y = np.meshgrid(x, y)
+    sine_wave = (np.sin(X) + np.cos(Y)) / 2 + 0.5  # Normalized to range [0, 1]
+
+    # Multiply sine wave pattern with the image
+    for k in range(3):  # Apply only to RGB channels, not alpha
+        image_array[:, :, k] = image_array[:, :, k] * sine_wave
+
+    return pyvips.Image.new_from_array(image_array)
