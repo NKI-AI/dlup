@@ -114,7 +114,7 @@ def _is_foreground_numpy(
     mask_size = np.array(background_mask.shape[:2][::-1])
 
     region_view = slide_image.get_scaled_view(slide_image.get_scaling(mpp))
-    _background_mask = PIL.Image.fromarray(background_mask)  # type: ignore
+    _background_mask = PIL.Image.fromarray(background_mask)
 
     # Type of background_mask is Any here.
     # The scaling should be computed using the longest edge of the image.
