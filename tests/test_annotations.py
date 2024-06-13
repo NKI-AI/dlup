@@ -38,6 +38,41 @@ ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
 </ASAP_Annotations>"""
 
 
+# GeoJSON fixture
+@pytest.fixture
+def geojson_example():
+    return {
+        "type": "Feature",
+        "properties": {"classification": {"name": "Stroma", "color": None}},
+        "geometry": {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [  # First polygon
+                    [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]],  # Outer ring
+                    [[0.25, 0.25], [0.25, 0.5], [0.5, 0.5], [0.25, 0.25]],  # First hole
+                    [[0.75, 0.25], [0.75, 0.5], [0.85, 0.5], [0.85, 0.25], [0.75, 0.25]],  # Second hole
+                ]
+            ],
+        },
+    }
+
+
+# Function to test the reading and checking for holes
+def test_shape_has_holes(geojson_example):
+    geom = shape(geojson_example["geometry"])
+    assert len(geom) == 1, f"Expected 1 polygon, found {len(geom)}"
+
+    # Check for holes in each polygon
+    for polygon in geom:
+        assert len(polygon.interiors) == 2, f"Expected 2 holes, found {len(polygon.interiors)}"
+
+
+# Parametrize test
+@pytest.mark.parametrize("geojson", [geojson_example()])
+def test_shape_reading(geojson):
+    test_shape_has_holes(geojson)
+
+
 class TestAnnotations:
     with tempfile.NamedTemporaryFile(suffix=".xml") as asap_file:
         asap_file.write(ASAP_XML_EXAMPLE)
