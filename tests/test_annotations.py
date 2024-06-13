@@ -67,12 +67,6 @@ def test_shape_has_holes(geojson_example):
         assert len(polygon.interiors) == 2, f"Expected 2 holes, found {len(polygon.interiors)}"
 
 
-# Parametrize test
-@pytest.mark.parametrize("geojson", [geojson_example()])
-def test_shape_reading(geojson):
-    test_shape_has_holes(geojson)
-
-
 class TestAnnotations:
     with tempfile.NamedTemporaryFile(suffix=".xml") as asap_file:
         asap_file.write(ASAP_XML_EXAMPLE)
