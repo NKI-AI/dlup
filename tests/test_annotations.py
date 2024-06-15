@@ -60,6 +60,10 @@ class TestAnnotations:
             self._v7_annotations = WsiAnnotations.from_darwin_json("tests/files/103S.json")
         return self._v7_annotations
 
+    def test_reading_qupath05_geojson_export(self):
+        annotations = WsiAnnotations.from_geojson([pathlib.Path("tests/files/qupath05.geojson")])
+        assert len(annotations.available_labels) == 2
+
     def test_asap_to_geojson(self):
         # TODO: Make sure that the annotations hit the border of the region.
         asap_geojson = self.asap_annotations.as_geojson()

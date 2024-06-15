@@ -33,7 +33,7 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, ClassVar, Iterable, Type, TypedDict, TypeVar, Union
+from typing import Any, Callable, ClassVar, Iterable, Optional, Type, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -67,27 +67,53 @@ _ASAP_TYPES = {
 }
 
 
+def _get_geojson_color(properties: dict[str, str | list[int]]) -> Optional[tuple[int, int, int]]:
+    """Parse the properties dictionary of a GeoJSON object to get the color.
+
+    Arguments
+    ---------
+    properties : dict
+        The properties dictionary of a GeoJSON object.
+
+    Returns
+    -------
+    Optional[tuple[int, int, int]]
+        The color of the object as a tuple of RGB values.
+    """
+    color = properties.get("color", None)
+    if color is None:
+        return None
+
+    return cast(tuple[int, int, int], tuple(color))
+
+
 class AnnotationSorting(Enum):
     """The ways to sort the annotations. This is used in the constructors of the `WsiAnnotations` class, and applied
     to the output of `WsiAnnotations.read_region()`.
 
     - REVERSE: Sort the output in reverse order.
-    - BY_AREA: Often when the annotation tools do not properly support hierarchical order, one would annotate in a way
+    - AREA: Often when the annotation tools do not properly support hierarchical order, one would annotate in a way
         that the smaller objects are on top of the larger objects. This option sorts the output by area, so that the
         larger objects appear first in the output and then the smaller objects.
+    - Z_INDEX: Sort the output by the z-index of the annotations. This is useful when the annotations have a z-index
     - NONE: Do not apply any sorting and output as is presented in the input file.
     """
 
     REVERSE = "reverse"
-    BY_AREA = "by_area"
+    AREA = "area"
+    Z_INDEX = "z_index"
     NONE = "none"
 
 
 @dataclass(frozen=True)  # Frozen makes the class hashable
 class AnnotationClass:
-    """An annotation class. An annotation has two properties:
+    """An annotation class. An annotation has two required properties:
     - label: The name of the annotation, e.g., "lymphocyte".
     - a_cls: The type of annotation, e.g., AnnotationType.POINT.
+
+    And two optional properties:
+    - color: The color of the annotation as a tuple of RGB values.
+    - z_index: The z-index of the annotation. This is useful when the annotations have a z-index.
 
     Parameters
     ----------
@@ -95,10 +121,20 @@ class AnnotationClass:
         The name of the annotation.
     a_cls : AnnotationType
         The type of annotation.
+    color : Optional[tuple[int, int, int]]
+        The color of the annotation as a tuple of RGB values.
+    z_index : Optional[int]
+        The z-index of the annotation.
     """
 
     label: str
     a_cls: AnnotationType
+    color: Optional[tuple[int, int, int]] = None
+    z_index: Optional[int] = None
+
+    def __post_init__(self):
+        if self.a_cls == AnnotationType.POINT and self.z_index is not None:
+            raise AnnotationError("z_index is not supported for point annotations.")
 
 
 class GeoJsonDict(TypedDict):
@@ -137,6 +173,14 @@ class Point(shapely.geometry.Point):  # type: ignore
     @property
     def label(self) -> str:
         return self.annotation_class.label
+
+    @property
+    def color(self) -> Optional[tuple[int, int, int]]:
+        return self.annotation_class.color
+
+    @property
+    def z_index(self) -> Optional[int]:
+        return self.annotation_class.z_index
 
     def __new__(cls, coord: tuple[float, float], *args: Any, **kwargs: Any) -> "Point":
         point = super().__new__(cls, coord)
@@ -222,14 +266,23 @@ class CoordinatesDict(TypedDict):
     coordinates: list[list[list[float]]]
 
 
-def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> list[Polygon | Point]:
+def shape(
+    coordinates: CoordinatesDict,
+    label: str,
+    multiplier: float = 1.0,
+    color: Optional[tuple[int, int, int]] = None,
+    z_index: Optional[int] = None,
+) -> list[Polygon | Point]:
     geom_type = coordinates.get("type", None)
     if geom_type is None:
         raise ValueError("No type found in coordinates.")
     geom_type = geom_type.lower()
 
+    if geom_type in ["point", "multipoint"] and z_index is not None:
+        raise AnnotationError("z_index is not supported for point annotations.")
+
     if geom_type == "point":
-        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT)
+        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT, color=color, z_index=None)
         return [
             Point(
                 np.asarray(coordinates["coordinates"]) * multiplier,
@@ -238,11 +291,11 @@ def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> 
         ]
 
     if geom_type == "multipoint":
-        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT)
+        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POINT, color=color, z_index=None)
         return [Point(np.asarray(c) * multiplier, a_cls=annotation_class) for c in coordinates["coordinates"]]
 
     if geom_type == "polygon":
-        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
+        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON, color=color, z_index=z_index)
         return [
             Polygon(
                 np.asarray(coordinates["coordinates"][0]) * multiplier,
@@ -251,7 +304,7 @@ def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> 
         ]
 
     if geom_type == "multipolygon":
-        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
+        annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON, color=color, z_index=z_index)
         multi_polygon = shapely.geometry.MultiPolygon(
             [[np.asarray(c[0]) * multiplier, np.asarray(c[1:]) * multiplier] for c in coordinates["coordinates"]]
         )
@@ -314,6 +367,16 @@ class SingleAnnotationWrapper:
     def label(self) -> str:
         """The label name for this annotation."""
         return self._label
+
+    @property
+    def color(self) -> Optional[tuple[int, int, int]]:
+        """The color of the annotation."""
+        return self.annotation_class.color
+
+    @property
+    def z_index(self) -> Optional[int]:
+        """The z-index of the annotation."""
+        return self.annotation_class.z_index
 
     @property
     def annotation_class(self) -> AnnotationClass:
@@ -537,7 +600,7 @@ class WsiAnnotations:
         cls: Type[_TWsiAnnotations],
         geojsons: PathLike | Iterable[PathLike],
         scaling: float | None = None,
-        sorting: AnnotationSorting = AnnotationSorting.BY_AREA,
+        sorting: AnnotationSorting = AnnotationSorting.AREA,
     ) -> _TWsiAnnotations:
         """
         Constructs an WsiAnnotations object from geojson.
@@ -572,7 +635,14 @@ class WsiAnnotations:
             with open(path, "r", encoding="utf-8") as annotation_file:
                 geojson_dict = json.load(annotation_file)["features"]
                 for x in geojson_dict:
-                    _label = x["properties"]["classification"]["name"]
+                    properties = x["properties"]
+                    if "classification" in properties:
+                        _label = properties["classification"]["name"]
+                        _color = _get_geojson_color(properties["classification"])
+                    elif properties.get("objectType", None) == "annotation":
+                        _label = properties["name"]
+                        _color = _get_geojson_color(properties)
+
                     _geometry = shape(x["geometry"], label=_label, multiplier=_scaling)
                     for _ in _geometry:
                         data[_label].append(_)
@@ -589,7 +659,7 @@ class WsiAnnotations:
         cls,
         asap_xml: PathLike,
         scaling: float | None = None,
-        sorting: AnnotationSorting = AnnotationSorting.BY_AREA,
+        sorting: AnnotationSorting = AnnotationSorting.AREA,
     ) -> WsiAnnotations:
         """
         Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
@@ -932,13 +1002,15 @@ class WsiAnnotations:
             for v in curr_annotations:
                 filtered_annotations.append((k, v))
 
-        if self._sorting == AnnotationSorting.BY_AREA:
+        if self._sorting == AnnotationSorting.AREA:
             # Sort on name
             filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0].label)
             # Sort on area (largest to smallest)
             filtered_annotations = sorted(filtered_annotations, key=lambda x: x[1].area, reverse=True)
         elif self._sorting == AnnotationSorting.REVERSE:
             filtered_annotations = list(reversed(filtered_annotations))
+        elif self._sorting == AnnotationSorting.Z_INDEX:
+            filtered_annotations = sorted(filtered_annotations, key=lambda x: x[0].z_index)
         else:  # AnnotationSorting.NONE
             pass
 
