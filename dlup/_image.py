@@ -79,15 +79,15 @@ class _SlideImageRegionView(RegionView):
 
 
 def _clip2size(
-    a: npt.NDArray[np.int_ | np.float_], size: tuple[GenericNumber, GenericNumber]
-) -> npt.NDArray[np.int_ | np.float_]:
+    a: npt.NDArray[np.int_ | np.float64], size: tuple[GenericNumber, GenericNumber]
+) -> npt.NDArray[np.int_ | np.float64]:
     """Clip values from 0 to size boundaries."""
     return np.clip(a, (0, 0), size)
 
 
 def _check_size_and_location(
-    size: npt.NDArray[np.int_ | np.float_],
-    location: npt.NDArray[np.int_ | np.float_],
+    size: npt.NDArray[np.int_ | np.float64],
+    location: npt.NDArray[np.int_ | np.float64],
     level_size: npt.NDArray[np.int_],
 ) -> None:
     """
@@ -95,9 +95,9 @@ def _check_size_and_location(
 
     Parameters
     ----------
-    size : npt.NDArray[np.int_ | np.float_]
+    size : npt.NDArray[np.int_ | np.float64]
         The size of the region to extract.
-    location : npt.NDArray[np.int_ | np.float_]
+    location : npt.NDArray[np.int_ | np.float64]
         The location of the region to extract.
     level_size : npt.NDArray[np.int_]
         The size of the level.

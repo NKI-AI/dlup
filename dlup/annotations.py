@@ -252,8 +252,15 @@ def shape(coordinates: CoordinatesDict, label: str, multiplier: float = 1.0) -> 
 
     if geom_type == "multipolygon":
         annotation_class = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
+        # the first element is the outer polygon, the rest are holes.
         multi_polygon = shapely.geometry.MultiPolygon(
-            [[np.asarray(c[0]) * multiplier, np.asarray(c[1:]) * multiplier] for c in coordinates["coordinates"]]
+            [
+                [
+                    np.asarray(c[0]) * multiplier,
+                    [np.asarray(hole) * multiplier for hole in c[1:]],
+                ]
+                for c in coordinates["coordinates"]
+            ]
         )
         return [Polygon(_, a_cls=annotation_class) for _ in multi_polygon.geoms]
 
@@ -357,7 +364,7 @@ class SingleAnnotationWrapper:
         return data
 
     @staticmethod
-    def _get_bbox(z: npt.NDArray[np.int_ | np.float_]) -> ROIType:
+    def _get_bbox(z: npt.NDArray[np.int_ | np.float64]) -> ROIType:
         coords = tuple(z.min(axis=0).tolist())
         size = tuple((z.max(axis=0) - z.min(axis=0)).tolist())
         return (coords[0], coords[1]), (size[0], size[1])
@@ -874,9 +881,9 @@ class WsiAnnotations:
 
     def read_region(
         self,
-        location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
+        location: npt.NDArray[np.int_ | np.float64] | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
+        size: npt.NDArray[np.int_ | np.float64] | tuple[GenericNumber, GenericNumber],
     ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
