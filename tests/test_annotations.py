@@ -59,7 +59,7 @@ def geojson_example():
 
 # Function to test the reading and checking for holes
 def test_shape_has_holes(geojson_example):
-    geom = shape(geojson_example["geometry"])
+    geom = shape(geojson_example["geometry"], label="")
     assert len(geom) == 1, f"Expected 1 polygon, found {len(geom)}"
 
     # Check for holes in each polygon
