@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 _GenericNumber = Union[int, float]
-_GenericNumberArray = Union[npt.NDArray[np.int_ | np.float_], Sequence[_GenericNumber]]
+_GenericNumberArray = Union[npt.NDArray[np.int_ | np.float64], Sequence[_GenericNumber]]
 
 
 class TilingMode(str, Enum):
@@ -35,7 +35,7 @@ class GridOrder(str, Enum):
     F = "F"
 
 
-def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> npt.NDArray[np.float_ | np.int_]:
+def _flattened_array(a: _GenericNumberArray | _GenericNumber) -> npt.NDArray[np.float64 | np.int_]:
     """Converts any generic array in a flattened numpy array."""
     return np.asarray(a).flatten()
 
@@ -61,7 +61,7 @@ def tiles_grid_coordinates(
     tile_size: _GenericNumberArray,
     tile_overlap: _GenericNumberArray | _GenericNumber = 0,
     mode: TilingMode = TilingMode.skip,
-) -> list[npt.NDArray[np.int_ | np.float_]]:
+) -> list[npt.NDArray[np.int_ | np.float64]]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
     The first tile has the corner located at (0, 0).
@@ -98,7 +98,7 @@ def tiles_grid_coordinates(
         overflow = tiled_size - size
 
     # Let's create our indices list
-    coordinates: list[npt.NDArray[np.int_ | np.float_]] = []
+    coordinates: list[npt.NDArray[np.int_ | np.float64]] = []
     for n, dstride, dtile_size, doverflow, dsize in zip(num_tiles, stride, tile_size, overflow, size):
         tiles_locations = np.arange(n) * dstride
         coordinates.append(tiles_locations)
@@ -106,10 +106,10 @@ def tiles_grid_coordinates(
     return coordinates
 
 
-class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
+class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float64]]):
     """Facilitates the access to the coordinates of an n-dimensional grid."""
 
-    def __init__(self, coordinates: list[npt.NDArray[np.int_ | np.float_]], order: str | GridOrder = GridOrder.C):
+    def __init__(self, coordinates: list[npt.NDArray[np.int_ | np.float64]], order: str | GridOrder = GridOrder.C):
         """Initialize a lattice given a set of basis vectors."""
         self.coordinates = coordinates
         self._order = order if isinstance(order, GridOrder) else GridOrder(order)
@@ -140,14 +140,14 @@ class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
         return len(self.coordinates[0]), len(self.coordinates[1])
 
     @overload
-    def __getitem__(self, key: int) -> npt.NDArray[np.int_ | np.float_]: ...
+    def __getitem__(self, key: int) -> npt.NDArray[np.int_ | np.float64]: ...
 
     @overload
-    def __getitem__(self, key: slice) -> list[npt.NDArray[np.int_ | np.float_]]: ...
+    def __getitem__(self, key: slice) -> list[npt.NDArray[np.int_ | np.float64]]: ...
 
     def __getitem__(
         self, key: Union[int, slice]
-    ) -> npt.NDArray[np.int_ | np.float_] | list[npt.NDArray[np.int_ | np.float_]]:
+    ) -> npt.NDArray[np.int_ | np.float64] | list[npt.NDArray[np.int_ | np.float64]]:
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             return [self[i] for i in range(start, stop, step or 1)]
@@ -159,7 +159,7 @@ class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
         """Return the total number of points in the grid."""
         return functools.reduce(lambda value, size: value * size, self.size, 1)
 
-    def __iter__(self) -> Iterator[npt.NDArray[np.int_ | np.float_]]:
+    def __iter__(self) -> Iterator[npt.NDArray[np.int_ | np.float64]]:
         """Iterate through every tile."""
         for i in range(len(self)):
             yield self[i]

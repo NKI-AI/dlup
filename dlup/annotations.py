@@ -364,7 +364,7 @@ class SingleAnnotationWrapper:
         return data
 
     @staticmethod
-    def _get_bbox(z: npt.NDArray[np.int_ | np.float_]) -> ROIType:
+    def _get_bbox(z: npt.NDArray[np.int_ | np.float64]) -> ROIType:
         coords = tuple(z.min(axis=0).tolist())
         size = tuple((z.max(axis=0) - z.min(axis=0)).tolist())
         return (coords[0], coords[1]), (size[0], size[1])
@@ -881,9 +881,9 @@ class WsiAnnotations:
 
     def read_region(
         self,
-        location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
+        location: npt.NDArray[np.int_ | np.float64] | tuple[GenericNumber, GenericNumber],
         scaling: float,
-        size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
+        size: npt.NDArray[np.int_ | np.float64] | tuple[GenericNumber, GenericNumber],
     ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
