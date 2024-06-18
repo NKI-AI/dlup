@@ -7,7 +7,7 @@ from typing import cast
 import shapely
 
 from dlup._image import Resampling
-from dlup.annotations import AnnotationClass, AnnotationType, Polygon, SingleAnnotationWrapper, WsiAnnotations
+from dlup.annotations import AnnotationClass, AnnotationType, Polygon, AnnotationLayer, WsiAnnotations
 from dlup.backends import ImageBackend
 from dlup.cli import file_path
 from dlup.data.dataset import TiledWsiDataset
@@ -71,9 +71,9 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
             annotations = [Polygon(polygons[label], a_cls=a_cls)]
 
         wsi_annotations.append(
-            SingleAnnotationWrapper(
+            AnnotationLayer(
                 a_cls=a_cls,
-                annotation=annotations,
+                data=annotations,
             )
         )
 

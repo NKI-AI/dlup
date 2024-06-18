@@ -49,7 +49,7 @@ class TestAnnotations:
         geojson_out.write(json.dumps(asap_geojson).encode("utf-8"))
         geojson_out.flush()
 
-        geojson_annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)], scaling=1)
+        geojson_annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)])
 
     _v7_annotations = None
 
@@ -59,6 +59,18 @@ class TestAnnotations:
             assert pathlib.Path("tests/files/103S.json").exists()
             self._v7_annotations = WsiAnnotations.from_darwin_json("tests/files/103S.json")
         return self._v7_annotations
+
+    def test_conversion_geojson(self):
+        # We need to read the asap annotations and compare them to the geojson annotations
+        v7_region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
+        with tempfile.NamedTemporaryFile(suffix=".json") as geojson_out:
+            geojson_out.write(json.dumps(self.v7_annotations.as_geojson()).encode("utf-8"))
+            geojson_out.flush()
+            annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)], sorting="NONE")
+
+        geojson_region = annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
+
+        assert len(v7_region) == len(geojson_region)
 
     def test_reading_qupath05_geojson_export(self):
         annotations = WsiAnnotations.from_geojson([pathlib.Path("tests/files/qupath05.geojson")])
@@ -102,21 +114,6 @@ class TestAnnotations:
 
         if not area:
             assert region == []
-
-    @pytest.mark.parametrize("scaling", [1, 5.0])
-    def test_and_scaling_label(self, scaling):
-        coordinates, size, area = ((10000, 10000), (5000, 5000), 3756.0)
-        coordinates = (np.asarray(coordinates) * scaling).tolist()
-        size = (np.asarray(size) * scaling).tolist()
-        with tempfile.NamedTemporaryFile(suffix=".json") as geojson_out:
-            geojson_out.write(json.dumps(self.asap_annotations.as_geojson()).encode("utf-8"))
-            geojson_out.flush()
-            annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)], scaling=scaling)
-
-        region = annotations.read_region(coordinates, 1.0, size)
-        assert len(region) == 1
-        assert region[0].area == scaling**2 * area
-        assert isinstance(region[0], Polygon)
 
     def test_relabel(self):
         coordinates, size = (10000, 10000), (5000, 5000)

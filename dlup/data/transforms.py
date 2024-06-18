@@ -19,7 +19,7 @@ _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 def convert_annotations(
     annotations: Iterable[_AnnotationsTypes],
     region_size: tuple[int, int],
-    index_map: dict[str, int],
+    index_map: dict[str, int] | None,
     roi_name: str | None = None,
     default_value: int = 0,
 ) -> tuple[
@@ -31,7 +31,7 @@ def convert_annotations(
     - In case of bounding boxes the output is a dictionary mapping the annotation name to a list of bounding boxes.
       Note that the internal representation of a bounding box is a polygon (`AnnotationType is AnnotationType.BOX`),
       so the bounding box of that polygon is computed to convert.
-    - In case of polygons these are converted into a mask according to `index_map`.
+    - In case of polygons these are converted into a mask according to `index_map`, or the z_index + 1.
 
     *BE AWARE*: the polygon annotations are processed sequentially and later annotations can overwrite earlier ones.
     This is for instance useful when you would annotate "tumor associated stroma" on top of "stroma".
@@ -52,9 +52,9 @@ def convert_annotations(
     annotations : Iterable[_AnnotationsTypes]
         The annotations as a list, e.g., as output from `dlup.annotations.WsiAnnotations.read_region()`.
     region_size : tuple[int, int]
-    index_map : dict[str, int]
-        Map mapping annotation name to index number in the output.
-    roi_name : str
+    index_map : dict[str, int], optional
+        Map mapping annotation name to index number in the output. If not set, will use the z_index + default_value +1
+    roi_name : str, optional
         Name of the region-of-interest key.
     default_value : int
         The mask will be initialized with this value.
@@ -71,6 +71,7 @@ def convert_annotations(
     boxes: dict[str, list[BoundingBoxType]] = defaultdict(list)
 
     roi_mask = np.zeros(region_size, dtype=np.int32)
+
     has_roi = False
     for curr_annotation in annotations:
         holes_mask = None
@@ -92,8 +93,7 @@ def convert_annotations(
             )
             has_roi = True
             continue
-
-        if curr_annotation.label not in index_map:
+        if index_map and (curr_annotation.label not in index_map):
             raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
 
         original_values = None
@@ -104,10 +104,15 @@ def convert_annotations(
             # Get a mask where the holes are
             cv2.fillPoly(holes_mask, interiors, [1])
 
+        if not index_map and curr_annotation.z_index is None:
+            raise ValueError(f"Label {curr_annotation.label} has no z_index and no index_map is provided.")
+
+        index_value = index_map[curr_annotation.label] if index_map else curr_annotation.z_index + default_value + 1
+
         cv2.fillPoly(
             mask,
             [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
-            [index_map[curr_annotation.label]],
+            [index_value],
         )
         if interiors is not []:
             # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.

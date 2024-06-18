@@ -81,7 +81,7 @@ def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
 
 def test_convert_annotations_label_not_present():
     polygon = Polygon([(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", a_cls=AnnotationType.POLYGON))
-    with pytest.raises(ValueError, match="Label polygon is not in the index map {}"):
+    with pytest.raises(ValueError, match="Label polygon has no z_index and no index_map is provided."):
         convert_annotations([polygon], (10, 10), {})
 
 
