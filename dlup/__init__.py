@@ -5,7 +5,7 @@ import logging
 from ._exceptions import UnsupportedSlideError
 from ._image import SlideImage
 from ._region import BoundaryMode, RegionView
-from .annotations import WsiAnnotations, AnnotationType
+from .annotations import AnnotationType, WsiAnnotations
 
 pyvips_logger = logging.getLogger("pyvips")
 pyvips_logger.setLevel(logging.CRITICAL)

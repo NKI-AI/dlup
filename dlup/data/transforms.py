@@ -80,7 +80,10 @@ def convert_annotations(
             points[curr_annotation.label] += tuple(coords)
             continue
 
-        if isinstance(curr_annotation, dlup.annotations.Polygon) and curr_annotation.type == AnnotationType.BOX:
+        if (
+            isinstance(curr_annotation, dlup.annotations.Polygon)
+            and curr_annotation.annotation_type == AnnotationType.BOX
+        ):
             min_x, min_y, max_x, max_y = curr_annotation.bounds
             boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
             continue
@@ -107,7 +110,7 @@ def convert_annotations(
         if not index_map and curr_annotation.z_index is None:
             raise ValueError(f"Label {curr_annotation.label} has no z_index and no index_map is provided.")
 
-        index_value = index_map[curr_annotation.label] if index_map else curr_annotation.z_index + default_value + 1
+        index_value = index_map[curr_annotation.label] if index_map else curr_annotation.z_index + 1
 
         cv2.fillPoly(
             mask,
