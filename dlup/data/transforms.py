@@ -74,6 +74,16 @@ def convert_annotations(
 
     has_roi = False
     for curr_annotation in annotations:
+        if index_map:
+            if curr_annotation.label not in index_map:
+                raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
+            index_value = index_map[curr_annotation.label]
+
+        else:
+            if curr_annotation.z_index is None:
+                raise ValueError(f"Label {curr_annotation.label} has no z_index and no index_map is provided.")
+            index_value = curr_annotation.z_index + 1
+
         holes_mask = None
         if isinstance(curr_annotation, dlup.annotations.Point):
             coords = tuple(curr_annotation.coords)
@@ -96,8 +106,6 @@ def convert_annotations(
             )
             has_roi = True
             continue
-        if index_map and (curr_annotation.label not in index_map):
-            raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
 
         original_values = None
         interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
@@ -106,11 +114,6 @@ def convert_annotations(
             holes_mask = np.zeros(region_size, dtype=np.int32)
             # Get a mask where the holes are
             cv2.fillPoly(holes_mask, interiors, [1])
-
-        if not index_map and curr_annotation.z_index is None:
-            raise ValueError(f"Label {curr_annotation.label} has no z_index and no index_map is provided.")
-
-        index_value = index_map[curr_annotation.label] if index_map else curr_annotation.z_index + 1
 
         cv2.fillPoly(
             mask,

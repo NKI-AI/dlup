@@ -70,12 +70,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         else:
             annotations = [Polygon(polygons[label], a_cls=a_cls)]
 
-        wsi_annotations.append(
-            AnnotationLayer(
-                a_cls=a_cls,
-                data=annotations,
-            )
-        )
+        wsi_annotations += annotations
 
     slide_annotations = WsiAnnotations(wsi_annotations)
     if args.simplify is not None:
