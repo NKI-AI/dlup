@@ -192,6 +192,40 @@ def _get_geojson_color(properties: dict[str, str | list[int]]) -> Optional[tuple
     return cast(tuple[int, int, int], tuple(color))
 
 
+def _is_rectangle(coordinates: list[list[list[float]]]) -> bool:
+    if len(coordinates) > 1:
+        return False
+    coords = coordinates[0]
+    # Create a polygon from the coordinates
+    poly = ShapelyPolygon(coords)
+
+    # Check if the polygon is valid and has four sides
+    if not poly.is_valid or len(poly.exterior.coords) != 5:
+        return False
+
+    # Get the list of coordinates (excluding the repeated last coordinate)
+    points = list(poly.exterior.coords[:-1])
+
+    # Check angles between consecutive edges to ensure they are 90 degrees
+    for i in range(4):
+        p1 = points[i - 1]  # Previous point
+        p2 = points[i]  # Current point
+        p3 = points[(i + 1) % 4]  # Next point
+
+        # Calculate vectors
+        vector1 = (p2[0] - p1[0], p2[1] - p1[1])
+        vector2 = (p3[0] - p2[0], p3[1] - p2[1])
+
+        # Calculate dot product and magnitudes of vectors
+        dot_product = vector1[0] * vector2[0] + vector1[1] * vector2[1]
+
+        # Check if angle is 90 degrees (dot product should be zero if vectors are perpendicular)
+        if not np.isclose(dot_product, 0.0, atol=1e-6):
+            return False
+
+    return True
+
+
 def transform(
     geometry: Point | Polygon, transformation: Callable[[npt.NDArray[np.float_]], npt.NDArray[np.float_]]
 ) -> Point | Polygon:
@@ -403,10 +437,9 @@ def shape(
         return [Point(np.asarray(c), a_cls=annotation_class) for c in coordinates["coordinates"]]
 
     if geom_type == "polygon":
-        annotation_class = AnnotationClass(
-            label=label, annotation_type=AnnotationType.POLYGON, color=color, z_index=z_index
-        )
         _coordinates = coordinates["coordinates"]
+        annotation_type = AnnotationType.BOX if _is_rectangle(_coordinates) else AnnotationType.POLYGON
+        annotation_class = AnnotationClass(label=label, annotation_type=annotation_type, color=color, z_index=z_index)
         # TODO: This needs to work by directly constructing it with an a_cls
         polygon = ShapelyPolygon(
             shell=np.asarray(_coordinates[0]),
