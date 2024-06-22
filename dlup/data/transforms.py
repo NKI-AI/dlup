@@ -53,7 +53,7 @@ def convert_annotations(
         The annotations as a list, e.g., as output from `dlup.annotations.WsiAnnotations.read_region()`.
     region_size : tuple[int, int]
     index_map : dict[str, int], optional
-        Map mapping annotation name to index number in the output. If not set, will use the z_index + default_value +1
+        Map mapping annotation name to index number in the output. If not set, will use the z_index + 1
     roi_name : str, optional
         Name of the region-of-interest key.
     default_value : int
@@ -61,8 +61,8 @@ def convert_annotations(
 
     Returns
     -------
-    dict, np.ndarray, np.ndarray or None
-        Dictionary of points, mask and roi_mask.
+    dict, dict, np.ndarray, np.ndarray or None
+        Dictionary of points, dictionary of boxes, mask and roi_mask.
 
     """
     mask = np.empty(region_size, dtype=np.int32)
@@ -74,16 +74,6 @@ def convert_annotations(
 
     has_roi = False
     for curr_annotation in annotations:
-        if index_map:
-            if curr_annotation.label not in index_map:
-                raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
-            index_value = index_map[curr_annotation.label]
-
-        else:
-            if curr_annotation.z_index is None:
-                raise ValueError(f"Label {curr_annotation.label} has no z_index and no index_map is provided.")
-            index_value = curr_annotation.z_index + 1
-
         holes_mask = None
         if isinstance(curr_annotation, dlup.annotations.Point):
             coords = tuple(curr_annotation.coords)
@@ -98,7 +88,19 @@ def convert_annotations(
             boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
             continue
 
-        if roi_name and curr_annotation.label == roi_name:
+        index_value: int
+        if curr_annotation.label != roi_name:
+            if index_map:
+                if curr_annotation.label not in index_map:
+                    raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
+                index_value = index_map[curr_annotation.label]
+
+            else:
+                if curr_annotation.z_index is None and curr_annotation.label != roi_name:
+                    raise ValueError(f"Label {curr_annotation.label} has no z_index and no index_map is provided.")
+                assert curr_annotation.z_index
+                index_value = curr_annotation.z_index + 1
+        elif roi_name is not None:
             cv2.fillPoly(
                 roi_mask,
                 [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
@@ -120,7 +122,7 @@ def convert_annotations(
             [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
             [index_value],
         )
-        if interiors is not []:
+        if interiors != []:
             # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
             mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
 
@@ -225,14 +227,14 @@ def rename_labels(annotations: Iterable[_AnnotationsTypes], remap_labels: dict[s
             output_annotations.append(annotation)
             continue
 
-        if annotation.a_cls.a_cls == AnnotationType.BOX:
-            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.BOX)
+        if annotation.a_cls.annotation_type == AnnotationType.BOX:
+            a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.BOX)
             output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-        elif annotation.a_cls.a_cls == AnnotationType.POLYGON:
-            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.POLYGON)
+        elif annotation.a_cls.annotation_type == AnnotationType.POLYGON:
+            a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.POLYGON)
             output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-        elif annotation.a_cls.a_cls == AnnotationType.POINT:
-            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.POINT)
+        elif annotation.a_cls.annotation_type == AnnotationType.POINT:
+            a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.POINT)
             output_annotations.append(dlup.annotations.Point(annotation, a_cls=a_cls))
         else:
             raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.a_cls}")

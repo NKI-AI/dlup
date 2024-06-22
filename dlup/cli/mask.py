@@ -64,7 +64,7 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         if polygons[label].is_empty:
             continue
 
-        a_cls = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
+        a_cls = AnnotationClass(label=label, annotation_type=AnnotationType.POLYGON)
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
             annotations = [Polygon(coords, a_cls=a_cls) for coords in polygons[label].geoms if not coords.is_empty]
         else:

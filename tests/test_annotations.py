@@ -1,16 +1,14 @@
 # Copyright (c) dlup contributors
 
 """Test the annotation facilities."""
-
 import json
 import pathlib
 import tempfile
 
-import numpy as np
 import pytest
 import shapely.geometry
 
-from dlup.annotations import AnnotationClass, AnnotationType, Polygon, WsiAnnotations, shape
+from dlup.annotations import AnnotationType, Polygon, WsiAnnotations, shape
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
@@ -56,8 +54,8 @@ class TestAnnotations:
     @property
     def v7_annotations(self):
         if self._v7_annotations is None:
-            assert pathlib.Path("tests/files/103S.json").exists()
-            self._v7_annotations = WsiAnnotations.from_darwin_json("tests/files/103S.json")
+            assert pathlib.Path(pathlib.Path(__file__).parent / "files/103S.json").exists()
+            self._v7_annotations = WsiAnnotations.from_darwin_json(pathlib.Path(__file__).parent / "files/103S.json")
         return self._v7_annotations
 
     def test_conversion_geojson(self):
@@ -74,7 +72,7 @@ class TestAnnotations:
 
     def test_reading_qupath05_geojson_export(self):
         annotations = WsiAnnotations.from_geojson([pathlib.Path("tests/files/qupath05.geojson")])
-        assert len(annotations.available_labels) == 2
+        assert len(annotations.available_classes) == 2
 
     def test_asap_to_geojson(self):
         # TODO: Make sure that the annotations hit the border of the region.
@@ -115,95 +113,52 @@ class TestAnnotations:
         if not area:
             assert region == []
 
-    def test_relabel(self):
-        coordinates, size = (10000, 10000), (5000, 5000)
-        _annotations = self.asap_annotations.copy()
-
-        original_class = AnnotationClass(label="healthy glands", a_cls=AnnotationType.POLYGON)
-        assert _annotations.available_labels == [original_class]
-        target_class = AnnotationClass(label="healthy glands 2", a_cls=AnnotationType.POLYGON)
-        _annotations.relabel(((original_class, target_class),))
-        assert _annotations.available_labels == [target_class]
-
-        region = _annotations.read_region(coordinates, 1.0, size)
-        for polygon in region:
-            assert polygon.label == "healthy glands 2"
-
     def test_copy(self):
         copied_annotations = self.asap_annotations.copy()
         # Now we can change a parameter
         copied_annotations.filter([""])
-        assert copied_annotations.available_labels != self.asap_annotations.available_labels
-
-    def test_add(self):
-        copied_annotations = self.asap_annotations.copy()
-        a = AnnotationClass(label="healthy glands", a_cls=AnnotationType.POLYGON)
-        b = AnnotationClass(label="healthy glands 2", a_cls=AnnotationType.POLYGON)
-        copied_annotations.relabel(((a, b),))
-        assert copied_annotations.available_labels == [b]
-        new_annotations = self.asap_annotations + copied_annotations
-        assert new_annotations.available_labels == [a, b]
+        assert copied_annotations.available_classes != self.asap_annotations.available_classes
 
     def test_read_darwin_v7(self):
         if not DARWIN_SDK_AVAILABLE:
             return None
-        assert len(self.v7_annotations.available_labels) == 5
-        assert self.v7_annotations.available_labels[0].label == "ROI (segmentation)"
-        assert self.v7_annotations.available_labels[0].a_cls == AnnotationType.BOX
-        assert self.v7_annotations.available_labels[1].label == "stroma (area)"
-        assert self.v7_annotations.available_labels[1].a_cls == AnnotationType.POLYGON
-        assert self.v7_annotations.available_labels[2].label == "lymphocyte (cell)"
-        assert self.v7_annotations.available_labels[2].a_cls == AnnotationType.POINT
-        assert self.v7_annotations.available_labels[3].label == "tumor (cell)"
-        assert self.v7_annotations.available_labels[3].a_cls == AnnotationType.BOX
-        assert self.v7_annotations.available_labels[4].label == "tumor (area)"
-        assert self.v7_annotations.available_labels[4].a_cls == AnnotationType.POLYGON
+
+        assert len(self.v7_annotations.available_classes) == 5
+        assert self.v7_annotations.available_classes[0].label == "ROI (segmentation)"
+        assert self.v7_annotations.available_classes[0].annotation_type == AnnotationType.BOX
+        assert self.v7_annotations.available_classes[1].label == "stroma (area)"
+        assert self.v7_annotations.available_classes[1].annotation_type == AnnotationType.POLYGON
+        assert self.v7_annotations.available_classes[2].label == "lymphocyte (cell)"
+        assert self.v7_annotations.available_classes[2].annotation_type == AnnotationType.POINT
+        assert self.v7_annotations.available_classes[3].label == "tumor (cell)"
+        assert self.v7_annotations.available_classes[3].annotation_type == AnnotationType.BOX
+        assert self.v7_annotations.available_classes[4].label == "tumor (area)"
+        assert self.v7_annotations.available_classes[4].annotation_type == AnnotationType.POLYGON
 
         assert self.v7_annotations.bounding_box == (
             (15291.49, 18094.48),
-            (5010.769999999999, 5122.939999999999),
+            (5122.9400000000005, 4597.509999999998),
         )
 
         region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
-
-        areas = [
-            6250000.0,
-            103262.97951705178,
-            1616768.0657540846,
-            5124.669950000004,
-            398284.54274999996,
-            0.0,
-            0.0,
-            0.0,
-            15.387299999994807,
-            141.48810000001885,
-            181.86480000001157,
-            171.6099999999857,
-            132.57199999999034,
-            100.99829999999875,
-            585.8432999999652,
-            10985.104649999945,
-            7705.718799999957,
+        expected_output = [
+            (23552767.879399993, "BOX", "ROI (segmentation)"),
+            (2417436.551849999, "POLYGON", "stroma (area)"),
+            (398284.54274999996, "POLYGON", "stroma (area)"),
+            (5124.669950000004, "POLYGON", "stroma (area)"),
+            (3516247.3012999967, "POLYGON", "stroma (area)"),
+            (0.0, "POINT", "lymphocyte (cell)"),
+            (0.0, "POINT", "lymphocyte (cell)"),
+            (0.0, "POINT", "lymphocyte (cell)"),
+            (141.48809999997553, "BOX", "tumor (cell)"),
+            (171.6099999999857, "BOX", "tumor (cell)"),
+            (181.86480000002024, "BOX", "tumor (cell)"),
+            (100.99830000001499, "BOX", "tumor (cell)"),
+            (132.57199999999577, "BOX", "tumor (cell)"),
+            (171.38699999998718, "BOX", "tumor (cell)"),
+            (7705.718799999956, "POLYGON", "tumor (area)"),
+            (10985.104649999945, "POLYGON", "tumor (area)"),
+            (585.8433000000017, "BOX", "tumor (cell)"),
         ]
-        assert [_.area for _ in region] == areas
 
-        annotation_types = [
-            AnnotationType.BOX,
-            AnnotationType.POLYGON,
-            AnnotationType.POLYGON,
-            AnnotationType.POLYGON,
-            AnnotationType.POLYGON,
-            AnnotationType.POINT,
-            AnnotationType.POINT,
-            AnnotationType.POINT,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.BOX,
-            AnnotationType.POLYGON,
-            AnnotationType.POLYGON,
-        ]
-        assert [_.type for _ in region] == annotation_types
+        assert [(_.area, _.annotation_type.value, _.label) for _ in region] == expected_output

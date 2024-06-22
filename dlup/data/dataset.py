@@ -140,6 +140,7 @@ class ConcatDataset(Dataset[T_co]):
 
     @staticmethod
     def cumsum(sequence: list[Dataset[T_co]]) -> list[int]:
+        """Compute the cumulative sum of the dataset sizes."""
         out_sequence, total = [], 0
         for item in sequence:
             length = len(item)
