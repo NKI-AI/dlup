@@ -67,8 +67,17 @@ class TestAnnotations:
             annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)], sorting="NONE")
 
         geojson_region = annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
-
         assert len(v7_region) == len(geojson_region)
+
+        for elem0, elem1 in zip(v7_region, geojson_region):
+            assert (
+                elem0 == elem1
+            )  # TODO: This does not test the conversion properly, it doesn't test against the annotation_type
+            assert elem0.label == elem1.label
+            if elem0.annotation_type == AnnotationType.BOX:
+                continue
+            else:
+                assert elem0.annotation_type == elem1.annotation_type
 
     def test_reading_qupath05_geojson_export(self):
         annotations = WsiAnnotations.from_geojson([pathlib.Path("tests/files/qupath05.geojson")])
