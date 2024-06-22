@@ -370,12 +370,24 @@ class Polygon(ShapelyPolygon):  # type: ignore
         if pre_area > 0 and post_area == 0:
             return None
 
+        annotation_class = self.annotation_class
+
+        if self.annotation_type == AnnotationType.BOX:
+            # Verify if this is still a box
+            if not _is_rectangle(shapely.geometry.mapping(result)["coordinates"]):
+                annotation_class = AnnotationClass(
+                    label=self.label,
+                    annotation_type=AnnotationType.POLYGON,
+                    color=self.color,
+                    z_index=self.z_index,
+                )
+
         if isinstance(result, ShapelyPolygon):
-            return [Polygon(result, a_cls=self.annotation_class)]
+            return [Polygon(result, a_cls=annotation_class)]
         elif isinstance(result, ShapelyMultiPolygon):
-            return [Polygon(geom, a_cls=self.annotation_class) for geom in result.geoms if geom.area > 0]
+            return [Polygon(geom, a_cls=annotation_class) for geom in result.geoms if geom.area > 0]
         elif isinstance(result, shapely.geometry.collection.GeometryCollection):
-            return [Polygon(geom, a_cls=self.annotation_class) for geom in result.geoms if geom.area > 0]
+            return [Polygon(geom, a_cls=annotation_class) for geom in result.geoms if geom.area > 0]
         else:
             raise NotImplementedError(f"{type(result)}")
 
