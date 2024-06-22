@@ -17,7 +17,7 @@ with open("README.md") as f:
     LONG_DESCRIPTION = f.read()
 
 install_requires = [
-    "numpy>=1.26.0",
+    "numpy==1.26.4",
     "tifftools>=1.5.2",
     "tifffile>=2024.5.22",
     "pyvips>=2.2.3",
