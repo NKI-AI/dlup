@@ -142,7 +142,9 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0):
+    def __init__(
+        self, *, roi_name: str | None, index_map: dict[str, int], default_value: int = 0, multiclass: bool = False
+    ):
         """
         Converts annotations given my `dlup.annotations.Polygon` or `dlup.annotations.Point` to a mask and a dictionary
         of points. The mask is initialized with `default_value`, (i.e., background). The values in the mask are
@@ -161,10 +163,13 @@ class ConvertAnnotationsToMask:
             Dictionary mapping the label to the integer in the output.
         default_value : int
             The mask will be initialized with this value.
+        multiclass : bool
+            Output a multiclass mask, the first axis will be the index. This requires that an index_map is available.
         """
         self._roi_name = roi_name
         self._index_map = index_map
         self._default_value = default_value
+        self._multiclass = multiclass
 
     def __call__(self, sample: TileSample) -> TileSampleWithAnnotationData:
         """
@@ -198,6 +203,7 @@ class ConvertAnnotationsToMask:
             roi_name=self._roi_name,
             index_map=self._index_map,
             default_value=self._default_value,
+            multiclass=self._multiclass,
         )
 
         output: TileSampleWithAnnotationData = cast(TileSampleWithAnnotationData, sample)
