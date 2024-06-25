@@ -688,7 +688,7 @@ class WsiAnnotations:
             with open(path, "r", encoding="utf-8") as annotation_file:
                 geojson_dict = json.load(annotation_file)
                 if "properties" in geojson_dict:
-                    if "tags" in geojson_dict["properties"]:
+                    if geojson_dict["properties"] and geojson_dict["properties"].get("tags", None) is not None:
                         _tags = geojson_dict["properties"]["tags"]
                         tags = [
                             AnnotationClass(label=tag, annotation_type=AnnotationType.TAG, color=None, z_index=None)

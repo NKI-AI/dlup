@@ -17,21 +17,19 @@ from dlup.data.transforms import (
 
 def test_convert_annotations_points_only():
     point = Point((5, 5), AnnotationClass(label="point1", annotation_type=AnnotationType.POINT))
-    points, boxes, mask, roi_mask = convert_annotations([point], (10, 10), {"point1": 1})
+    points, mask, roi_mask = convert_annotations([point], (10, 10), {"point1": 1})
 
     assert mask.sum() == 0
     assert roi_mask is None
-    assert boxes == {}
 
     assert points["point1"] == [(5.0, 5.0)]
 
 
 def test_convert_annotations_default_value():
-    points, boxes, mask, roi_mask = convert_annotations([], (10, 10), {}, default_value=-1)
+    points, mask, roi_mask = convert_annotations([], (10, 10), {}, default_value=-1)
 
     assert (mask == -1).all()
     assert roi_mask is None
-    assert boxes == {}
     assert points == {}
 
 
@@ -39,10 +37,9 @@ def test_convert_annotations_polygons_only():
     polygon = Polygon(
         [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
     )
-    points, boxes, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
+    points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
     assert points == {}
-    assert boxes == {}
     assert roi_mask is None
 
     assert np.all(mask[2:8, 2:8] == 2)
@@ -60,10 +57,9 @@ def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
         ],
         AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON),
     )
-    points, boxes, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
+    points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
     assert points == {}
-    assert boxes == {}
     assert roi_mask is None
 
     if top_add < 0.5 and bottom_add < 0.5:
@@ -85,19 +81,6 @@ def test_convert_annotations_label_not_present():
     )
     with pytest.raises(ValueError, match="Label polygon has no z_index and no index_map is provided."):
         convert_annotations([polygon], (10, 10), {})
-
-
-def test_convert_annotations_box():
-    box = Polygon(
-        [(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", annotation_type=AnnotationType.BOX)
-    )
-
-    points, boxes, mask, roi_mask = convert_annotations([box], (10, 10), {})
-
-    assert points == {}
-    assert boxes == {"polygon": [((1, 1), (6, 6))]}  # coords, size
-    assert (mask == 0).all()
-    assert roi_mask is None
 
 
 def test_roi_exception():
@@ -140,7 +123,7 @@ def _create_complex_polygons():
 
 def test_convert_annotations_multiple_polygons_and_holes():
     [polygon0, polygon1, roi], target = _create_complex_polygons()
-    points, boxes, mask, roi_mask = convert_annotations(
+    points, mask, roi_mask = convert_annotations(
         [polygon0, polygon1, roi], (10, 10), {"polygon1": 2, "polygon2": 3}, roi_name="roi"
     )
 
@@ -148,7 +131,6 @@ def test_convert_annotations_multiple_polygons_and_holes():
 
     assert (mask == target).all()
     assert points == {}
-    assert boxes == {}
     assert roi_mask is not None
     assert (roi_mask[3:7, 3:7] == 1).all()  # pylint: disable=unsubscriptable-object
 
@@ -157,7 +139,7 @@ def test_convert_annotations_out_of_bounds():
     polygon = Polygon(
         [(2, 2), (2, 11), (11, 11), (11, 2)], AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
     )
-    points, boxes, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
+    points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
     assert np.all(mask[2:10, 2:10] == 2)
 
@@ -179,7 +161,6 @@ def test_ConvertAnnotationsToMask():
     assert (output["mask"] == target).all()
     roi_mask = output["roi"]
     assert output["points"] == {}
-    assert output["boxes"] == {}
     assert roi_mask is not None
     assert (roi_mask[3:7, 3:7] == 1).all()  # pylint: disable=unsubscriptable-object
 

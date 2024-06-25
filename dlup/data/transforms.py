@@ -11,7 +11,7 @@ import numpy.typing as npt
 import dlup.annotations
 from dlup._exceptions import AnnotationError
 from dlup.annotations import AnnotationClass, AnnotationType
-from dlup.data.dataset import BoundingBoxType, PointType, TileSample, TileSampleWithAnnotationData
+from dlup.data.dataset import PointType, TileSample, TileSampleWithAnnotationData
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
@@ -22,9 +22,8 @@ def convert_annotations(
     index_map: dict[str, int] | None,
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[
-    dict[str, list[PointType]], dict[str, list[BoundingBoxType]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None
-]:
+    multiclass: bool = False,
+) -> tuple[dict[str, list[PointType]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
@@ -44,8 +43,6 @@ def convert_annotations(
     TODO
     ----
     - Convert segmentation index map to an Enum
-    - Do we need to return PIL images here? If we load a tif mask the mask will be returned as a PIL image, so
-      for consistency it might be relevant to do the same here.
 
     Parameters
     ----------
@@ -58,6 +55,8 @@ def convert_annotations(
         Name of the region-of-interest key.
     default_value : int
         The mask will be initialized with this value.
+    multiclass : bool
+        Output a multiclass mask, the first axis will be the index. This requires that an index_map is available.
 
     Returns
     -------
@@ -65,11 +64,19 @@ def convert_annotations(
         Dictionary of points, dictionary of boxes, mask and roi_mask.
 
     """
-    mask = np.empty(region_size, dtype=np.int32)
-    mask[:] = default_value
-    points: dict[str, list[PointType]] = defaultdict(list)
-    boxes: dict[str, list[BoundingBoxType]] = defaultdict(list)
+    if multiclass and index_map is None:
+        raise ValueError("index_map must be provided when multiclass is True.")
 
+    # Initialize the base mask, which may be multi-channel if output_class_axis is True
+    if multiclass:
+        assert isinstance(index_map, dict)
+        num_classes = max(index_map.values()) + 1  # Assuming index_map starts from 0
+        mask = np.zeros((num_classes, *region_size), dtype=np.int32)
+    else:
+        mask = np.empty(region_size, dtype=np.int32)
+    mask[:] = default_value
+
+    points: dict[str, list[PointType]] = defaultdict(list)
     roi_mask = np.zeros(region_size, dtype=np.int32)
 
     has_roi = False
@@ -78,14 +85,6 @@ def convert_annotations(
         if isinstance(curr_annotation, dlup.annotations.Point):
             coords = tuple(curr_annotation.coords)
             points[curr_annotation.label] += tuple(coords)
-            continue
-
-        if (
-            isinstance(curr_annotation, dlup.annotations.Polygon)
-            and curr_annotation.annotation_type == AnnotationType.BOX
-        ):
-            min_x, min_y, max_x, max_y = curr_annotation.bounds
-            boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
             continue
 
         index_value: int
@@ -117,11 +116,18 @@ def convert_annotations(
             # Get a mask where the holes are
             cv2.fillPoly(holes_mask, interiors, [1])
 
-        cv2.fillPoly(
-            mask,
-            [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
-            [index_value],
-        )
+        if not multiclass:
+            cv2.fillPoly(
+                mask,
+                [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
+                [index_value],
+            )
+        else:
+            cv2.fillPoly(
+                mask[index_value],
+                [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
+                [1],
+            )
         if interiors != []:
             # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
             mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
@@ -130,7 +136,7 @@ def convert_annotations(
     if not has_roi and roi_name is not None:
         raise AnnotationError(f"ROI mask {roi_name} not found, please add a ROI mask to the annotations.")
 
-    return dict(points), dict(boxes), mask, roi_mask if roi_name else None
+    return dict(points), mask, roi_mask if roi_name else None
 
 
 class ConvertAnnotationsToMask:
@@ -186,7 +192,7 @@ class ConvertAnnotationsToMask:
             raise ValueError("No annotations found to convert to mask.")
 
         image = sample["image"]
-        points, boxes, mask, roi = convert_annotations(
+        points, mask, roi = convert_annotations(
             _annotations,
             (image.height, image.width),
             roi_name=self._roi_name,
@@ -197,7 +203,6 @@ class ConvertAnnotationsToMask:
         output: TileSampleWithAnnotationData = cast(TileSampleWithAnnotationData, sample)
         output["annotation_data"] = {
             "points": points,
-            "boxes": boxes,
             "mask": mask,
             "roi": roi,
         }

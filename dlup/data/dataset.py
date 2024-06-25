@@ -72,7 +72,6 @@ AnnotationData = TypedDict(
     "AnnotationData",
     {
         "points": dict[str, list[PointType]],
-        "boxes": dict[str, list[BoundingBoxType]],
         "mask": npt.NDArray[np.int_],
         "roi": Optional[npt.NDArray[np.int_]],
     },
