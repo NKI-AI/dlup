@@ -655,7 +655,7 @@ class WsiAnnotations:
     def from_geojson(
         cls: Type[_TWsiAnnotations],
         geojsons: PathLike | Iterable[PathLike],
-        sorting: AnnotationSorting | str = AnnotationSorting.AREA,
+        sorting: AnnotationSorting | str = AnnotationSorting.NONE,
     ) -> _TWsiAnnotations:
         """
         Constructs an WsiAnnotations object from geojson.
@@ -679,14 +679,23 @@ class WsiAnnotations:
 
         _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
         layers: list[Polygon | Point] = []
+        tags = None
         for path in _geojsons:
             path = pathlib.Path(path)
             if not path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
 
             with open(path, "r", encoding="utf-8") as annotation_file:
-                geojson_dict = json.load(annotation_file)["features"]
-                for x in geojson_dict:
+                geojson_dict = json.load(annotation_file)
+                if "properties" in geojson_dict:
+                    if "tags" in geojson_dict["properties"]:
+                        _tags = geojson_dict["properties"]["tags"]
+                        tags = [
+                            AnnotationClass(label=tag, annotation_type=AnnotationType.TAG, color=None, z_index=None)
+                            for tag in _tags
+                        ]
+                features = geojson_dict["features"]
+                for x in features:
                     properties = x["properties"]
                     if "classification" in properties:
                         _label = properties["classification"]["name"]
@@ -701,7 +710,7 @@ class WsiAnnotations:
                     layers += _geometry
 
         _sort_layers_in_place(layers, sorting)
-        return cls(layers)
+        return cls(layers=layers, tags=tags)
 
     @classmethod
     def from_asap_xml(
@@ -1060,7 +1069,10 @@ class WsiAnnotations:
         return item in self.available_classes
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}(n_layers={len(self._layers)})"
+        return (
+            f"{type(self).__name__}(n_layers={len(self._layers)}, "
+            f"tags={[tag.label for tag in self.tags] if self.tags else None})"
+        )
 
 
 class _ComplexDarwinPolygonWrapper:
