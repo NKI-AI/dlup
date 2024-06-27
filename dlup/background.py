@@ -112,15 +112,13 @@ def _is_foreground_numpy(
     x, y, w, h, mpp = region
 
     mask_size = np.array(background_mask.shape[:2][::-1])
-
-    region_view = slide_image.get_scaled_view(slide_image.get_scaling(mpp))
     _background_mask = PIL.Image.fromarray(background_mask)
 
     # Type of background_mask is Any here.
     # The scaling should be computed using the longest edge of the image.
     background_size = (_background_mask.width, _background_mask.height)
 
-    region_size = region_view.size
+    region_size = slide_image.get_scaled_size(slide_image.get_scaling(mpp))
     max_dimension_index = max(range(len(background_size)), key=background_size.__getitem__)
     scaling = background_size[max_dimension_index] / region_size[max_dimension_index]
     scaled_region = np.array((x, y, w, h)) * scaling
