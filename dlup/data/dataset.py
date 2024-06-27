@@ -233,6 +233,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         labels: list[tuple[str, _LabelTypes]] | None = None,
         backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
         apply_color_profile: bool = False,
+        exclude_image_data : bool = False,
         **kwargs: Any,
     ):
         """
@@ -263,10 +264,12 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
            Backend to pass to SlideImage
         apply_color_profile : bool
             Whether to apply the ICC profile to the image if available.
+        exclude_image_data : bool
+            Whether to exclude image data from __getitem__ method. To be used when only annotations need to be used.
         **kwargs : Any
             Passed to SlideImage
         """
-        # We need to reuse the pah in order to re-open the image if necessary.
+        # We need to reuse the path in order to re-open the image if necessary.
         self._path = path
         self._crop = crop
         self.regions = regions
@@ -274,9 +277,16 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         self._output_tile_size = output_tile_size
 
         self.annotations = annotations
+        if self.annotations is not None:
+            if not isinstance(self.annotations, WsiAnnotations):
+                raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
+            _requires_offset = not getattr(self.annotations, "offset_to_slide_bounds", False)
+            self._requires_offset = _requires_offset
+
         self.labels = labels
         self._backend = backend
         self._apply_color_profile = apply_color_profile
+        self._exclude_image_data = exclude_image_data
         self._kwargs = kwargs
 
         # Maps from a masked index -> regions index.
@@ -333,8 +343,6 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         coordinates: tuple[int | float, int | float] = x, y
         region_size: tuple[int, int] = w, h
         scaling: float = slide_image.mpp / mpp
-        region_view = slide_image.get_scaled_view(scaling)
-        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
 
         if self._output_tile_size is not None:
             # If we have an output tile_size, we extract a region around the center of the given region.
@@ -344,7 +352,13 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             coordinates = (coordinates_x, coordinates_y)
             region_size = self._output_tile_size
 
-        region = region_view.read_region(coordinates, region_size)
+        # TODO: This is probably not the best way but a temporary hack to only get embedding features.
+        if not self._exclude_image_data:
+            region_view = slide_image.get_scaled_view(scaling)
+            region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
+            region = region_view.read_region(coordinates, region_size)
+        else:
+            region = pyvips.Image.black(*region_size)
 
         sample: TileSample = {
             "image": region,
@@ -358,13 +372,9 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
 
         # TODO: This needs to move to TiledWsiDataset (v1.0)
         if self.annotations is not None:
-            if not isinstance(self.annotations, WsiAnnotations):
-                raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
-            _requires_offset = getattr(self.annotations, "offset_to_slide_bounds", False)
-            if _requires_offset:
+            if self._requires_offset:
                 _scaled_offset = slide_image.get_scaled_slide_bounds(scaling)[0]
                 coordinates = (coordinates[0] + _scaled_offset[0], coordinates[1] + _scaled_offset[1])
-
             sample["annotations"] = self.annotations.read_region(coordinates, scaling, region_size)
 
         if self.labels:
@@ -436,6 +446,7 @@ class TiledWsiDataset(BaseWsiDataset):
             regions.append(MapSequence(functools.partial(_coords_to_region, tile_size, mpp), grid))  # type: ignore
 
         self._starting_indices = [0] + list(itertools.accumulate([len(s) for s in regions]))[:-1]
+        self._transform = transform
 
         super().__init__(
             path,
@@ -449,7 +460,6 @@ class TiledWsiDataset(BaseWsiDataset):
             backend=backend,
             **kwargs,
         )
-        self._transform = transform
 
     @property
     def grids(self) -> list[tuple[Grid, tuple[int, int], float]]:
