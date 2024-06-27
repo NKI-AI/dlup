@@ -32,7 +32,7 @@ import pyvips
 from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
-from dlup.annotations import DlupPoint, DlupPolygon, WsiAnnotations
+from dlup.annotations import Point, Polygon, WsiAnnotations
 from dlup.backends import ImageBackend
 from dlup.backends.common import AbstractSlideBackend
 from dlup.background import is_foreground
@@ -42,7 +42,7 @@ from dlup.types import PathLike, ROIType
 
 MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "WsiAnnotations"]
 
-_AnnotationsTypes = DlupPoint | DlupPolygon
+_AnnotationsTypes = Point | Polygon
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
