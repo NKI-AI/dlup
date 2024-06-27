@@ -8,7 +8,7 @@ import tempfile
 import pytest
 import shapely.geometry
 
-from dlup.annotations import AnnotationType, Polygon, WsiAnnotations, shape
+from dlup.annotations import AnnotationType, DlupPolygon, WsiAnnotations, shape
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
@@ -97,7 +97,7 @@ class TestAnnotations:
             shape1 = shape(elem1["geometry"], label="")
             assert len(set([_.label for _ in shape0])) == 1
             assert len(set([_.label for _ in shape1])) == 1
-            if isinstance(shape0[0], Polygon):
+            if isinstance(shape0[0], DlupPolygon):
                 complete_shape0 = shapely.geometry.MultiPolygon(shape0)
                 complete_shape1 = shapely.geometry.MultiPolygon(shape1)
             else:
@@ -114,7 +114,7 @@ class TestAnnotations:
             assert len(region) == 1
             assert region[0].area == area
             assert region[0].label == "healthy glands"
-            assert isinstance(region[0], Polygon)
+            assert isinstance(region[0], DlupPolygon)
 
         if not area:
             assert region == []

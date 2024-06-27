@@ -13,7 +13,7 @@ from dlup._exceptions import AnnotationError
 from dlup.annotations import AnnotationClass, AnnotationType
 from dlup.data.dataset import PointType, TileSample, TileSampleWithAnnotationData
 
-_AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
+_AnnotationsTypes = dlup.annotations.DlupPoint | dlup.annotations.DlupPolygon
 
 
 def convert_annotations(
@@ -82,7 +82,7 @@ def convert_annotations(
     has_roi = False
     for curr_annotation in annotations:
         holes_mask = None
-        if isinstance(curr_annotation, dlup.annotations.Point):
+        if isinstance(curr_annotation, dlup.annotations.DlupPoint):
             coords = tuple(curr_annotation.coords)
             points[curr_annotation.label] += tuple(coords)
             continue
@@ -240,13 +240,13 @@ def rename_labels(annotations: Iterable[_AnnotationsTypes], remap_labels: dict[s
 
         if annotation.a_cls.annotation_type == AnnotationType.BOX:
             a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.BOX)
-            output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
+            output_annotations.append(dlup.annotations.DlupPolygon(annotation, a_cls=a_cls))
         elif annotation.a_cls.annotation_type == AnnotationType.POLYGON:
             a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.POLYGON)
-            output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
+            output_annotations.append(dlup.annotations.DlupPolygon(annotation, a_cls=a_cls))
         elif annotation.a_cls.annotation_type == AnnotationType.POINT:
             a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.POINT)
-            output_annotations.append(dlup.annotations.Point(annotation, a_cls=a_cls))
+            output_annotations.append(dlup.annotations.DlupPoint(annotation, a_cls=a_cls))
         else:
             raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.a_cls}")
 
