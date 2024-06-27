@@ -397,7 +397,7 @@ class DlupPolygon(ShapelyPolygon):  # type: ignore
         else:
             instance = super().__new__(cls, coords)
         instance.__class__ = cls
-        return cast("Polygon", instance)
+        return cast("DlupPolygon", instance)
 
     def __del__(self) -> None:
         if str(id(self)) in self._id_to_attrs:
