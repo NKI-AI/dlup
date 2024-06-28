@@ -70,11 +70,7 @@ class TestAnnotations:
         assert len(v7_region) == len(geojson_region)
 
         for elem0, elem1 in zip(v7_region, geojson_region):
-            # TODO: Equality check needs to check for the annotation_type and label be the same
             assert elem0 == elem1
-            assert elem0.label == elem1.label
-            assert elem0.annotation_type == elem1.annotation_type
-            assert elem0.color == elem1.color
 
     def test_reading_qupath05_geojson_export(self):
         annotations = WsiAnnotations.from_geojson([pathlib.Path("tests/files/qupath05.geojson")])

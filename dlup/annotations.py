@@ -314,6 +314,19 @@ class Point(shapely.geometry.Point):  # type: ignore
         point.__class__ = cls
         return point  # type: ignore
 
+    def __eq__(self, other: object) -> bool:
+        geometry_equal = self.equals(other)
+        if not geometry_equal:
+            return False
+
+        if not isinstance(other, type(self)):
+            return False
+
+        label_equal = self.label == other.label
+        type_equal = self.annotation_type == other.annotation_type
+        color_equal = self.color == other.color
+        return geometry_equal and label_equal and type_equal and color_equal
+
     def __del__(self) -> None:
         del self._id_to_attrs[str(id(self))]
 
@@ -398,6 +411,20 @@ class Polygon(ShapelyPolygon):  # type: ignore
             instance = super().__new__(cls, coords)
         instance.__class__ = cls
         return cast("Polygon", instance)
+
+    def __eq__(self, other: object) -> bool:
+        geometry_equal = self.equals(other)
+        if not geometry_equal:
+            return False
+
+        if not isinstance(other, type(self)):
+            return False
+
+        label_equal = self.label == other.label
+        z_index_equal = self.z_index == other.z_index
+        type_equal = self.annotation_type == other.annotation_type
+        color_equal = self.color == other.color
+        return geometry_equal and label_equal and z_index_equal and type_equal and color_equal
 
     def __del__(self) -> None:
         if str(id(self)) in self._id_to_attrs:
