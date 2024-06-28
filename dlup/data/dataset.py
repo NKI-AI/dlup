@@ -587,41 +587,32 @@ class TiledWsiDataset(BaseWsiDataset):
     def __getitem__(
         self, index: Union[int, slice]
     ) -> Union[RegionFromWsiDatasetSample, list[RegionFromWsiDatasetSample]]:
-        region_data = super().__getitem__(index)
+        def process_tile_sample(region_data: TileSample) -> RegionFromWsiDatasetSample:
+            region_index = region_data["region_index"]
+            starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
+            grid_index = region_index - self._starting_indices[starting_index]
+            grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
+            output: RegionFromWsiDatasetSample = {
+                **region_data,
+                "grid_local_coordinates": (int(grid_local_coordinates[0]), int(grid_local_coordinates[1])),
+                "grid_index": starting_index,
+            }
+            if self._transform:
+                output = self._transform(output)
+            return output
 
-        if isinstance(index, slice):
+        region_data = super().__getitem__(index)
+        # We know that for int, super().__getitem__ returns a TileSample. Now we need to convince mypy.
+        if isinstance(index, int):
+            if not isinstance(region_data, dict):
+                raise ValueError("Expected a TileSample.")
+            output = process_tile_sample(region_data)
+        elif isinstance(index, slice):
             # Convince mypy.
             if not isinstance(region_data, collections.abc.Sequence):
                 raise ValueError("Expected a sequence of TileSample.")
             # We know that for slices, super().__getitem__ returns a sequence of TileSample
-            return [self._process_tile_sample(data) for data in region_data]
-
-        # We know that for int, super().__getitem__ returns a TileSample. Now we need to convince mypy.
-        if not isinstance(region_data, dict):
-            raise ValueError("Expected a TileSample.")
-        return self._process_tile_sample(region_data)
-
-    def _process_tile_sample(self, region_data: TileSample) -> RegionFromWsiDatasetSample:
-        region_index = region_data["region_index"]
-        starting_index = bisect.bisect_right(self._starting_indices, region_index) - 1
-        grid_index = region_index - self._starting_indices[starting_index]
-        grid_local_coordinates = np.unravel_index(grid_index, self.grids[starting_index][0].size)
-
-        output: RegionFromWsiDatasetSample = {
-            "image": region_data["image"],
-            "coordinates": region_data["coordinates"],
-            "mpp": region_data["mpp"],
-            "path": region_data["path"],
-            "region_index": region_data["region_index"],
-            "labels": region_data["labels"],
-            "annotations": region_data["annotations"],
-            "grid_local_coordinates": (int(grid_local_coordinates[0]), int(grid_local_coordinates[1])),
-            "grid_index": starting_index,
-        }
-
-        if self._transform:
-            output = self._transform(output)
-
+            output = [process_tile_sample(data) for data in region_data]
         return output
 
     def __iter__(self) -> Iterator[RegionFromWsiDatasetSample]:
