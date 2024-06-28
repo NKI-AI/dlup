@@ -275,7 +275,7 @@ class GeoJsonDict(TypedDict):
     id: str | None
     type: str
     features: list[dict[str, str | dict[str, str]]]
-    properties: Optional[dict[str, str | list[str]]]
+    metadata: Optional[dict[str, str | list[str]]]
 
 
 class Point(shapely.geometry.Point):  # type: ignore
@@ -714,9 +714,9 @@ class WsiAnnotations:
 
             with open(path, "r", encoding="utf-8") as annotation_file:
                 geojson_dict = json.load(annotation_file)
-                if "properties" in geojson_dict:
-                    if geojson_dict["properties"] and geojson_dict["properties"].get("tags", None) is not None:
-                        _tags = geojson_dict["properties"]["tags"]
+                if "metadata" in geojson_dict:
+                    if geojson_dict["metadata"] and geojson_dict["metadata"].get("tags", None) is not None:
+                        _tags = geojson_dict["metadata"]["tags"]
                         tags = [
                             AnnotationClass(label=tag, annotation_type=AnnotationType.TAG, color=None, z_index=None)
                             for tag in _tags
@@ -972,13 +972,16 @@ class WsiAnnotations:
         Output the annotations as proper geojson. These outputs are sorted according to the `AnnotationSorting` selected
         for the annotations. This ensures the annotations are correctly sorted in the output.
 
+        The output is not completely GeoJSON compliant as some parts such as the metadata and properties are not part
+        of the standard. However, these are implemented to ensure the output is compatible with QuPath.
+
         Returns
         -------
         list of (str, GeoJsonDict)
         """
-        data: GeoJsonDict = {"type": "FeatureCollection", "properties": None, "features": [], "id": None}
+        data: GeoJsonDict = {"type": "FeatureCollection", "metadata": None, "features": [], "id": None}
         if self.tags:
-            data["properties"] = {"tags": [_.label for _ in self.tags]}
+            data["metadata"] = {"tags": [_.label for _ in self.tags]}
 
         # # This used to be it.
         for idx, curr_annotation in enumerate(self._layers):
