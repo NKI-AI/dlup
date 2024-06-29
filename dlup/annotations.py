@@ -977,7 +977,8 @@ class WsiAnnotations:
 
         Returns
         -------
-        list of (str, GeoJsonDict)
+        GeoJsonDict
+            The output as a GeoJSON dictionary.
         """
         data: GeoJsonDict = {"type": "FeatureCollection", "metadata": None, "features": [], "id": None}
         if self.tags:
