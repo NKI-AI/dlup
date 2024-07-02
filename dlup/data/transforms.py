@@ -11,7 +11,7 @@ import numpy.typing as npt
 import dlup.annotations
 from dlup._exceptions import AnnotationError
 from dlup.annotations import AnnotationClass, AnnotationType
-from dlup.data.dataset import BoundingBoxType, PointType, TileSample, TileSampleWithAnnotationData
+from dlup.data.dataset import PointType, TileSample, TileSampleWithAnnotationData
 
 _AnnotationsTypes = dlup.annotations.Point | dlup.annotations.Polygon
 
@@ -22,16 +22,15 @@ def convert_annotations(
     index_map: dict[str, int],
     roi_name: str | None = None,
     default_value: int = 0,
-) -> tuple[
-    dict[str, list[PointType]], dict[str, list[BoundingBoxType]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None
-]:
+    multiclass: bool = False,
+) -> tuple[dict[str, list[PointType]], npt.NDArray[np.int_], npt.NDArray[np.int_] | None]:
     """
     Convert the polygon and point annotations as output of a dlup dataset class, where:
     - In case of points the output is dictionary mapping the annotation name to a list of locations.
     - In case of bounding boxes the output is a dictionary mapping the annotation name to a list of bounding boxes.
       Note that the internal representation of a bounding box is a polygon (`AnnotationType is AnnotationType.BOX`),
       so the bounding box of that polygon is computed to convert.
-    - In case of polygons these are converted into a mask according to `index_map`.
+    - In case of polygons these are converted into a mask according to `index_map`, or the z_index + 1.
 
     *BE AWARE*: the polygon annotations are processed sequentially and later annotations can overwrite earlier ones.
     This is for instance useful when you would annotate "tumor associated stroma" on top of "stroma".
@@ -44,8 +43,6 @@ def convert_annotations(
     TODO
     ----
     - Convert segmentation index map to an Enum
-    - Do we need to return PIL images here? If we load a tif mask the mask will be returned as a PIL image, so
-      for consistency it might be relevant to do the same here.
 
     Parameters
     ----------
@@ -54,23 +51,34 @@ def convert_annotations(
     region_size : tuple[int, int]
     index_map : dict[str, int]
         Map mapping annotation name to index number in the output.
-    roi_name : str
+    roi_name : str, optional
         Name of the region-of-interest key.
     default_value : int
         The mask will be initialized with this value.
+    multiclass : bool
+        Output a multiclass mask, the first axis will be the index. This requires that an index_map is available.
 
     Returns
     -------
-    dict, np.ndarray, np.ndarray or None
-        Dictionary of points, mask and roi_mask.
+    dict, dict, np.ndarray, np.ndarray or None
+        Dictionary of points, dictionary of boxes, mask and roi_mask.
 
     """
-    mask = np.empty(region_size, dtype=np.int32)
-    mask[:] = default_value
-    points: dict[str, list[PointType]] = defaultdict(list)
-    boxes: dict[str, list[BoundingBoxType]] = defaultdict(list)
+    if multiclass and index_map is None:
+        raise ValueError("index_map must be provided when multiclass is True.")
 
+    # Initialize the base mask, which may be multi-channel if output_class_axis is True
+    if multiclass:
+        assert isinstance(index_map, dict)
+        num_classes = max(index_map.values()) + 1  # Assuming index_map starts from 0
+        mask = np.zeros((num_classes, *region_size), dtype=np.int32)
+    else:
+        mask = np.empty(region_size, dtype=np.int32)
+    mask[:] = default_value
+
+    points: dict[str, list[PointType]] = defaultdict(list)
     roi_mask = np.zeros(region_size, dtype=np.int32)
+
     has_roi = False
     for curr_annotation in annotations:
         holes_mask = None
@@ -79,12 +87,11 @@ def convert_annotations(
             points[curr_annotation.label] += tuple(coords)
             continue
 
-        if isinstance(curr_annotation, dlup.annotations.Polygon) and curr_annotation.type == AnnotationType.BOX:
-            min_x, min_y, max_x, max_y = curr_annotation.bounds
-            boxes[curr_annotation.label].append(((int(min_x), int(min_y)), (int(max_x - min_x), int(max_y - min_y))))
-            continue
-
-        if roi_name and curr_annotation.label == roi_name:
+        index_value: int
+        if curr_annotation.label != roi_name:
+            if curr_annotation.label not in index_map:
+                raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
+        elif roi_name is not None:
             cv2.fillPoly(
                 roi_mask,
                 [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
@@ -93,8 +100,7 @@ def convert_annotations(
             has_roi = True
             continue
 
-        if curr_annotation.label not in index_map:
-            raise ValueError(f"Label {curr_annotation.label} is not in the index map {index_map}")
+        index_value = index_map[curr_annotation.label]
 
         original_values = None
         interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
@@ -104,12 +110,19 @@ def convert_annotations(
             # Get a mask where the holes are
             cv2.fillPoly(holes_mask, interiors, [1])
 
-        cv2.fillPoly(
-            mask,
-            [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
-            [index_map[curr_annotation.label]],
-        )
-        if interiors is not []:
+        if not multiclass:
+            cv2.fillPoly(
+                mask,
+                [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
+                [index_value],
+            )
+        else:
+            cv2.fillPoly(
+                mask[index_value],
+                [np.asarray(curr_annotation.exterior.coords).round().astype(np.int32)],
+                [1],
+            )
+        if interiors != []:
             # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
             mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
 
@@ -117,7 +130,7 @@ def convert_annotations(
     if not has_roi and roi_name is not None:
         raise AnnotationError(f"ROI mask {roi_name} not found, please add a ROI mask to the annotations.")
 
-    return dict(points), dict(boxes), mask, roi_mask if roi_name else None
+    return dict(points), mask, roi_mask if roi_name else None
 
 
 class ConvertAnnotationsToMask:
@@ -173,7 +186,7 @@ class ConvertAnnotationsToMask:
             raise ValueError("No annotations found to convert to mask.")
 
         image = sample["image"]
-        points, boxes, mask, roi = convert_annotations(
+        points, mask, roi = convert_annotations(
             _annotations,
             (image.height, image.width),
             roi_name=self._roi_name,
@@ -184,7 +197,6 @@ class ConvertAnnotationsToMask:
         output: TileSampleWithAnnotationData = cast(TileSampleWithAnnotationData, sample)
         output["annotation_data"] = {
             "points": points,
-            "boxes": boxes,
             "mask": mask,
             "roi": roi,
         }
@@ -214,14 +226,14 @@ def rename_labels(annotations: Iterable[_AnnotationsTypes], remap_labels: dict[s
             output_annotations.append(annotation)
             continue
 
-        if annotation.a_cls.a_cls == AnnotationType.BOX:
-            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.BOX)
+        if annotation.a_cls.annotation_type == AnnotationType.BOX:
+            a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.BOX)
             output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-        elif annotation.a_cls.a_cls == AnnotationType.POLYGON:
-            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.POLYGON)
+        elif annotation.a_cls.annotation_type == AnnotationType.POLYGON:
+            a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.POLYGON)
             output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-        elif annotation.a_cls.a_cls == AnnotationType.POINT:
-            a_cls = AnnotationClass(label=remap_labels[label], a_cls=AnnotationType.POINT)
+        elif annotation.a_cls.annotation_type == AnnotationType.POINT:
+            a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.POINT)
             output_annotations.append(dlup.annotations.Point(annotation, a_cls=a_cls))
         else:
             raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.a_cls}")

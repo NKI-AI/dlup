@@ -72,7 +72,6 @@ AnnotationData = TypedDict(
     "AnnotationData",
     {
         "points": dict[str, list[PointType]],
-        "boxes": dict[str, list[BoundingBoxType]],
         "mask": npt.NDArray[np.int_],
         "roi": Optional[npt.NDArray[np.int_]],
     },
@@ -140,6 +139,7 @@ class ConcatDataset(Dataset[T_co]):
 
     @staticmethod
     def cumsum(sequence: list[Dataset[T_co]]) -> list[int]:
+        """Compute the cumulative sum of the dataset sizes."""
         out_sequence, total = [], 0
         for item in sequence:
             length = len(item)
