@@ -6,9 +6,10 @@ import pathlib
 import tempfile
 
 import pytest
+import pickle
 import shapely.geometry
 
-from dlup.annotations import AnnotationType, Polygon, WsiAnnotations, shape
+from dlup.annotations import AnnotationType, Polygon, WsiAnnotations, shape, AnnotationClass
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
@@ -164,3 +165,12 @@ class TestAnnotations:
         ]
 
         assert [(_.area, _.annotation_type.value, _.label) for _ in region] == expected_output
+
+    def test_polygon_pickling(self):
+        annotation_class = AnnotationClass(label="example", annotation_type=AnnotationType.POLYGON, color=(255, 0, 0), z_index=1)
+        polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)], a_cls=annotation_class)
+        with tempfile.NamedTemporaryFile(suffix=".pkl") as pickled_polygon_file:
+            pickled_polygon_file.write(pickle.dump(polygon, pickled_polygon_file))
+            pickled_polygon_file.flush()
+            loaded_polygon = pickle.load(pickled_polygon_file)
+        assert polygon.__eq__(loaded_polygon)
