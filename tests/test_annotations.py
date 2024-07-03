@@ -167,9 +167,11 @@ class TestAnnotations:
         assert [(_.area, _.annotation_type.value, _.label) for _ in region] == expected_output
 
     def test_polygon_pickling(self):
-        annotation_class = AnnotationClass(label="example", annotation_type=AnnotationType.POLYGON, color=(255, 0, 0), z_index=1)
+        annotation_class = AnnotationClass(
+            label="example", annotation_type=AnnotationType.POLYGON, color=(255, 0, 0), z_index=1
+        )
         polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)], a_cls=annotation_class)
-        with tempfile.NamedTemporaryFile(suffix=".pkl", mode='w+b') as pickled_polygon_file:
+        with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
             pickle.dump(polygon, pickled_polygon_file)
             pickled_polygon_file.flush()
             pickled_polygon_file.seek(0)

@@ -439,10 +439,10 @@ class Polygon(ShapelyPolygon):  # type: ignore
     def __str__(self) -> str:
         return f"{self.annotation_class}, {self.wkt}"
 
-    def __reduce__(self):
+    def __reduce__(self) -> tuple[Type[Polygon], tuple[Union[tuple[float, float], ShapelyPolygon], AnnotationClass]]:
         return (self.__class__, (self.exterior.coords[:], self.a_cls))
 
-    def __setstate__(self, state):
+    def __setstate__(self, state) -> None:
         self._id_to_attrs[str(id(self))] = dict(a_cls=self.a_cls)
 
 
