@@ -440,7 +440,10 @@ class Polygon(ShapelyPolygon):  # type: ignore
         return f"{self.annotation_class}, {self.wkt}"
 
     def __reduce__(self):  # type: ignore
-        return (self.__class__, (self.exterior.coords[:], self.a_cls))
+        return (
+            self.__class__,
+            (ShapelyPolygon(self.exterior.coords[:], [ring.coords[:] for ring in self.interiors]), self.a_cls),
+        )
 
     def __setstate__(self, state) -> None:  # type: ignore
         self._id_to_attrs[str(id(self))] = dict(a_cls=self.a_cls)
