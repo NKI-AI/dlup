@@ -136,8 +136,9 @@ def convert_annotations(
 class ConvertAnnotationsToMask:
     """Transform which converts polygons to masks. Will overwrite the annotations key"""
 
-    def __init__(self, *, roi_name: str | None, index_map: dict[str, int], multiclass: bool = False,
-                 default_value: int = 0):
+    def __init__(
+        self, *, roi_name: str | None, index_map: dict[str, int], multiclass: bool = False, default_value: int = 0
+    ):
         """
         Converts annotations given my `dlup.annotations.Polygon` or `dlup.annotations.Point` to a mask and a dictionary
         of points. The mask is initialized with `default_value`, (i.e., background). The values in the mask are
