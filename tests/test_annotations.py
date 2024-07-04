@@ -192,9 +192,7 @@ class TestAnnotations:
         assert dlup_polygon_with_holes.__eq__(loaded_polygon_with_holes)
 
     def test_point_pickling(self):
-        annotation_class = AnnotationClass(
-            label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0), z_index=1
-        )
+        annotation_class = AnnotationClass(label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0))
         point = Point((0, 0), a_cls=annotation_class)
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_point_file:
             pickle.dump(point, pickled_point_file)
