@@ -36,6 +36,7 @@ from shapely import geometry
 from shapely import lib as shapely_lib
 from shapely.geometry import MultiPolygon as ShapelyMultiPolygon
 from shapely.geometry import Polygon as ShapelyPolygon
+from shapely.geometry import Point as ShapelyPoint
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
@@ -50,7 +51,7 @@ from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 
 _TWsiAnnotations = TypeVar("_TWsiAnnotations", bound="WsiAnnotations")
-ShapelyTypes = Union[shapely.geometry.Point, shapely.geometry.MultiPolygon, shapely.geometry.Polygon]
+ShapelyTypes = Union[ShapelyPoint, ShapelyMultiPolygon, ShapelyPolygon]
 
 
 class DarwinV7Metadata(NamedTuple):
@@ -278,17 +279,17 @@ class GeoJsonDict(TypedDict):
     metadata: Optional[dict[str, str | list[str]]]
 
 
-class Point(shapely.geometry.Point):  # type: ignore
+class Point(ShapelyPoint):  # type: ignore
     # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
     _id_to_attrs: ClassVar[dict[str, Any]] = {}
     __slots__ = (
-        shapely.geometry.Point.__slots__
+        ShapelyPoint.__slots__
     )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
     name: str  # For documentation generation and static type checking
 
     def __init__(
         self,
-        coord: shapely.geometry.Point | tuple[float, float],
+        coord: ShapelyPoint | tuple[float, float],
         a_cls: AnnotationClass | None = None,
     ) -> None:
         self._id_to_attrs[str(id(self))] = dict(a_cls=a_cls)
@@ -339,6 +340,15 @@ class Point(shapely.geometry.Point):  # type: ignore
     def __str__(self) -> str:
         return f"{self.annotation_class}, {self.wkt}"
 
+    def __reduce__(self):  # type: ignore
+        return (
+            self.__class__,
+            (ShapelyPoint(self.xy), self.a_cls),
+        )
+
+    def __setstate__(self, state) -> None:  # type: ignore
+        self._id_to_attrs[str(id(self))] = dict(a_cls=self.a_cls)
+
 
 class Polygon(ShapelyPolygon):  # type: ignore
     _id_to_attrs: ClassVar[dict[str, Any]] = {}
@@ -346,7 +356,7 @@ class Polygon(ShapelyPolygon):  # type: ignore
 
     def __init__(
         self,
-        shell: shapely.geometry.Polygon | tuple[float, float],
+        shell: ShapelyPolygon | tuple[float, float],
         a_cls: AnnotationClass | None = None,
     ) -> None:
         self._id_to_attrs[str(id(self))] = dict(a_cls=a_cls)
@@ -438,6 +448,15 @@ class Polygon(ShapelyPolygon):  # type: ignore
 
     def __str__(self) -> str:
         return f"{self.annotation_class}, {self.wkt}"
+
+    def __reduce__(self):  # type: ignore
+        return (
+            self.__class__,
+            (ShapelyPolygon(self.exterior.coords[:], [ring.coords[:] for ring in self.interiors]), self.a_cls),
+        )
+
+    def __setstate__(self, state) -> None:  # type: ignore
+        self._id_to_attrs[str(id(self))] = dict(a_cls=self.a_cls)
 
 
 class CoordinatesDict(TypedDict):
@@ -805,9 +824,9 @@ class WsiAnnotations:
 
                 for coordinates in coordinates_list:
                     _cls = AnnotationClass(label=label, annotation_type=annotation_type, color=color)
-                    if isinstance(coordinates, shapely.geometry.Point):
+                    if isinstance(coordinates, ShapelyPoint):
                         layers.append(Point(coordinates, a_cls=_cls))
-                    elif isinstance(coordinates, shapely.geometry.Polygon):
+                    elif isinstance(coordinates, ShapelyPolygon):
                         layers.append(Polygon(coordinates, a_cls=_cls))
                     else:
                         raise NotImplementedError
@@ -1109,13 +1128,13 @@ class WsiAnnotations:
 class _ComplexDarwinPolygonWrapper:
     """Wrapper class for a complex polygon (i.e. polygon with holes) from a Darwin annotation."""
 
-    def __init__(self, polygon: shapely.geometry.Polygon):
+    def __init__(self, polygon: ShapelyPolygon):
         self.geom = polygon
         self.hole = False
         self.holes: list[float] = []
 
 
-def _parse_darwin_complex_polygon(annotation: dict[str, Any]) -> shapely.geometry.MultiPolygon:
+def _parse_darwin_complex_polygon(annotation: dict[str, Any]) -> ShapelyMultiPolygon:
     """
     Parse a complex polygon (i.e. polygon with holes) from a Darwin annotation.
 
@@ -1125,7 +1144,7 @@ def _parse_darwin_complex_polygon(annotation: dict[str, Any]) -> shapely.geometr
 
     Returns
     -------
-    shapely.geometry.MultiPolygon
+    ShapelyMultiPolygon
     """
     polygons = [
         _ComplexDarwinPolygonWrapper(ShapelyPolygon([(p["x"], p["y"]) for p in path])) for path in annotation["paths"]
@@ -1146,7 +1165,7 @@ def _parse_darwin_complex_polygon(annotation: dict[str, Any]) -> shapely.geometr
 
     # create complex polygon with MultiPolygon
     complex_polygon = [
-        shapely.geometry.Polygon(my_polygon.geom.exterior.coords, my_polygon.holes)
+        ShapelyPolygon(my_polygon.geom.exterior.coords, my_polygon.holes)
         for my_polygon in sorted_polygons
         if not my_polygon.hole
     ]
@@ -1187,7 +1206,7 @@ def _parse_asap_coordinates(
         )
 
     if annotation_type == AnnotationType.POLYGON:
-        coordinates = shapely.geometry.Polygon(coordinates)
+        coordinates = ShapelyPolygon(coordinates)
     elif annotation_type == AnnotationType.BOX:
         raise NotImplementedError
     elif annotation_type == AnnotationType.POINT:
