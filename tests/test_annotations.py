@@ -3,14 +3,14 @@
 """Test the annotation facilities."""
 import json
 import pathlib
+import pickle
 import tempfile
 
 import pytest
-import pickle
 import shapely.geometry
 from shapely import Polygon as shapely_polygon
 
-from dlup.annotations import AnnotationType, Polygon, WsiAnnotations, shape, AnnotationClass
+from dlup.annotations import AnnotationClass, AnnotationType, Point, Polygon, WsiAnnotations, shape
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
@@ -190,3 +190,15 @@ class TestAnnotations:
             pickled_polygon_file.seek(0)
             loaded_polygon_with_holes = pickle.load(pickled_polygon_file)
         assert dlup_polygon_with_holes.__eq__(loaded_polygon_with_holes)
+
+    def test_point_pickling(self):
+        annotation_class = AnnotationClass(
+            label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0), z_index=1
+        )
+        point = Point((0, 0), a_cls=annotation_class)
+        with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_point_file:
+            pickle.dump(point, pickled_point_file)
+            pickled_point_file.flush()
+            pickled_point_file.seek(0)
+            loaded_point = pickle.load(pickled_point_file)
+        assert point.__eq__(loaded_point)
