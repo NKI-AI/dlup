@@ -340,13 +340,13 @@ class Point(ShapelyPoint):  # type: ignore
     def __str__(self) -> str:
         return f"{self.annotation_class}, {self.wkt}"
 
-    def __reduce__(self):
+    def __reduce__(self):  # type: ignore
         return (
             self.__class__,
             (ShapelyPoint(self.xy), self.a_cls),
         )
 
-    def __setstate__(self, state) -> None:
+    def __setstate__(self, state) -> None:  # type: ignore
         self._id_to_attrs[str(id(self))] = dict(a_cls=self.a_cls)
 
 
