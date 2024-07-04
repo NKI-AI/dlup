@@ -8,9 +8,10 @@ import tempfile
 import pytest
 import pickle
 import shapely.geometry
-from shapely import Polygon as shapely_polygon
+from shapely import Point as ShapelyPoint
+from shapely import Polygon as ShapelyPolygon
 
-from dlup.annotations import AnnotationType, Polygon, WsiAnnotations, shape, AnnotationClass
+from dlup.annotations import AnnotationType, Point, Polygon, WsiAnnotations, shape, AnnotationClass
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
@@ -174,7 +175,7 @@ class TestAnnotations:
         exterior = [(0, 0), (4, 0), (4, 4), (0, 4)]
         hole1 = [(1, 1), (2, 1), (2, 2), (1, 2)]
         hole2 = [(3, 3), (3, 3.5), (3.5, 3.5), (3.5, 3)]
-        shapely_polygon_with_holes = shapely_polygon(exterior, [hole1, hole2])
+        shapely_polygon_with_holes = ShapelyPolygon(exterior, [hole1, hole2])
         dlup_polygon_with_holes = Polygon(shapely_polygon_with_holes, a_cls=annotation_class)
         dlup_solid_polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)], a_cls=annotation_class)
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
@@ -190,3 +191,17 @@ class TestAnnotations:
             pickled_polygon_file.seek(0)
             loaded_polygon_with_holes = pickle.load(pickled_polygon_file)
         assert dlup_polygon_with_holes.__eq__(loaded_polygon_with_holes)
+
+    def test_point_pickling(self):
+        annotation_class = AnnotationClass(
+            label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0), z_index=None
+        )
+        coordinates = [(1, 2)]
+        shapely_point = ShapelyPoint(coordinates)
+        dlup_point = Point(shapely_point, a_cls=annotation_class)
+        with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_point_file:
+            pickle.dump(shapely_point, pickled_point_file)
+            pickled_point_file.flush()
+            pickled_point_file.seek(0)
+            loaded_point = pickle.load(pickled_point_file)
+        assert dlup_point.__eq__(loaded_point)
