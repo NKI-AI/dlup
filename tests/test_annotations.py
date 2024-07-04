@@ -182,14 +182,14 @@ class TestAnnotations:
             pickled_polygon_file.flush()
             pickled_polygon_file.seek(0)
             loaded_solid_polygon = pickle.load(pickled_polygon_file)
-        assert dlup_solid_polygon.__eq__(loaded_solid_polygon)
+        assert dlup_solid_polygon == loaded_solid_polygon
 
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
             pickle.dump(dlup_polygon_with_holes, pickled_polygon_file)
             pickled_polygon_file.flush()
             pickled_polygon_file.seek(0)
             loaded_polygon_with_holes = pickle.load(pickled_polygon_file)
-        assert dlup_polygon_with_holes.__eq__(loaded_polygon_with_holes)
+        assert dlup_polygon_with_holes == loaded_polygon_with_holes
 
     def test_point_pickling(self):
         annotation_class = AnnotationClass(label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0))
@@ -199,4 +199,4 @@ class TestAnnotations:
             pickled_point_file.flush()
             pickled_point_file.seek(0)
             loaded_point = pickle.load(pickled_point_file)
-        assert point.__eq__(loaded_point)
+        assert point == loaded_point
