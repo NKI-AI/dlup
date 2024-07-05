@@ -192,6 +192,25 @@ def _get_geojson_color(properties: dict[str, str | list[int]]) -> Optional[tuple
 
     return cast(tuple[int, int, int], tuple(color))
 
+def _get_geojson_z_index(properties: dict[str, str | list[int]]) -> Optional[int]:
+    """Parse the properties dictionary of a GeoJSON object to get the z_index`.
+
+    Arguments
+    ---------
+    properties : dict
+        The properties dictionary of a GeoJSON object.
+
+    Returns
+    -------
+    Optional[tuple[int, int, int]]
+        The color of the object as a tuple of RGB values.
+    """
+    z_index = properties.get("z_index", None)
+    if z_index is None:
+        return None
+
+    return cast(int, z_index)
+
 
 def _is_rectangle(coordinates: list[list[list[float]]]) -> bool:
     if len(coordinates) > 1:
@@ -524,7 +543,9 @@ def shape(
     raise AnnotationError(f"Unsupported geom_type {geom_type}")
 
 
-def _geometry_to_geojson(geometry: Polygon | Point, label: str, color: tuple[int, int, int] | None) -> dict[str, Any]:
+def _geometry_to_geojson(
+    geometry: Polygon | Point, label: str, color: tuple[int, int, int] | None, z_index: int | None
+) -> dict[str, Any]:
     """Function to convert a geometry to a GeoJSON object.
 
     Parameters
@@ -535,6 +556,8 @@ def _geometry_to_geojson(geometry: Polygon | Point, label: str, color: tuple[int
         The label name
     color : tuple[int, int, int]
         The color of the object in RGB values
+    z_index : int
+        The z-index of the object
 
     Returns
     -------
@@ -553,6 +576,9 @@ def _geometry_to_geojson(geometry: Polygon | Point, label: str, color: tuple[int
     }
     if color is not None:
         data["properties"]["classification"]["color"] = color
+
+    if z_index is not None:
+        data["properties"]["classification"]["z_index"] = z_index
 
     return data
 
@@ -746,13 +772,15 @@ class WsiAnnotations:
                     if "classification" in properties:
                         _label = properties["classification"]["name"]
                         _color = _get_geojson_color(properties["classification"])
+                        _z_index = _get_geojson_z_index(properties["classification"])
                     elif properties.get("objectType", None) == "annotation":
                         _label = properties["name"]
                         _color = _get_geojson_color(properties)
+                        _z_index = _get_geojson_z_index(properties)
                     else:
                         raise ValueError("Could not find label in the GeoJSON properties.")
 
-                    _geometry = shape(x["geometry"], label=_label, color=_color)
+                    _geometry = shape(x["geometry"], label=_label, color=_color, z_index=_z_index)
                     layers += _geometry
 
         _sort_layers_in_place(layers, sorting)
@@ -1005,7 +1033,12 @@ class WsiAnnotations:
 
         # # This used to be it.
         for idx, curr_annotation in enumerate(self._layers):
-            json_dict = _geometry_to_geojson(curr_annotation, label=curr_annotation.label, color=curr_annotation.color)
+            json_dict = _geometry_to_geojson(
+                curr_annotation,
+                label=curr_annotation.label,
+                color=curr_annotation.color,
+                z_index=curr_annotation.z_index,
+            )
             json_dict["id"] = str(idx)
             data["features"].append(json_dict)
 
