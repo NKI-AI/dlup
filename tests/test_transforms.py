@@ -16,7 +16,7 @@ from dlup.data.transforms import (
 
 
 def test_convert_annotations_points_only():
-    point = Point((5, 5), AnnotationClass(label="point1", annotation_type=AnnotationType.POINT))
+    point = Point((5, 5), a_cls=AnnotationClass(label="point1", annotation_type=AnnotationType.POINT))
     points, mask, roi_mask = convert_annotations([point], (10, 10), {"point1": 1})
 
     assert mask.sum() == 0
@@ -35,7 +35,8 @@ def test_convert_annotations_default_value():
 
 def test_convert_annotations_polygons_only():
     polygon = Polygon(
-        [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
+        [(2, 2), (2, 8), (8, 8), (8, 2)],
+        a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON),
     )
     points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
@@ -55,7 +56,7 @@ def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
             (8 + bottom_add, 8 + bottom_add),
             (8 + bottom_add, 2 + top_add),
         ],
-        AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON),
+        a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON),
     )
     points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
@@ -77,7 +78,7 @@ def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
 
 def test_convert_annotations_label_not_present():
     polygon = Polygon(
-        [(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", annotation_type=AnnotationType.POLYGON)
+        [(1, 1), (1, 7), (7, 7), (7, 1)], a_cls=AnnotationClass(label="polygon", annotation_type=AnnotationType.POLYGON)
     )
     with pytest.raises(ValueError, match="Label polygon is not in the index map {}"):
         convert_annotations([polygon], (10, 10), {})
@@ -85,7 +86,7 @@ def test_convert_annotations_label_not_present():
 
 def test_roi_exception():
     box = Polygon(
-        [(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", annotation_type=AnnotationType.BOX)
+        [(1, 1), (1, 7), (7, 7), (7, 1)], a_cls=AnnotationClass(label="polygon", annotation_type=AnnotationType.BOX)
     )
 
     with pytest.raises(AnnotationError, match="ROI mask roi not found, please add a ROI mask to the annotations."):
@@ -93,15 +94,21 @@ def test_roi_exception():
 
 
 def _create_complex_polygons():
-    spolygon = ShapelyPolygon([(1, 1), (1, 7), (7, 7), (7, 1)], holes=[[(2, 2), (2, 4), (4, 4), (4, 1)]])
-    polygon0 = Polygon(spolygon, AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON))
-    spolygon = ShapelyPolygon(
-        [(4, 4), (4, 9), (9, 9), (9, 4)], holes=[[(5, 5), (5, 7), (7, 7), (7, 5)], [(7, 7), (5, 9), (5, 9), (9, 9)]]
-    )
+    shell0 = [(1, 1), (1, 7), (7, 7), (7, 1)]
+    holes0 = [[(2, 2), (2, 4), (4, 4), (4, 1)]]
+    spolygon = ShapelyPolygon(shell0, holes=holes0)
+    polygon0 = Polygon(spolygon, a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON))
 
+    shell1 = [(4, 4), (4, 9), (9, 9), (9, 4)]
+    holes1 = [[(5, 5), (5, 7), (7, 7), (7, 5)], [(7, 7), (5, 9), (5, 9), (9, 9)]]
+    spolygon = ShapelyPolygon(
+        shell1, holes=holes1
+    )
     polygon1 = Polygon(spolygon, a_cls=AnnotationClass(label="polygon2", annotation_type=AnnotationType.POLYGON))
+    
+    shell_roi = [(3, 3), (3, 6), (6, 6), (6, 3)]
     roi = Polygon(
-        [(3, 3), (3, 6), (6, 6), (6, 3)], AnnotationClass(label="roi", annotation_type=AnnotationType.POLYGON)
+        shell_roi, a_cls=AnnotationClass(label="roi", annotation_type=AnnotationType.POLYGON)
     )
 
     target = np.asarray(
@@ -137,7 +144,7 @@ def test_convert_annotations_multiple_polygons_and_holes():
 
 def test_convert_annotations_out_of_bounds():
     polygon = Polygon(
-        [(2, 2), (2, 11), (11, 11), (11, 2)], AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
+        [(2, 2), (2, 11), (11, 11), (11, 2)], a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
     )
     points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
@@ -189,7 +196,7 @@ class TestRenameLabels:
     def test_no_remap(self, transformer0):
         old_annotation = Polygon(
             [(2, 2), (2, 8), (8, 8), (8, 2)],
-            AnnotationClass(label="unchanged_name", annotation_type=AnnotationType.POLYGON),
+            a_cls=AnnotationClass(label="unchanged_name", annotation_type=AnnotationType.POLYGON),
         )
         sample = {"annotations": [old_annotation]}
         transformed_sample = transformer0(sample)
@@ -197,14 +204,14 @@ class TestRenameLabels:
 
     def test_remap_polygon(self, transformer1):
         old_annotation = Polygon(
-            [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="old_name", annotation_type=AnnotationType.POLYGON)
+            [(2, 2), (2, 8), (8, 8), (8, 2)], a_cls=AnnotationClass(label="old_name", annotation_type=AnnotationType.POLYGON)
         )
 
         random_box = Polygon(
-            [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="some_box", annotation_type=AnnotationType.BOX)
+            [(2, 2), (2, 8), (8, 8), (8, 2)], a_cls=AnnotationClass(label="some_box", annotation_type=AnnotationType.BOX)
         )
 
-        random_point = Point((1, 1), AnnotationClass(label="some_point", annotation_type=AnnotationType.POINT))
+        random_point = Point((1, 1), a_cls=AnnotationClass(label="some_point", annotation_type=AnnotationType.POINT))
 
         sample = {"annotations": [old_annotation, random_box, random_point]}
         transformed_sample = transformer1(sample)
