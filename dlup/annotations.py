@@ -22,9 +22,9 @@ import json
 import os
 import pathlib
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Any, Callable, ClassVar, Iterable, NamedTuple, Optional, Type, TypedDict, TypeVar, Union, cast
+from typing import Any, ClassVar, Iterable, NamedTuple, Optional, Type, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -33,7 +33,6 @@ import shapely.affinity
 import shapely.geometry
 import shapely.validation
 from shapely import geometry
-from shapely import lib as shapely_lib
 from shapely.geometry import MultiPolygon as ShapelyMultiPolygon
 from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.geometry import Point as ShapelyPoint
@@ -212,79 +211,12 @@ def _get_geojson_z_index(properties: dict[str, str | list[int]]) -> Optional[int
     return cast(int, z_index)
 
 
-def _is_rectangle(coordinates: list[list[list[float]]]) -> bool:
-    if len(coordinates) > 1:
-        return False
-    coords = coordinates[0]
-    # Create a polygon from the coordinates
-    poly = ShapelyPolygon(coords)
-
-    # Check if the polygon is valid and has four sides
-    if not poly.is_valid or len(poly.exterior.coords) != 5:
-        return False
-
-    # Get the list of coordinates (excluding the repeated last coordinate)
-    points = list(poly.exterior.coords[:-1])
-
-    # Check angles between consecutive edges to ensure they are 90 degrees
-    for i in range(4):
-        p1 = points[i - 1]  # Previous point
-        p2 = points[i]  # Current point
-        p3 = points[(i + 1) % 4]  # Next point
-
-        # Calculate vectors
-        vector1 = (p2[0] - p1[0], p2[1] - p1[1])
-        vector2 = (p3[0] - p2[0], p3[1] - p2[1])
-
-        # Calculate dot product and magnitudes of vectors
-        dot_product = vector1[0] * vector2[0] + vector1[1] * vector2[1]
-
-        # Check if angle is 90 degrees (dot product should be zero if vectors are perpendicular)
-        if not np.isclose(dot_product, 0.0, atol=1e-6):
-            return False
-
-    return True
-
-
-def transform(
-    geometry: Point | Polygon, transformation: Callable[[npt.NDArray[np.float_]], npt.NDArray[np.float_]]
-) -> Point | Polygon:
-    """
-    Transform a geometry. Function taken from Shapely 2.0.1 under the BSD 3-Clause "New" or "Revised" License.
-
-    Parameters
-    ----------
-    geometry : Point or Polygon
-    transformation : Callable
-        Function mapping a numpy array of coordinates to a new numpy array of coordinates.
-
-    Returns
-    -------
-    Point or Polygon
-        The transformed point
-    """
-    original_class = geometry.annotation_class
-    geometry_arr = np.array(geometry, dtype=np.object_)  # makes a copy
-    coordinates = shapely_lib.get_coordinates(geometry_arr, False, False)
-    new_coordinates = transformation(coordinates)
-    # check the array to yield understandable error messages
-    if not isinstance(new_coordinates, np.ndarray):
-        raise ValueError("The provided transformation did not return a numpy array")
-    if new_coordinates.dtype != np.float64:
-        raise ValueError(
-            "The provided transformation returned an array with an unexpected dtype ({new_coordinates.dtype})"
-        )
-    if new_coordinates.shape != coordinates.shape:
-        # if the shape is too small we will get a segfault
-        raise ValueError(
-            "The provided transformation returned an array with an unexpected shape ({new_coordinates.shape})"
-        )
-    geometry_arr = shapely_lib.set_coordinates(geometry_arr, new_coordinates)
-    returned_geometry = geometry_arr.item()
-
-    if original_class.annotation_type != "POINT":
-        return Polygon(returned_geometry, a_cls=original_class)
-    return Point(returned_geometry, a_cls=original_class)
+def _is_rectangle(polygon: Polygon | ShapelyPolygon) -> tuple[bool, bool]:
+    if not polygon.is_valid or len(polygon.exterior.coords) != 5 or len(polygon.interiors) != 0:
+        return False, False
+    min_rotated_rect = polygon.minimum_rotated_rectangle
+    aligned_rect = min_rotated_rect.minimum_rotated_rectangle
+    return (np.isclose(polygon.area, min_rotated_rect.area), min_rotated_rect == aligned_rect)
 
 
 class GeoJsonDict(TypedDict):
@@ -298,91 +230,22 @@ class GeoJsonDict(TypedDict):
     metadata: Optional[dict[str, str | list[str]]]
 
 
-class Point(ShapelyPoint):  # type: ignore
-    # https://github.com/shapely/shapely/issues/1233#issuecomment-1034324441
-    _id_to_attrs: ClassVar[dict[str, Any]] = {}
-    __slots__ = (
-        ShapelyPoint.__slots__
-    )  # slots must be the same for assigning __class__ - https://stackoverflow.com/a/52140968
-    name: str  # For documentation generation and static type checking
+class AnnotatedGeometry(geometry.base.BaseGeometry):
+    __slots__ = geometry.base.BaseGeometry.__slots__
+    _a_cls: ClassVar[dict[str, Any]] = {}
 
     def __init__(
         self,
-        coord: ShapelyPoint | tuple[float, float],
-        a_cls: AnnotationClass | None = None,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
-        self._id_to_attrs[str(id(self))] = dict(a_cls=a_cls)
+        # Get annotation_class from args and kwargs. We do this because the __new__ method takes different (kw)args
+        a_cls = next((arg for arg in args if isinstance(arg, AnnotationClass)), kwargs.get("a_cls", None))
+        self._a_cls[id(self)] = a_cls
 
     @property
     def annotation_class(self) -> AnnotationClass:
-        return self._id_to_attrs[str(id(self))]["a_cls"]  # type: ignore
-
-    @property
-    def annotation_type(self) -> AnnotationType | str:
-        return self.annotation_class.annotation_type
-
-    @property
-    def label(self) -> str:
-        return self.annotation_class.label
-
-    @property
-    def color(self) -> Optional[tuple[int, int, int]]:
-        return self.annotation_class.color
-
-    def __new__(cls, coord: tuple[float, float], *args: Any, **kwargs: Any) -> "Point":
-        point = super().__new__(cls, coord)
-        point.__class__ = cls
-        return point  # type: ignore
-
-    def __eq__(self, other: object) -> bool:
-        geometry_equal = self.equals(other)
-        if not geometry_equal:
-            return False
-
-        if not isinstance(other, type(self)):
-            return False
-
-        label_equal = self.label == other.label
-        type_equal = self.annotation_type == other.annotation_type
-        color_equal = self.color == other.color
-        return geometry_equal and label_equal and type_equal and color_equal
-
-    def __del__(self) -> None:
-        del self._id_to_attrs[str(id(self))]
-
-    def __getattr__(self, name: str) -> Any:
-        try:
-            return Point._id_to_attrs[str(id(self))][name]
-        except KeyError as e:
-            raise AttributeError(str(e)) from None
-
-    def __str__(self) -> str:
-        return f"{self.annotation_class}, {self.wkt}"
-
-    def __reduce__(self):  # type: ignore
-        return (
-            self.__class__,
-            (ShapelyPoint(self.xy), self.a_cls),
-        )
-
-    def __setstate__(self, state) -> None:  # type: ignore
-        self._id_to_attrs[str(id(self))] = dict(a_cls=self.a_cls)
-
-
-class Polygon(ShapelyPolygon):  # type: ignore
-    _id_to_attrs: ClassVar[dict[str, Any]] = {}
-    __slots__ = ShapelyPolygon.__slots__
-
-    def __init__(
-        self,
-        shell: ShapelyPolygon | tuple[float, float],
-        a_cls: AnnotationClass | None = None,
-    ) -> None:
-        self._id_to_attrs[str(id(self))] = dict(a_cls=a_cls)
-
-    @property
-    def annotation_class(self) -> AnnotationClass:
-        return cast(AnnotationClass, self._id_to_attrs[str(id(self))]["a_cls"])
+        return cast(AnnotationClass, self._a_cls[id(self)])
 
     @property
     def annotation_type(self) -> AnnotationType | str:
@@ -400,88 +263,85 @@ class Polygon(ShapelyPolygon):  # type: ignore
     def z_index(self) -> Optional[int]:
         return self.annotation_class.z_index
 
-    def intersect_with_box(self, other: ShapelyPolygon) -> Optional[list["Polygon"]]:
-        pre_area = self.area
-        if not self.is_valid:
-            valid_polygon = make_valid(self)
-        else:
-            valid_polygon = self
+    def __del__(self) -> None:
+        if id(self) in self._a_cls:
+            del self._a_cls[id(self)]
 
-        result = valid_polygon.intersection(other)
-        post_area = result.area
-        if pre_area > 0 and post_area == 0:
-            return None
-
-        annotation_class = self.annotation_class
-
-        if self.annotation_type == AnnotationType.BOX:
-            # Verify if this is still a box
-            if not _is_rectangle(shapely.geometry.mapping(result)["coordinates"]):
-                annotation_class = AnnotationClass(
-                    label=self.label,
-                    annotation_type=AnnotationType.POLYGON,
-                    color=self.color,
-                    z_index=self.z_index,
-                )
-
-        if isinstance(result, ShapelyPolygon):
-            return [Polygon(result, a_cls=annotation_class)]
-        elif isinstance(result, ShapelyMultiPolygon):
-            return [Polygon(geom, a_cls=annotation_class) for geom in result.geoms if geom.area > 0]
-        elif isinstance(result, shapely.geometry.collection.GeometryCollection):
-            return [Polygon(geom, a_cls=annotation_class) for geom in result.geoms if geom.area > 0]
-        else:
-            raise NotImplementedError(f"{type(result)}")
-
-    def __new__(cls, coords: Union[tuple[float, float], ShapelyPolygon], *args: Any, **kwargs: Any) -> "Polygon":
-        if isinstance(coords, ShapelyPolygon):
-            instance = super().__new__(cls, coords.exterior.coords, [ring.coords for ring in coords.interiors])
-        else:
-            instance = super().__new__(cls, coords)
-        instance.__class__ = cls
-        return cast("Polygon", instance)
+    def __str__(self) -> str:
+        return f"{self.annotation_class}, {self.wkt}"
 
     def __eq__(self, other: object) -> bool:
         geometry_equal = self.equals(other)
         if not geometry_equal:
             return False
 
+        # TODO: Check evaluation with ShapelyPolygon / ShapelyPoint. Does it evaluate to True?
         if not isinstance(other, type(self)):
             return False
 
-        label_equal = self.label == other.label
-        z_index_equal = self.z_index == other.z_index
-        type_equal = self.annotation_type == other.annotation_type
-        color_equal = self.color == other.color
-        return geometry_equal and label_equal and z_index_equal and type_equal and color_equal
+        if not other.annotation_class == self.annotation_class:
+            return False
+        return True
 
-    def __del__(self) -> None:
-        if str(id(self)) in self._id_to_attrs:
-            del self._id_to_attrs[str(id(self))]
 
-    def __getattr__(self, name: str) -> Any:
-        try:
-            return Polygon._id_to_attrs[str(id(self))][name]
-        except KeyError as e:
-            raise AttributeError(f"{name} attribute not found") from e
+class Point(ShapelyPoint, AnnotatedGeometry):
+    __slots__ = ShapelyPoint.__slots__
 
-    def __str__(self) -> str:
-        return f"{self.annotation_class}, {self.wkt}"
+    def __new__(
+        cls, coord: ShapelyPoint | tuple[float, float], a_cls: AnnotationClass = None
+    ) -> "Point":
+        point = super().__new__(cls, coord)
+        point.__class__ = cls
+        return cast("Point", point)
+
+    def __reduce__(self):  # type: ignore
+        return (self.__class__, (ShapelyPoint(self.xy), self.annotation_class))
+
+
+class Polygon(ShapelyPolygon, AnnotatedGeometry):
+    __slots__ = ShapelyPolygon.__slots__
+
+    def __new__(
+        cls,
+        shell: Union[tuple[float, float], ShapelyPolygon],
+        holes: Optional[list[list[float, float]]] = None,
+        a_cls: Optional[AnnotationClass] = None,
+    ) -> "Polygon":
+        instance = super().__new__(cls, shell, holes)
+        instance.__class__ = cls
+        return cast("Polygon", instance)
+
+    def intersect_with_box(
+        self, other: ShapelyPolygon, affine_transform_matrix: list[float]
+    ) -> Optional[list["Polygon"]]:
+        result = make_valid(self).intersection(other)
+        if self.area > 0 and result.area == 0:
+            return None
+
+        # Verify if this box is still a box. Create annotation_type to polygon if that is not the case
+        if self.annotation_type == AnnotationType.BOX and not _is_rectangle(result)[0]:
+            annotation_class = replace(self.annotation_class, annotation_type=AnnotationType.POLYGON)
+        else:
+            annotation_class = self.annotation_class
+
+        transformed_results = shapely.affinity.affine_transform(result, affine_transform_matrix)
+        # FIXME: Can we even have MultiPolygons at this stage?
+        if isinstance(transformed_results, ShapelyPolygon):
+            return [Polygon(transformed_results, a_cls=annotation_class)]
+        elif isinstance(transformed_results, (ShapelyMultiPolygon, shapely.geometry.collection.GeometryCollection)):
+            return [Polygon(geom, a_cls=annotation_class) for geom in transformed_results.geoms if geom.area > 0]
+        else:
+            raise NotImplementedError(f"{type(result)}")
 
     def __reduce__(self):  # type: ignore
         return (
             self.__class__,
-            (ShapelyPolygon(self.exterior.coords[:], [ring.coords[:] for ring in self.interiors]), self.a_cls),
+            (self.exterior.coords[:], [ring.coords[:] for ring in self.interiors], self.annotation_class),
         )
-
-    def __setstate__(self, state) -> None:  # type: ignore
-        self._id_to_attrs[str(id(self))] = dict(a_cls=self.a_cls)
-
 
 class CoordinatesDict(TypedDict):
     type: str
     coordinates: list[list[list[float]]]
-
 
 def shape(
     coordinates: CoordinatesDict,
@@ -489,40 +349,27 @@ def shape(
     color: Optional[tuple[int, int, int]] = None,
     z_index: Optional[int] = None,
 ) -> list[Polygon | Point]:
-    geom_type = coordinates.get("type", None)
-    if geom_type is None:
+    geom_type = coordinates.get("type", "not_found").lower()
+    if geom_type == "not_found":
         raise ValueError("No type found in coordinates.")
-    geom_type = geom_type.lower()
+    elif geom_type in ["point", "multipoint"]:
+        if z_index is not None:
+            raise AnnotationError("z_index is not supported for point annotations.")
 
-    if geom_type in ["point", "multipoint"] and z_index is not None:
-        raise AnnotationError("z_index is not supported for point annotations.")
-
-    if geom_type == "point":
         annotation_class = AnnotationClass(
             label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None
         )
+        _coordinates = coordinates["coordinates"]
         return [
-            Point(
-                np.asarray(coordinates["coordinates"]),
-                a_cls=annotation_class,
-            )
+            Point(np.asarray(c), a_cls=annotation_class)
+            for c in (_coordinates if geom_type == "multipoint" else [_coordinates])
         ]
-    if geom_type == "multipoint":
-        annotation_class = AnnotationClass(
-            label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None
-        )
-        return [Point(np.asarray(c), a_cls=annotation_class) for c in coordinates["coordinates"]]
 
     if geom_type == "polygon":
         _coordinates = coordinates["coordinates"]
-        annotation_type = AnnotationType.BOX if _is_rectangle(_coordinates) else AnnotationType.POLYGON
+        annotation_type = AnnotationType.BOX if _is_rectangle(Polygon(_coordinates[0]))[0] else AnnotationType.POLYGON
         annotation_class = AnnotationClass(label=label, annotation_type=annotation_type, color=color, z_index=z_index)
-        # TODO: This needs to work by directly constructing it with an a_cls
-        polygon = ShapelyPolygon(
-            shell=np.asarray(_coordinates[0]),
-            holes=[np.asarray(hole) for hole in _coordinates[1:]],
-        )
-        return [Polygon(polygon, a_cls=annotation_class)]
+        return [Polygon(shell=np.asarray(_coordinates[0]), holes=[np.asarray(hole) for hole in _coordinates[1:]], a_cls=annotation_class)]
     if geom_type == "multipolygon":
         annotation_class = AnnotationClass(
             label=label, annotation_type=AnnotationType.POLYGON, color=color, z_index=z_index
@@ -1124,25 +971,22 @@ class WsiAnnotations:
         curr_indices = self._str_tree.query(query_box)
         # This is needed because the STRTree returns (seemingly) arbitrary order, and this would destroy the order
         curr_indices.sort()
-        filtered_annotations = self._str_tree.geometries.take(curr_indices).tolist()
+        filtered_annotations: list[Point | Polygon] = self._str_tree.geometries.take(curr_indices).tolist()
 
         cropped_annotations = []
+        affine_transform_matrix = [scaling, 0, 0, scaling, -location[0], -location[1]]
         for annotation in filtered_annotations:
             if annotation.annotation_type in (AnnotationType.BOX, AnnotationType.POLYGON):
-                _annotations = annotation.intersect_with_box(query_box)
+                _annotations = annotation.intersect_with_box(query_box, affine_transform_matrix=affine_transform_matrix)
                 if _annotations is not None:
                     cropped_annotations += _annotations
+            elif annotation.annotation_type == AnnotationType.POINT:
+                _annotation = shapely.affinity.affine_transform(annotation, affine_transform_matrix)
+                cropped_annotations.append(Point(_annotation, a_cls=annotation.annotation_class))
+            # Tags could end up here in theory?
             else:
                 cropped_annotations.append(annotation)
-
-        def _affine_coords(coords: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
-            return coords * scaling - np.asarray(location, dtype=np.float_)
-
-        output: list[Polygon | Point] = []
-        for annotation in cropped_annotations:
-            annotation = transform(annotation, _affine_coords)
-            output.append(annotation)
-        return output
+        return cropped_annotations
 
     def __contains__(self, item: Union[str, AnnotationClass]) -> bool:
         if isinstance(item, str):
