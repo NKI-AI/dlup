@@ -8,6 +8,7 @@ import tempfile
 
 import pytest
 import shapely.geometry
+from copy import copy, deepcopy
 from shapely import Point as ShapelyPoint
 from shapely import Polygon as ShapelyPolygon
 
@@ -153,6 +154,7 @@ class TestAnnotations:
         )
 
         region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
+        # FIXME: Is this right? These are the original values
         expected_output = [
             (6250000.0, "BOX", "ROI (segmentation)"),
             (1616768.0657540846, "POLYGON", "stroma (area)"),
@@ -191,6 +193,8 @@ class TestAnnotations:
             pickled_polygon_file.seek(0)
             loaded_solid_polygon = pickle.load(pickled_polygon_file)
         assert dlup_solid_polygon == loaded_solid_polygon
+        assert dlup_solid_polygon == copy(dlup_solid_polygon)
+        assert dlup_solid_polygon == deepcopy(dlup_solid_polygon)
 
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
             pickle.dump(dlup_polygon_with_holes, pickled_polygon_file)
@@ -198,6 +202,8 @@ class TestAnnotations:
             pickled_polygon_file.seek(0)
             loaded_polygon_with_holes = pickle.load(pickled_polygon_file)
         assert dlup_polygon_with_holes == loaded_polygon_with_holes
+        assert dlup_polygon_with_holes == copy(dlup_polygon_with_holes)
+        assert dlup_polygon_with_holes == deepcopy(dlup_polygon_with_holes)
 
     def test_point_pickling(self):
         annotation_class = AnnotationClass(

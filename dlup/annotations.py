@@ -103,7 +103,7 @@ class AnnotationSorting(str, Enum):
 class AnnotationClass:
     """An annotation class. An annotation has two required properties:
     - label: The name of the annotation, e.g., "lymphocyte".
-    - a_cls: The type of annotation, e.g., AnnotationType.POINT.
+    - annotation_type: The type of annotation, e.g., AnnotationType.POINT.
 
     And two optional properties:
     - color: The color of the annotation as a tuple of RGB values.
@@ -1039,7 +1039,7 @@ class WsiAnnotations:
                 curr_annotation,
                 label=curr_annotation.label,
                 color=curr_annotation.color,
-                z_index=curr_annotation.z_index,
+                z_index=curr_annotation.z_index if isinstance(curr_annotation, Polygon) else None,
             )
             json_dict["id"] = str(idx)
             data["features"].append(json_dict)
