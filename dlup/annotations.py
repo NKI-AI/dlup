@@ -988,6 +988,24 @@ class WsiAnnotations:
                 cropped_annotations.append(annotation)
         return cropped_annotations
 
+    def __add__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
+        raise NotImplementedError
+
+    def __iadd__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
+        raise NotImplementedError
+
+    def __radd__(self, other: WsiAnnotations) -> WsiAnnotations:
+        raise NotImplementedError
+    
+    def __sub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
+        raise NotImplementedError
+
+    def __isub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
+        raise NotImplementedError
+
+    def __rsub__(self, other: WsiAnnotations) -> WsiAnnotations:
+        raise NotImplementedError
+
     def __contains__(self, item: Union[str, AnnotationClass]) -> bool:
         if isinstance(item, str):
             return item in [_.label for _ in self.available_classes]
