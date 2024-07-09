@@ -231,17 +231,17 @@ def rename_labels(annotations: Iterable[_AnnotationsTypes], remap_labels: dict[s
             output_annotations.append(annotation)
             continue
 
-        if annotation.a_cls.annotation_type == AnnotationType.BOX:
+        if annotation.annotation_class.annotation_type == AnnotationType.BOX:
             a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.BOX)
             output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-        elif annotation.a_cls.annotation_type == AnnotationType.POLYGON:
+        elif annotation.annotation_class.annotation_type == AnnotationType.POLYGON:
             a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.POLYGON)
             output_annotations.append(dlup.annotations.Polygon(annotation, a_cls=a_cls))
-        elif annotation.a_cls.annotation_type == AnnotationType.POINT:
+        elif annotation.annotation_class.annotation_type == AnnotationType.POINT:
             a_cls = AnnotationClass(label=remap_labels[label], annotation_type=AnnotationType.POINT)
             output_annotations.append(dlup.annotations.Point(annotation, a_cls=a_cls))
         else:
-            raise AnnotationError(f"Unsupported annotation type {annotation.a_cls.a_cls}")
+            raise AnnotationError(f"Unsupported annotation type {annotation.annotation_class.annotation_type}")
 
     return output_annotations
 
