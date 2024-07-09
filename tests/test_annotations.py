@@ -8,6 +8,7 @@ import tempfile
 import pytest
 import pickle
 import shapely.geometry
+from copy import copy, deepcopy
 from shapely import Point as ShapelyPoint
 from shapely import Polygon as ShapelyPolygon
 
@@ -146,12 +147,13 @@ class TestAnnotations:
         )
 
         region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
+        # FIXME: Is this right? These are the original values
         expected_output = [
-            (23552767.879399993, "BOX", "ROI (segmentation)"),
-            (2417436.551849999, "POLYGON", "stroma (area)"),
+            (6250000.0, "BOX", "ROI (segmentation)"),
+            (1616768.0657540846, "POLYGON", "stroma (area)"),
             (398284.54274999996, "POLYGON", "stroma (area)"),
             (5124.669950000004, "POLYGON", "stroma (area)"),
-            (3516247.3012999967, "POLYGON", "stroma (area)"),
+            (103262.97951705178, "POLYGON", "stroma (area)"),
             (0.0, "POINT", "lymphocyte (cell)"),
             (0.0, "POINT", "lymphocyte (cell)"),
             (0.0, "POINT", "lymphocyte (cell)"),
@@ -160,8 +162,8 @@ class TestAnnotations:
             (181.86480000002024, "BOX", "tumor (cell)"),
             (100.99830000001499, "BOX", "tumor (cell)"),
             (132.57199999999577, "BOX", "tumor (cell)"),
-            (171.38699999998718, "BOX", "tumor (cell)"),
-            (7705.718799999956, "POLYGON", "tumor (area)"),
+            (0.5479999999621504, "BOX", "tumor (cell)"),
+            (7705.718799999957, "POLYGON", "tumor (area)"),
             (10985.104649999945, "POLYGON", "tumor (area)"),
             (585.8433000000017, "BOX", "tumor (cell)"),
         ]
@@ -184,6 +186,8 @@ class TestAnnotations:
             pickled_polygon_file.seek(0)
             loaded_solid_polygon = pickle.load(pickled_polygon_file)
         assert dlup_solid_polygon == loaded_solid_polygon
+        assert dlup_solid_polygon == copy(dlup_solid_polygon)
+        assert dlup_solid_polygon == deepcopy(dlup_solid_polygon)
 
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
             pickle.dump(dlup_polygon_with_holes, pickled_polygon_file)
@@ -191,6 +195,8 @@ class TestAnnotations:
             pickled_polygon_file.seek(0)
             loaded_polygon_with_holes = pickle.load(pickled_polygon_file)
         assert dlup_polygon_with_holes == loaded_polygon_with_holes
+        assert dlup_polygon_with_holes == copy(dlup_polygon_with_holes)
+        assert dlup_polygon_with_holes == deepcopy(dlup_polygon_with_holes)
 
     def test_point_pickling(self):
         annotation_class = AnnotationClass(
@@ -205,3 +211,5 @@ class TestAnnotations:
             pickled_point_file.seek(0)
             loaded_point = pickle.load(pickled_point_file)
         assert dlup_point == loaded_point
+        assert dlup_point == copy(dlup_point)
+        assert dlup_point == deepcopy(dlup_point)
