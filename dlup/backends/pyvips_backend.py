@@ -51,7 +51,7 @@ class PyVipsSlide(AbstractSlideBackend):
         else:
             self._image = pyvips.Image.openslideload(self._filename)
 
-        self._images: list[pyvips.Image]
+        self._images: list[pyvips.Image] = [self._image]
         self._loader = self._image.get("vips-loader")
         self._shapes: List[Tuple[int, int]] = []
         self._downsamples: List[float] = []
@@ -67,11 +67,15 @@ class PyVipsSlide(AbstractSlideBackend):
         else:
             raise NotImplementedError(f"Loader {self._loader} is not implemented.")
 
+    @staticmethod
+    def _get_image(path: PathLike, level: int) -> pyvips.Image:
+        return pyvips.Image.openslideload(str(path), level=level)
+
     def _read_as_tiff(self, path: PathLike) -> None:
         self._level_count = int(self._image.get_value("n-pages"))
-        self._images = [self._image] + [
-            pyvips.Image.tiffload(str(path), page=level) for level in range(1, self._level_count)
-        ]
+
+        for level in range(1, self._level_count):
+            self._images.append(self._get_image(path, level))
 
         unit_dict = {"cm": 1000, "centimeter": 1000}
         self._downsamples.append(1.0)
@@ -90,9 +94,9 @@ class PyVipsSlide(AbstractSlideBackend):
 
     def _read_as_openslide(self, path: PathLike) -> None:
         self._level_count = int(self._image.get("openslide.level-count"))
-        self._images = [self._image] + [
-            pyvips.Image.openslideload(str(path), level=level) for level in range(1, self._level_count)
-        ]
+
+        for level in range(1, self._level_count):
+            self._images.append(self._get_image(path, level))
 
         for idx, image in enumerate(self._images):
             openslide_shape = (
