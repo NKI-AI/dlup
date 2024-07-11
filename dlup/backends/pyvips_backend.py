@@ -70,7 +70,7 @@ class PyVipsSlide(AbstractSlideBackend):
     def _get_tiff_image(self, path: PathLike, level: int) -> pyvips.Image:
         if level == 0:
             return self._image
-        return pyvips.Image.tiffload(str(path), level=level)
+        return pyvips.Image.tiffload(str(path), page=level)
 
     def _get_openslide_image(self, path: PathLike, level: int) -> pyvips.Image:
         if level == 0:
