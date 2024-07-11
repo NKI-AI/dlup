@@ -214,6 +214,12 @@ class AnnotatedGeometry(geometry.base.BaseGeometry):
             return False
         return True
 
+    def __iadd__(self, other):
+        raise TypeError(f"unsupported operand type(s) for +=: {type(self)} and {type(other)}")
+    
+    def __isub__(self, other):
+        raise TypeError(f"unsupported operand type(s) for -=: {type(self)} and {type(other)}")
+
 
 class Point(ShapelyPoint, AnnotatedGeometry):
     __slots__ = ShapelyPoint.__slots__
@@ -350,31 +356,6 @@ def _geometry_to_geojson(
     return data
 
 
-def _sort_layers_in_place(layers: list[Polygon | Point], sorting: AnnotationSorting | str) -> None:
-    """
-    Sorts a list of layers. Check AnnotationSorting for more information of the sorting types.
-
-
-    Parameters
-    ----------
-    layers : list[Polygon | Point]
-        All annotations belonging to a single image
-    sorting : AnnotationSorting
-        How the layers should be sorted
-
-    Returns
-    -------
-    None
-    """
-    if sorting == AnnotationSorting.Z_INDEX:
-        layers.sort(key=lambda x: (x.z_index is None, x.z_index))
-    elif sorting == AnnotationSorting.REVERSE:
-        layers.reverse()
-    elif sorting == AnnotationSorting.AREA:
-        layers.sort(key=lambda x: x.area, reverse=True)
-    # the other case is NONE, and nothing is done in that case
-
-
 class WsiAnnotations:
     """Class that holds all annotations for a specific image"""
 
@@ -383,6 +364,7 @@ class WsiAnnotations:
         layers: list[Point | Polygon],
         tags: Optional[list[AnnotationClass]] = None,
         offset_to_slide_bounds: bool = False,
+        sorting: AnnotationSorting = AnnotationSorting.NONE
     ):
         """
         Parameters
@@ -395,18 +377,24 @@ class WsiAnnotations:
             If true, will set the property `offset_to_slide_bounds` to True. This means that the annotations need
             to be offset to the slide bounds. This is useful when the annotations are read from a file format which
             requires this, for instance HaloXML.
-        """
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
+            By default, the annotations are not sorted.
 
+        """
+        self._layers = layers
+        self._tags = tags
         self._offset_to_slide_bounds = offset_to_slide_bounds
+        self._sorting = sorting
+        self._sort_layers_in_place()
+        # TODO: This can be done in one line, but this will make the tests fail
+        # self._available_classes: list[AnnotationClass] = list(set(layer.annotation_class for layer in self._layers))
         self._available_classes: list[AnnotationClass] = []
         for layer in layers:
             if layer.annotation_class in self._available_classes:
                 continue
             self._available_classes.append(layer.annotation_class)
-
-        self._layers = layers
         self._str_tree = STRtree(self._layers)
-        self._tags = tags
 
     @property
     def available_classes(self) -> list[AnnotationClass]:
@@ -427,6 +415,10 @@ class WsiAnnotations:
         bool
         """
         return self._offset_to_slide_bounds
+
+    @property
+    def sorting(self) -> bool:
+        return self._sorting
 
     def filter(self, labels: str | list[str] | tuple[str]) -> None:
         """
@@ -552,8 +544,7 @@ class WsiAnnotations:
                     _geometry = shape(x["geometry"], label=_label, color=_color, z_index=_z_index)
                     layers += _geometry
 
-        _sort_layers_in_place(layers, sorting)
-        return cls(layers=layers, tags=tags)
+        return cls(layers=layers, tags=tags, sorting=sorting)
 
     @classmethod
     def from_asap_xml(
@@ -630,8 +621,7 @@ class WsiAnnotations:
 
                     opened_annotations += 1
 
-        _sort_layers_in_place(layers, sorting)
-        return cls(layers=layers)
+        return cls(layers=layers, sorting=sorting)
 
     @classmethod
     def from_halo_xml(
@@ -682,8 +672,7 @@ class WsiAnnotations:
                     else:
                         raise NotImplementedError(f"Regiontype {region.type} is not implemented in DLUP")
 
-        _sort_layers_in_place(output_layers, sorting)
-        return cls(output_layers, offset_to_slide_bounds=True)
+        return cls(output_layers, offset_to_slide_bounds=True, sorting=sorting)
 
     @classmethod
     def from_darwin_json(
@@ -770,16 +759,25 @@ class WsiAnnotations:
             else:
                 ValueError(f"Annotation type {annotation_type} is not supported.")
 
-        _sort_layers_in_place(layers, sorting)
+        return cls(layers=layers, tags=tags, sorting=sorting)
 
-        return cls(layers=layers, tags=tags)
-
-    def __getitem__(self, idx: int) -> Point | Polygon:
-        return self._layers[idx]
-
-    def __iter__(self) -> Iterable[Point | Polygon]:
-        for layer in self._layers:
-            yield layer
+    def _sort_layers_in_place(self) -> None:
+        """
+        Sorts a list of layers. Check AnnotationSorting for more information of the sorting types.
+        Returns
+        -------
+        None
+        """
+        if self._sorting == AnnotationSorting.Z_INDEX:
+            self._layers.sort(key=lambda x: (x.z_index is None, x.z_index))
+        elif self._sorting == AnnotationSorting.REVERSE:
+            self._layers.reverse()
+        elif self._sorting == AnnotationSorting.AREA:
+            self._layers.sort(key=lambda x: x.area, reverse=True)
+        elif self._sorting == AnnotationSorting.NONE:
+            pass
+        else:
+            raise NotImplementedError(f"Sorting not implemented for {self._sorting}.")
 
     def as_geojson(self) -> GeoJsonDict:
         """
@@ -910,14 +908,85 @@ class WsiAnnotations:
         ]
         return transformed_annotations
 
-    def __add__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
-        raise NotImplementedError
+    def __str__(self) -> str:
+        return (
+            f"{type(self).__name__}(n_layers={len(self._layers)}, "
+            f"tags={[tag.label for tag in self.tags] if self.tags else None})"
+        )
 
-    def __iadd__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
-        raise NotImplementedError
+    def __contains__(self, item: Union[str, AnnotationClass, Point, Polygon]) -> bool:
+        if isinstance(item, str):
+            return item in [_.label for _ in self.available_classes]
+        elif isinstance(item, (Point, Polygon)):
+            return item in self._layers
+        return item in self.available_classes
 
-    def __radd__(self, other: WsiAnnotations) -> WsiAnnotations:
-        raise NotImplementedError
+    def __getitem__(self, idx: int) -> Point | Polygon:
+        return self._layers[idx]
+
+    def __iter__(self) -> Iterable[Point | Polygon]:
+        for layer in self._layers:
+            yield layer
+
+    def __len__(self) -> int:
+        return len(self._layers)
+
+    def __add__(self, other: WsiAnnotations | Point | Polygon | list[Point | Polygon]) -> WsiAnnotations:
+        if isinstance(other, (Point, Polygon)):
+            other = [other]
+
+        if isinstance(other, list):
+            if not all(isinstance(item, (Point, Polygon)) for item in other):
+                raise TypeError("")
+            new_layers = self._layers + other
+            new_tags = self.tags
+        elif isinstance(other, WsiAnnotations):
+            if self.sorting != other.sorting or self.offset_to_slide_bounds != other.offset_to_slide_bounds:
+                raise ValueError("")
+            new_layers = self._layers + other._layers
+            new_tags = self.tags if self.tags is not None else [] + other.tags if other.tags is not None else None
+        else:
+            return NotImplemented
+        return WsiAnnotations(
+            layers=new_layers, tags=new_tags, offset_to_slide_bounds=self.offset_to_slide_bounds, sorting=self.sorting
+        )
+
+    def __iadd__(self, other: WsiAnnotations | Point | Polygon | list[Point | Polygon]) -> WsiAnnotations:
+        if isinstance(other, (Point, Polygon)):
+            other = [other]
+
+        if isinstance(other, list):
+            if not all(isinstance(item, (Point, Polygon)) for item in other):
+                raise TypeError("")
+
+            self._layers += other
+            for item in other:
+                if item.annotation_class not in self:
+                    self._available_classes.append(item.annotation_class)
+        elif isinstance(other, WsiAnnotations):
+            if self.sorting != other.sorting or self.offset_to_slide_bounds != other.offset_to_slide_bounds:
+                raise ValueError("")
+            self._layers += other._layers
+
+            if self.tags is None:
+                self._tags = other._tags
+            elif other.tags is not None:
+                self._tags += other._tags
+
+            for available_class in other.available_classes:
+                if available_class not in self:
+                    self._available_classes.append(available_class)
+        else:
+            return NotImplemented
+        self._sort_layers_in_place()
+        self._str_tree = STRtree(self._layers)
+        return self
+    
+    def __radd__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
+        # in-place addition (+=) of Point and Polygon will raise a TypeError
+        if not isinstance(other, (WsiAnnotations, Point, Polygon)):
+            return NotImplemented
+        return self + other
 
     def __sub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
         raise NotImplementedError
@@ -927,17 +996,6 @@ class WsiAnnotations:
 
     def __rsub__(self, other: WsiAnnotations) -> WsiAnnotations:
         raise NotImplementedError
-
-    def __contains__(self, item: Union[str, AnnotationClass]) -> bool:
-        if isinstance(item, str):
-            return item in [_.label for _ in self.available_classes]
-        return item in self.available_classes
-
-    def __str__(self) -> str:
-        return (
-            f"{type(self).__name__}(n_layers={len(self._layers)}, "
-            f"tags={[tag.label for tag in self.tags] if self.tags else None})"
-        )
 
 
 class _ComplexDarwinPolygonWrapper:

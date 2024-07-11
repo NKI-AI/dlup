@@ -120,6 +120,10 @@ class TestAnnotations:
             assert region == []
 
     def test_copy(self):
+        # FIXME: deepcopy and copy are different. filter gives different classes for a shallow copy because the _layers
+        # and available_classes get overwritten with a new instances and the original instances do not get changed.
+        # If we modify _layers and _available_classes directly, this test would assert that they are the same and a
+        # copy.deepcopy(self.asap_annotations) would assert they are different
         copied_annotations = self.asap_annotations.copy()
         # Now we can change a parameter
         copied_annotations.filter([""])
