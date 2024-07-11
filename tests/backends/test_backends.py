@@ -10,7 +10,7 @@ import PIL.Image
 import psutil
 import pytest
 import pyvips
-from pathib import Path
+from pathlib import Path
 
 from dlup.backends.openslide_backend import OpenSlideSlide
 from dlup.backends.openslide_backend import open_slide as open_slide_openslide
