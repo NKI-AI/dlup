@@ -3,10 +3,14 @@
 The results are also compared against the openslide backend.
 """
 
+import os
+
 import numpy as np
 import PIL.Image
+import psutil
 import pytest
 import pyvips
+from pathib import Path
 
 from dlup.backends.openslide_backend import OpenSlideSlide
 from dlup.backends.openslide_backend import open_slide as open_slide_openslide
@@ -48,6 +52,19 @@ def create_test_image(size, channels, color1, color2):
         array[: half_size[0], : half_size[1]] = color1
         array[half_size[0] :, half_size[1] :] = color2
     return pyvips.Image.new_from_array(array)
+
+
+def get_open_file_handlers() -> list[Path]:
+    process_id = os.getpid()
+    process = psutil.Process(process_id)
+    open_files = process.open_files()
+
+    open_file_handlers = []
+    for open_file in open_files:
+        file_name = Path(open_file.path)
+        if file_name.suffix == ".tif":
+            open_file_handlers.append(file_name)
+    return open_file_handlers
 
 
 @pytest.fixture
@@ -162,3 +179,4 @@ class TestBackends:
         tiff_slide, openslide_slide = slides  # Unpack the slides from the fixture
         self.property_asserts(tiff_slide, openslide_slide, size, mpp, pyramid)
         self.read_region_and_properties_asserts(tiff_slide, openslide_slide, mode, size, mpp, pyramid, test_image)
+        assert get_open_file_handlers() == []
