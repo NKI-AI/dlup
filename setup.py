@@ -52,6 +52,7 @@ setup(
     install_requires=install_requires,
     extras_require={
         "dev": [
+            "psutil",
             "pytest>=8.2.1",
             "mypy>=1.10.0",
             "pytest-mock>=3.14.0",
