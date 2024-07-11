@@ -159,7 +159,7 @@ class GeoJsonDict(TypedDict):
     type: str
     features: list[dict[str, str | dict[str, str]]]
     metadata: Optional[dict[str, str | list[str]]]
-    
+
 
 class AnnotatedGeometry(geometry.base.BaseGeometry):
     __slots__ = geometry.base.BaseGeometry.__slots__
@@ -243,7 +243,7 @@ class Polygon(ShapelyPolygon, AnnotatedGeometry):
         return cast("Polygon", instance)
 
     def intersect_with_box(
-        self, other: ShapelyPolygon, affine_transform_matrix: list[float]
+        self, other: ShapelyPolygon,
     ) -> Optional[list["Polygon"]]:
         result = make_valid(self).intersection(other)
         if self.area > 0 and result.area == 0:
@@ -255,11 +255,10 @@ class Polygon(ShapelyPolygon, AnnotatedGeometry):
         else:
             annotation_class = self.annotation_class
 
-        transformed_results = shapely.affinity.affine_transform(result, affine_transform_matrix)
-        if isinstance(transformed_results, ShapelyPolygon):
-            return [Polygon(transformed_results, a_cls=annotation_class)]
-        elif isinstance(transformed_results, (ShapelyMultiPolygon, shapely.geometry.collection.GeometryCollection)):
-            return [Polygon(geom, a_cls=annotation_class) for geom in transformed_results.geoms if geom.area > 0]
+        if isinstance(result, ShapelyPolygon):
+            return [Polygon(result, a_cls=annotation_class)]
+        elif isinstance(result, (ShapelyMultiPolygon, shapely.geometry.collection.GeometryCollection)):
+            return [Polygon(geom, a_cls=annotation_class) for geom in result.geoms if geom.area > 0]
         else:
             raise NotImplementedError(f"{type(result)}")
 
@@ -892,20 +891,22 @@ class WsiAnnotations:
         curr_indices.sort()
         filtered_annotations: list[Point | Polygon] = self._str_tree.geometries.take(curr_indices).tolist()
 
-        cropped_annotations = []
-        affine_transform_matrix = [scaling, 0, 0, scaling, -location[0], -location[1]]
+        cropped_annotations: list[Point | Polygon] = []
         for annotation in filtered_annotations:
             if annotation.annotation_type in (AnnotationType.BOX, AnnotationType.POLYGON):
-                _annotations = annotation.intersect_with_box(query_box, affine_transform_matrix=affine_transform_matrix)
+                _annotations = annotation.intersect_with_box(query_box)
                 if _annotations is not None:
                     cropped_annotations += _annotations
-            elif annotation.annotation_type == AnnotationType.POINT:
-                _annotation = shapely.affinity.affine_transform(annotation, affine_transform_matrix)
-                cropped_annotations.append(Point(_annotation, a_cls=annotation.annotation_class))
             # Tags could end up here in theory?
             else:
                 cropped_annotations.append(annotation)
-        return cropped_annotations
+
+        affine_matrix = [scaling, 0, 0, scaling, -location[0], -location[1]]
+        transformed_annotations = [
+            type(_ann)(shapely.affinity.affine_transform(_ann, affine_matrix), a_cls=_ann.annotation_class)
+            for _ann in cropped_annotations
+        ]
+        return transformed_annotations
 
     def __add__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
         raise NotImplementedError
