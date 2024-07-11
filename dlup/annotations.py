@@ -435,21 +435,23 @@ class WsiAnnotations:
 
         Parameters
         ----------
-        labels : tuple or list
-            The list or tuple of labels
+        labels : tuple or list or string
+            The list or tuple of labels or a single string of a label
 
         Returns
         -------
         None
         """
-        self._available_classes = []
-        self._layers = []
+        new_available_classes: list[AnnotationClass] = []
+        new_layers: list[Point | Polygon] = []
         _labels = [labels] if isinstance(labels, str) else labels
         for layer in self._layers:
             if layer.label in _labels:
-                self._available_classes += [layer.annotation_class]
-                self._layers += [layer]
+                new_available_classes += [layer.annotation_class]
+                new_layers += [layer]
 
+        self._available_classes = new_available_classes
+        self._layers = new_layers
         self._str_tree = STRtree(self._layers)
 
     @property
