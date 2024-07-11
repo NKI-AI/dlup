@@ -41,6 +41,7 @@ from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
+from dlup.utils.annotations_utils import _hex_to_rgb, _get_geojson_color, _get_geojson_z_index
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 # TODO:
@@ -59,24 +60,32 @@ class DarwinV7Metadata(NamedTuple):
     type: AnnotationType
 
 
-def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
-    if "#" not in hex_color:
-        if hex_color == "black":
-            return 0, 0, 0
-    hex_color = hex_color.lstrip("#")
-
-    # Convert the string from hex to an integer and extract each color component
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
-    return r, g, b
-
-
 class AnnotationType(str, Enum):
     POINT = "POINT"
     BOX = "BOX"
     POLYGON = "POLYGON"
     TAG = "TAG"
+
+class AnnotationTypeToDLUPAnnotationType(Enum):
+    # Shared annotation types
+    polygon = AnnotationType.POLYGON
+    # ASAP annotation types
+    rectangle = AnnotationType.BOX
+    dot = AnnotationType.POINT
+    spline = AnnotationType.POLYGON
+    pointset = AnnotationType.POINT
+    # Darwin V7 annotation types
+    bounding_box = AnnotationType.BOX
+    complex_polygon = AnnotationType.POLYGON
+    keypoint = AnnotationType.POINT
+    tag = AnnotationType.TAG
+
+    @classmethod
+    def from_string(cls, annotation_type: str) -> AnnotationType:
+        try:
+            return cls[annotation_type].value
+        except KeyError:
+            raise NotImplementedError(f"annotation_type {annotation_type} is not implemented or not a valid dlup type.")
 
 
 class AnnotationSorting(str, Enum):
@@ -150,7 +159,7 @@ def _get_v7_metadata(filename: pathlib.Path) -> Optional[dict[str, DarwinV7Metad
     v7_metadata = darwin.path_utils.parse_metadata(v7_metadata_fn)
     output = {}
     for sample in v7_metadata["classes"]:
-        annotation_type = _v7_annotation_type_to_dlup_annotation_type(sample["type"])
+        annotation_type = AnnotationTypeToDLUPAnnotationType.from_string(sample["type"])
 
         label = sample["name"]
         color = sample["color"][5:-1].split(",")
@@ -161,54 +170,6 @@ def _get_v7_metadata(filename: pathlib.Path) -> Optional[dict[str, DarwinV7Metad
         output[label] = DarwinV7Metadata(label=label, color=rgb_colors, type=annotation_type)
 
     return output
-
-
-_ASAP_TYPES = {
-    "polygon": AnnotationType.POLYGON,
-    "rectangle": AnnotationType.BOX,
-    "dot": AnnotationType.POINT,
-    "spline": AnnotationType.POLYGON,
-    "pointset": AnnotationType.POINT,
-}
-
-
-def _get_geojson_color(properties: dict[str, str | list[int]]) -> Optional[tuple[int, int, int]]:
-    """Parse the properties dictionary of a GeoJSON object to get the color.
-
-    Arguments
-    ---------
-    properties : dict
-        The properties dictionary of a GeoJSON object.
-
-    Returns
-    -------
-    Optional[tuple[int, int, int]]
-        The color of the object as a tuple of RGB values.
-    """
-    color = properties.get("color", None)
-    if color is None:
-        return None
-
-    return cast(tuple[int, int, int], tuple(color))
-
-def _get_geojson_z_index(properties: dict[str, str | list[int]]) -> Optional[int]:
-    """Parse the properties dictionary of a GeoJSON object to get the z_index`.
-
-    Arguments
-    ---------
-    properties : dict
-        The properties dictionary of a GeoJSON object.
-
-    Returns
-    -------
-    Optional[tuple[int, int, int]]
-        The color of the object as a tuple of RGB values.
-    """
-    z_index = properties.get("z_index", None)
-    if z_index is None:
-        return None
-
-    return cast(int, z_index)
 
 
 def _is_rectangle(polygon: Polygon | ShapelyPolygon) -> tuple[bool, bool]:
@@ -295,7 +256,7 @@ class Point(ShapelyPoint, AnnotatedGeometry):
         return cast("Point", point)
 
     def __reduce__(self):  # type: ignore
-        return (self.__class__, (ShapelyPoint(self.xy), self.annotation_class))
+        return (self.__class__, (self.xy, self.annotation_class))
 
 
 class Polygon(ShapelyPolygon, AnnotatedGeometry):
@@ -325,7 +286,6 @@ class Polygon(ShapelyPolygon, AnnotatedGeometry):
             annotation_class = self.annotation_class
 
         transformed_results = shapely.affinity.affine_transform(result, affine_transform_matrix)
-        # FIXME: Can we even have MultiPolygons at this stage?
         if isinstance(transformed_results, ShapelyPolygon):
             return [Polygon(transformed_results, a_cls=annotation_class)]
         elif isinstance(transformed_results, (ShapelyMultiPolygon, shapely.geometry.collection.GeometryCollection)):
@@ -364,28 +324,19 @@ def shape(
             Point(np.asarray(c), a_cls=annotation_class)
             for c in (_coordinates if geom_type == "multipoint" else [_coordinates])
         ]
-
-    if geom_type == "polygon":
+    elif geom_type in ["polygon", "multipolygon"]:
         _coordinates = coordinates["coordinates"]
-        annotation_type = AnnotationType.BOX if _is_rectangle(Polygon(_coordinates[0]))[0] else AnnotationType.POLYGON
+        # TODO: Give every polygon in multipolygon their own annotation_class / annotation_type
+        annotation_type = (
+            AnnotationType.BOX
+            if geom_type == "polygon" and _is_rectangle(Polygon(_coordinates[0]))[0]
+            else AnnotationType.POLYGON
+        )
         annotation_class = AnnotationClass(label=label, annotation_type=annotation_type, color=color, z_index=z_index)
-        return [Polygon(shell=np.asarray(_coordinates[0]), holes=[np.asarray(hole) for hole in _coordinates[1:]], a_cls=annotation_class)]
-    if geom_type == "multipolygon":
-        annotation_class = AnnotationClass(
-            label=label, annotation_type=AnnotationType.POLYGON, color=color, z_index=z_index
-        )
-        # the first element is the outer polygon, the rest are holes.
-        # TODO: This needs to work by directly constructing it with an a_cls
-        multi_polygon = ShapelyMultiPolygon(
-            [
-                [
-                    np.asarray(c[0]),
-                    [np.asarray(hole) for hole in c[1:]],
-                ]
-                for c in coordinates["coordinates"]
-            ]
-        )
-        return [Polygon(_, a_cls=annotation_class) for _ in multi_polygon.geoms]
+        return [
+            Polygon(shell=np.asarray(c[0]), holes=[np.asarray(hole) for hole in c[1:]], a_cls=annotation_class)
+            for c in (_coordinates if geom_type == "multipolygon" else [_coordinates])
+        ]
 
     raise AnnotationError(f"Unsupported geom_type {geom_type}")
 
@@ -674,7 +625,7 @@ class WsiAnnotations:
                 color = _hex_to_rgb(child.attrib.get("Color").strip())  # type: ignore
 
                 _type = child.attrib.get("Type").lower()  # type: ignore
-                annotation_type = _ASAP_TYPES[_type]
+                annotation_type = AnnotationTypeToDLUPAnnotationType.from_string(_type)
                 coordinates = _parse_asap_coordinates(child, annotation_type, scaling=scaling)
 
                 if not coordinates.is_valid:
@@ -806,8 +757,7 @@ class WsiAnnotations:
         layers = []
         for curr_annotation in darwin_an.annotations:
             name = curr_annotation.annotation_class.name
-
-            annotation_type = _v7_annotation_type_to_dlup_annotation_type(
+            annotation_type = AnnotationTypeToDLUPAnnotationType.from_string(
                 curr_annotation.annotation_class.annotation_type
             )
             annotation_color = v7_metadata[name].color if v7_metadata else None
@@ -996,7 +946,7 @@ class WsiAnnotations:
 
     def __radd__(self, other: WsiAnnotations) -> WsiAnnotations:
         raise NotImplementedError
-    
+
     def __sub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
         raise NotImplementedError
 
@@ -1108,31 +1058,3 @@ def _parse_asap_coordinates(
         raise AnnotationError(f"Annotation type not supported. Got {annotation_type}.")
 
     return coordinates
-
-
-def _v7_annotation_type_to_dlup_annotation_type(annotation_type: str) -> AnnotationType:
-    """
-    Convert a v7 annotation type to a dlup annotation type.
-
-    Parameters
-    ----------
-    annotation_type : str
-        The annotation type as defined in the v7 annotation format.
-
-    Returns
-    -------
-    AnnotationType
-    """
-    if annotation_type == "bounding_box":
-        return AnnotationType.BOX
-
-    if annotation_type in ["polygon", "complex_polygon"]:
-        return AnnotationType.POLYGON
-
-    if annotation_type == "keypoint":
-        return AnnotationType.POINT
-
-    if annotation_type == "tag":
-        return AnnotationType.TAG
-
-    raise NotImplementedError(f"annotation_type {annotation_type} is not implemented or not a valid dlup type.")
