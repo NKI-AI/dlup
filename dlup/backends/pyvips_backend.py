@@ -269,3 +269,4 @@ class PyVipsSlide(AbstractSlideBackend):
     def close(self) -> None:
         """Close the underlying slide"""
         self._images.clear()
+        del self._image
