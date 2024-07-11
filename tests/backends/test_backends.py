@@ -75,9 +75,6 @@ def slides(file_path, test_image, mpp, size, pyramid):
     tiff_slide = open_slide_tifffile(str(file_path))
     openslide_slide = open_slide_openslide(str(file_path))
     yield tiff_slide, openslide_slide
-    # After the test function that uses this fixture finishes, close both slides
-    tiff_slide.close()
-    openslide_slide.close()
 
 
 @pytest.fixture
@@ -179,4 +176,7 @@ class TestBackends:
         tiff_slide, openslide_slide = slides  # Unpack the slides from the fixture
         self.property_asserts(tiff_slide, openslide_slide, size, mpp, pyramid)
         self.read_region_and_properties_asserts(tiff_slide, openslide_slide, mode, size, mpp, pyramid, test_image)
+        # After the test function, close both slides and assert that the file handlers are properly closed.
+        tiff_slide.close()
+        openslide_slide.close()
         assert get_open_file_handlers() == []
