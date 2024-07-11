@@ -70,12 +70,12 @@ class PyVipsSlide(AbstractSlideBackend):
     def _get_tiff_image(self, path: PathLike, level: int) -> pyvips.Image:
         if level == 0:
             return self._image
-        return pyvips.Image.tiffload(str(path), page=level)
+        return pyvips.Image.tiffload(str(path), page=level - 1)
 
     def _get_openslide_image(self, path: PathLike, level: int) -> pyvips.Image:
         if level == 0:
             return self._image
-        return pyvips.Image.openslideload(str(path), level=level)
+        return pyvips.Image.openslideload(str(path), level=level-1)
 
     def _read_as_tiff(self, path: PathLike) -> None:
         self._level_count = int(self._image.get_value("n-pages"))
