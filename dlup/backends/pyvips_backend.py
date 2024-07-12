@@ -67,28 +67,26 @@ class PyVipsSlide(AbstractSlideBackend):
         else:
             raise NotImplementedError(f"Loader {self._loader} is not implemented.")
 
+    def _get_image(self, level: int) -> pyvips.Image:
+        if level == 0:
+            return self._image
+        return self._images[level - 1]
+
     def _read_as_tiff(self, path: PathLike) -> None:
         self._level_count = int(self._image.get_value("n-pages"))
         self._images = [pyvips.Image.tiffload(str(path), page=level) for level in range(1, self._level_count)]
 
         unit_dict = {"cm": 1000, "centimeter": 1000}
-        # Populate the spacings, shapes, and downsamples corresponding to level 0.
-        self._downsamples.append(1.0)
-        self._shapes.append((self._image.get("width"), self._image.get("height")))
-        mpp_x_level_0 = unit_dict.get(self._image.get("resolution-unit"), 0) / float(self._image.get("xres"))
-        mpp_y_level_0 = unit_dict.get(self._image.get("resolution-unit"), 0) / float(self._image.get("yres"))
-        self._spacings.append((mpp_x_level_0, mpp_y_level_0))
-        # Now, for rest of the levels.
-        for idx, image in enumerate(self._images):
-            actual_level = idx + 1
+
+        for level in range(0, self._level_count):
+            image = self._get_image(level)
             mpp_x = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("xres"))
             mpp_y = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("yres"))
             check_if_mpp_is_valid(mpp_x, mpp_y)
 
             self._spacings.append((mpp_x, mpp_y))
-            if actual_level >= 1:
-                downsample = mpp_x / self._spacings[0][0]
-                self._downsamples.append(downsample)
+            downsample = 1.0 if level == 0 else mpp_x / self._spacings[0][0]
+            self._downsamples.append(downsample)
             self._shapes.append((image.get("width"), image.get("height")))
 
         self.__slide_bounds = (0, 0), self._shapes[0]
@@ -97,19 +95,11 @@ class PyVipsSlide(AbstractSlideBackend):
         self._level_count = int(self._image.get("openslide.level-count"))
         self._images = [pyvips.Image.openslideload(str(path), level=level) for level in range(1, self._level_count)]
 
-        # Populate the spacings, shapes, and downsamples corresponding to level 0.
-        openslide_shape_level_0 = (
-            int(self._image.get(f"openslide.level[{0}].width")),
-            int(self._image.get(f"openslide.level[{0}].height")),
-        )
-        self._shapes.append(openslide_shape_level_0)
-        self._downsamples.append(float(self._image.get(f"openslide.level[{0}].downsample")))
-
-        for idx, image in enumerate(self._images):
-            actual_level = idx + 1
+        for level in range(0, self._level_count):
+            image = self._get_image(level)
             openslide_shape = (
-                int(image.get(f"openslide.level[{actual_level}].width")),
-                int(image.get(f"openslide.level[{actual_level}].height")),
+                int(image.get(f"openslide.level[{level}].width")),
+                int(image.get(f"openslide.level[{level}].height")),
             )
             pyvips_shape = (image.width, image.height)
             if not openslide_shape == pyvips_shape:
@@ -119,10 +109,7 @@ class PyVipsSlide(AbstractSlideBackend):
                 )
 
             self._shapes.append(pyvips_shape)
-
-        for idx, image in enumerate(self._images):
-            actual_level = idx + 1
-            self._downsamples.append(float(image.get(f"openslide.level[{actual_level}].downsample")))
+            self._downsamples.append(float(image.get(f"openslide.level[{level}].downsample")))
 
         mpp_x, mpp_y = None, None
         available_fields = self._image.get_fields()
@@ -276,11 +263,7 @@ class PyVipsSlide(AbstractSlideBackend):
         x, y = coordinates
         width, height = size
         ratio = self._downsamples[level]
-        if level == 0:
-            region = self._image.crop(int(x // ratio), int(y // ratio), width, height)
-        else:
-            region = self._images[level - 1].crop(int(x // ratio), int(y // ratio), width, height)
-        return region
+        return self._get_image(level).crop(int(x // ratio), int(y // ratio), width, height)
 
     def close(self) -> None:
         """Close the underlying slide"""

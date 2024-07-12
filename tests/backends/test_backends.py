@@ -177,6 +177,7 @@ class TestBackends:
         self.property_asserts(tiff_slide, openslide_slide, size, mpp, pyramid)
         self.read_region_and_properties_asserts(tiff_slide, openslide_slide, mode, size, mpp, pyramid, test_image)
         # After the test function, close both slides and assert that the file handlers are properly closed.
+        assert len(get_open_file_handlers()) == 1
         tiff_slide.close()
         openslide_slide.close()
         assert get_open_file_handlers() == []

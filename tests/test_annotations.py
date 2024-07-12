@@ -3,15 +3,15 @@
 """Test the annotation facilities."""
 import json
 import pathlib
+import pickle
 import tempfile
 
 import pytest
-import pickle
 import shapely.geometry
 from shapely import Point as ShapelyPoint
 from shapely import Polygon as ShapelyPolygon
 
-from dlup.annotations import AnnotationType, Point, Polygon, WsiAnnotations, shape, AnnotationClass
+from dlup.annotations import AnnotationClass, AnnotationType, Point, Polygon, WsiAnnotations, shape
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
