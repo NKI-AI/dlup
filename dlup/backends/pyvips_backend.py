@@ -74,14 +74,21 @@ class PyVipsSlide(AbstractSlideBackend):
         ]
 
         unit_dict = {"cm": 1000, "centimeter": 1000}
+        # Populate the spacings, shapes, and downsamples corresponding to level 0.
         self._downsamples.append(1.0)
+        self._shapes.append((self._image.get("width"), self._image.get("height")))
+        mpp_x_level_0 = unit_dict.get(self._image.get("resolution-unit"), 0) / float(self._image.get("xres"))
+        mpp_y_level_0 = unit_dict.get(self._image.get("resolution-unit"), 0) / float(self._image.get("yres"))
+        self._spacings.append((mpp_x_level_0, mpp_y_level_0))
+        # Now, for rest of the levels.
         for idx, image in enumerate(self._images):
+            actual_level = idx + 1
             mpp_x = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("xres"))
             mpp_y = unit_dict.get(image.get("resolution-unit"), 0) / float(image.get("yres"))
             check_if_mpp_is_valid(mpp_x, mpp_y)
 
             self._spacings.append((mpp_x, mpp_y))
-            if idx >= 1:
+            if actual_level >= 1:
                 downsample = mpp_x / self._spacings[0][0]
                 self._downsamples.append(downsample)
             self._shapes.append((image.get("width"), image.get("height")))
@@ -94,10 +101,19 @@ class PyVipsSlide(AbstractSlideBackend):
             pyvips.Image.openslideload(str(path), level=level) for level in range(1, self._level_count)
         ]
 
+        # Populate the spacings, shapes, and downsamples corresponding to level 0.
+        openslide_shape_level_0 = (
+            int(self._image.get(f"openslide.level[{0}].width")),
+            int(self._image.get(f"openslide.level[{0}].height")),
+        )
+        self._shapes.append(openslide_shape_level_0)
+        self._downsamples.append(float(self._image.get(f"openslide.level[{0}].downsample")))
+
         for idx, image in enumerate(self._images):
+            actual_level = idx + 1
             openslide_shape = (
-                int(image.get(f"openslide.level[{idx}].width")),
-                int(image.get(f"openslide.level[{idx}].height")),
+                int(image.get(f"openslide.level[{actual_level}].width")),
+                int(image.get(f"openslide.level[{actual_level}].height")),
             )
             pyvips_shape = (image.width, image.height)
             if not openslide_shape == pyvips_shape:
@@ -109,13 +125,14 @@ class PyVipsSlide(AbstractSlideBackend):
             self._shapes.append(pyvips_shape)
 
         for idx, image in enumerate(self._images):
-            self._downsamples.append(float(image.get(f"openslide.level[{idx}].downsample")))
+            actual_level = idx + 1
+            self._downsamples.append(float(image.get(f"openslide.level[{actual_level}].downsample")))
 
         mpp_x, mpp_y = None, None
-        available_fields = self._images[0].get_fields()
+        available_fields = self._image.get_fields()
         if openslide.PROPERTY_NAME_MPP_X in available_fields and openslide.PROPERTY_NAME_MPP_Y in available_fields:
-            mpp_x = float(self._images[0].get(openslide.PROPERTY_NAME_MPP_X))
-            mpp_y = float(self._images[0].get(openslide.PROPERTY_NAME_MPP_Y))
+            mpp_x = float(self._image.get(openslide.PROPERTY_NAME_MPP_X))
+            mpp_y = float(self._image.get(openslide.PROPERTY_NAME_MPP_Y))
 
         if mpp_x is not None and mpp_y is not None:
             check_if_mpp_is_valid(mpp_x, mpp_y)
@@ -129,8 +146,8 @@ class PyVipsSlide(AbstractSlideBackend):
             openslide.PROPERTY_NAME_BOUNDS_X in available_fields
             and openslide.PROPERTY_NAME_BOUNDS_Y in available_fields
         ):
-            offset = int(self._images[0].get(openslide.PROPERTY_NAME_BOUNDS_X)), int(
-                self._images[0].get(openslide.PROPERTY_NAME_BOUNDS_Y)
+            offset = int(self._image.get(openslide.PROPERTY_NAME_BOUNDS_X)), int(
+                self._image.get(openslide.PROPERTY_NAME_BOUNDS_Y)
             )
         else:
             offset = (0, 0)
@@ -139,8 +156,8 @@ class PyVipsSlide(AbstractSlideBackend):
             openslide.PROPERTY_NAME_BOUNDS_WIDTH in available_fields
             and openslide.PROPERTY_NAME_BOUNDS_HEIGHT in available_fields
         ):
-            size = int(self._images[0].get(openslide.PROPERTY_NAME_BOUNDS_WIDTH)), int(
-                self._images[0].get(openslide.PROPERTY_NAME_BOUNDS_HEIGHT)
+            size = int(self._image.get(openslide.PROPERTY_NAME_BOUNDS_WIDTH)), int(
+                self._image.get(openslide.PROPERTY_NAME_BOUNDS_HEIGHT)
             )
         else:
             size = self._shapes[0]
