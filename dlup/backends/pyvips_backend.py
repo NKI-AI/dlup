@@ -69,9 +69,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
     def _read_as_tiff(self, path: PathLike) -> None:
         self._level_count = int(self._image.get_value("n-pages"))
-        self._images = [
-            pyvips.Image.tiffload(str(path), page=level) for level in range(1, self._level_count)
-        ]
+        self._images = [pyvips.Image.tiffload(str(path), page=level) for level in range(1, self._level_count)]
 
         unit_dict = {"cm": 1000, "centimeter": 1000}
         # Populate the spacings, shapes, and downsamples corresponding to level 0.
@@ -97,9 +95,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
     def _read_as_openslide(self, path: PathLike) -> None:
         self._level_count = int(self._image.get("openslide.level-count"))
-        self._images = [
-            pyvips.Image.openslideload(str(path), level=level) for level in range(1, self._level_count)
-        ]
+        self._images = [pyvips.Image.openslideload(str(path), level=level) for level in range(1, self._level_count)]
 
         # Populate the spacings, shapes, and downsamples corresponding to level 0.
         openslide_shape_level_0 = (
@@ -283,7 +279,7 @@ class PyVipsSlide(AbstractSlideBackend):
         if level == 0:
             region = self._image.crop(int(x // ratio), int(y // ratio), width, height)
         else:
-            region = self._images[level-1].crop(int(x // ratio), int(y // ratio), width, height)
+            region = self._images[level - 1].crop(int(x // ratio), int(y // ratio), width, height)
         return region
 
     def close(self) -> None:

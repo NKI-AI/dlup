@@ -4,13 +4,13 @@ The results are also compared against the openslide backend.
 """
 
 import os
+from pathlib import Path
 
 import numpy as np
 import PIL.Image
 import psutil
 import pytest
 import pyvips
-from pathlib import Path
 
 from dlup.backends.openslide_backend import OpenSlideSlide
 from dlup.backends.openslide_backend import open_slide as open_slide_openslide
