@@ -67,21 +67,11 @@ class PyVipsSlide(AbstractSlideBackend):
         else:
             raise NotImplementedError(f"Loader {self._loader} is not implemented.")
 
-    def _get_tiff_image(self, path: PathLike, level: int) -> pyvips.Image:
-        if level == 0:
-            return self._image
-        return pyvips.Image.tiffload(str(path), page=level - 1)
-
-    def _get_openslide_image(self, path: PathLike, level: int) -> pyvips.Image:
-        if level == 0:
-            return self._image
-        return pyvips.Image.openslideload(str(path), level=level-1)
-
     def _read_as_tiff(self, path: PathLike) -> None:
         self._level_count = int(self._image.get_value("n-pages"))
-        self._images = []
-        for level in range(0, self._level_count):
-            self._images.append(self._get_tiff_image(path, level))
+        self._images = [
+            pyvips.Image.tiffload(str(path), page=level) for level in range(1, self._level_count)
+        ]
 
         unit_dict = {"cm": 1000, "centimeter": 1000}
         self._downsamples.append(1.0)
@@ -100,9 +90,9 @@ class PyVipsSlide(AbstractSlideBackend):
 
     def _read_as_openslide(self, path: PathLike) -> None:
         self._level_count = int(self._image.get("openslide.level-count"))
-        self._images = []
-        for level in range(0, self._level_count):
-            self._images.append(self._get_openslide_image(path, level))
+        self._images = [
+            pyvips.Image.openslideload(str(path), level=level) for level in range(1, self._level_count)
+        ]
 
         for idx, image in enumerate(self._images):
             openslide_shape = (
@@ -273,7 +263,10 @@ class PyVipsSlide(AbstractSlideBackend):
         x, y = coordinates
         width, height = size
         ratio = self._downsamples[level]
-        region = self._images[level].crop(int(x // ratio), int(y // ratio), width, height)
+        if level == 0:
+            region = self._image.crop(int(x // ratio), int(y // ratio), width, height)
+        else:
+            region = self._images[level-1].crop(int(x // ratio), int(y // ratio), width, height)
         return region
 
     def close(self) -> None:
