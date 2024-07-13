@@ -35,8 +35,8 @@ import shapely.validation
 from shapely import geometry
 from shapely import lib as shapely_lib
 from shapely.geometry import MultiPolygon as ShapelyMultiPolygon
-from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.geometry import Point as ShapelyPoint
+from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
