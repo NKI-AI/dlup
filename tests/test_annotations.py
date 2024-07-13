@@ -147,11 +147,11 @@ class TestAnnotations:
 
         region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
         expected_output = [
-            (23552767.879399993, "BOX", "ROI (segmentation)"),
-            (2417436.551849999, "POLYGON", "stroma (area)"),
+            (6250000.0, "BOX", "ROI (segmentation)"),
+            (1616768.0657540846, "POLYGON", "stroma (area)"),
             (398284.54274999996, "POLYGON", "stroma (area)"),
             (5124.669950000004, "POLYGON", "stroma (area)"),
-            (3516247.3012999967, "POLYGON", "stroma (area)"),
+            (103262.97951705178, "POLYGON", "stroma (area)"),
             (0.0, "POINT", "lymphocyte (cell)"),
             (0.0, "POINT", "lymphocyte (cell)"),
             (0.0, "POINT", "lymphocyte (cell)"),
@@ -160,8 +160,8 @@ class TestAnnotations:
             (181.86480000002024, "BOX", "tumor (cell)"),
             (100.99830000001499, "BOX", "tumor (cell)"),
             (132.57199999999577, "BOX", "tumor (cell)"),
-            (171.38699999998718, "BOX", "tumor (cell)"),
-            (7705.718799999956, "POLYGON", "tumor (area)"),
+            (0.5479999999621504, "BOX", "tumor (cell)"),
+            (7705.718799999957, "POLYGON", "tumor (area)"),
             (10985.104649999945, "POLYGON", "tumor (area)"),
             (585.8433000000017, "BOX", "tumor (cell)"),
         ]
