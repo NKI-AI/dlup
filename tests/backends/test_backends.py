@@ -3,8 +3,12 @@
 The results are also compared against the openslide backend.
 """
 
+import os
+from pathlib import Path
+
 import numpy as np
 import PIL.Image
+import psutil
 import pytest
 import pyvips
 
@@ -50,6 +54,19 @@ def create_test_image(size, channels, color1, color2):
     return pyvips.Image.new_from_array(array)
 
 
+def get_open_file_handlers() -> list[Path]:
+    process_id = os.getpid()
+    process = psutil.Process(process_id)
+    open_files = process.open_files()
+
+    open_file_handlers = []
+    for open_file in open_files:
+        file_name = Path(open_file.path)
+        if file_name.suffix == ".tif":
+            open_file_handlers.append(file_name)
+    return open_file_handlers
+
+
 @pytest.fixture
 def slides(file_path, test_image, mpp, size, pyramid):
     # Write the test image to a TIFF file
@@ -58,9 +75,6 @@ def slides(file_path, test_image, mpp, size, pyramid):
     tiff_slide = open_slide_tifffile(str(file_path))
     openslide_slide = open_slide_openslide(str(file_path))
     yield tiff_slide, openslide_slide
-    # After the test function that uses this fixture finishes, close both slides
-    tiff_slide.close()
-    openslide_slide.close()
 
 
 @pytest.fixture
@@ -162,3 +176,8 @@ class TestBackends:
         tiff_slide, openslide_slide = slides  # Unpack the slides from the fixture
         self.property_asserts(tiff_slide, openslide_slide, size, mpp, pyramid)
         self.read_region_and_properties_asserts(tiff_slide, openslide_slide, mode, size, mpp, pyramid, test_image)
+        # After the test function, close both slides and assert that the file handlers are properly closed.
+        assert len(get_open_file_handlers()) == 1
+        tiff_slide.close()
+        openslide_slide.close()
+        assert get_open_file_handlers() == []

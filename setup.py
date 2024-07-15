@@ -17,7 +17,7 @@ with open("README.md") as f:
     LONG_DESCRIPTION = f.read()
 
 install_requires = [
-    "numpy>=1.26.0",
+    "numpy==1.26.4",
     "tifftools>=1.5.2",
     "tifffile>=2024.5.22",
     "pyvips>=2.2.3",
@@ -52,6 +52,7 @@ setup(
     install_requires=install_requires,
     extras_require={
         "dev": [
+            "psutil",
             "pytest>=8.2.1",
             "mypy>=1.10.0",
             "pytest-mock>=3.14.0",
@@ -62,6 +63,7 @@ setup(
             "pylint>=3.2.2",
             "pydantic>=2.7.2",
             "types-Pillow>=10.2.0",
+            "darwin-py>=0.8.62",
         ],
         "darwin": ["darwin-py>=0.8.59"],
     },

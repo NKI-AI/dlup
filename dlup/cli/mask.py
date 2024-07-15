@@ -7,7 +7,7 @@ from typing import cast
 import shapely
 
 from dlup._image import Resampling
-from dlup.annotations import AnnotationClass, AnnotationType, Polygon, SingleAnnotationWrapper, WsiAnnotations
+from dlup.annotations import AnnotationClass, AnnotationType, Polygon, WsiAnnotations
 from dlup.backends import ImageBackend
 from dlup.cli import file_path
 from dlup.data.dataset import TiledWsiDataset
@@ -64,18 +64,13 @@ def mask_to_polygon(args: argparse.Namespace) -> None:
         if polygons[label].is_empty:
             continue
 
-        a_cls = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
+        a_cls = AnnotationClass(label=label, annotation_type=AnnotationType.POLYGON)
         if isinstance(polygons[label], shapely.geometry.multipolygon.MultiPolygon):
             annotations = [Polygon(coords, a_cls=a_cls) for coords in polygons[label].geoms if not coords.is_empty]
         else:
             annotations = [Polygon(polygons[label], a_cls=a_cls)]
 
-        wsi_annotations.append(
-            SingleAnnotationWrapper(
-                a_cls=a_cls,
-                annotation=annotations,
-            )
-        )
+        wsi_annotations += annotations
 
     slide_annotations = WsiAnnotations(wsi_annotations)
     if args.simplify is not None:

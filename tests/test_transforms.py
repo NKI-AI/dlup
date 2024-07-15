@@ -16,33 +16,30 @@ from dlup.data.transforms import (
 
 
 def test_convert_annotations_points_only():
-    point = Point((5, 5), AnnotationClass(label="point1", a_cls=AnnotationType.POINT))
-    points, boxes, mask, roi_mask = convert_annotations([point], (10, 10), {"point1": 1})
+    point = Point((5, 5), AnnotationClass(label="point1", annotation_type=AnnotationType.POINT))
+    points, mask, roi_mask = convert_annotations([point], (10, 10), {"point1": 1})
 
     assert mask.sum() == 0
     assert roi_mask is None
-    assert boxes == {}
 
     assert points["point1"] == [(5.0, 5.0)]
 
 
 def test_convert_annotations_default_value():
-    points, boxes, mask, roi_mask = convert_annotations([], (10, 10), {}, default_value=-1)
+    points, mask, roi_mask = convert_annotations([], (10, 10), {}, default_value=-1)
 
     assert (mask == -1).all()
     assert roi_mask is None
-    assert boxes == {}
     assert points == {}
 
 
 def test_convert_annotations_polygons_only():
     polygon = Polygon(
-        [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="polygon1", a_cls=AnnotationType.POLYGON)
+        [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
     )
-    points, boxes, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
+    points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
     assert points == {}
-    assert boxes == {}
     assert roi_mask is None
 
     assert np.all(mask[2:8, 2:8] == 2)
@@ -58,12 +55,11 @@ def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
             (8 + bottom_add, 8 + bottom_add),
             (8 + bottom_add, 2 + top_add),
         ],
-        AnnotationClass(label="polygon1", a_cls=AnnotationType.POLYGON),
+        AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON),
     )
-    points, boxes, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
+    points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
     assert points == {}
-    assert boxes == {}
     assert roi_mask is None
 
     if top_add < 0.5 and bottom_add < 0.5:
@@ -80,24 +76,17 @@ def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
 
 
 def test_convert_annotations_label_not_present():
-    polygon = Polygon([(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", a_cls=AnnotationType.POLYGON))
+    polygon = Polygon(
+        [(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", annotation_type=AnnotationType.POLYGON)
+    )
     with pytest.raises(ValueError, match="Label polygon is not in the index map {}"):
         convert_annotations([polygon], (10, 10), {})
 
 
-def test_convert_annotations_box():
-    box = Polygon([(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", a_cls=AnnotationType.BOX))
-
-    points, boxes, mask, roi_mask = convert_annotations([box], (10, 10), {})
-
-    assert points == {}
-    assert boxes == {"polygon": [((1, 1), (6, 6))]}  # coords, size
-    assert (mask == 0).all()
-    assert roi_mask is None
-
-
 def test_roi_exception():
-    box = Polygon([(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", a_cls=AnnotationType.BOX))
+    box = Polygon(
+        [(1, 1), (1, 7), (7, 7), (7, 1)], AnnotationClass(label="polygon", annotation_type=AnnotationType.BOX)
+    )
 
     with pytest.raises(AnnotationError, match="ROI mask roi not found, please add a ROI mask to the annotations."):
         _ = convert_annotations(annotations=[box], region_size=(10, 10), index_map={"polygon": 1}, roi_name="roi")
@@ -105,10 +94,15 @@ def test_roi_exception():
 
 def _create_complex_polygons():
     spolygon = ShapelyPolygon([(1, 1), (1, 7), (7, 7), (7, 1)], holes=[[(2, 2), (2, 4), (4, 4), (4, 1)]])
-    polygon0 = Polygon(spolygon, AnnotationClass(label="polygon1", a_cls=AnnotationType.POLYGON))
-    spolygon = ShapelyPolygon([(4, 4), (4, 9), (9, 9), (9, 4)], holes=[[(6, 6), (6, 8), (8, 8), (8, 6)]])
-    polygon1 = Polygon(spolygon, a_cls=AnnotationClass(label="polygon2", a_cls=AnnotationType.POLYGON))
-    roi = Polygon([(3, 3), (3, 6), (6, 6), (6, 3)], AnnotationClass(label="roi", a_cls=AnnotationType.POLYGON))
+    polygon0 = Polygon(spolygon, AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON))
+    spolygon = ShapelyPolygon(
+        [(4, 4), (4, 9), (9, 9), (9, 4)], holes=[[(5, 5), (5, 7), (7, 7), (7, 5)], [(7, 7), (5, 9), (5, 9), (9, 9)]]
+    )
+
+    polygon1 = Polygon(spolygon, a_cls=AnnotationClass(label="polygon2", annotation_type=AnnotationType.POLYGON))
+    roi = Polygon(
+        [(3, 3), (3, 6), (6, 6), (6, 3)], AnnotationClass(label="roi", annotation_type=AnnotationType.POLYGON)
+    )
 
     target = np.asarray(
         [
@@ -117,20 +111,19 @@ def _create_complex_polygons():
             [0, 2, 0, 0, 0, 2, 2, 2, 0, 0],
             [0, 2, 0, 0, 0, 2, 2, 2, 0, 0],
             [0, 2, 0, 0, 3, 3, 3, 3, 3, 3],
-            [0, 2, 2, 2, 3, 3, 3, 3, 3, 3],
-            [0, 2, 2, 2, 3, 3, 2, 2, 0, 3],
-            [0, 2, 2, 2, 3, 3, 2, 2, 0, 3],
+            [0, 2, 2, 2, 3, 2, 2, 2, 3, 3],
+            [0, 2, 2, 2, 3, 2, 2, 2, 3, 3],
+            [0, 2, 2, 2, 3, 2, 2, 2, 3, 3],
             [0, 0, 0, 0, 3, 3, 0, 0, 0, 3],
-            [0, 0, 0, 0, 3, 3, 3, 3, 3, 3],
+            [0, 0, 0, 0, 3, 0, 0, 0, 0, 0],
         ]
     )
-
     return [polygon0, polygon1, roi], target
 
 
 def test_convert_annotations_multiple_polygons_and_holes():
     [polygon0, polygon1, roi], target = _create_complex_polygons()
-    points, boxes, mask, roi_mask = convert_annotations(
+    points, mask, roi_mask = convert_annotations(
         [polygon0, polygon1, roi], (10, 10), {"polygon1": 2, "polygon2": 3}, roi_name="roi"
     )
 
@@ -138,16 +131,15 @@ def test_convert_annotations_multiple_polygons_and_holes():
 
     assert (mask == target).all()
     assert points == {}
-    assert boxes == {}
     assert roi_mask is not None
     assert (roi_mask[3:7, 3:7] == 1).all()  # pylint: disable=unsubscriptable-object
 
 
 def test_convert_annotations_out_of_bounds():
     polygon = Polygon(
-        [(2, 2), (2, 11), (11, 11), (11, 2)], AnnotationClass(label="polygon1", a_cls=AnnotationType.POLYGON)
+        [(2, 2), (2, 11), (11, 11), (11, 2)], AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
     )
-    points, boxes, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
+    points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
     assert np.all(mask[2:10, 2:10] == 2)
 
@@ -169,20 +161,19 @@ def test_ConvertAnnotationsToMask():
     assert (output["mask"] == target).all()
     roi_mask = output["roi"]
     assert output["points"] == {}
-    assert output["boxes"] == {}
     assert roi_mask is not None
     assert (roi_mask[3:7, 3:7] == 1).all()  # pylint: disable=unsubscriptable-object
 
 
 class MockBoxAnnotation:
     def __init__(self, label):
-        self.a_cls = AnnotationClass(label=label, a_cls=AnnotationType.BOX)
+        self.a_cls = AnnotationClass(label=label, annotation_type=AnnotationType.BOX)
         self.label = label
 
 
 class MockPolygonAnnotation:
     def __init__(self, label):
-        self.a_cls = AnnotationClass(label=label, a_cls=AnnotationType.POLYGON)
+        self.annotation_type = AnnotationClass(label=label, annotation_type=AnnotationType.POLYGON)
         self.label = label
 
 
@@ -197,7 +188,8 @@ class TestRenameLabels:
 
     def test_no_remap(self, transformer0):
         old_annotation = Polygon(
-            [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="unchanged_name", a_cls=AnnotationType.POLYGON)
+            [(2, 2), (2, 8), (8, 8), (8, 2)],
+            AnnotationClass(label="unchanged_name", annotation_type=AnnotationType.POLYGON),
         )
         sample = {"annotations": [old_annotation]}
         transformed_sample = transformer0(sample)
@@ -205,14 +197,14 @@ class TestRenameLabels:
 
     def test_remap_polygon(self, transformer1):
         old_annotation = Polygon(
-            [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="old_name", a_cls=AnnotationType.POLYGON)
+            [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="old_name", annotation_type=AnnotationType.POLYGON)
         )
 
         random_box = Polygon(
-            [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="some_box", a_cls=AnnotationType.BOX)
+            [(2, 2), (2, 8), (8, 8), (8, 2)], AnnotationClass(label="some_box", annotation_type=AnnotationType.BOX)
         )
 
-        random_point = Point((1, 1), AnnotationClass(label="some_point", a_cls=AnnotationType.POINT))
+        random_point = Point((1, 1), AnnotationClass(label="some_point", annotation_type=AnnotationType.POINT))
 
         sample = {"annotations": [old_annotation, random_box, random_point]}
         transformed_sample = transformer1(sample)
@@ -220,20 +212,13 @@ class TestRenameLabels:
         assert transformed_sample["annotations"][1].label == "some_box"
         assert transformed_sample["annotations"][2].label == "some_point2"
         assert isinstance(transformed_sample["annotations"][0], Polygon)
-        assert transformed_sample["annotations"][0].type == AnnotationType.POLYGON
-        assert transformed_sample["annotations"][1].type == AnnotationType.BOX
-        assert transformed_sample["annotations"][2].type == AnnotationType.POINT
+        assert transformed_sample["annotations"][0].annotation_type == AnnotationType.POLYGON
+        assert transformed_sample["annotations"][1].annotation_type == AnnotationType.BOX
+        assert transformed_sample["annotations"][2].annotation_type == AnnotationType.POINT
 
     def test_unsupported_annotation(self, transformer0):
-        class UnsupportedAnnotation:
-            def __init__(self):
-                self.a_cls = AnnotationClass(label="old_name", a_cls="UNSUPPORTED")
-                self.label = "old_name"
-
-        old_annotation = UnsupportedAnnotation()
-        sample = {"annotations": [old_annotation]}
         with pytest.raises(Exception, match="Unsupported annotation type UNSUPPORTED"):
-            transformer0(sample)
+            _ = AnnotationClass(label="old_name", annotation_type="UNSUPPORTED")
 
     def test_missing_annotations(self, transformer0):
         sample = {"annotations": None}

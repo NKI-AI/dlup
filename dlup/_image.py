@@ -38,8 +38,8 @@ _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 class Resampling(Enum):
     """Resampling methods SlideImage (e.g. for images or masks)."""
 
-    NEAREST = "nearest"
-    LANCZOS = "lanczos"
+    NEAREST = "NEAREST"
+    LANCZOS = "LANCZOS"
 
 
 _RESAMPLE_TO_PIL = {Resampling.NEAREST: PIL.Image.Resampling.NEAREST, Resampling.LANCZOS: PIL.Image.Resampling.LANCZOS}
