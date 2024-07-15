@@ -12,6 +12,6 @@ pyvips_logger.setLevel(logging.CRITICAL)
 
 __author__ = """dlup contributors"""
 __email__ = "j.teuwen@nki.nl"
-__version__ = "0.5.2"
+__version__ = "0.5.3"
 
 __all__ = ("SlideImage", "WsiAnnotations", "AnnotationType", "RegionView", "UnsupportedSlideError", "BoundaryMode")
