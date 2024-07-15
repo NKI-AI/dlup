@@ -149,7 +149,7 @@ class SlideImage:
         interpolator: Optional[Resampling] = Resampling.LANCZOS,
         overwrite_mpp: Optional[tuple[float, float]] = None,
         apply_color_profile: bool = False,
-        internal_handler: Optional[Literal["pil", "vips"]] = None,
+        internal_handler: Optional[Literal["pil", "vips", "none"]] = None,
     ) -> None:
         """Initialize a whole slide image and validate its properties. This class allows to read whole-slide images
         at any arbitrary resolution. This class can read images from any backend that implements the
@@ -169,9 +169,13 @@ class SlideImage:
             and external database.
         apply_color_profile : bool
             Whether to apply the color profile to the output regions.
-        internal_handler : Literal["pil", "vips"], optional
-            The internal handler to use for processing the regions. This can be either PIL or VIPS. PIL is the behavior
-            for all dlup versions prior to v0.4. It is recommended to migrate your code and use VIPS instead.
+        internal_handler : Literal["pil", "vips", "none"], optional
+            The internal handler to use for processing the regions. This can be either PIL, VIPS or "none". PIL is the 
+            behavior for all dlup versions prior to v0.4. It is recommended to migrate your code and use VIPS instead.
+            The internal handler "none" will not post-process the read_region output further. This allows the shape of 
+            the output to have any arbitrary dimensions.
+            NOTE: The `internal_handler="none"` is different from `internal_handler=None`, which will use PIL as an 
+            internal handler for backwards compatibiltiy.
 
         Raises
         ------
@@ -211,6 +215,11 @@ class SlideImage:
                 UserWarning,
             )
 
+        if internal_handler == "none" and isinstance(self._wsi, ImageBackend):
+            raise ValueError(
+                "The internal handler 'none' should not be used in combination with DLUP native ImageBackend."
+                "Please use internal_handler 'vips' or 'pil' or NoneType"
+            )
         self._internal_handler = internal_handler if internal_handler is not None else "pil"
         self.__color_transform: PIL.ImageCms.ImageCmsTransform | None = None
 
@@ -467,6 +476,11 @@ class SlideImage:
             )
 
             return resized_region
+
+        # This is a special use case for read_region that do not fit the same dimensions as the read_region function.
+        # This can be the case when reading from a slide image with feature representations.
+        if self._internal_handler == "none":
+            return vips_region
 
     def get_scaled_size(self, scaling: GenericNumber, limit_bounds: Optional[bool] = False) -> tuple[int, int]:
         """Compute slide image size at specific scaling.

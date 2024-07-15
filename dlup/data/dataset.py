@@ -233,7 +233,6 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         labels: list[tuple[str, _LabelTypes]] | None = None,
         backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
         apply_color_profile: bool = False,
-        exclude_image_data : bool = False,
         **kwargs: Any,
     ):
         """
@@ -264,8 +263,6 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
            Backend to pass to SlideImage
         apply_color_profile : bool
             Whether to apply the ICC profile to the image if available.
-        exclude_image_data : bool
-            Whether to exclude image data from __getitem__ method. To be used when only annotations need to be used.
         **kwargs : Any
             Passed to SlideImage
         """
@@ -286,7 +283,6 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         self.labels = labels
         self._backend = backend
         self._apply_color_profile = apply_color_profile
-        self._exclude_image_data = exclude_image_data
         self._kwargs = kwargs
 
         # Maps from a masked index -> regions index.
@@ -352,13 +348,9 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             coordinates = (coordinates_x, coordinates_y)
             region_size = self._output_tile_size
 
-        # TODO: This is probably not the best way but a temporary hack to only get embedding features.
-        if not self._exclude_image_data:
-            region_view = slide_image.get_scaled_view(scaling)
-            region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
-            region = region_view.read_region(coordinates, region_size)
-        else:
-            region = pyvips.Image.black(*region_size)
+        region_view = slide_image.get_scaled_view(scaling)
+        region_view.boundary_mode = BoundaryMode.crop if self.crop else BoundaryMode.zero
+        region = region_view.read_region(coordinates, region_size)
 
         sample: TileSample = {
             "image": region,
