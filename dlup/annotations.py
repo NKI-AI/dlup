@@ -1095,9 +1095,7 @@ class WsiAnnotations:
 
         cropped_annotations = []
         for annotation in filtered_annotations:
-            annotation_type = annotation.annotation_class
-
-            if annotation_type in (AnnotationType.BOX, AnnotationType.POLYGON):
+            if annotation.annotation_type in (AnnotationType.BOX, AnnotationType.POLYGON):
                 _annotations = annotation.intersect_with_box(query_box)
                 if _annotations is not None:
                     cropped_annotations += _annotations
