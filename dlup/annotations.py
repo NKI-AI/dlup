@@ -659,6 +659,28 @@ class WsiAnnotations:
 
         self._str_tree = STRtree(self._layers)
 
+    def apply_affine_transform_to_annotations(self, scaling:float, offset: list[int, int]) -> None:
+        """
+        Apply affine transform to annotations
+
+        Parameters
+        ----------
+        scaling : float
+            The scaling for the affine tranformation matrix for shapely.
+        offset : list[int, int]
+            The xy-offset for the affine transformation matrix for shapely. 
+
+        Returns
+        -------
+        None
+        """
+        affine_matrix = [scaling, 0, 0, scaling, -offset[0], -offset[1]]
+        self._layers = [
+            type(layer)(shapely.affinity.affine_transform(layer, affine_matrix), a_cls=layer.annotation_class)
+            for layer in self._layers
+        ]
+        self._str_tree = STRtree(self._layers)
+
     @property
     def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """
