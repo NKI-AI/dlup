@@ -148,8 +148,9 @@ def test_ConvertAnnotationsToMask():
     index_map = {"polygon1": 2, "polygon2": 3}
     transform = ConvertAnnotationsToMask(roi_name="roi", index_map=index_map)
     [polygon0, polygon1, roi], target = _create_complex_polygons()
-    image = np.zeros((10, 10, 3))
-    sample = {"annotations": None, "image": PIL.Image.fromarray(image, mode="RGB")}
+    region_size = (10, 10)
+    image = np.zeros((*region_size, 3))
+    sample = {"annotations": None, "image": PIL.Image.fromarray(image, mode="RGB"), "region_size": region_size}
 
     with pytest.raises(ValueError, match="No annotations found to convert to mask."):
         transform(sample)

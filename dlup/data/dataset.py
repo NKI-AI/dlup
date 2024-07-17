@@ -61,6 +61,7 @@ class TileSample(TypedDict):
     mpp: float
     path: PathLike
     region_index: int
+    region_size: tuple[int, int]
     labels: dict[str, Any] | None
     annotations: Optional[Iterable[_AnnotationsTypes]]
 
@@ -358,6 +359,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             "mpp": mpp,
             "path": self.path,
             "region_index": region_index,
+            "region_size": region_size,
             "labels": None,
             "annotations": None,
         }

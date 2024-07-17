@@ -190,10 +190,10 @@ class ConvertAnnotationsToMask:
         if _annotations is None:
             raise ValueError("No annotations found to convert to mask.")
 
-        image = sample["image"]
+        region_size = sample["region_size"]
         points, mask, roi = convert_annotations(
             _annotations,
-            (image.height, image.width),
+            region_size,
             roi_name=self._roi_name,
             index_map=self._index_map,
             default_value=self._default_value,
