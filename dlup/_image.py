@@ -13,6 +13,7 @@ import os
 import pathlib
 import warnings
 from enum import Enum
+from functools import partial
 from types import TracebackType
 from typing import Any, Literal, Optional, Type, TypeVar, cast
 
@@ -309,7 +310,7 @@ class SlideImage:
         # Adjust how the backend is used depending on its type
         if isinstance(backend, ImageBackend):
             backend_callable = backend.value  # Get the callable from Enum
-        elif issubclass(backend, AbstractSlideBackend):
+        elif issubclass(backend.func if isinstance(backend, partial) else backend, AbstractSlideBackend):
             backend_callable = backend  # Directly use the class if it's a subclass of AbstractSlideBackend
         else:
             raise TypeError("backend must be either an ImageBackend enum or a subclass of AbstractSlideBackend")
@@ -396,7 +397,22 @@ class SlideImage:
         # In the borders, the basis functions of other samples contribute to the final value.
         # PIL lanczos uses 3 pixels as support.
         # See pillow: https://git.io/JG0QD
-        native_extra_pixels = 3 if native_scaling > 1 else np.ceil(3 / native_scaling)
+        _extra_pixels_required = True
+        if native_scaling > 1:
+            native_extra_pixels = 3
+        else:
+            native_extra_pixels = np.ceil(3 / native_scaling)
+            # Special case where no padding is needed
+            # This is a special use case for read_region that do not fit the same dimensions as the read_region function.
+            # This can be the case when reading from a slide image with feature representations.
+            if (
+                native_scaling == 1.0
+                and scaling == 1.0
+                and np.issubdtype(location.dtype, np.integer)
+                and self._internal_handler == "none"
+            ):
+                native_extra_pixels = 0
+                _extra_pixels_required = False
 
         # Compute the native location while counting the extra pixels.
         native_location_adapted = np.floor(native_location - native_extra_pixels).astype(int)
@@ -424,43 +440,49 @@ class SlideImage:
         size = cast(tuple[int, int], size)
 
         if self._internal_handler == "pil":
-            box = (
-                *fractional_coordinates,
-                *np.clip(
-                    (fractional_coordinates + native_size),
-                    a_min=0,
-                    a_max=(vips_region.width, vips_region.height),
-                ),
-            )
-            box = cast(tuple[float, float, float, float], box)
+            if _extra_pixels_required:
+                box = (
+                    *fractional_coordinates,
+                    *np.clip(
+                        (fractional_coordinates + native_size),
+                        a_min=0,
+                        a_max=(vips_region.width, vips_region.height),
+                    ),
+                )
+                box = cast(tuple[float, float, float, float], box)
 
-            # Within this region, there are a bunch of extra pixels, we interpolate to sample
-            # the pixel in the right position to retain the right sample weight.
-            # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
+                # Within this region, there are a bunch of extra pixels, we interpolate to sample
+                # the pixel in the right position to retain the right sample weight.
+                # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
 
-            pil_region = PIL.Image.fromarray(np.asarray(vips_region)).resize(
-                size,
-                resample=_RESAMPLE_TO_PIL[self._interpolator],
-                box=box,
-            )
+                pil_region = PIL.Image.fromarray(np.asarray(vips_region)).resize(
+                    tuple(size),
+                    resample=_RESAMPLE_TO_PIL[self._interpolator],
+                    box=box,
+                )
+            else:
+                pil_region = PIL.Image.fromarray(np.asarray(vips_region))
 
             if self._apply_color_profile and self._pil_color_transform is not None:
                 PIL.ImageCms.applyTransform(pil_region, self._pil_color_transform, inPlace=True)
 
             return pyvips.Image.new_from_array(np.asarray(pil_region), interpretation=vips_region.interpretation)
 
-        if self._internal_handler == "vips":
-            crop_box = (
-                int(np.floor(fractional_coordinates[0])),
-                int(np.floor(fractional_coordinates[1])),
-                int(np.round(fractional_coordinates[0] + native_size[0])),
-                int(np.round(fractional_coordinates[1] + native_size[1])),
-            )
+        if self._internal_handler == "vips" or self._internal_handler == "none":
+            if _extra_pixels_required:
+                crop_box = (
+                    int(np.floor(fractional_coordinates[0])),
+                    int(np.floor(fractional_coordinates[1])),
+                    int(np.round(fractional_coordinates[0] + native_size[0])),
+                    int(np.round(fractional_coordinates[1] + native_size[1])),
+                )
 
-            # Crop the region
-            crop_region = vips_region.crop(
-                crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]
-            )
+                # Crop the region
+                crop_region = vips_region.crop(
+                    crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]
+                )
+            else:
+                crop_region = vips_region
 
             if self._apply_color_profile and self.color_profile is not None:
                 crop_region.set_type(pyvips.GValue.blob_type, "icc-profile-data", self.color_profile.read())
@@ -469,18 +491,15 @@ class SlideImage:
             target_width, target_height = size
 
             # Resize the cropped region to the target size
-            resized_region = crop_region.resize(
-                target_width / crop_region.width,
-                vscale=target_height / crop_region.height,
-                kernel=_RESAMPLE_TO_VIPS[self._interpolator],
-            )
-
+            if _extra_pixels_required:
+                resized_region = crop_region.resize(
+                    target_width / crop_region.width,
+                    vscale=target_height / crop_region.height,
+                    kernel=_RESAMPLE_TO_VIPS[self._interpolator],
+                )
+            else:
+                resized_region = crop_region
             return resized_region
-
-        # This is a special use case for read_region that do not fit the same dimensions as the read_region function.
-        # This can be the case when reading from a slide image with feature representations.
-        if self._internal_handler == "none":
-            return vips_region
 
     def get_scaled_size(self, scaling: GenericNumber, limit_bounds: Optional[bool] = False) -> tuple[int, int]:
         """Compute slide image size at specific scaling.
