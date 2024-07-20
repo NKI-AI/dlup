@@ -2,6 +2,7 @@
 """The setup script."""
 
 import ast
+from typing import Any
 
 from Cython.Build import cythonize  # type: ignore
 from setuptools import Extension, find_packages, setup  # type: ignore
@@ -32,7 +33,7 @@ install_requires = [
 
 
 class NumpyImportDefer:
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: Any) -> Any:
         import numpy
 
         return getattr(numpy, attr)

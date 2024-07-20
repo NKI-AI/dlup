@@ -2,7 +2,6 @@
 # cython: language_level=3
 import cython
 import numpy as np
-
 cimport numpy as np
 from libc.math cimport ceil, floor
 from libc.stdlib cimport free, malloc
@@ -76,7 +75,7 @@ cdef unsigned long long sum_pixels(const unsigned char* data, int size, int stri
 def _is_foreground_numpy(
     SlideImage slide_image,
     np.ndarray background_mask,
-    list regions,
+    np.ndarray[np.float32_t, ndim=2] regions_array,
     np.ndarray[np.uint8_t, ndim=1] boolean_mask,
     float threshold
 ):
@@ -93,7 +92,6 @@ def _is_foreground_numpy(
         int x1, y1, x2, y2
         float mean_value
         int i
-        np.ndarray[np.float32_t, ndim=2] regions_array
         unsigned char[:, ::1] background_mask_view
         const unsigned char* background_mask_ptr
         const unsigned char* mask_tile_ptr
@@ -104,11 +102,9 @@ def _is_foreground_numpy(
         int ix, iy
         int error_flag = 0  # 0: No error, 1: MPP zero, 2: Region size zero
 
-    num_regions = len(regions)
+    num_regions = regions_array.shape[0]
     if boolean_mask.shape[0] != num_regions:
         raise ValueError("boolean_mask must have the same length as regions")
-
-    regions_array = np.array(regions, dtype=np.float32)
 
     background_mask_view = background_mask
     background_mask_ptr = &background_mask_view[0, 0]

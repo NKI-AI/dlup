@@ -51,7 +51,9 @@ def is_foreground(
 
     boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
     if isinstance(background_mask, np.ndarray):
-        _is_foreground_numpy(slide_image, background_mask, list(regions), boolean_mask, threshold)
+        _is_foreground_numpy(
+            slide_image, background_mask, np.array(regions, dtype=np.float32), boolean_mask, threshold  # type: ignore
+        )
         masked_indices = np.argwhere(boolean_mask).flatten()
 
     elif isinstance(background_mask, SlideImage):
