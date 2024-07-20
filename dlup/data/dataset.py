@@ -285,9 +285,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         # Then masked_indices[0] == 0, masked_indices[1] == 2.
         self.masked_indices: NDArray[np.int_] | None = None
         if mask is not None:
-            boolean_mask: NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
-            for i, region in enumerate(regions):
-                boolean_mask[i] = is_foreground(self.slide_image, mask, region, mask_threshold)
+            boolean_mask = is_foreground(self.slide_image, mask, regions, mask_threshold)
             self.masked_indices = np.argwhere(boolean_mask).flatten()
 
     @property

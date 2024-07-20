@@ -3,6 +3,8 @@
 
 import ast
 
+import numpy
+from Cython.Build import cythonize  # type: ignore
 from setuptools import find_packages, setup  # type: ignore
 
 with open("dlup/__init__.py") as f:
@@ -19,7 +21,7 @@ with open("README.md") as f:
 install_requires = [
     "numpy==1.26.4",
     "tifftools>=1.5.2",
-    "tifffile>=2024.5.22",
+    "tifffile>=2024.7.2",
     "pyvips>=2.2.3",
     "tqdm>=2.66.4",
     "pillow>=10.3.0",
@@ -74,5 +76,7 @@ setup(
     packages=find_packages(include=["dlup", "dlup.*"]),
     url="https://github.com/NKI-AI/dlup",
     version=version,
+    ext_modules=cythonize("dlup/_background.pyx"),
+    include_dirs=[numpy.get_include()],
     zip_safe=False,
 )

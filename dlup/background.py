@@ -4,13 +4,14 @@ Utilities to handle background / foreground masks.
 """
 from __future__ import annotations
 
+import collections
 from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
-import PIL.Image
 
 from dlup import SlideImage
+from dlup._background import _is_foreground_numpy  # pylint: disable=no-name-in-module
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
 
@@ -21,9 +22,9 @@ if TYPE_CHECKING:
 def is_foreground(
     slide_image: SlideImage,
     background_mask: MaskTypes,
-    region: tuple[float, float, int, int, float],
+    regions: collections.abc.Sequence[tuple[float, float, int, int, float]],
     threshold: float | None = 1.0,
-) -> bool:
+) -> npt.NDArray[np.bool_]:
     """Check if a region is foreground.
 
     Parameters
@@ -41,22 +42,28 @@ def is_foreground(
 
     Returns
     -------
-    bool
+    npt.NDArray[np.bool_]
 
     """
     if threshold is None:
-        return True
+        return np.ones(len(regions), dtype=bool)
 
+    # TODO: Return in place
+    boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
     if isinstance(background_mask, np.ndarray):
-        return _is_foreground_numpy(slide_image, background_mask, region, threshold)
+        _is_foreground_numpy(slide_image, background_mask, list(regions), boolean_mask, threshold)
 
-    if isinstance(background_mask, SlideImage):
-        return _is_foreground_wsiannotations(background_mask, region, threshold)
+    elif isinstance(background_mask, SlideImage):
+        for idx, region in enumerate(regions):
+            boolean_mask[idx] = _is_foreground_wsiannotations(background_mask, region, threshold)
 
-    if isinstance(background_mask, WsiAnnotations):
-        return _is_foreground_polygon(slide_image, background_mask, region, threshold)
+    elif isinstance(background_mask, WsiAnnotations):
+        for idx, region in enumerate(regions):
+            boolean_mask[idx] = _is_foreground_polygon(slide_image, background_mask, region, threshold)
+    else:
+        raise DlupError(f"Unknown background mask type. Got {type(background_mask)}")
 
-    raise DlupError(f"Unknown background mask type. Got {type(background_mask)}")
+    return boolean_mask
 
 
 def _is_foreground_polygon(
@@ -94,7 +101,19 @@ def _is_foreground_wsiannotations(
     # Can do something as follows, but that is not exposed right now, so that waits for such an implementation.
     # best_level = background_mask._wsi.get_best_level_for_downsample(scaling)
     mask_region_view = background_mask.get_scaled_view(background_mask.get_scaling(mpp))
-    mask = mask_region_view.read_region((x, y), (w, h)).convert("L")
+
+    # We need to make sure the w, h are fitting inside the image and otherwise clip to that
+    mask_size = mask_region_view.size
+    # Now we must make sure that (x, y) + (w, h) <= mask_size
+    w, h = min(w, mask_size[0] - int(x)), min(h, mask_size[1] - int(y))
+
+    # If there is a color_map it then pyvips will read it as a RGBA array.
+    # In that case we can just average over the last access and convert it to a boolean value
+    # We need to drop the A channel, as it is not relevant for the mask.
+    mask = mask_region_view.read_region((x, y), (w, h)).colourspace("srgb").numpy()[..., :3]
+
+    mask = np.sum(mask, axis=-1)
+    mask = (mask > 0).astype(int)
 
     if threshold == 1.0 and np.asarray(mask).mean() == 1:
         return True
@@ -102,47 +121,45 @@ def _is_foreground_wsiannotations(
     return bool(np.asarray(mask).mean() > threshold)
 
 
-def _is_foreground_numpy(
-    slide_image: SlideImage,
-    background_mask: npt.NDArray[np.int_],
-    region: tuple[float, float, int, int, float],
-    threshold: float = 1.0,
-) -> bool:
-    # Let's get the region view from the slide image.
-    x, y, w, h, mpp = region
-
-    mask_size = np.array(background_mask.shape[:2][::-1])
-
-    region_view = slide_image.get_scaled_view(slide_image.get_scaling(mpp))
-    _background_mask = PIL.Image.fromarray(background_mask)
-
-    # Type of background_mask is Any here.
-    # The scaling should be computed using the longest edge of the image.
-    background_size = (_background_mask.width, _background_mask.height)
-
-    region_size = region_view.size
-    max_dimension_index = max(range(len(background_size)), key=background_size.__getitem__)
-    scaling = background_size[max_dimension_index] / region_size[max_dimension_index]
-    scaled_region = np.array((x, y, w, h)) * scaling
-    scaled_coordinates, scaled_sizes = scaled_region[:2], np.ceil(scaled_region[2:]).astype(int)
-
-    mask_tile = np.zeros(scaled_sizes)
-
-    max_boundary = np.tile(mask_size, 2)
-    min_boundary = np.zeros_like(max_boundary)
-    box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)
-    clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
-
-    if clipped_h == 0 or clipped_w == 0:
-        return False
-
-    # Better for mypy
-    _box = (float(box[0]), float(box[1]), float(box[2]), float(box[3]))
-    mask_tile[:clipped_h, :clipped_w] = np.asarray(
-        _background_mask.resize((clipped_w, clipped_h), PIL.Image.Resampling.BICUBIC, box=_box), dtype=float
-    )
-
-    if threshold == 1.0 and mask_tile.mean() == 1.0:
-        return True
-
-    return bool(mask_tile.mean() > threshold)
+# def _is_foreground_numpy(
+#     slide_image: SlideImage,
+#     background_mask: npt.NDArray[np.int_],
+#     regions,
+#     threshold: float = 1.0,
+# ) -> bool:
+#
+#     boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
+#     for idx, region in enumerate(regions):
+#
+#         x, y, w, h, mpp = region
+#
+#         mask_size = np.array(background_mask.shape[:2][::-1])
+#         region_view = slide_image.get_scaled_view(slide_image.get_scaling(mpp))
+#         region_size = region_view.size
+#
+#         max_dimension_index = np.argmax(mask_size)
+#         scaling = mask_size[max_dimension_index] / region_size[max_dimension_index]
+#         scaled_region = np.array((x, y, w, h)) * scaling
+#         scaled_coordinates, scaled_sizes = scaled_region[:2], np.ceil(scaled_region[2:]).astype(int)
+#
+#         max_boundary = np.tile(mask_size, 2)
+#         min_boundary = np.zeros_like(max_boundary)
+#         box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)
+#         clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
+#
+#         if clipped_h == 0 or clipped_w == 0:
+#             return False
+#
+#         x1, y1, x2, y2 = box.astype(int)
+#         mask_tile = background_mask[y1:y2, x1:x2]
+#
+#         if mask_tile.shape != (clipped_h, clipped_w):
+#             zoom_factors = (clipped_h / mask_tile.shape[0], clipped_w / mask_tile.shape[1])
+#             mask_tile = ndimage.zoom(mask_tile, zoom_factors, order=1)
+#
+#         if threshold == 1.0 and mask_tile.mean() == 1.0:
+#             return True
+#
+#         boolean_mask[idx] = bool(mask_tile.mean() > threshold)
+#
+#     return boolean_mask
