@@ -2,9 +2,9 @@
 # cython: language_level=3
 import cython
 import numpy as np
+
 cimport numpy as np
 from libc.math cimport ceil, floor
-from libc.stdlib cimport free, malloc
 
 ctypedef fused SlideImage:
     object
@@ -19,92 +19,93 @@ cdef inline int max_c(int a, int b) nogil:
 cdef inline int min_c(int a, int b) nogil:
     return a if a < b else b
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-cdef void resize_mask_nearest_uint8(const unsigned char* input_mask, int input_width, int input_height, int input_stride,
-                                    unsigned char* output_mask, int output_width, int output_height) nogil:
-    cdef:
-        int error_flag = 0 # 0: No error, 1: Input size zero
-        float x_ratio
-        float y_ratio
-        int x, y, src_x, src_y
+import cython
 
-    x_ratio = safe_divide(<float>input_width, output_width)
-    y_ratio = safe_divide(<float>input_height, output_height)
+from libc.stdint cimport uint8_t, uint64_t
 
-    for y in range(output_height):
-        for x in range(output_width):
-            src_x = <int>(x * x_ratio)
-            src_y = <int>(y * y_ratio)
-            output_mask[y * output_width + x] = input_mask[src_y * input_stride + src_x]
+import cython
+
+from libc.stdint cimport uint8_t, uint64_t
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef unsigned long long sum_pixels(const unsigned char* data, int size, int stride) nogil:
+cdef uint64_t sum_pixels_2d(const uint8_t * data, int width, int height, int stride) nogil:
     cdef:
-        unsigned long long sum = 0
-        int i, j
-        int aligned_size = size - (size % 8)
+        uint64_t sum = 0
+        int x, y
+        int aligned_width
+        const uint8_t * row_ptr
+        uint64_t row_sum
 
-    if size < 8:
-        for i in range(size):
-            sum += data[i]
-        return sum
+    if width >= 8:
+        aligned_width = width - (width % 8)
 
-    for i in range(0, aligned_size, 8):
-        sum += (
-            data[i] +
-            data[i + 1] +
-            data[i + 2] +
-            data[i + 3] +
-            data[i + 4] +
-            data[i + 5] +
-            data[i + 6] +
-            data[i + 7]
-        )
+        for y in range(height):
+            row_ptr = data + y * stride
+            row_sum = 0
 
-    # Handle remaining pixels
-    for i in range(aligned_size, size):
-        sum += data[i]
+            # Process 8 pixels at a time
+            for x in range(0, aligned_width, 8):
+                row_sum += (
+                    row_ptr[x] +
+                    row_ptr[x + 1] +
+                    row_ptr[x + 2] +
+                    row_ptr[x + 3] +
+                    row_ptr[x + 4] +
+                    row_ptr[x + 5] +
+                    row_ptr[x + 6] +
+                    row_ptr[x + 7]
+                )
+
+            # Handle remaining pixels in the row
+            for x in range(aligned_width, width):
+                row_sum += row_ptr[x]
+
+            sum += row_sum
+    else:
+        # Handle case where width < 8
+        for y in range(height):
+            row_ptr = data + y * stride
+            row_sum = 0
+            for x in range(width):
+                row_sum += row_ptr[x]
+            sum += row_sum
 
     return sum
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def _is_foreground_numpy(
-    SlideImage slide_image,
+def _get_foreground_indices_numpy(
+    int image_width,
+    int image_height,
+    float image_slide_average_mpp,
     np.ndarray background_mask,
-    np.ndarray[np.float32_t, ndim=2] regions_array,
-    np.ndarray[np.uint8_t, ndim=1] boolean_mask,
-    float threshold
+    np.ndarray[np.float64_t, ndim=2] regions_array,
+    float threshold,
+    np.ndarray[np.int64_t, ndim=1] foreground_indices,
 ):
     cdef:
         int idx, num_regions
         float x, y, w, h, mpp
         int width, height, max_dimension
-        float image_slide_scaling, image_slide_average_mpp
-        int region_width, region_height, image_width, image_height
-        float scaling
+        float image_slide_scaling
+        int region_width, region_height
+        float scale_factor
         float scaled_region[4]
-        int box[4]
         int clipped_w, clipped_h
         int x1, y1, x2, y2
-        float mean_value
-        int i
         unsigned char[:, ::1] background_mask_view
         const unsigned char* background_mask_ptr
         const unsigned char* mask_tile_ptr
         Py_ssize_t mask_tile_stride
-        unsigned char* temp_mask
         long long sum_value
-        int total_pixels
-        int ix, iy
         int error_flag = 0  # 0: No error, 1: MPP zero, 2: Region size zero
+        int foreground_count = 0
 
     num_regions = regions_array.shape[0]
-    if boolean_mask.shape[0] != num_regions:
-        raise ValueError("boolean_mask must have the same length as regions")
+    if foreground_indices.shape[0] < num_regions:
+        raise ValueError("foreground_indices array must be at least as long as regions_array")
 
     background_mask_view = background_mask
     background_mask_ptr = &background_mask_view[0, 0]
@@ -113,70 +114,46 @@ def _is_foreground_numpy(
     height, width = background_mask.shape[:2]
     max_dimension = max_c(width, height)
 
-    image_slide_average_mpp = slide_image.mpp
-    image_width, image_height = slide_image.size
+    for idx in range(num_regions):
+        x, y = regions_array[idx, 0], regions_array[idx, 1]
+        w, h = regions_array[idx, 2], regions_array[idx, 3]
+        mpp = regions_array[idx, 4]
 
-    temp_mask = <unsigned char*>malloc(max_dimension * max_dimension * sizeof(unsigned char))
-    if not temp_mask:
-        raise MemoryError("Failed to allocate temporary buffer")
+        if mpp == 0:
+            error_flag = 1
+            break
 
-    try:
-        for idx in range(num_regions):
-            x, y = regions_array[idx, 0], regions_array[idx, 1]
-            w, h = regions_array[idx, 2], regions_array[idx, 3]
-            mpp = regions_array[idx, 4]
+        image_slide_scaling = safe_divide(image_slide_average_mpp, mpp)
+        region_width = <int>(image_slide_scaling * image_width)
+        region_height = <int>(image_slide_scaling * image_height)
 
-            if mpp == 0:
-                error_flag = 1
-                break
+        if region_width == 0 or region_height == 0:
+            error_flag = 2
+            break
 
-            image_slide_scaling = safe_divide(image_slide_average_mpp, mpp)
-            region_width = <int>(image_slide_scaling * image_width)
-            region_height = <int>(image_slide_scaling * image_height)
+        scale_factor = safe_divide(max_dimension, <float>max_c(region_width, region_height))
 
-            if region_width == 0 or region_height == 0:
-                error_flag = 2
-                break
+        x1 = min_c(width, <int> floor(x * scale_factor))
+        y1 = min_c(height, <int> floor(y * scale_factor))
+        x2 = min_c(width, <int> ceil((x + w) * scale_factor))
+        y2 = min_c(height, <int> ceil((y + h) * scale_factor))
 
-            scaling = safe_divide(max_dimension, <float>max_c(region_width, region_height))
-            scaled_region[0] = x * scaling
-            scaled_region[1] = y * scaling
-            scaled_region[2] = w * scaling
-            scaled_region[3] = h * scaling
+        clipped_w = x2 - x1
+        clipped_h = y2 - y1
 
-            box[0] = max_c(0, min_c(width, <int>floor(scaled_region[0])))
-            box[1] = max_c(0, min_c(height, <int>floor(scaled_region[1])))
-            box[2] = max_c(0, min_c(width, <int>ceil(scaled_region[0] + scaled_region[2])))
-            box[3] = max_c(0, min_c(height, <int>ceil(scaled_region[1] + scaled_region[3])))
+        if clipped_h == 0 or clipped_w == 0:
+            continue
 
-            clipped_w = box[2] - box[0]
-            clipped_h = box[3] - box[1]
+        mask_tile_ptr = background_mask_ptr + y1 * mask_tile_stride + x1
+        sum_value = sum_pixels_2d(mask_tile_ptr, clipped_w, clipped_h, mask_tile_stride)
 
-            if clipped_h == 0 or clipped_w == 0:
-                continue
-
-            x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
-            mask_tile_ptr = background_mask_ptr + y1 * mask_tile_stride + x1
-
-            if (y2 - y1) != clipped_h or (x2 - x1) != clipped_w:
-                resize_mask_nearest_uint8(mask_tile_ptr, x2 - x1, y2 - y1, mask_tile_stride,
-                                          temp_mask, clipped_w, clipped_h)
-                sum_value = sum_pixels(temp_mask, clipped_w * clipped_h, clipped_w)
-            else:
-                sum_value = 0
-                for iy in range(clipped_h):
-                    sum_value += sum_pixels(mask_tile_ptr + iy * mask_tile_stride, clipped_w, 1)
-
-            total_pixels = clipped_w * clipped_h
-            mean_value = safe_divide(<float>sum_value, total_pixels)
-
-            if mean_value > threshold:
-                boolean_mask[idx] = 1
-
-    finally:
-        free(temp_mask)
+        if sum_value > threshold * clipped_w * clipped_h:
+            foreground_indices[foreground_count] = idx
+            foreground_count += 1
 
     if error_flag == 1:
         raise ValueError("mpp cannot be zero")
     elif error_flag == 2:
         raise RuntimeError("region_width or region_height cannot be zero")
+
+    return foreground_count

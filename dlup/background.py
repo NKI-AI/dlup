@@ -11,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 
 from dlup import SlideImage
-from dlup._background import _is_foreground_numpy  # pylint: disable=no-name-in-module
+from dlup._background import _get_foreground_indices_numpy  # pylint: disable=attr-defined
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
 
@@ -49,27 +49,34 @@ def is_foreground(
     if threshold is None:
         return np.ones(len(regions), dtype=bool), np.arange(0, len(regions))
 
-    boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
     if isinstance(background_mask, np.ndarray):
-        _is_foreground_numpy(
-            slide_image, background_mask, np.array(regions, dtype=np.float32), boolean_mask, threshold  # type: ignore
+        foreground_indices = np.zeros(len(regions), dtype=np.int64)
+        foreground_count = _get_foreground_indices_numpy(
+            *slide_image.size,
+            slide_image.mpp,
+            background_mask,
+            np.array(regions, dtype=np.float64),
+            threshold,
+            foreground_indices,
         )
-        masked_indices = np.argwhere(boolean_mask).flatten()
+        masked_indices = foreground_indices[:foreground_count]
 
     elif isinstance(background_mask, SlideImage):
+        _boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
         for idx, region in enumerate(regions):
-            boolean_mask[idx] = _is_foreground_wsiannotations(background_mask, region, threshold)
-        masked_indices = np.argwhere(boolean_mask).flatten()
+            _boolean_mask[idx] = _is_foreground_wsiannotations(background_mask, region, threshold)
+        masked_indices = np.argwhere(_boolean_mask).flatten()
 
     elif isinstance(background_mask, WsiAnnotations):
+        _boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
         for idx, region in enumerate(regions):
-            boolean_mask[idx] = _is_foreground_polygon(slide_image, background_mask, region, threshold)
-        masked_indices = np.argwhere(boolean_mask).flatten()
+            _boolean_mask[idx] = _is_foreground_polygon(slide_image, background_mask, region, threshold)
+        masked_indices = np.argwhere(_boolean_mask).flatten()
 
     else:
         raise DlupError(f"Unknown background mask type. Got {type(background_mask)}")
 
-    return boolean_mask, masked_indices
+    return masked_indices
 
 
 def _is_foreground_polygon(
@@ -125,47 +132,3 @@ def _is_foreground_wsiannotations(
         return True
 
     return bool(np.asarray(mask).mean() > threshold)
-
-
-# def _is_foreground_numpy(
-#     slide_image: SlideImage,
-#     background_mask: npt.NDArray[np.int_],
-#     regions,
-#     threshold: float = 1.0,
-# ) -> bool:
-#
-#     boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
-#     for idx, region in enumerate(regions):
-#
-#         x, y, w, h, mpp = region
-#
-#         mask_size = np.array(background_mask.shape[:2][::-1])
-#         region_view = slide_image.get_scaled_view(slide_image.get_scaling(mpp))
-#         region_size = region_view.size
-#
-#         max_dimension_index = np.argmax(mask_size)
-#         scaling = mask_size[max_dimension_index] / region_size[max_dimension_index]
-#         scaled_region = np.array((x, y, w, h)) * scaling
-#         scaled_coordinates, scaled_sizes = scaled_region[:2], np.ceil(scaled_region[2:]).astype(int)
-#
-#         max_boundary = np.tile(mask_size, 2)
-#         min_boundary = np.zeros_like(max_boundary)
-#         box = np.clip((*scaled_coordinates, *(scaled_coordinates + scaled_sizes)), min_boundary, max_boundary)
-#         clipped_w, clipped_h = (box[2:] - box[:2]).astype(int)
-#
-#         if clipped_h == 0 or clipped_w == 0:
-#             return False
-#
-#         x1, y1, x2, y2 = box.astype(int)
-#         mask_tile = background_mask[y1:y2, x1:x2]
-#
-#         if mask_tile.shape != (clipped_h, clipped_w):
-#             zoom_factors = (clipped_h / mask_tile.shape[0], clipped_w / mask_tile.shape[1])
-#             mask_tile = ndimage.zoom(mask_tile, zoom_factors, order=1)
-#
-#         if threshold == 1.0 and mask_tile.mean() == 1.0:
-#             return True
-#
-#         boolean_mask[idx] = bool(mask_tile.mean() > threshold)
-#
-#     return boolean_mask
