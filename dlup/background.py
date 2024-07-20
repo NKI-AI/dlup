@@ -48,7 +48,6 @@ def is_foreground(
     if threshold is None:
         return np.ones(len(regions), dtype=bool)
 
-    # TODO: Return in place
     boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
     if isinstance(background_mask, np.ndarray):
         _is_foreground_numpy(slide_image, background_mask, list(regions), boolean_mask, threshold)
