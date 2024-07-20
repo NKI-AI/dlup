@@ -2,6 +2,8 @@ include CONTRIBUTING.rst
 include LICENSE
 include README.md
 include dlup/py.typed
+include dlup/_background.pyx
+include dlup/_background.pyi
 
 recursive-include tests *
 recursive-exclude * __pycache__

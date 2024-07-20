@@ -38,3 +38,7 @@ max-line-length = "120"
 
 [tool.pylint.'TYPECHECK']
 generated-members=['numpy.*', 'torch.*', 'np.*', 'cv2.*', 'openslide.*']
+
+[build-system]
+requires = ["setuptools>=45", "wheel", "Cython>=0.29", "numpy"]
+build-backend = "setuptools.build_meta"

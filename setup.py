@@ -3,9 +3,8 @@
 
 import ast
 
-import numpy
 from Cython.Build import cythonize  # type: ignore
-from setuptools import find_packages, setup  # type: ignore
+from setuptools import Extension, find_packages, setup  # type: ignore
 
 with open("dlup/__init__.py") as f:
     for line in f:
@@ -31,6 +30,24 @@ install_requires = [
     "packaging>=24.0",
 ]
 
+
+class NumpyImportDefer:
+    def __getattr__(self, attr):
+        import numpy
+
+        return getattr(numpy, attr)
+
+
+numpy = NumpyImportDefer()
+
+extension = Extension(
+    name="dlup._background",
+    sources=["dlup/_background.pyx"],
+    include_dirs=[numpy.get_include()],
+    extra_compile_args=["-O3", "-march=native", "-ffast-math"],
+    extra_link_args=["-O3"],
+)
+
 setup(
     author="Jonas Teuwen",
     author_email="j.teuwen@nki.nl",
@@ -51,6 +68,7 @@ setup(
             "dlup=dlup.cli:main",
         ],
     },
+    setup_requires=["Cython>=0.29"],
     install_requires=install_requires,
     extras_require={
         "dev": [
@@ -76,7 +94,7 @@ setup(
     packages=find_packages(include=["dlup", "dlup.*"]),
     url="https://github.com/NKI-AI/dlup",
     version=version,
-    ext_modules=cythonize("dlup/_background.pyx"),
+    ext_modules=cythonize([extension], compiler_directives={"language_level": "3"}),
     include_dirs=[numpy.get_include()],
     zip_safe=False,
 )

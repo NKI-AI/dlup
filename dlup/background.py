@@ -24,7 +24,7 @@ def is_foreground(
     background_mask: MaskTypes,
     regions: collections.abc.Sequence[tuple[float, float, int, int, float]],
     threshold: float | None = 1.0,
-) -> npt.NDArray[np.bool_]:
+) -> tuple[npt.NDArray[np.bool_], npt.NDArray[np.int_]]:
     """Filter the regions to foreground data. This can be either an `np.ndarray` or `SlideImage` or `WsiAnnotations`.
     Using numpy arrays is the fastest way to filter the background.
 
@@ -43,27 +43,31 @@ def is_foreground(
 
     Returns
     -------
-    npt.NDArray[np.bool_]
+    npt.NDArray[np.bool_], npt.NDArray[np.int_]
 
     """
     if threshold is None:
-        return np.ones(len(regions), dtype=bool)
+        return np.ones(len(regions), dtype=bool), np.arange(0, len(regions))
 
     boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
     if isinstance(background_mask, np.ndarray):
         _is_foreground_numpy(slide_image, background_mask, list(regions), boolean_mask, threshold)
+        masked_indices = np.argwhere(boolean_mask).flatten()
 
     elif isinstance(background_mask, SlideImage):
         for idx, region in enumerate(regions):
             boolean_mask[idx] = _is_foreground_wsiannotations(background_mask, region, threshold)
+        masked_indices = np.argwhere(boolean_mask).flatten()
 
     elif isinstance(background_mask, WsiAnnotations):
         for idx, region in enumerate(regions):
             boolean_mask[idx] = _is_foreground_polygon(slide_image, background_mask, region, threshold)
+        masked_indices = np.argwhere(boolean_mask).flatten()
+
     else:
         raise DlupError(f"Unknown background mask type. Got {type(background_mask)}")
 
-    return boolean_mask
+    return boolean_mask, masked_indices
 
 
 def _is_foreground_polygon(
