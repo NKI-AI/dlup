@@ -89,59 +89,61 @@ def _is_foreground_numpy(
         raise MemoryError("Failed to allocate temporary buffer")
 
     try:
-        for idx in range(num_regions):
-            x, y, w, h, mpp = regions_array[idx, 0], regions_array[idx, 1], regions_array[idx, 2], regions_array[idx, 3], regions_array[idx, 4]
+        with nogil:
+            for idx in range(num_regions):
+                x, y = regions_array[idx, 0], regions_array[idx, 1]
+                w, h = regions_array[idx, 2], regions_array[idx, 3]
+                mpp = regions_array[idx, 4]
 
-            if mpp == 0:
-                error_flag = 1
-                break
+                if mpp == 0:
+                    error_flag = 1
+                    break
 
-            image_slide_scaling = safe_divide(image_slide_average_mpp, mpp)
-            region_width = <int>(image_slide_scaling * image_width)
-            region_height = <int>(image_slide_scaling * image_height)
+                image_slide_scaling = safe_divide(image_slide_average_mpp, mpp)
+                region_width = <int>(image_slide_scaling * image_width)
+                region_height = <int>(image_slide_scaling * image_height)
 
-            if region_width == 0 or region_height == 0:
-                error_flag = 2
-                break
+                if region_width == 0 or region_height == 0:
+                    error_flag = 2
+                    break
 
-            scaling = safe_divide(max_dimension, <float>max_c(region_width, region_height))
-            scaled_region[0] = x * scaling
-            scaled_region[1] = y * scaling
-            scaled_region[2] = w * scaling
-            scaled_region[3] = h * scaling
+                scaling = safe_divide(max_dimension, <float>max_c(region_width, region_height))
+                scaled_region[0] = x * scaling
+                scaled_region[1] = y * scaling
+                scaled_region[2] = w * scaling
+                scaled_region[3] = h * scaling
 
-            box[0] = max_c(0, min_c(width, <int>floor(scaled_region[0])))
-            box[1] = max_c(0, min_c(height, <int>floor(scaled_region[1])))
-            box[2] = max_c(0, min_c(width, <int>ceil(scaled_region[0] + scaled_region[2])))
-            box[3] = max_c(0, min_c(height, <int>ceil(scaled_region[1] + scaled_region[3])))
+                box[0] = max_c(0, min_c(width, <int>floor(scaled_region[0])))
+                box[1] = max_c(0, min_c(height, <int>floor(scaled_region[1])))
+                box[2] = max_c(0, min_c(width, <int>ceil(scaled_region[0] + scaled_region[2])))
+                box[3] = max_c(0, min_c(height, <int>ceil(scaled_region[1] + scaled_region[3])))
 
-            clipped_w = box[2] - box[0]
-            clipped_h = box[3] - box[1]
+                clipped_w = box[2] - box[0]
+                clipped_h = box[3] - box[1]
 
-            if clipped_h == 0 or clipped_w == 0:
-                continue
+                if clipped_h == 0 or clipped_w == 0:
+                    continue
 
-            x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
-            mask_tile_ptr = background_mask_ptr + y1 * mask_tile_stride + x1
+                x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
+                mask_tile_ptr = background_mask_ptr + y1 * mask_tile_stride + x1
 
-            if (y2 - y1) != clipped_h or (x2 - x1) != clipped_w:
-                resize_mask_nearest_uint8(mask_tile_ptr, x2 - x1, y2 - y1, mask_tile_stride,
-                                          temp_mask, clipped_w, clipped_h)
-                mask_tile_ptr = temp_mask
-                mask_tile_stride = clipped_w
+                if (y2 - y1) != clipped_h or (x2 - x1) != clipped_w:
+                    resize_mask_nearest_uint8(mask_tile_ptr, x2 - x1, y2 - y1, mask_tile_stride,
+                                              temp_mask, clipped_w, clipped_h)
+                    mask_tile_ptr = temp_mask
+                    mask_tile_stride = clipped_w
 
-            sum_value = 0
-            total_pixels = clipped_w * clipped_h
-            for iy in range(clipped_h):
-                for ix in range(clipped_w):
-                    sum_value += mask_tile_ptr[iy * mask_tile_stride + ix]
+                sum_value = 0
+                total_pixels = clipped_w * clipped_h
+                for iy in range(clipped_h):
+                    for ix in range(clipped_w):
+                        sum_value += mask_tile_ptr[iy * mask_tile_stride + ix]
 
+                # clipped_w and clipped_h cannot be 0 here
+                mean_value = safe_divide(<float>sum_value, total_pixels)
 
-            # clipped_w and clipped_h cannot be 0 here
-            mean_value = safe_divide(<float>sum_value, total_pixels)
-
-            if mean_value > threshold:
-                boolean_mask[idx] = 1
+                if mean_value > threshold:
+                    boolean_mask[idx] = 1
 
     finally:
         free(temp_mask)
@@ -150,3 +152,4 @@ def _is_foreground_numpy(
         raise ValueError("mpp cannot be zero")
     elif error_flag == 2:
         raise RuntimeError("region_width or region_height cannot be zero")
+
