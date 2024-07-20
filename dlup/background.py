@@ -25,7 +25,8 @@ def is_foreground(
     regions: collections.abc.Sequence[tuple[float, float, int, int, float]],
     threshold: float | None = 1.0,
 ) -> npt.NDArray[np.bool_]:
-    """Check if a region is foreground.
+    """Filter the regions to foreground data. This can be either an `np.ndarray` or `SlideImage` or `WsiAnnotations`.
+    Using numpy arrays is the fastest way to filter the background.
 
     Parameters
     ----------
@@ -33,8 +34,8 @@ def is_foreground(
         Slide image to check
     background_mask : np.ndarray or SlideImage or WsiAnnotations
         Background mask to check against
-    region : tuple[float, float, int, int, float]
-        Region to check
+    regions : collections.abc.Sequence[tuple[float, float, int, int, float]]
+        Regions to check
     threshold : float or None
         Threshold to check against. The foreground percentage should be strictly larger than threshold.
         If None anything is foreground. If 1, the region must be completely foreground.
