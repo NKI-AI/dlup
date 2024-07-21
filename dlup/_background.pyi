@@ -1,15 +1,14 @@
 # Copyright (c) dlup contributors
-from typing import Any, List
 
 import numpy as np
 import numpy.typing as npt
 
-from dlup import SlideImage
-
-def _is_foreground_numpy(
-    slide_image: SlideImage,
+def _get_foreground_indices_numpy(
+    image_width: int,
+    image_height: int,
+    image_slide_average_mpp: float,
     background_mask: npt.NDArray[np.int_],
-    regions: List[Any],  # TODO: Specialize
-    boolean_mask: npt.NDArray[np.bool_],
-    threshold: float = 1.0,
-) -> None: ...
+    regions_array: npt.NDArray[np.float64],
+    threshold: float,
+    foreground_indices: npt.NDArray[np.int64],
+) -> int: ...
