@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import openslide
 import pyvips
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class LevelConfig(BaseModel):
@@ -15,9 +15,13 @@ class LevelConfig(BaseModel):
 
 
 class SlideConfig(BaseModel):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+    )
     filename: str
     properties: Dict[str, str]
     levels: List[LevelConfig]
+    image: Optional[np.ndarray]
 
     @classmethod
     def from_parameters(
@@ -28,6 +32,7 @@ class SlideConfig(BaseModel):
         mpp: Tuple[float, float],
         objective_power: Optional[int],
         vendor: str,
+        image: Optional[np.ndarray] = None,
     ):
         # Calculate the dimensions and downsample for each level
         levels = []
@@ -46,7 +51,7 @@ class SlideConfig(BaseModel):
             properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER] = str(objective_power)
 
         # Return an instance of SlideConfig
-        return cls(filename=filename, properties=properties, levels=levels)
+        return cls(filename=filename, properties=properties, levels=levels, image=image)
 
 
 def get_sample_nonuniform_image(size: tuple[int, int] = (256, 256), divisions: int = 10) -> pyvips.Image:

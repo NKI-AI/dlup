@@ -4,13 +4,15 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
-from dlup import AnnotationType, WsiAnnotations
+from dlup import AnnotationType, SlideImage, WsiAnnotations
 from dlup._exceptions import DlupError
 from dlup.annotations import AnnotationClass, Polygon
 from dlup.background import compute_masked_indices
 from dlup.data.dataset import _coords_to_region
 from dlup.tiling import Grid
 from dlup.tools import ConcatSequences, MapSequence
+
+from .backends.test_openslide_backend import MockOpenSlideSlide, SlideConfig
 
 
 class TestComputeMaskedIndices:
@@ -23,7 +25,14 @@ class TestComputeMaskedIndices:
         output = compute_masked_indices(dlup_wsi, background_mask, regions, threshold=None)
         np.testing.assert_equal(output, np.array([0, 1, 2], dtype=np.int64))
 
-    @pytest.mark.parametrize("threshold", [0.0, 0.4, 0.5])
+    @pytest.mark.parametrize(
+        "threshold",
+        [
+            0.0,
+            0.4,
+            0.5,
+        ],
+    )
     def test_ndarray(self, dlup_wsi, threshold):
         background_mask = np.zeros((100, 100), dtype=bool)
 
@@ -43,8 +52,10 @@ class TestComputeMaskedIndices:
             sliced_mask = background_mask[elem[1] // 10 : elem[1] // 10 + 10, elem[0] // 10 : elem[0] // 10 + 10]
             assert sliced_mask.mean() >= threshold
 
-    @pytest.mark.parametrize("threshold", [0.0, 0.4, 0.5])
+    @pytest.mark.parametrize("threshold", [0.0, 0.4, 0.5, 1.0])
     def test_wsiannotations(self, dlup_wsi, threshold):
+        # TODO: Make test for different scalings
+
         # Let's make a shapely polygon thats equal to
         # background_mask[14:20, 10:20] = True
         # background_mask[85:100, 50:80] = True
@@ -62,12 +73,49 @@ class TestComputeMaskedIndices:
 
         if threshold in [0.0, 0.4]:
             assert len(grid_elems) == 7
-        else:
+        elif threshold == 0.5:
             assert len(grid_elems) == 4
+        else:
+            assert len(grid_elems) == 3
 
         for grid_elem in grid_elems:
             region = annotations.read_region(grid_elem, 1.0, (100, 100))
             assert sum(_.area for _ in region) >= threshold * 100 * 100
+
+    @pytest.mark.parametrize("threshold", [0.0, 0.4, 0.5, 1.0])
+    def test_slide_image(self, dlup_wsi, threshold):
+        # TODO: Make test for different scalings
+        background_mask = np.zeros((1000, 1000), dtype=np.uint8)
+
+        background_mask[140:200, 100:200] = 1
+        background_mask[850:1000, 500:800] = 1
+
+        config = SlideConfig.from_parameters(
+            filename="dummy1.svs",
+            num_levels=1,
+            level_0_dimensions=(1000, 1000),
+            mpp=(dlup_wsi.mpp, dlup_wsi.mpp),
+            objective_power=20,
+            vendor="dummy",
+            image=background_mask,
+        )
+        mock_backend = MockOpenSlideSlide.from_config(config)
+        mask_image = SlideImage(mock_backend, internal_handler="vips", interpolator="NEAREST")
+        regions, grid = self._compute_grid_elements(dlup_wsi)
+        masked_indices = compute_masked_indices(dlup_wsi, mask_image, regions, threshold=threshold)
+
+        grid_elems = [grid[index] for index in masked_indices]
+
+        if threshold in [0.0, 0.4]:
+            assert len(grid_elems) == 7
+        elif threshold == 0.5:
+            assert len(grid_elems) == 4
+        else:
+            assert len(grid_elems) == 3
+
+        for grid_elem in grid_elems:
+            region = mask_image.read_region(grid_elem, 1.0, (100, 100)).numpy()
+            assert region.sum() >= threshold * 100 * 100
 
     def test_unknown_type(self, dlup_wsi):
         with pytest.raises(DlupError, match=f"Unknown background mask type. Got {type([])}"):
