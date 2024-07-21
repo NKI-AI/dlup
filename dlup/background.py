@@ -11,6 +11,7 @@ import numpy as np
 import numpy.typing as npt
 
 from dlup import SlideImage
+# pylint: disable=import-error, no-name-in-module
 from dlup._background import _get_foreground_indices_numpy
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
