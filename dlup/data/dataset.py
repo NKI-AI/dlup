@@ -35,7 +35,7 @@ from dlup import BoundaryMode, SlideImage
 from dlup.annotations import Point, Polygon, WsiAnnotations
 from dlup.backends import ImageBackend
 from dlup.backends.common import AbstractSlideBackend
-from dlup.background import computed_masked_indices
+from dlup.background import compute_masked_indices
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.types import PathLike, ROIType
@@ -286,7 +286,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         self.masked_indices: NDArray[np.int_] | None = None
         if mask is not None:
             # TODO: It's probably better to filter the grid and use this instead
-            self.masked_indices = computed_masked_indices(self.slide_image, mask, regions, mask_threshold)
+            self.masked_indices = compute_masked_indices(self.slide_image, mask, regions, mask_threshold)
 
     @property
     def path(self) -> PathLike:

@@ -24,6 +24,7 @@ jobs:
         python -m pip install -e .
         python -m pip install pyhaloxml
         python -m pip install darwin-py
+        python setup.py build_ext --inplace
     - name: Analysing the code with pylint
       run: |
         pylint dlup --errors-only

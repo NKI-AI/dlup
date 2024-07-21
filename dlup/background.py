@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from dlup.data.dataset import MaskTypes
 
 
-def computed_masked_indices(
+def compute_masked_indices(
     slide_image: SlideImage,
     background_mask: MaskTypes,
     regions: collections.abc.Sequence[tuple[float, float, int, int, float]],

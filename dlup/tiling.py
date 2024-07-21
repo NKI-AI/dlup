@@ -60,7 +60,7 @@ def tiles_grid_coordinates(
     size: _GenericNumberArray,
     tile_size: _GenericNumberArray,
     tile_overlap: _GenericNumberArray | _GenericNumber = 0,
-    mode: TilingMode = TilingMode.skip,
+    mode: TilingMode | str = TilingMode.skip,
 ) -> list[npt.NDArray[np.int_ | np.float_]]:
     """Generate a list of coordinates for each dimension representing a tile location.
 
@@ -121,7 +121,7 @@ class Grid(collections.abc.Sequence[npt.NDArray[np.int_ | np.float_]]):
         size: _GenericNumberArray,
         tile_size: _GenericNumberArray,
         tile_overlap: _GenericNumberArray | _GenericNumber = 0,
-        mode: TilingMode = TilingMode.skip,
+        mode: TilingMode | str = TilingMode.skip,
         order: GridOrder | str = GridOrder.C,
     ) -> "Grid":
         """Generate a grid from a set of tiling parameters."""
