@@ -41,6 +41,7 @@ generated-members=['numpy.*', 'torch.*', 'np.*', 'cv2.*', 'openslide.*']
 
 [tool.pylint.master]
 extension-pkg-whitelist = ["dlup._background"]
+ignore-patterns = '.*\.pyi'
 
 [build-system]
 requires = ["setuptools>=45", "wheel", "Cython>=0.29", "numpy"]

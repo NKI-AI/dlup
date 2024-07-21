@@ -11,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 
 from dlup import SlideImage
-from dlup._background import _get_foreground_indices_numpy  # pylint: disable=attr-defined
+from dlup._background import _get_foreground_indices_numpy
 from dlup._exceptions import DlupError
 from dlup.annotations import WsiAnnotations
 
