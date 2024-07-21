@@ -57,12 +57,6 @@ def main() -> None:
     # Whole slide images related commands.
     register_wsi_subcommand(root_subparsers)
 
-    # Prevent circular import
-    from dlup.cli.mask import register_parser as register_mask_subcommand
-
-    # Whole slide images related commands.
-    register_mask_subcommand(root_subparsers)
-
     args = root_parser.parse_args()
     args.subcommand(args)
 
