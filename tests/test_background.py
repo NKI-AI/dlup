@@ -100,7 +100,7 @@ class TestComputeMaskedIndices:
             image=background_mask,
         )
         mock_backend = MockOpenSlideSlide.from_config(config)
-        mask_image = SlideImage(mock_backend, internal_handler="vips", interpolator="NEAREST")
+        mask_image = SlideImage(mock_backend, interpolator="NEAREST")
         regions, grid = self._compute_grid_elements(dlup_wsi)
         masked_indices = compute_masked_indices(dlup_wsi, mask_image, regions, threshold=threshold)
 

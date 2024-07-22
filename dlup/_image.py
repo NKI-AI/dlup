@@ -149,7 +149,7 @@ class SlideImage:
         interpolator: Optional[Resampling] | str = Resampling.LANCZOS,
         overwrite_mpp: Optional[tuple[float, float]] = None,
         apply_color_profile: bool = False,
-        internal_handler: Optional[Literal["pil", "vips"]] = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize a whole slide image and validate its properties. This class allows to read whole-slide images
         at any arbitrary resolution. This class can read images from any backend that implements the
@@ -169,9 +169,6 @@ class SlideImage:
             and external database.
         apply_color_profile : bool
             Whether to apply the color profile to the output regions.
-        internal_handler : Literal["pil", "vips"], optional
-            The internal handler to use for processing the regions. This can be either PIL or VIPS. PIL is the behavior
-            for all dlup versions prior to v0.4. It is recommended to migrate your code and use VIPS instead.
 
         Raises
         ------
@@ -203,21 +200,17 @@ class SlideImage:
         self._apply_color_profile = apply_color_profile
         self.__color_transforms = None
 
-        if not internal_handler:
-            warnings.warn(
-                "The internal handler is not set. Defaulting to PIL. "
-                "This behavior will be changed in dlup v1.0 where the default handler will become vips. "
-                'If you want your code to keep working as before you will need to set internal_handler="pil".',
-                UserWarning,
-            )
+        if "internal_handler" in kwargs:
+            if kwargs["internal_handler"] == "pil":
+                warnings.warn(
+                    "Starting dlup v0.7 the default internal handler for processing regions is 'vips'. "
+                    "This warning will be removed in v1.0.",
+                    UserWarning,
+                )
+            else:
+                warnings.warn("`internal_handler` is deprecated and will not be used.")
 
-        self._internal_handler = internal_handler if internal_handler is not None else "pil"
         self.__color_transform: PIL.ImageCms.ImageCmsTransform | None = None
-
-    @property
-    def internal_handler(self) -> Literal["pil", "vips"]:
-        """Returns the internal handler used for processing the regions."""
-        return self._internal_handler
 
     @property
     def interpolator(self) -> Resampling:
@@ -414,59 +407,30 @@ class SlideImage:
         fractional_coordinates = native_location - native_location_adapted
         size = cast(tuple[int, int], size)
 
-        if self._internal_handler == "pil":
-            box = (
-                *fractional_coordinates,
-                *np.clip(
-                    (fractional_coordinates + native_size),
-                    a_min=0,
-                    a_max=(vips_region.width, vips_region.height),
-                ),
-            )
-            box = cast(tuple[float, float, float, float], box)
+        crop_box = (
+            int(np.floor(fractional_coordinates[0])),
+            int(np.floor(fractional_coordinates[1])),
+            int(np.round(fractional_coordinates[0] + native_size[0])),
+            int(np.round(fractional_coordinates[1] + native_size[1])),
+        )
 
-            # Within this region, there are a bunch of extra pixels, we interpolate to sample
-            # the pixel in the right position to retain the right sample weight.
-            # We also need to clip to the border, as some readers (e.g mirax) have one pixel less at the border.
+        # Crop the region
+        crop_region = vips_region.crop(crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1])
 
-            pil_region = PIL.Image.fromarray(np.asarray(vips_region)).resize(
-                size,
-                resample=_RESAMPLE_TO_PIL[self.interpolator],
-                box=box,
-            )
+        if self._apply_color_profile and self.color_profile is not None:
+            crop_region.set_type(pyvips.GValue.blob_type, "icc-profile-data", self.color_profile.read())
+            crop_region = crop_region.icc_transform("srgb")
+        # Calculate the size of the target region
+        target_width, target_height = size
 
-            if self._apply_color_profile and self._pil_color_transform is not None:
-                PIL.ImageCms.applyTransform(pil_region, self._pil_color_transform, inPlace=True)
+        # Resize the cropped region to the target size
+        resized_region = crop_region.resize(
+            target_width / crop_region.width,
+            vscale=target_height / crop_region.height,
+            kernel=_RESAMPLE_TO_VIPS[self.interpolator],
+        )
 
-            return pyvips.Image.new_from_array(np.asarray(pil_region), interpretation=vips_region.interpretation)
-
-        if self._internal_handler == "vips":
-            crop_box = (
-                int(np.floor(fractional_coordinates[0])),
-                int(np.floor(fractional_coordinates[1])),
-                int(np.round(fractional_coordinates[0] + native_size[0])),
-                int(np.round(fractional_coordinates[1] + native_size[1])),
-            )
-
-            # Crop the region
-            crop_region = vips_region.crop(
-                crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]
-            )
-
-            if self._apply_color_profile and self.color_profile is not None:
-                crop_region.set_type(pyvips.GValue.blob_type, "icc-profile-data", self.color_profile.read())
-                crop_region = crop_region.icc_transform("srgb")
-            # Calculate the size of the target region
-            target_width, target_height = size
-
-            # Resize the cropped region to the target size
-            resized_region = crop_region.resize(
-                target_width / crop_region.width,
-                vscale=target_height / crop_region.height,
-                kernel=_RESAMPLE_TO_VIPS[self.interpolator],
-            )
-
-            return resized_region
+        return resized_region
 
     def get_scaled_size(self, scaling: GenericNumber, limit_bounds: Optional[bool] = False) -> tuple[int, int]:
         """Compute slide image size at specific scaling.
@@ -611,7 +575,7 @@ class SlideImage:
 
     def __repr__(self) -> str:
         """Returns the SlideImage representation and some of its properties."""
-        props = ("identifier", "vendor", "mpp", "magnification", "size", "internal_handler", "interpolator", "backend")
+        props = ("identifier", "vendor", "mpp", "magnification", "size", "interpolator", "backend")
         props_str = []
         for key in props:
             if key == "backend":
