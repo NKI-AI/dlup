@@ -42,7 +42,6 @@ class Resampling(str, Enum):
     LANCZOS = "LANCZOS"
 
 
-_RESAMPLE_TO_PIL = {Resampling.NEAREST: PIL.Image.Resampling.NEAREST, Resampling.LANCZOS: PIL.Image.Resampling.LANCZOS}
 _RESAMPLE_TO_VIPS = {Resampling.NEAREST: VipsKernel.NEAREST, Resampling.LANCZOS: VipsKernel.LANCZOS3}
 
 
@@ -248,21 +247,6 @@ class SlideImage:
         """
         return getattr(self._wsi, "color_profile", None)
 
-    @property
-    def _pil_color_transform(self) -> PIL.ImageCms.ImageCmsTransform | None:
-        if self.color_profile is None:
-            return None
-
-        color_profile = PIL.ImageCms.getOpenProfile(self.color_profile)  # type: ignore
-
-        if self.__color_transforms is None:
-            to_profile = PIL.ImageCms.createProfile("sRGB")
-            intent = PIL.ImageCms.getDefaultIntent(color_profile)  # type: ignore
-            self.__color_transform = PIL.ImageCms.buildTransform(
-                self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0
-            )
-        return self.__color_transform
-
     def __enter__(self) -> "SlideImage":
         return self
 
@@ -310,7 +294,7 @@ class SlideImage:
         location: GenericNumberArray | tuple[GenericNumber, GenericNumber],
         scaling: float,
         size: npt.NDArray[np.int_] | tuple[int, int],
-    ) -> PIL.Image.Image | pyvips.Image:
+    ) -> pyvips.Image:
         """Return a region at a specific scaling level of the pyramid.
 
         A typical slide is made of several levels at different mpps.
@@ -351,8 +335,8 @@ class SlideImage:
 
         Returns
         -------
-        PIL.Image
-            The extract region.
+        pyvips.Image
+            The extract region as `pyvips.Image`.
 
         Examples
         --------
@@ -376,10 +360,9 @@ class SlideImage:
         native_size = size / native_scaling
 
         # OpenSlide doesn't feature float coordinates to extract a region.
-        # We need to extract enough pixels and let PIL do the interpolation.
+        # We need to extract enough pixels and let pyvips do the interpolation.
         # In the borders, the basis functions of other samples contribute to the final value.
-        # PIL lanczos uses 3 pixels as support.
-        # See pillow: https://git.io/JG0QD
+        # Lanczos uses 3 pixels as support.
         native_extra_pixels = 3 if native_scaling > 1 else np.ceil(3 / native_scaling)
 
         # Compute the native location while counting the extra pixels.
@@ -492,7 +475,7 @@ class SlideImage:
         return _SlideImageRegionView(self, scaling)
 
     def get_thumbnail(self, size: tuple[int, int] = (512, 512)) -> pyvips.Image:
-        """Returns an RGB `PIL.Image.Image` thumbnail for the current slide.
+        """Returns an RGB `pyvips.Image` thumbnail for the current slide.
 
         Parameters
         ----------
@@ -501,8 +484,8 @@ class SlideImage:
 
         Returns
         -------
-        PIL.Image.Image
-            The thumbnail as a PIL image.
+        pyvips.Image
+            The thumbnail as a `pyvips.Image`.
         """
         return self._wsi.get_thumbnail(size)
 
