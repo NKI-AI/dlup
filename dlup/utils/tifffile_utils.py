@@ -35,9 +35,6 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[int, int], size: tuple[
     x0, y0 = coordinates
     w, h = size
 
-    if not page.is_tiled:
-        raise ValueError("Input page must be tiled.")
-
     image_width = page.imagewidth
     image_height = page.imagelength
 
@@ -46,6 +43,12 @@ def get_tile(page: tifffile.TiffPage, coordinates: tuple[int, int], size: tuple[
 
     if y0 < 0 or x0 < 0 or y0 + h > image_height or x0 + w > image_width:
         raise ValueError("Requested crop area is out of image bounds.")
+
+    if not page.is_tiled:
+        # If the image is not tiled, read the whole image and extract the region
+        image = page.asarray()
+        crop = image[y0 : y0 + h, x0 : x0 + w]
+        return pyvips.Image.new_from_array(crop)
 
     tile_width, tile_height = page.tilewidth, page.tilelength
     y1, x1 = y0 + h, x0 + w
