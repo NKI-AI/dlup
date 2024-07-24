@@ -46,3 +46,6 @@ ignore-patterns = '.*\.pyi'
 [build-system]
 requires = ["setuptools>=45", "wheel", "Cython>=0.29", "numpy"]
 build-backend = "setuptools.build_meta"
+
+[tool.cython-lint]
+max-line-length = 120

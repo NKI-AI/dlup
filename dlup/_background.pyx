@@ -2,9 +2,10 @@
 # cython: language_level=3
 import cython
 import numpy as np
+
 cimport numpy as np
-from libc.stdint cimport uint8_t, uint64_t
 from libc.math cimport ceil, floor
+from libc.stdint cimport uint8_t, uint64_t
 
 
 @cython.cdivision(True)
