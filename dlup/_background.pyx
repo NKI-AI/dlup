@@ -2,12 +2,10 @@
 # cython: language_level=3
 import cython
 import numpy as np
-
 cimport numpy as np
+from libc.stdint cimport uint8_t, uint64_t
 from libc.math cimport ceil, floor
 
-ctypedef fused SlideImage:
-    object
 
 @cython.cdivision(True)
 cdef inline float safe_divide(float a, float b) nogil:
@@ -18,14 +16,6 @@ cdef inline int max_c(int a, int b) nogil:
 
 cdef inline int min_c(int a, int b) nogil:
     return a if a < b else b
-
-import cython
-
-from libc.stdint cimport uint8_t, uint64_t
-
-import cython
-
-from libc.stdint cimport uint8_t, uint64_t
 
 
 @cython.boundscheck(False)
@@ -74,6 +64,7 @@ cdef uint64_t sum_pixels_2d(const uint8_t * data, int width, int height, int str
 
     return sum
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def _get_foreground_indices_numpy(
@@ -92,7 +83,6 @@ def _get_foreground_indices_numpy(
         float image_slide_scaling
         int region_width, region_height
         float scale_factor
-        float scaled_region[4]
         int clipped_w, clipped_h
         int x1, y1, x2, y2
         unsigned char[:, ::1] background_mask_view
