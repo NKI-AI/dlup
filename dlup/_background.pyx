@@ -16,10 +16,6 @@ cdef inline int c_floor(float x) noexcept nogil:
 cdef inline int c_ceil(float x) noexcept nogil:
     return <int>x + (x > 0 and x != <int>x)
 
-
-cdef inline float safe_divide(float a, float b) nogil:
-    return a / b
-
 cdef inline int max_c(int a, int b) noexcept nogil:
     return a if a > b else b
 
