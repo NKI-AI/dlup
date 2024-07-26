@@ -97,6 +97,9 @@ def _get_foreground_indices_numpy(
         int max_dimension = max_c(width, height)
         int foreground_count = 0
 
+    if not background_mask.flags['C_CONTIGUOUS']:
+        background_mask = np.ascontiguousarray(background_mask)
+
     num_regions = regions_array.shape[0]
     if foreground_indices.shape[0] < num_regions:
         raise ValueError("foreground_indices array must be at least as long as regions_array")
