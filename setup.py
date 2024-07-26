@@ -64,11 +64,6 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
     ],
-    entry_points={
-        "console_scripts": [
-            "dlup=dlup.cli:main",
-        ],
-    },
     setup_requires=["Cython>=0.29"],
     install_requires=install_requires,
     extras_require={
@@ -84,6 +79,7 @@ setup(
             "pylint>=3.2.2",
             "pydantic>=2.7.2",
             "types-Pillow>=10.2.0",
+            "imagecodecs>=2024.1.1",
             "darwin-py>=0.8.62",
         ],
         "darwin": ["darwin-py>=0.8.59"],

@@ -19,7 +19,7 @@ class SlideConfig(BaseModel):
         arbitrary_types_allowed=True,
     )
     filename: str
-    properties: Dict[str, str]
+    properties: Dict[str, str | None]
     levels: List[LevelConfig]
     image: Optional[np.ndarray]
 
@@ -29,7 +29,7 @@ class SlideConfig(BaseModel):
         filename: str,
         num_levels: int,
         level_0_dimensions: Tuple[int, int],
-        mpp: Tuple[float, float],
+        mpp: Optional[Tuple[float, float]],
         objective_power: Optional[int],
         vendor: str,
         image: Optional[np.ndarray] = None,
@@ -43,8 +43,8 @@ class SlideConfig(BaseModel):
 
         # Create the properties dictionary
         properties = {
-            openslide.PROPERTY_NAME_MPP_X: str(mpp[0]),
-            openslide.PROPERTY_NAME_MPP_Y: str(mpp[1]),
+            openslide.PROPERTY_NAME_MPP_X: str(mpp[0]) if mpp is not None else None,
+            openslide.PROPERTY_NAME_MPP_Y: str(mpp[1]) if mpp is not None else None,
             openslide.PROPERTY_NAME_VENDOR: vendor,
         }
         if objective_power:

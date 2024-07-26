@@ -4,6 +4,7 @@ The results are also compared against the openslide backend.
 """
 
 import os
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +17,7 @@ from dlup.backends.openslide_backend import OpenSlideSlide
 from dlup.backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.backends.tifffile_backend import TifffileSlide
 from dlup.backends.tifffile_backend import open_slide as open_slide_tifffile
+from dlup.utils import tifffile_utils
 from dlup.writers import TiffCompression, TifffileImageWriter
 
 
@@ -181,3 +183,42 @@ class TestBackends:
         tiff_slide.close()
         openslide_slide.close()
         assert get_open_file_handlers() == []
+
+    def test_non_tiled_and_jpeg_compression(self):
+        # Create sample images
+        image_arr = create_test_image((1024, 1024), 3, 127, 255).numpy()
+
+        with tempfile.TemporaryDirectory() as tiff_dir:
+            # Create the JPEG-compressed TIFF with tables
+            output_fn = Path(tiff_dir) / "test.tiff"
+            image = PIL.Image.fromarray(image_arr)
+            image.save(
+                output_fn,
+                format="TIFF",
+                compression="jpeg",
+                quality=85,
+                dpi=(300, 300),
+                resolutionunit=2,
+            )
+
+            slide = TifffileSlide(output_fn)
+
+            # Check if jpeg compressed
+            assert slide.properties.get("tifffile.level[0].JPEG_compressed", False)
+
+            region = slide.read_region((0, 0), 0, (1024, 1024))
+            assert region.width == 1024 and region.height == 1024, "Region size mismatch"
+            assert np.allclose(np.asarray(region), image_arr)
+
+            # Let's also read an impossible tile while we are at it
+            page = slide._image.pages[0]
+            with pytest.raises(ValueError) as exc_info:
+                tifffile_utils.get_tile(page, (0, 0), (0, 0))
+                assert "h and w must be strictly positive" in str(exc_info.value)
+
+            with pytest.raises(ValueError) as exc_info:
+                tifffile_utils.get_tile(page, (-1, -1), (1, 1))
+                assert "Requested crop area is out of image bounds." in str(exc_info.value)
+
+            # Clean up
+            slide.close()

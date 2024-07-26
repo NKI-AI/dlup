@@ -80,6 +80,10 @@ class TifffileSlide(AbstractSlideBackend):
 
                 properties[f"tifffile.level[{idx}].{tag.name}"] = tag.value
 
+            compression = page.compression
+            if compression in [7, "JPEG"]:
+                properties[f"tifffile.level[{idx}].JPEG_compressed"] = True
+
         return properties
 
     def set_cache(self, cache: Any) -> None:

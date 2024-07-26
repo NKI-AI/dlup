@@ -80,20 +80,20 @@ class TestTiffWriter:
                 assert slide0.dimensions == slide1.dimensions
                 assert np.allclose(slide0.level_downsamples, slide1.level_downsamples)
 
-            with SlideImage.from_file_path(
-                temp_tiff.name, backend=ImageBackend.PYVIPS, internal_handler="vips"
-            ) as slide:
+            with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.PYVIPS) as slide:
+                slide_mpp = slide.mpp
+                assert np.allclose(slide_mpp, target_mpp)
+
+            with SlideImage.from_file_path(temp_tiff.name, backend="PYVIPS") as slide:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
 
             # Let's try the same with directly the backend
-            with SlideImage.from_file_path(temp_tiff.name, backend=OpenSlideSlide, internal_handler="vips") as slide:
+            with SlideImage.from_file_path(temp_tiff.name, backend=OpenSlideSlide) as slide:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
 
-            with SlideImage.from_file_path(
-                temp_tiff.name, backend=ImageBackend.OPENSLIDE, internal_handler="vips"
-            ) as slide:
+            with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.OPENSLIDE) as slide:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
 
@@ -165,9 +165,7 @@ class TestTiffWriter:
 
             writer.from_pil(pil_image)
 
-            with SlideImage.from_file_path(
-                temp_tiff.name, backend=ImageBackend.PYVIPS, internal_handler="vips"
-            ) as slide:
+            with SlideImage.from_file_path(temp_tiff.name, backend=ImageBackend.PYVIPS) as slide:
                 slide_mpp = slide.mpp
                 thumbnail = slide.get_thumbnail(size=shape)
                 assert np.allclose(slide_mpp, target_mpp)

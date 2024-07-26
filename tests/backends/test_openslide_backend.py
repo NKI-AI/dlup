@@ -100,9 +100,13 @@ class MockOpenSlideSlide(OpenSlideSlide):
         self._owsi = mock_lowlevel.mock_open(filename)
 
         try:
-            mpp_x = float(self.properties[openslide.PROPERTY_NAME_MPP_X])
-            mpp_y = float(self.properties[openslide.PROPERTY_NAME_MPP_Y])
-            self.spacing = (mpp_x, mpp_y)
+            # Simulate missing mpp values
+            if not self.properties[openslide.PROPERTY_NAME_MPP_X]:
+                pass
+            else:
+                mpp_x = float(self.properties[openslide.PROPERTY_NAME_MPP_X])
+                mpp_y = float(self.properties[openslide.PROPERTY_NAME_MPP_Y])
+                self.spacing = (mpp_x, mpp_y)
         except KeyError:
             spacing = _get_mpp_from_tiff(dict(self.properties))
             if spacing:
@@ -216,7 +220,7 @@ class TestMockOpenSlideSlide:
         # Ensure the mocks were called
         mock_lowlevel.mock_open.assert_called_once_with(config.filename)
         mock_lowlevel.mock_get_property_names.assert_called()
-        assert mock_lowlevel.mock_get_property_value.call_count == len(config.properties) * 2
+        assert mock_lowlevel.mock_get_property_value.call_count == len(config.properties) * 3
         mock_lowlevel.mock_get_level_count.assert_called_once()
         assert mock_lowlevel.mock_get_level_dimensions.call_count == 0
         assert mock_lowlevel.mock_get_level_downsample.call_count == len(config.levels)

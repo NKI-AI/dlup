@@ -30,7 +30,6 @@ def resample(args: argparse.Namespace) -> None:
         tile_overlap=tile_overlap,
         mpp=mpp,
         crop=False,
-        internal_handler="vips",
         backend="PYVIPS",
     )
     scaled_region_view = dataset.slide_image.get_scaled_view(dataset.slide_image.get_scaling(mpp))
@@ -62,7 +61,7 @@ def main() -> None:
     parser.add_argument("--mpp", type=float, required=False, help="Microns per pixel of the output TIFF file.")
     args = parser.parse_args()
 
-    with SlideImage.from_file_path(args.input, internal_handler="vips", backend="PYVIPS") as img:
+    with SlideImage.from_file_path(args.input, backend="PYVIPS") as img:
         print("Image information: %s" % img)
         native_mpp = img.mpp
 
