@@ -79,6 +79,7 @@ setup(
             "pylint>=3.2.2",
             "pydantic>=2.7.2",
             "types-Pillow>=10.2.0",
+            "imagecodecs>=2024.1.1",
             "darwin-py>=0.8.62",
         ],
         "darwin": ["darwin-py>=0.8.59"],
