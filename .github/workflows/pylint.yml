@@ -20,10 +20,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install pylint
+        python -m pip install pylint cython
         python -m pip install -e .
         python -m pip install pyhaloxml
         python -m pip install darwin-py
+        python setup.py build_ext --inplace
     - name: Analysing the code with pylint
       run: |
         pylint dlup --errors-only

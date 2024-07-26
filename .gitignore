@@ -1,3 +1,8 @@
+# cython compiled files
+_background.c
+_background.cpp
+_background.html
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

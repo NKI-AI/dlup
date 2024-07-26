@@ -35,7 +35,7 @@ _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
 _TSlideImage = TypeVar("_TSlideImage", bound="SlideImage")
 
 
-class Resampling(Enum):
+class Resampling(str, Enum):
     """Resampling methods SlideImage (e.g. for images or masks)."""
 
     NEAREST = "NEAREST"
@@ -146,7 +146,7 @@ class SlideImage:
         self,
         wsi: AbstractSlideBackend,
         identifier: str | None = None,
-        interpolator: Optional[Resampling] = Resampling.LANCZOS,
+        interpolator: Optional[Resampling] | str = Resampling.LANCZOS,
         overwrite_mpp: Optional[tuple[float, float]] = None,
         apply_color_profile: bool = False,
         internal_handler: Optional[Literal["pil", "vips"]] = None,
@@ -222,7 +222,7 @@ class SlideImage:
     @property
     def interpolator(self) -> Resampling:
         """Returns the interpolator used for processing the regions."""
-        return self._interpolator
+        return self._interpolator if isinstance(self._interpolator, Resampling) else Resampling[self._interpolator]
 
     def close(self) -> None:
         """Close the underlying image."""
@@ -431,7 +431,7 @@ class SlideImage:
 
             pil_region = PIL.Image.fromarray(np.asarray(vips_region)).resize(
                 size,
-                resample=_RESAMPLE_TO_PIL[self._interpolator],
+                resample=_RESAMPLE_TO_PIL[self.interpolator],
                 box=box,
             )
 
@@ -463,7 +463,7 @@ class SlideImage:
             resized_region = crop_region.resize(
                 target_width / crop_region.width,
                 vscale=target_height / crop_region.height,
-                kernel=_RESAMPLE_TO_VIPS[self._interpolator],
+                kernel=_RESAMPLE_TO_VIPS[self.interpolator],
             )
 
             return resized_region
