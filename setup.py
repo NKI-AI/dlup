@@ -64,11 +64,6 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
     ],
-    entry_points={
-        "console_scripts": [
-            "dlup=dlup.cli:main",
-        ],
-    },
     setup_requires=["Cython>=0.29"],
     install_requires=install_requires,
     extras_require={

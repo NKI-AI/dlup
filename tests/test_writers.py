@@ -84,6 +84,10 @@ class TestTiffWriter:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
 
+            with SlideImage.from_file_path(temp_tiff.name, backend="PYVIPS") as slide:
+                slide_mpp = slide.mpp
+                assert np.allclose(slide_mpp, target_mpp)
+
             # Let's try the same with directly the backend
             with SlideImage.from_file_path(temp_tiff.name, backend=OpenSlideSlide) as slide:
                 slide_mpp = slide.mpp

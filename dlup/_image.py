@@ -195,7 +195,7 @@ class SlideImage:
 
         self._apply_color_profile = apply_color_profile
 
-        if kwargs.get("internal_handler", False):
+        if "internal_handler" in kwargs:
             warnings.warn(
                 "`internal_handler` has been set and is deprecated in v0.7. "
                 "The default behavior compared to previous versions is now `vips`. "
@@ -243,7 +243,7 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.PYVIPS,
         **kwargs: Any,
     ) -> _TSlideImage:
         wsi_file_path = pathlib.Path(wsi_file_path).resolve()

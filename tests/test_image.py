@@ -7,6 +7,7 @@ interpolation as well as ensuring the tiles are extracted
 from the right level and locations of the original image.
 """
 import math
+import warnings
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -43,12 +44,13 @@ class TestSlideImage:
     def test_properties(self, openslideslide_image):
         """Test properties."""
         dlup_wsi = SlideImage(openslideslide_image, identifier="mock")
-        # assert dlup_wsi.aspect_ratio == openslideslide_image.image.width / openslideslide_image.image.height
         assert dlup_wsi.mpp == float(openslideslide_image.properties[openslide.PROPERTY_NAME_MPP_X])
         assert dlup_wsi.magnification == int(openslideslide_image.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER])
         assert isinstance(repr(dlup_wsi), str)
         assert dlup_wsi.identifier == "mock"
         assert isinstance(dlup_wsi.thumbnail, pyvips.Image)
+        assert dlup_wsi.aspect_ratio == 1.0
+        assert dlup_wsi.properties != {}
 
     @pytest.mark.parametrize("slide_config", SLIDE_CONFIGS)
     @pytest.mark.parametrize("mpp", [(0.57, 0.57), (1.2, 4.4)])
@@ -245,6 +247,30 @@ class TestSlideImage:
         assert openslideslide_image.close.call_count == 2
         # Restore the original close method
         openslideslide_image.close = original_close
+
+    def test_internal_handler_warning(self, openslideslide_image):
+        """Test that a warning is emitted when internal_handler is used."""
+        with pytest.warns(UserWarning) as record:
+            with warnings.catch_warnings():
+                warnings.simplefilter("always")  # Ensure all warnings are always emitted
+                SlideImage(openslideslide_image, internal_handler="pil")
+
+        # Check if any warning was captured
+        assert len(record) > 0
+
+        # Check if the specific warning message is in the captured warnings
+        expected_message = (
+            "`internal_handler` has been set and is deprecated in v0.7. "
+            "The default behavior compared to previous versions is now `vips`. "
+            "This warning will be removed in v1.0."
+        )
+        assert any(expected_message in str(warn.message) for warn in record)
+
+    def test_file_does_not_exist(self):
+        """Test that an error is raised when the file does not exist."""
+        with pytest.raises(FileNotFoundError) as exec_info:
+            SlideImage.from_file_path("file_does_not_exist.svs")
+            assert "No such file or directory" in str(exec_info.value)
 
 
 @pytest.mark.parametrize("scaling", [2, 1, 1 / 3])
