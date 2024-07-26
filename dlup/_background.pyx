@@ -22,48 +22,16 @@ cdef inline int max_c(int a, int b) noexcept nogil:
 cdef inline int min_c(int a, int b) noexcept nogil:
     return a if (a < b) else b
 
-
 cdef uint64_t sum_pixels_2d(const uint8_t * data, int width, int height, int stride) noexcept nogil:
     cdef:
         uint64_t sum = 0
         int x, y
-        int aligned_width
         const uint8_t * row_ptr
-        uint64_t row_sum
 
-    if width >= 8:
-        aligned_width = width - (width % 8)
-
-        for y in range(height):
-            row_ptr = data + y * stride
-            row_sum = 0
-
-            # Process 8 pixels at a time
-            for x in range(0, aligned_width, 8):
-                row_sum += (
-                    row_ptr[x] +
-                    row_ptr[x + 1] +
-                    row_ptr[x + 2] +
-                    row_ptr[x + 3] +
-                    row_ptr[x + 4] +
-                    row_ptr[x + 5] +
-                    row_ptr[x + 6] +
-                    row_ptr[x + 7]
-                )
-
-            # Handle remaining pixels in the row
-            for x in range(aligned_width, width):
-                row_sum += row_ptr[x]
-
-            sum += row_sum
-    else:
-        # Handle case where width < 8
-        for y in range(height):
-            row_ptr = data + y * stride
-            row_sum = 0
-            for x in range(width):
-                row_sum += row_ptr[x]
-            sum += row_sum
+    for y in range(height):
+        row_ptr = data + y * stride
+        for x in range(width):
+            sum += row_ptr[x]
 
     return sum
 
@@ -97,7 +65,7 @@ def _get_foreground_indices_numpy(
         int max_dimension = max_c(width, height)
         int foreground_count = 0
 
-    if not background_mask.flags['C_CONTIGUOUS']:
+    if not background_mask.flags["C_CONTIGUOUS"]:
         background_mask = np.ascontiguousarray(background_mask)
 
     num_regions = regions_array.shape[0]
