@@ -53,6 +53,7 @@ class TestAnnotations:
         geojson_annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)])
 
     _v7_annotations = None
+    _v7_raster_annotations = None
 
     @property
     def v7_annotations(self):
@@ -60,6 +61,12 @@ class TestAnnotations:
             assert pathlib.Path(pathlib.Path(__file__).parent / "files/103S.json").exists()
             self._v7_annotations = WsiAnnotations.from_darwin_json(pathlib.Path(__file__).parent / "files/103S.json")
         return self._v7_annotations
+
+    def test_raster_annotations(self):
+        if self._v7_raster_annotations is None:
+            assert pathlib.Path(pathlib.Path(__file__).parent / "files/raster.json").exists()
+            with pytest.raises(NotImplementedError):
+                WsiAnnotations.from_darwin_json(pathlib.Path(__file__).parent / "files/raster.json")
 
     def test_conversion_geojson(self):
         # We need to read the asap annotations and compare them to the geojson annotations
