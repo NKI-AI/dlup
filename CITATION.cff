@@ -16,6 +16,6 @@ authors:
   given-names: "Eric"
   orchid: "https://orcid.org/0000-0002-3375-6248"
 title: "DLUP: Deep Learning Utilities for Pathology"
-version: 0.6.0
-date-released: 2024-07-26
+version: 0.6.1
+date-released: 2024-08-01
 url: "https://github.com/nki-ai/dlup"
