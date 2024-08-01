@@ -212,3 +212,12 @@ class TestAnnotations:
             pickled_point_file.seek(0)
             loaded_point = pickle.load(pickled_point_file)
         assert dlup_point == loaded_point
+
+    def test_annotation_filter(self):
+        annotations = self.asap_annotations.copy()
+        annotations.filter(["healthy glands"])
+        assert len(annotations._layers) == 1
+        assert annotations.available_classes[0].label == "healthy glands"
+
+        annotations.filter(["non-existing"])
+        assert len(annotations._layers) == 0
