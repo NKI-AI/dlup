@@ -650,13 +650,14 @@ class WsiAnnotations:
         None
         """
         self._available_classes = []
-        self._layers = []
+        self._new_layers = []
         _labels = [labels] if isinstance(labels, str) else labels
         for layer in self._layers:
             if layer.label in _labels:
                 self._available_classes += [layer.annotation_class]
-                self._layers += [layer]
+                self._new_layers += [layer]
 
+        self._layers = self._new_layers
         self._str_tree = STRtree(self._layers)
 
     @property
