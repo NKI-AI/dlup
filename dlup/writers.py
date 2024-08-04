@@ -182,7 +182,7 @@ class TifffileImageWriter(ImageWriter):
         filename = pathlib.Path(self._filename)
 
         native_size = self._size[:-1]
-        software = f"dlup {dlup.__version__} with tifffile.py backend"
+        software = f"dlup {dlup.__version__} (tifffile.py {tifffile.__version__})"
         n_subresolutions = 0
         if self._pyramid:
             n_subresolutions = int(np.ceil(np.log2(np.asarray(native_size) / np.asarray(self._tile_size))).min())
