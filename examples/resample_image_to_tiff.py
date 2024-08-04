@@ -7,6 +7,7 @@ This script shows the dlup functionality to read a WSI file in tiles and write t
 """
 
 import argparse
+import time
 from pathlib import Path
 from typing import Iterator
 
@@ -15,7 +16,7 @@ import numpy.typing as npt
 
 from dlup import SlideImage
 from dlup.data.dataset import TiledWsiDataset
-from dlup.writers import TiffCompression, TifffileImageWriter
+from dlup.writers import LibtiffImageWriter, TiffCompression, TifffileImageWriter
 
 
 def resample(args: argparse.Namespace) -> None:
@@ -35,7 +36,9 @@ def resample(args: argparse.Namespace) -> None:
     )
     scaled_region_view = dataset.slide_image.get_scaled_view(dataset.slide_image.get_scaling(mpp))
 
-    writer = TifffileImageWriter(
+    writer_class = LibtiffImageWriter if args.use_libtiff else TifffileImageWriter
+
+    writer = writer_class(
         args.output,
         size=(*scaled_region_view.size, 3),
         mpp=(mpp, mpp),
@@ -51,7 +54,10 @@ def resample(args: argparse.Namespace) -> None:
             arr = tile["image"].flatten(background=(255, 255, 255)).numpy()
             yield arr
 
+    start = time.time()
     writer.from_tiles_iterator(tiles_iterator(dataset))
+    end = time.time()
+    print(f"Time to write the TIFF file: {end - start:.2f} seconds")
 
 
 def main() -> None:
@@ -60,6 +66,11 @@ def main() -> None:
     parser.add_argument("output", type=Path, help="Path to the output TIFF file.")
     parser.add_argument("--tile-size", type=int, nargs=2, default=(512, 512), help="Size of the tiles in the TIFF.")
     parser.add_argument("--mpp", type=float, required=False, help="Microns per pixel of the output TIFF file.")
+    parser.add_argument(
+        "--use-libtiff",
+        action="store_true",
+        help="Use libtiff for writing the TIFF file, otherwise use a tifffile.py writer.",
+    )
     args = parser.parse_args()
 
     with SlideImage.from_file_path(args.input, internal_handler="vips", backend="PYVIPS") as img:
