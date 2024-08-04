@@ -6,7 +6,7 @@ import pyvips
 import tifffile
 
 from dlup.backends.common import AbstractSlideBackend
-from dlup.types import PathLike
+from dlup._types import PathLike
 from dlup.utils.tifffile_utils import get_tile
 
 

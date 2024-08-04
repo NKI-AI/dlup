@@ -13,7 +13,7 @@ import pyvips
 from packaging.version import Version
 
 from dlup.backends.common import AbstractSlideBackend
-from dlup.types import PathLike
+from dlup._types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
 TIFF_PROPERTY_NAME_RESOLUTION_UNIT = "tiff.ResolutionUnit"

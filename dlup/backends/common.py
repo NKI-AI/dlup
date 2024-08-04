@@ -9,7 +9,7 @@ from typing import Any, Literal, Optional, Type, cast
 import numpy as np
 import pyvips
 
-from dlup.types import PathLike
+from dlup._types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
 
 

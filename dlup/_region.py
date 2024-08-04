@@ -8,7 +8,7 @@ from enum import Enum
 import numpy as np
 import pyvips
 
-from dlup.types import GenericFloatArray, GenericIntArray
+from dlup._types import GenericFloatArray, GenericIntArray
 
 
 class BoundaryMode(str, Enum):

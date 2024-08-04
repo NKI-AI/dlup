@@ -1,29 +1,21 @@
 name: CodeCov
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - main
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10"]
+    env: 
+      CODECOV_CI: true
     steps:
-    - name: Install minimal dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y libopenslide0
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
     - name: Install build dependencies
       run: |
         sudo apt update
         sudo apt install -y meson libgl1-mesa-glx libcairo2-dev libgdk-pixbuf2.0-dev libglib2.0-dev libjpeg-dev libpng-dev libtiff5-dev libxml2-dev libopenjp2-7-dev libsqlite3-dev zlib1g-dev libzstd-dev
-        sudo apt install -y libfftw3-dev libexpat1-dev libgsf-1-dev liborc-0.4-dev
+        sudo apt install -y libfftw3-dev libexpat1-dev libgsf-1-dev liborc-0.4-dev libtiff5-dev ninja-build
     - name: Build and install OpenSlide
       run: |
         git clone https://github.com/openslide/openslide.git
@@ -41,8 +33,35 @@ jobs:
         sudo meson install -C builddir
         sudo ldconfig
         cd ..
-    - name: Run Coverage
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+    - name: Clean up any existing installations
       run: |
+        sudo rm -rf /usr/local/lib/python3.10/site-packages/dlup*
+        sudo rm -rf /opt/hostedtoolcache/Python/3.10.14/arm64/lib/python3.10/site-packages/dlup*
+        sudo rm -rf /opt/hostedtoolcache/Python/3.10.14/arm64/lib/python3.10/site-packages/_dlup_editable_loader.py
+        sudo rm -rf /opt/hostedtoolcache/Python/3.10.14/arm64/lib/python3.10/site-packages/easy-install.pth
+        sudo rm -rf dlup/build
+        sudo rm -rf /tmp/*
+    - name: Install environment
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install ninja meson meson-python>=0.15.0 numpy==1.26.4 Cython>=0.29 spin pybind11
+        python -m pip install tifffile>=2024.7.2 pyvips>=2.2.3 tqdm>=2.66.4 pillow>=10.3.0 openslide-python>=1.3.1
+        python -m pip install opencv-python-headless>=4.9.0.80 shapely>=2.0.4 pybind11>=2.8.0 pydantic coverage pytest psutil darwin-py pytest-mock
+        echo "Python executable: $(which python)"
+        echo "Python version: $(python --version)"
+        echo "Current directory: $PWD"
+        meson setup builddir
+        meson compile -C builddir
+        meson install -C builddir
+    - name: Run coverage
+      run: |
+        mv dlup _dlup # This is needed because otherwise it won't find the compiled libraries
+        export PYTHONPATH=$(python -c "import site; print(site.getsitepackages()[0])")
         coverage run -m pytest
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v4
