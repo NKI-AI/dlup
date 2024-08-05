@@ -2,20 +2,20 @@
   "version": "2.0",
   "schema_ref": "https://darwin-public.s3.eu-west-1.amazonaws.com/darwin_json/2.0/schema.json",
   "item": {
-    "name": "103S.tif",
+    "name": "dummy.tif",
     "path": "/",
     "source_info": {
       "dataset": {
         "name": "PlayGround",
         "slug": "playground",
-        "dataset_management_url": "https://darwin.v7labs.com/datasets/669752/dataset-management"
+        "dataset_management_url": "dummy-url"
       },
       "item_id": "0189bfc8-4487-4b1f-5516-30150df25cc6",
       "team": {
-        "name": "Ellogon AI",
-        "slug": "ellogon-ai"
+        "name": "test-team",
+        "slug": "test-team"
       },
-      "workview_url": "https://darwin.v7labs.com/workview?dataset=669752&item=0189bfc8-4487-4b1f-5516-30150df25cc6"
+      "workview_url": "dummy-url"
     },
     "slots": [
       {
@@ -23,11 +23,11 @@
         "slot_name": "0",
         "width": 63488,
         "height": 40064,
-        "thumbnail_url": "https://darwin.v7labs.com/api/v2/teams/ellogon-ai/files/1d10a9da-81c0-403f-98a4-98e65e5e80e4/thumbnail",
+        "thumbnail_url": "dummy-url",
         "source_files": [
           {
             "file_name": "103S.tif",
-            "url": "https://darwin.v7labs.com/api/v2/teams/ellogon-ai/uploads/65969e74-60b3-49b8-99de-c7af68a77860"
+            "url": "dummy-url"
           }
         ]
       }
