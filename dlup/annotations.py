@@ -78,6 +78,7 @@ class AnnotationType(str, Enum):
     BOX = "BOX"
     POLYGON = "POLYGON"
     TAG = "TAG"
+    RASTER = "RASTER"
 
 
 class AnnotationSorting(str, Enum):
@@ -152,6 +153,9 @@ def _get_v7_metadata(filename: pathlib.Path) -> Optional[dict[str, DarwinV7Metad
     output = {}
     for sample in v7_metadata["classes"]:
         annotation_type = _v7_annotation_type_to_dlup_annotation_type(sample["type"])
+        # This is not implemented and can be skipped. The main function will raise a NonImplementedError
+        if annotation_type == AnnotationType.RASTER:
+            continue
 
         label = sample["name"]
         color = sample["color"][5:-1].split(",")
@@ -936,6 +940,9 @@ class WsiAnnotations:
             annotation_type = _v7_annotation_type_to_dlup_annotation_type(
                 curr_annotation.annotation_class.annotation_type
             )
+            if annotation_type == AnnotationType.RASTER:
+                raise NotImplementedError("Raster annotations are not supported.")
+
             annotation_color = v7_metadata[name].color if v7_metadata else None
 
             if annotation_type == AnnotationType.TAG:
@@ -1240,5 +1247,8 @@ def _v7_annotation_type_to_dlup_annotation_type(annotation_type: str) -> Annotat
 
     if annotation_type == "tag":
         return AnnotationType.TAG
+
+    if annotation_type == "raster_layer":
+        return AnnotationType.RASTER
 
     raise NotImplementedError(f"annotation_type {annotation_type} is not implemented or not a valid dlup type.")
