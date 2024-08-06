@@ -4,7 +4,6 @@
 import ast
 from typing import Any
 
-import pybind11
 from Cython.Build import cythonize  # type: ignore
 from setuptools import Extension, find_packages, setup  # type: ignore
 
@@ -41,7 +40,22 @@ class NumpyImportDefer:
         return getattr(numpy, attr)
 
 
+class Pybind11ImportDefer:
+    def __getattr__(self, attr: Any) -> Any:
+        import pybind11
+
+        return getattr(pybind11, attr)
+
+
 numpy = NumpyImportDefer()
+pybind11 = Pybind11ImportDefer()
+
+
+def get_pybind_include():
+    import pybind11
+
+    return pybind11.get_include()
+
 
 extension = Extension(
     name="dlup._background",
@@ -54,9 +68,7 @@ extension = Extension(
 libtiff_tiff_writer_extension = Extension(
     name="dlup._libtiff_tiff_writer",
     sources=["src/libtiff_tiff_writer.cpp"],
-    include_dirs=[
-        pybind11.get_include(),
-    ],
+    include_dirs=[pybind11.get_include()],
     extra_compile_args=["-std=c++17", "-O3", "-march=native", "-ffast-math"],
     extra_link_args=["-O3"],
 )
