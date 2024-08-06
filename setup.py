@@ -5,13 +5,13 @@ import ast
 from typing import Any, List
 
 from skbuild import setup
-from Cython.Build import cythonize
-from setuptools import Extension
+from Cython.Build import cythonize  # type: ignore
+from setuptools import Extension  # type: ignore
 
 with open("dlup/__init__.py") as f:
     for line in f:
         if line.startswith("__version__"):
-            version = ast.parse(line).body[0].value.s
+            version = ast.parse(line).body[0].value  # type: ignore
             break
 
 # Get the long description from the README file
@@ -51,7 +51,7 @@ extension = Extension(
 )
 
 
-def get_ext_modules() -> List[Extension]:
+def get_ext_modules() -> Extension:
     return cythonize([extension], compiler_directives={"language_level": "3"})
 
 

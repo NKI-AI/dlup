@@ -3,6 +3,10 @@ _background.c
 _background.cpp
 _background.html
 
+# Output files
+*.tif
+*.tiff
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -10,6 +14,8 @@ __pycache__/
 
 # C extensions
 *.so
+*.o
+_skbuild
 
 # CMake
 CMakeCache.txt
