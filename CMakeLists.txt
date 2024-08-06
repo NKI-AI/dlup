@@ -4,7 +4,6 @@ project(dlup)
 set(CMAKE_CXX_STANDARD 17)
 
 find_package(PythonExtensions REQUIRED)
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(Cython REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 
