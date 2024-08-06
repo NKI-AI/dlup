@@ -1,11 +1,14 @@
 include CONTRIBUTING.rst
 include LICENSE
 include README.md
+include CMakeLists.txt
+include setup.py
+include pyproject.toml
 include dlup/py.typed
 include dlup/_background.pyx
 include dlup/_background.pyi
 
-recursive-include src *
+recursive-include src *.cpp *.h *.hpp
 recursive-include tests *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
