@@ -1,4 +1,5 @@
 #include "image.h"
+#include "constants.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -122,7 +123,6 @@ private:
     std::vector<std::byte> read2x2TileGroup(TIFF *readTif, uint32_t row, uint32_t col, uint32_t prevWidth,
                                             uint32_t prevHeight);
     void setupReadTIFF(TIFF *readTif);
-    std::string getDlupVersion() const;
 };
 
 LibtiffTiffWriter::~LibtiffTiffWriter() { finalize(); }
@@ -212,10 +212,6 @@ int LibtiffTiffWriter::calculateNumTiles(int level) {
     return numTilesX * numTilesY;
 }
 
-std::string LibtiffTiffWriter::getDlupVersion() const {
-    py::module_ dlup = py::module_::import("dlup");
-    return dlup.attr("__version__").cast<std::string>();
-}
 
 std::pair<uint32_t, uint32_t> LibtiffTiffWriter::getLevelDimensions(int level) {
     uint32_t width = std::max(1, imageSize[0] >> level);
@@ -327,7 +323,7 @@ void LibtiffTiffWriter::setupTIFFDirectory(int level) {
     set_field(TIFFTAG_IMAGEDESCRIPTION, description.c_str());
 
     // Set the software tag with version from dlup
-    std::string software_tag = "dlup " + getDlupVersion() + " (libtiff " + std::to_string(TIFFLIB_VERSION) + ")";
+    std::string software_tag = "dlup " + std::string(DLUP_VERSION) + " (libtiff " + std::to_string(TIFFLIB_VERSION) + ")";
     set_field(TIFFTAG_SOFTWARE, software_tag.c_str());
 
     // Set SubFileType for pyramid levels

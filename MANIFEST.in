@@ -5,6 +5,7 @@ include dlup/py.typed
 include dlup/_background.pyx
 include dlup/_background.pyi
 
+recursive-include src *
 recursive-include tests *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
