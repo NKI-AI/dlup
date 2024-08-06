@@ -52,7 +52,13 @@ class MockOpenSlideLowLevel:
         self.mock_close = MagicMock()
 
         self.mock_read_region = MagicMock(side_effect=self.mock_read_region_fn)
-        self.base_image = get_sample_nonuniform_image(config.levels[0].dimensions)
+
+        if config.image is not None:
+            self.base_image = pyvips.Image.new_from_array(config.image)
+            self.ndim = 1 if len(config.image.shape) == 2 else config.image.shape[-1]
+        else:
+            self.base_image = get_sample_nonuniform_image(config.levels[0].dimensions)
+            self.ndim = 4
 
     def mock_read_region_fn(self, _owsi, x, y, level, w, h):
         downsample_factor = self.config.levels[level].downsample
@@ -72,11 +78,11 @@ class MockOpenSlideLowLevel:
         np_buffer = np.ndarray(
             buffer=level_image.write_to_memory(),
             dtype=np.uint8,
-            shape=(level_image.height * level_image.width * 4,),  # Flatten the shape directly
+            shape=(level_image.height * level_image.width * self.ndim,),  # Flatten the shape directly
         )
 
         # Convert numpy buffer to pyvips image
-        vips_image = pyvips.Image.new_from_memory(np_buffer, w, h, 4, "uchar")
+        vips_image = pyvips.Image.new_from_memory(np_buffer, w, h, self.ndim, "uchar")
         return vips_image
 
 

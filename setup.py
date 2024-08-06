@@ -2,8 +2,10 @@
 """The setup script."""
 
 import ast
+from typing import Any
 
-from setuptools import find_packages, setup  # type: ignore
+from Cython.Build import cythonize  # type: ignore
+from setuptools import Extension, find_packages, setup  # type: ignore
 
 with open("dlup/__init__.py") as f:
     for line in f:
@@ -19,7 +21,7 @@ with open("README.md") as f:
 install_requires = [
     "numpy==1.26.4",
     "tifftools>=1.5.2",
-    "tifffile>=2024.5.22",
+    "tifffile>=2024.7.2",
     "pyvips>=2.2.3",
     "tqdm>=2.66.4",
     "pillow>=10.3.0",
@@ -28,6 +30,24 @@ install_requires = [
     "shapely>=2.0.4",
     "packaging>=24.0",
 ]
+
+
+class NumpyImportDefer:
+    def __getattr__(self, attr: Any) -> Any:
+        import numpy
+
+        return getattr(numpy, attr)
+
+
+numpy = NumpyImportDefer()
+
+extension = Extension(
+    name="dlup._background",
+    sources=["dlup/_background.pyx"],
+    include_dirs=[numpy.get_include()],
+    extra_compile_args=["-O3", "-march=native", "-ffast-math"],
+    extra_link_args=["-O3"],
+)
 
 setup(
     author="Jonas Teuwen",
@@ -49,9 +69,11 @@ setup(
             "dlup=dlup.cli:main",
         ],
     },
+    setup_requires=["Cython>=0.29"],
     install_requires=install_requires,
     extras_require={
         "dev": [
+            "psutil",
             "pytest>=8.2.1",
             "mypy>=1.10.0",
             "pytest-mock>=3.14.0",
@@ -73,5 +95,7 @@ setup(
     packages=find_packages(include=["dlup", "dlup.*"]),
     url="https://github.com/NKI-AI/dlup",
     version=version,
+    ext_modules=cythonize([extension], compiler_directives={"language_level": "3"}),
+    include_dirs=[numpy.get_include()],
     zip_safe=False,
 )

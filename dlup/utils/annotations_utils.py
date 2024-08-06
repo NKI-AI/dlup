@@ -1,39 +1,4 @@
-import functools
-from dlup.utils.imports import DARWIN_SDK_AVAILABLE
-from typing import NamedTuple, Optional, cast
-from pathlib import Path
-
-class DarwinV7Metadata(NamedTuple):
-    label: str
-    color: tuple[int, int, int]
-    annotation_type: str
-
-@functools.lru_cache(maxsize=None)
-def _get_v7_metadata(filename: Path) -> Optional[dict[tuple[str, str], DarwinV7Metadata]]:
-    if not DARWIN_SDK_AVAILABLE:
-        raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
-    import darwin.path_utils
-
-    if not filename.is_dir():
-        raise RuntimeError("Provide the path to the root folder of the Darwin V7 annotations")
-
-    v7_metadata_fn = filename / ".v7" / "metadata.json"
-    if not v7_metadata_fn.exists():
-        return None
-    v7_metadata = darwin.path_utils.parse_metadata(v7_metadata_fn)
-    output = {}
-    for sample in v7_metadata["classes"]:
-        annotation_type = sample["type"]
-        label = sample["name"]
-        color = sample["color"][5:-1].split(",")
-        if color[-1] != "1.0":
-            raise RuntimeError("Expected A-channel of color to be 1.0")
-        rgb_colors = (int(color[0]), int(color[1]), int(color[2]))
-
-        output[(label, annotation_type)] = DarwinV7Metadata(
-            label=label, color=rgb_colors, annotation_type=annotation_type
-        )
-    return output
+from typing import Optional, cast
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:

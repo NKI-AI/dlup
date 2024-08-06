@@ -53,3 +53,8 @@ repos:
           "-sn", # Don't display the score
           "--errors-only"  # Only show the errors
         ]
+-   repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.16.2
+    hooks:
+    -   id: cython-lint
+    -   id: double-quote-cython-strings

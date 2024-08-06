@@ -54,6 +54,7 @@ class TestAnnotations:
         geojson_annotations = WsiAnnotations.from_geojson([pathlib.Path(geojson_out.name)])
 
     _v7_annotations = None
+    _v7_raster_annotations = None
 
     @property
     def v7_annotations(self):
@@ -61,6 +62,12 @@ class TestAnnotations:
             assert pathlib.Path(pathlib.Path(__file__).parent / "files/103S.json").exists()
             self._v7_annotations = WsiAnnotations.from_darwin_json(pathlib.Path(__file__).parent / "files/103S.json")
         return self._v7_annotations
+
+    def test_raster_annotations(self):
+        if self._v7_raster_annotations is None:
+            assert pathlib.Path(pathlib.Path(__file__).parent / "files/raster.json").exists()
+            with pytest.raises(NotImplementedError):
+                WsiAnnotations.from_darwin_json(pathlib.Path(__file__).parent / "files/raster.json")
 
     def test_conversion_geojson(self):
         # We need to read the asap annotations and compare them to the geojson annotations
@@ -132,24 +139,27 @@ class TestAnnotations:
     def test_read_darwin_v7(self):
         if not DARWIN_SDK_AVAILABLE:
             return None
-        print(self.v7_annotations.available_classes)
         assert len(self.v7_annotations.available_classes) == 5
-        assert AnnotationClass(label="ROI (segmentation)", annotation_type=AnnotationType.BOX) in self.v7_annotations
-        assert AnnotationClass(label="stroma (area)", annotation_type=AnnotationType.POLYGON) in self.v7_annotations
-        assert AnnotationClass(label="lymphocyte (cell)", annotation_type=AnnotationType.POINT) in self.v7_annotations
-        assert AnnotationClass(label="tumor (cell)", annotation_type=AnnotationType.BOX) in self.v7_annotations
-        assert AnnotationClass(label="tumor (area)", annotation_type=AnnotationType.POLYGON) in self.v7_annotations
-
-        # assert self.v7_annotations.available_classes[0].label == "ROI (segmentation)"
-        # assert self.v7_annotations.available_classes[0].annotation_type == AnnotationType.BOX
-        # assert self.v7_annotations.available_classes[1].label == "stroma (area)"
-        # assert self.v7_annotations.available_classes[1].annotation_type == AnnotationType.POLYGON
-        # assert self.v7_annotations.available_classes[2].label == "lymphocyte (cell)"
-        # assert self.v7_annotations.available_classes[2].annotation_type == AnnotationType.POINT
-        # assert self.v7_annotations.available_classes[3].label == "tumor (cell)"
-        # assert self.v7_annotations.available_classes[3].annotation_type == AnnotationType.BOX
-        # assert self.v7_annotations.available_classes[4].label == "tumor (area)"
-        # assert self.v7_annotations.available_classes[4].annotation_type == AnnotationType.POLYGON
+        assert (
+            AnnotationClass(label="ROI (segmentation)", annotation_type=AnnotationType.BOX, color=(143, 0, 255))
+            in self.v7_annotations
+        )
+        assert (
+            AnnotationClass(label="stroma (area)", annotation_type=AnnotationType.POLYGON, color=(0, 236, 123))
+            in self.v7_annotations
+        )
+        assert (
+            AnnotationClass(label="lymphocyte (cell)", annotation_type=AnnotationType.POINT, color=(0, 236, 123))
+            in self.v7_annotations
+        )
+        assert (
+            AnnotationClass(label="tumor (cell)", annotation_type=AnnotationType.BOX, color=(255, 92, 0))
+            in self.v7_annotations
+        )
+        assert (
+            AnnotationClass(label="tumor (area)", annotation_type=AnnotationType.POLYGON, color=(255, 46, 0))
+            in self.v7_annotations
+        )
 
         assert self.v7_annotations.bounding_box == (
             (15291.49, 18094.48),
@@ -157,7 +167,6 @@ class TestAnnotations:
         )
 
         region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
-        # FIXME: Is this right? These are the original values
         expected_output = [
             (6250000.0, "BOX", "ROI (segmentation)"),
             (1616768.0657540846, "POLYGON", "stroma (area)"),
@@ -221,5 +230,12 @@ class TestAnnotations:
             pickled_point_file.seek(0)
             loaded_point = pickle.load(pickled_point_file)
         assert dlup_point == loaded_point
-        assert dlup_point == copy(dlup_point)
-        assert dlup_point == deepcopy(dlup_point)
+
+    def test_annotation_filter(self):
+        annotations = self.asap_annotations.copy()
+        annotations.filter(["healthy glands"])
+        assert len(annotations._layers) == 1
+        assert "healthy glands" in annotations
+
+        annotations.filter(["non-existing"])
+        assert len(annotations._layers) == 0

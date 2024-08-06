@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import copy
 import errno
+import functools
 import json
 import os
 import pathlib
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Any, ClassVar, Iterable, Optional, Type, TypedDict, TypeVar, Union, cast
+from typing import Any, ClassVar, Iterable, NamedTuple, Optional, Type, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -40,7 +41,7 @@ from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
-from dlup.utils.annotations_utils import _get_geojson_color, _get_geojson_z_index, _get_v7_metadata, _hex_to_rgb
+from dlup.utils.annotations_utils import _get_geojson_color, _get_geojson_z_index, _hex_to_rgb
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 # TODO:
@@ -58,6 +59,7 @@ class AnnotationType(str, Enum):
     BOX = "BOX"
     POLYGON = "POLYGON"
     TAG = "TAG"
+    RASTER = "RASTER"
 
 
 class AnnotationTypeToDLUPAnnotationType(Enum):
@@ -73,6 +75,7 @@ class AnnotationTypeToDLUPAnnotationType(Enum):
     complex_polygon = AnnotationType.POLYGON
     keypoint = AnnotationType.POINT
     tag = AnnotationType.TAG
+    raster_layer = AnnotationType.RASTER
 
     @classmethod
     def from_string(cls, annotation_type: str) -> AnnotationType:
@@ -138,6 +141,42 @@ class AnnotationClass:
 
         if self.annotation_type in (AnnotationType.POINT, AnnotationType.TAG) and self.z_index is not None:
             raise ValueError("z_index is not supported for point annotations or tags.")
+
+
+class DarwinV7Metadata(NamedTuple):
+    label: str
+    color: tuple[int, int, int]
+    annotation_type: AnnotationType
+
+
+@functools.lru_cache(maxsize=None)
+def _get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], DarwinV7Metadata]]:
+    if not DARWIN_SDK_AVAILABLE:
+        raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
+    import darwin.path_utils
+
+    if not filename.is_dir():
+        raise RuntimeError("Provide the path to the root folder of the Darwin V7 annotations")
+
+    v7_metadata_fn = filename / ".v7" / "metadata.json"
+    if not v7_metadata_fn.exists():
+        return None
+    v7_metadata = darwin.path_utils.parse_metadata(v7_metadata_fn)
+    output = {}
+    for sample in v7_metadata["classes"]:
+        annotation_type = AnnotationTypeToDLUPAnnotationType.from_string(sample["type"])
+        # This is not implemented and can be skipped. The main function will raise a NonImplementedError
+        if annotation_type == AnnotationType.RASTER:
+            continue
+
+        label = sample["name"]
+        color = sample["color"][5:-1].split(",")
+        if color[-1] != "1.0":
+            raise RuntimeError("Expected A-channel of color to be 1.0")
+        rgb_colors = (int(color[0]), int(color[1]), int(color[2]))
+
+        output[label] = DarwinV7Metadata(label=label, color=rgb_colors, annotation_type=annotation_type)
+    return output
 
 
 def _is_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
@@ -715,7 +754,10 @@ class WsiAnnotations:
             name = curr_annotation.annotation_class.name
             darwin_annotation_type = curr_annotation.annotation_class.annotation_type
             annotation_type = AnnotationTypeToDLUPAnnotationType.from_string(darwin_annotation_type)
-            annotation_color = v7_metadata[(name, darwin_annotation_type)].color if v7_metadata else None
+            if annotation_type == AnnotationType.RASTER:
+                raise NotImplementedError("Raster annotations are not supported.")
+
+            annotation_color = v7_metadata[name].color if v7_metadata else None
 
             if annotation_type == AnnotationType.TAG:
                 tags.append(
