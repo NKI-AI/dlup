@@ -31,10 +31,14 @@ clean: clean-build clean-pyc clean-test clean-docs  ## remove all build, test, c
 clean-build: ## remove build artifacts
 	rm -fr build/
 	rm -fr dist/
+	rm -fr _skbuild/
 	rm -fr .eggs/
+	find . -name '*.o' -exec rm -fr {} +
+	find . -name '*.so' -exec rm -fr {} +
 	rm -fr dlup/_background.{c,so,cpp,html}
 	find . -name '*.egg-info' -exec rm -fr {} +
 	find . -name '*.egg' -exec rm -f {} +
+#    rm -fr _skbuild
 
 clean-pyc: ## remove Python file artifacts
 	find . -name '*.pyc' -exec rm -f {} +
