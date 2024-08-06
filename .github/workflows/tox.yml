@@ -24,7 +24,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libopenslide0 libgeos-dev libvips42 libtiff5-dev
+        sudo apt-get install -y libopenslide0 libgeos-dev libvips42 libtiff5-dev pkg-config
 
     - name: Cache pip
       uses: actions/cache@v3
@@ -50,6 +50,10 @@ jobs:
         echo "pybind11_DIR=$pybind11_DIR" >> $GITHUB_ENV
         echo "CMAKE_PREFIX_PATH=$pybind11_DIR:$python_extensions_DIR" >> $GITHUB_ENV
 
+    - name: Set PKG_CONFIG_PATH for pybind11 and PythonExtensions
+      run: |
+        pybind11_pkgconfig=$(python -c 'import pybind11; import os; print(os.path.join(pybind11.get_include(), "cmake/pybind11"))')
+        echo "PKG_CONFIG_PATH=$pybind11_pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
     - name: Install project dependencies
       run: |
