@@ -480,9 +480,9 @@ PYBIND11_MODULE(_libtiff_tiff_writer, m) {
         }))
         .def("write_tile", &LibtiffTiffWriter::writeTile)
         .def("finalize", &LibtiffTiffWriter::finalize)
-        .def("write_pyramid", &LibtiffTiffWriter::writePyramid)
+        .def("write_pyramid", &LibtiffTiffWriter::writePyramid);
 
-            py::enum_<CompressionType>(m, "CompressionType")
+        py::enum_<CompressionType>(m, "CompressionType")
         .value("NONE", CompressionType::NONE)
         .value("JPEG", CompressionType::JPEG)
         .value("LZW", CompressionType::LZW)
