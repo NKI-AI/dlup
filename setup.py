@@ -43,12 +43,6 @@ class NumpyImportDefer:
 numpy = NumpyImportDefer()
 
 
-def get_pybind_include():
-    import pybind11
-
-    return pybind11.get_include()
-
-
 extension = Extension(
     name="dlup._background",
     sources=["dlup/_background.pyx"],
@@ -60,16 +54,22 @@ extension = Extension(
 libtiff_tiff_writer_extension = Extension(
     name="dlup._libtiff_tiff_writer",
     sources=["src/libtiff_tiff_writer.cpp"],
-    include_dirs=[],  # We'll add pybind11 include path later
+    include_dirs=[],
     extra_compile_args=["-std=c++17", "-O3", "-march=native", "-ffast-math"],
     extra_link_args=["-O3"],
 )
 
 
-def get_ext_modules():
-    # This function is called after setup_requires are installed
-    libtiff_tiff_writer_extension.include_dirs.append(get_pybind_include())
-    return cythonize([extension], compiler_directives={"language_level": "3"}) + [libtiff_tiff_writer_extension]
+def get_ext_modules() -> list[Extension]:
+    extensions = cythonize([extension], compiler_directives={"language_level": "3"})
+    try:
+        import pybind11
+
+        libtiff_tiff_writer_extension.include_dirs.append(pybind11.get_include())
+        extensions.append(libtiff_tiff_writer_extension)
+    except ImportError:
+        print("Warning: pybind11 not found. Skipping libtiff_tiff_writer_extension.")
+    return extensions
 
 
 setup(
