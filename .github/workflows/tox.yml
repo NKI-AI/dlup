@@ -24,7 +24,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libopenslide0 libgeos-dev libvips42 libtiff5-dev pkg-config
+        sudo apt-get install -y libopenslide0 libgeos-dev libvips42 libtiff5-dev pkg-config cmake ninja-build
 
     - name: Cache pip
       uses: actions/cache@v3
@@ -43,30 +43,12 @@ jobs:
       run: |
         pip install setuptools wheel scikit-build cmake ninja Cython numpy==1.26.4 pybind11
 
-    - name: Install PythonExtensions
-      run: |
-        pip install cmake python-cmake-modules
-
-    - name: Set pybind11_DIR and CMAKE_PREFIX_PATH
-      run: |
-        pybind11_DIR=$(python -c 'import pybind11; print(pybind11.get_cmake_dir())')
-        python_extensions_DIR=$(python -c 'import site; print(site.getsitepackages()[0])')
-        echo "pybind11_DIR=$pybind11_DIR" >> $GITHUB_ENV
-        echo "CMAKE_PREFIX_PATH=$pybind11_DIR:$python_extensions_DIR" >> $GITHUB_ENV
-
-    - name: Set PKG_CONFIG_PATH for pybind11 and PythonExtensions
-      run: |
-        pybind11_pkgconfig=$(python -c 'import pybind11; import os; print(os.path.join(pybind11.get_include(), "cmake/pybind11"))')
-        echo "PKG_CONFIG_PATH=$pybind11_pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-
     - name: Install project dependencies
       run: |
         pip install -e .[dev]
 
     - name: Build package
       run: |
-        cmake -S . -B build -DPYBIND11_DIR=${{ env.pybind11_DIR }}
-        cmake --build build
         python setup.py build_ext --inplace -- -DCMAKE_VERBOSE_MAKEFILE=ON
         pip install -e .
 
