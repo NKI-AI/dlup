@@ -787,7 +787,6 @@ class WsiAnnotations:
 
                 elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
                     curr_complex_polygon = _parse_darwin_complex_polygon(curr_data)
-                    print(f"COMPLEX DARWIN: with type {darwin_annotation_type}")
                     for polygon in curr_complex_polygon.geoms:
                         layers.append(Polygon(polygon, a_cls=_cls))
                 else:

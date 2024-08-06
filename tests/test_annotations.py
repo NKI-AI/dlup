@@ -139,7 +139,6 @@ class TestAnnotations:
     def test_read_darwin_v7(self):
         if not DARWIN_SDK_AVAILABLE:
             return None
-        print(self.v7_annotations.available_classes)
         assert len(self.v7_annotations.available_classes) == 5
         assert (
             AnnotationClass(label="ROI (segmentation)", annotation_type=AnnotationType.BOX, color=(143, 0, 255))
