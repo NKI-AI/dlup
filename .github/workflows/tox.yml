@@ -43,10 +43,13 @@ jobs:
       run: |
         pip install setuptools wheel scikit-build cmake ninja Cython numpy==1.26.4 pybind11
 
-    - name: Set pybind11_DIR
+    - name: Set pybind11_DIR and CMAKE_PREFIX_PATH
       run: |
         pybind11_DIR=$(python -c 'import pybind11; print(pybind11.get_cmake_dir())')
+        python_extensions_DIR=$(python -c 'import site; print(site.getsitepackages()[0])')
         echo "pybind11_DIR=$pybind11_DIR" >> $GITHUB_ENV
+        echo "CMAKE_PREFIX_PATH=$pybind11_DIR:$python_extensions_DIR" >> $GITHUB_ENV
+
 
     - name: Install project dependencies
       run: |
