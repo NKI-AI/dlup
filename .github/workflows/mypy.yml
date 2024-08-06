@@ -21,7 +21,7 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install mypy
+        python -m pip install mypy scikit-build
         python -m pip install -e ".[dev]"
         python -m pip install pyhaloxml
         python -m pip install darwin-py
