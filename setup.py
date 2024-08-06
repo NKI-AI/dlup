@@ -40,15 +40,7 @@ class NumpyImportDefer:
         return getattr(numpy, attr)
 
 
-class Pybind11ImportDefer:
-    def __getattr__(self, attr: Any) -> Any:
-        import pybind11
-
-        return getattr(pybind11, attr)
-
-
 numpy = NumpyImportDefer()
-pybind11 = Pybind11ImportDefer()
 
 
 def get_pybind_include():
@@ -68,10 +60,16 @@ extension = Extension(
 libtiff_tiff_writer_extension = Extension(
     name="dlup._libtiff_tiff_writer",
     sources=["src/libtiff_tiff_writer.cpp"],
-    include_dirs=[pybind11.get_include()],
+    include_dirs=[],  # We'll add pybind11 include path later
     extra_compile_args=["-std=c++17", "-O3", "-march=native", "-ffast-math"],
     extra_link_args=["-O3"],
 )
+
+
+def get_ext_modules():
+    # This function is called after setup_requires are installed
+    libtiff_tiff_writer_extension.include_dirs.append(get_pybind_include())
+    return cythonize([extension], compiler_directives={"language_level": "3"}) + [libtiff_tiff_writer_extension]
 
 
 setup(
@@ -120,7 +118,9 @@ setup(
     packages=find_packages(include=["dlup", "dlup.*"]),
     url="https://github.com/NKI-AI/dlup",
     version=version,
-    ext_modules=cythonize([extension], compiler_directives={"language_level": "3"}) + [libtiff_tiff_writer_extension],
-    include_dirs=[numpy.get_include(), pybind11.get_include()],
+    ext_modules=get_ext_modules(),
+    include_dirs=[
+        numpy.get_include(),
+    ],
     zip_safe=False,
 )
