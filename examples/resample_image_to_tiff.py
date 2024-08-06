@@ -7,6 +7,7 @@ This script shows the dlup functionality to read a WSI file in tiles and write t
 """
 
 import argparse
+import time
 from pathlib import Path
 from typing import Iterator
 
@@ -52,8 +53,6 @@ def resample(args: argparse.Namespace) -> None:
             # TODO: Convert VIPS image to RGB directly
             arr = tile["image"].flatten(background=(255, 255, 255)).numpy()
             yield arr
-
-    import time
 
     start = time.time()
     writer.from_tiles_iterator(tiles_iterator(dataset))

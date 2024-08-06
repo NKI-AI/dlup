@@ -12,7 +12,7 @@ from PIL import Image, ImageColor
 from dlup import SlideImage
 from dlup.backends import ImageBackend, OpenSlideSlide, PyVipsSlide
 from dlup.backends.pyvips_backend import open_slide as open_pyvips_slide
-from dlup.writers import TiffCompression, TifffileImageWriter, _color_dict_to_color_lut
+from dlup.writers import LibtiffImageWriter, TiffCompression, TifffileImageWriter, _color_dict_to_color_lut
 
 COLORMAP = {
     1: "green",
@@ -97,8 +97,9 @@ class TestTiffWriter:
                 slide_mpp = slide.mpp
                 assert np.allclose(slide_mpp, target_mpp)
 
+    @pytest.mark.parametrize("writer_class", [TifffileImageWriter, LibtiffImageWriter])
     @pytest.mark.parametrize("pyramid", [True, False])
-    def test_tiff_writer_pyramid(self, pyramid):
+    def test_tiff_writer_pyramid(self, writer_class, pyramid):
         shape = (1010, 2173, 3)
         target_mpp = 1.0
         tile_size = (128, 128)
@@ -108,7 +109,7 @@ class TestTiffWriter:
         size = (*pil_image.size, 3)
 
         with tempfile.NamedTemporaryFile(suffix=".tiff") as temp_tiff:
-            writer = TifffileImageWriter(
+            writer = writer_class(
                 temp_tiff.name,
                 size=size,
                 mpp=(target_mpp, target_mpp),
@@ -122,7 +123,10 @@ class TestTiffWriter:
 
             n_pages = vips_image.get("n-pages")
 
-            assert n_pages == int(np.ceil(np.log2(np.asarray(size[:-1]) / np.asarray([tile_size]))).min()) + 1
+            if writer_class == TifffileImageWriter:
+                assert n_pages == int(np.ceil(np.log2(np.asarray(size[:-1]) / np.asarray([tile_size]))).min()) + 1
+            else:
+                assert n_pages == int(np.ceil(np.log2(np.asarray(size[:-1]) / np.asarray([tile_size]))).max())
             assert vips_image.get("xres") == 1000.0 and vips_image.get("yres") == 1000.0
 
             for page in range(1, n_pages):

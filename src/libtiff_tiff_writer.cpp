@@ -1,5 +1,5 @@
-#include "image.h"
 #include "constants.h"
+#include "image.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -114,7 +114,8 @@ private:
 
     void validateInputs() const;
     int calculateLevels();
-    int calculateNumTiles(int level);
+    std::pair<uint32_t, uint32_t> calculateTiles(int level);
+    uint32_t calculateNumTiles(int level);
     void setupTIFFDirectory(int level);
     void writeTIFFDirectory();
     void writeDownsampledResolutionPage(int level);
@@ -148,10 +149,11 @@ void LibtiffTiffWriter::writeTile(py::array_t<std::byte, py::array::c_style | py
     }
 
     // Check if tile coordinates are within bounds
-    if (row < 0 || row >= imageSize[1] || col < 0 || col >= imageSize[0]) {
+    if (row < 0 || row >= imageSize[0] || col < 0 || col >= imageSize[1]) {
+        auto [imageWidth, imageHeight] = getLevelDimensions(0);
         throw TiffWriteException("tile coordinates out of bounds for row " + std::to_string(row) + ", col " +
-                                 std::to_string(col) + ". Image size is " + std::to_string(imageSize[0]) + "x" +
-                                 std::to_string(imageSize[1]));
+                                 std::to_string(col) + ". Image size is " + std::to_string(imageWidth) + "x" +
+                                 std::to_string(imageHeight));
     }
 
     // Write the tile
@@ -203,20 +205,24 @@ int LibtiffTiffWriter::calculateLevels() {
     return numLevels;
 }
 
-int LibtiffTiffWriter::calculateNumTiles(int level) {
+std::pair<uint32_t, uint32_t> LibtiffTiffWriter::calculateTiles(int level) {
     auto [currentWidth, currentHeight] = getLevelDimensions(level);
     auto [tileWidth, tileHeight] = tileSize;
 
-    int numTilesX = (currentWidth + tileWidth - 1) / tileWidth;
-    int numTilesY = (currentHeight + tileHeight - 1) / tileHeight;
+    uint32_t numTilesX = (currentWidth + tileWidth - 1) / tileWidth;
+    uint32_t numTilesY = (currentHeight + tileHeight - 1) / tileHeight;
+    return {numTilesX, numTilesY};
+}
+
+uint32_t LibtiffTiffWriter::calculateNumTiles(int level) {
+    auto [numTilesX, numTilesY] = calculateTiles(level);
     return numTilesX * numTilesY;
 }
 
-
 std::pair<uint32_t, uint32_t> LibtiffTiffWriter::getLevelDimensions(int level) {
-    uint32_t width = std::max(1, imageSize[0] >> level);
-    uint32_t height = std::max(1, imageSize[1] >> level);
-    return {width, height};
+    uint32_t levelWidth = std::max(1, imageSize[1] >> level);
+    uint32_t levelHeight = std::max(1, imageSize[0] >> level);
+    return {levelWidth, levelHeight};
 }
 
 void LibtiffTiffWriter::flush() {
@@ -318,12 +324,13 @@ void LibtiffTiffWriter::setupTIFFDirectory(int level) {
     set_field(TIFFTAG_YRESOLUTION, pixels_per_cm_y);
 
     // Set the image description
-    std::string description = "TODO"; // {\"shape\": [" + std::to_string(height) + ", " + std::to_string(width) + ", " +
-                                      // std::to_string(channels) + "]}";
-    set_field(TIFFTAG_IMAGEDESCRIPTION, description.c_str());
+    // TODO: This needs to be configurable
+    std::string description = "TODO";
+    //    set_field(TIFFTAG_IMAGEDESCRIPTION, description.c_str());
 
     // Set the software tag with version from dlup
-    std::string software_tag = "dlup " + std::string(DLUP_VERSION) + " (libtiff " + std::to_string(TIFFLIB_VERSION) + ")";
+    std::string software_tag =
+        "dlup " + std::string(DLUP_VERSION) + " (libtiff " + std::to_string(TIFFLIB_VERSION) + ")";
     set_field(TIFFTAG_SOFTWARE, software_tag.c_str());
 
     // Set SubFileType for pyramid levels
@@ -410,9 +417,7 @@ void LibtiffTiffWriter::writeDownsampledResolutionPage(int level) {
 
     setupTIFFDirectory(level);
 
-    // Calculate the number of tiles in each dimension
-    uint32_t numTilesX = (currentWidth + tileWidth - 1) / tileWidth;
-    uint32_t numTilesY = (currentHeight + tileHeight - 1) / tileHeight;
+    auto [numTilesX, numTilesY] = calculateTiles(level);
 
     for (uint32_t tileY = 0; tileY < numTilesY; ++tileY) {
         for (uint32_t tileX = 0; tileX < numTilesX; ++tileX) {
@@ -420,9 +425,6 @@ void LibtiffTiffWriter::writeDownsampledResolutionPage(int level) {
             uint32_t col = tileX * tileWidth * 2;
 
             std::vector<std::byte> groupBuffer = read2x2TileGroup(readTif.get(), row, col, prevWidth, prevHeight);
-
-            //            std::vector<std::byte> groupBuffer = read2x2TileGroup(readTif.get(), row, col);
-
             std::vector<std::byte> downsampledBuffer(tileHeight * tileWidth * channels);
 
             image_utils::downsample2x2(groupBuffer, 2 * tileWidth, 2 * tileHeight, downsampledBuffer, tileWidth,

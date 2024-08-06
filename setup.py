@@ -2,7 +2,7 @@
 """The setup script."""
 
 import ast
-from typing import Any, List
+from typing import Any
 
 from Cython.Build import cythonize  # type: ignore
 from setuptools import Extension  # type: ignore
