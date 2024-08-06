@@ -19,7 +19,7 @@ from tifffile import tifffile
 
 import dlup
 from dlup._libtiff_tiff_writer import LibtiffTiffWriter
-from dlup.tiling import Grid, TilingMode
+from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.types import PathLike
 from dlup.utils.tifffile_utils import get_tile
 
@@ -131,7 +131,7 @@ class ImageWriter(abc.ABC):
             raise RuntimeError(
                 f"PIL Image must be larger than set tile size. Got {pil_image.size} and {self._tile_size}."
             )
-        iterator = _tiles_iterator_from_pil_image(pil_image, self._tile_size)
+        iterator = _tiles_iterator_from_pil_image(pil_image, self._tile_size, order="F")
         self.from_tiles_iterator(iterator)
 
     @abc.abstractmethod
@@ -184,7 +184,7 @@ class LibtiffImageWriter(ImageWriter):
         )
 
     def from_tiles_iterator(self, iterator: Iterator[npt.NDArray[np.int_]]) -> None:
-        tiles_per_row = (self._size[0] + self._tile_size[1] - 1) // self._tile_size[1]
+        tiles_per_row = (self._size[1] + self._tile_size[1] - 1) // self._tile_size[1]
 
         for idx, tile in enumerate(iterator):
             row = (idx // tiles_per_row) * self._tile_size[0]
@@ -362,7 +362,7 @@ class TifffileImageWriter(ImageWriter):
 
 
 def _tiles_iterator_from_pil_image(
-    pil_image: PIL.Image.Image, tile_size: tuple[int, int]
+    pil_image: PIL.Image.Image, tile_size: tuple[int, int], order: str | GridOrder = "F"
 ) -> Generator[npt.NDArray[np.int_], None, None]:
     """
     Given a PIL image return a tile-iterator.
@@ -371,6 +371,7 @@ def _tiles_iterator_from_pil_image(
     ----------
     pil_image : PIL.Image
     tile_size : tuple
+    order : GridOrder or str
 
     Yields
     ------
@@ -383,7 +384,7 @@ def _tiles_iterator_from_pil_image(
         tile_size=tile_size,
         tile_overlap=(0, 0),
         mode=TilingMode.overflow,
-        order="F",
+        order=order,
     )
     for tile_coordinates in grid:
         arr = np.asarray(pil_image)
