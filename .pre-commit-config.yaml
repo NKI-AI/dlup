@@ -49,6 +49,7 @@ repos:
       types: [python]
       args:
         [
+          "dlup",
           "-rn", # Only display messages
           "-sn", # Don't display the score
           "--errors-only"  # Only show the errors

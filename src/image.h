@@ -3,14 +3,14 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
-#include <vector>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
+#include <vector>
 
 namespace image_utils {
 
-void downsample2x2(const std::vector<std::byte>& input, uint32_t inputWidth, uint32_t inputHeight,
-                   std::vector<std::byte>& output, uint32_t outputWidth, uint32_t outputHeight, int channels) {
+void downsample2x2(const std::vector<std::byte> &input, uint32_t inputWidth, uint32_t inputHeight,
+                   std::vector<std::byte> &output, uint32_t outputWidth, uint32_t outputHeight, int channels) {
     for (uint32_t y = 0; y < outputHeight; ++y) {
         for (uint32_t x = 0; x < outputWidth; ++x) {
             for (int c = 0; c < channels; ++c) {

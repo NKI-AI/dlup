@@ -1,3 +1,4 @@
+#include "image.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -12,7 +13,6 @@
 #include <string>
 #include <tiffio.h>
 #include <vector>
-#include "image.h"
 
 namespace fs = std::filesystem;
 namespace py = pybind11;
@@ -75,12 +75,13 @@ struct TIFFDeleter {
 
 using TIFFPtr = std::unique_ptr<TIFF, TIFFDeleter>;
 
-class FastTiffWriter {
+class LibtiffTiffWriter {
 public:
-    FastTiffWriter(fs::path filename, std::array<int, 3> imageSize, double mpp, std::array<int, 2> tileSize,
-                   CompressionType compression = CompressionType::JPEG, int quality = 100, bool pyramid = false)
+    LibtiffTiffWriter(fs::path filename, std::array<int, 3> imageSize, std::array<float, 2> mpp,
+                      std::array<int, 2> tileSize, CompressionType compression = CompressionType::JPEG,
+                      int quality = 100)
         : filename(std::move(filename)), imageSize(imageSize), mpp(mpp), tileSize(tileSize), compression(compression),
-          quality(quality), pyramid(pyramid), tif(nullptr) {
+          quality(quality), tif(nullptr) {
 
         validateInputs();
 
@@ -93,7 +94,7 @@ public:
         setupTIFFDirectory(0);
     }
 
-    ~FastTiffWriter();
+    ~LibtiffTiffWriter();
     void writeTile(py::array_t<std::byte, py::array::c_style | py::array::forcecast> tile, int row, int col);
     void flush();
     void finalize();
@@ -102,33 +103,39 @@ public:
 private:
     std::string filename;
     std::array<int, 3> imageSize;
-    double mpp;
+    std::array<float, 2> mpp;
     std::array<int, 2> tileSize;
     CompressionType compression;
     int quality;
-    bool pyramid;
+    int tileCounter;
     int numLevels = calculateLevels();
     TIFFPtr tif;
 
     void validateInputs() const;
     int calculateLevels();
+    int calculateNumTiles(int level);
     void setupTIFFDirectory(int level);
     void writeTIFFDirectory();
     void writeDownsampledResolutionPage(int level);
 
     std::pair<uint32_t, uint32_t> getLevelDimensions(int level);
-    std::vector<std::byte> read2x2TileGroup(TIFF *readTif, uint32_t row, uint32_t col);
-    void setupReadTIFF(TIFF* readTif);
+    std::vector<std::byte> read2x2TileGroup(TIFF *readTif, uint32_t row, uint32_t col, uint32_t prevWidth,
+                                            uint32_t prevHeight);
+    void setupReadTIFF(TIFF *readTif);
     std::string getDlupVersion() const;
 };
 
-FastTiffWriter::~FastTiffWriter() { finalize(); }
+LibtiffTiffWriter::~LibtiffTiffWriter() { finalize(); }
 
-void FastTiffWriter::writeTile(py::array_t<std::byte, py::array::c_style | py::array::forcecast> tile, int row,
-                               int col) {
+void LibtiffTiffWriter::writeTile(py::array_t<std::byte, py::array::c_style | py::array::forcecast> tile, int row,
+                                  int col) {
+    auto numTiles = calculateNumTiles(0);
+    if (tileCounter >= numTiles) {
+        throw TiffWriteException("all tiles have already been written");
+    }
     auto buf = tile.request();
     if (buf.ndim < 2 || buf.ndim > 3) {
-        throw TiffWriteException("Invalid number of dimensions in tile data. Expected 2 or 3, got " +
+        throw TiffWriteException("invalid number of dimensions in tile data. Expected 2 or 3, got " +
                                  std::to_string(buf.ndim));
     }
     auto [height, width, channels] = std::tuple{buf.shape[0], buf.shape[1], buf.ndim > 2 ? buf.shape[2] : 1};
@@ -136,13 +143,13 @@ void FastTiffWriter::writeTile(py::array_t<std::byte, py::array::c_style | py::a
     // Verify dimensions and buffer size
     size_t expected_size = static_cast<size_t>(width) * height * channels;
     if (static_cast<size_t>(buf.size) != expected_size) {
-        throw TiffWriteException("Buffer size does not match expected size. Expected " + std::to_string(expected_size) +
+        throw TiffWriteException("buffer size does not match expected size. Expected " + std::to_string(expected_size) +
                                  ", got " + std::to_string(buf.size));
     }
 
     // Check if tile coordinates are within bounds
     if (row < 0 || row >= imageSize[1] || col < 0 || col >= imageSize[0]) {
-        throw TiffWriteException("Tile coordinates out of bounds for row " + std::to_string(row) + ", col " +
+        throw TiffWriteException("tile coordinates out of bounds for row " + std::to_string(row) + ", col " +
                                  std::to_string(col) + ". Image size is " + std::to_string(imageSize[0]) + "x" +
                                  std::to_string(imageSize[1]));
     }
@@ -152,24 +159,40 @@ void FastTiffWriter::writeTile(py::array_t<std::byte, py::array::c_style | py::a
         throw TiffWriteException("TIFFWriteTile failed for row " + std::to_string(row) + ", col " +
                                  std::to_string(col));
     }
+    tileCounter++;
+    if (tileCounter == numTiles) {
+        flush();
+    }
 }
 
-void FastTiffWriter::validateInputs() const {
+void LibtiffTiffWriter::validateInputs() const {
+    // check positivity of image size
     if (imageSize[0] <= 0 || imageSize[1] <= 0 || imageSize[2] <= 0) {
         throw std::invalid_argument("Invalid size parameters");
     }
-    if (mpp <= 0) {
+
+    // check positivity of mpp
+    if (mpp[0] <= 0 || mpp[1] <= 0) {
         throw std::invalid_argument("Invalid mpp value");
     }
+
+    // check positivity of tile size
     if (tileSize[0] <= 0 || tileSize[1] <= 0) {
         throw std::invalid_argument("Invalid tile size");
     }
+
+    // check quality parameter
     if (quality < 0 || quality > 100) {
         throw std::invalid_argument("Invalid quality value");
     }
+
+    // check if tile size is power of two
+    if ((tileSize[0] & (tileSize[0] - 1)) != 0 || (tileSize[1] & (tileSize[1] - 1)) != 0) {
+        throw std::invalid_argument("Tile size must be a power of two");
+    }
 }
 
-int FastTiffWriter::calculateLevels() {
+int LibtiffTiffWriter::calculateLevels() {
     int maxDim = std::max(imageSize[0], imageSize[1]);
     int minTileDim = std::min(tileSize[0], tileSize[1]);
     int numLevels = 1;
@@ -180,19 +203,27 @@ int FastTiffWriter::calculateLevels() {
     return numLevels;
 }
 
-std::string FastTiffWriter::getDlupVersion() const {
+int LibtiffTiffWriter::calculateNumTiles(int level) {
+    auto [currentWidth, currentHeight] = getLevelDimensions(level);
+    auto [tileWidth, tileHeight] = tileSize;
+
+    int numTilesX = (currentWidth + tileWidth - 1) / tileWidth;
+    int numTilesY = (currentHeight + tileHeight - 1) / tileHeight;
+    return numTilesX * numTilesY;
+}
+
+std::string LibtiffTiffWriter::getDlupVersion() const {
     py::module_ dlup = py::module_::import("dlup");
     return dlup.attr("__version__").cast<std::string>();
 }
 
-std::pair<uint32_t, uint32_t> FastTiffWriter::getLevelDimensions(int level) {
+std::pair<uint32_t, uint32_t> LibtiffTiffWriter::getLevelDimensions(int level) {
     uint32_t width = std::max(1, imageSize[0] >> level);
     uint32_t height = std::max(1, imageSize[1] >> level);
     return {width, height};
 }
 
-
-void FastTiffWriter::flush() {
+void LibtiffTiffWriter::flush() {
     if (tif) {
         if (TIFFFlush(tif.get()) != 1) {
             throw TiffWriteException("failed to flush TIFF file");
@@ -200,7 +231,7 @@ void FastTiffWriter::flush() {
     }
 }
 
-void FastTiffWriter::finalize() {
+void LibtiffTiffWriter::finalize() {
     if (tif) {
         // Only write directory if we haven't written all directories yet
         if (TIFFCurrentDirectory(tif.get()) < TIFFNumberOfDirectories(tif.get()) - 1) {
@@ -211,7 +242,7 @@ void FastTiffWriter::finalize() {
     }
 }
 
-void FastTiffWriter::setupReadTIFF(TIFF* readTif) {
+void LibtiffTiffWriter::setupReadTIFF(TIFF *readTif) {
     auto set_field = [readTif](uint32_t tag, auto... value) {
         if (TIFFSetField(readTif, tag, value...) != 1) {
             throw TiffSetupException("failed to set TIFF field for reading: " + std::to_string(tag));
@@ -226,7 +257,7 @@ void FastTiffWriter::setupReadTIFF(TIFF* readTif) {
     }
 }
 
-void FastTiffWriter::setupTIFFDirectory(int level) {
+void LibtiffTiffWriter::setupTIFFDirectory(int level) {
     auto set_field = [this](uint32_t tag, auto... value) {
         if (TIFFSetField(tif.get(), tag, value...) != 1) {
             throw TiffSetupException("failed to set TIFF field: " + std::to_string(tag));
@@ -246,7 +277,9 @@ void FastTiffWriter::setupTIFFDirectory(int level) {
     set_field(TIFFTAG_TILELENGTH, tileSize[0]);
 
     if (channels == 3 || channels == 4) {
-        // nothing
+        if (compression != CompressionType::JPEG) {
+            set_field(TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+        }
     } else {
         set_field(TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
     }
@@ -281,11 +314,12 @@ void FastTiffWriter::setupTIFFDirectory(int level) {
     }
 
     // Convert mpp (micrometers per pixel) to pixels per centimeter
-    double pixels_per_cm = 10000.0 / mpp;
+    double pixels_per_cm_x = 10000.0 / mpp[0];
+    double pixels_per_cm_y = 10000.0 / mpp[1];
 
     set_field(TIFFTAG_RESOLUTIONUNIT, RESUNIT_CENTIMETER);
-    set_field(TIFFTAG_XRESOLUTION, pixels_per_cm);
-    set_field(TIFFTAG_YRESOLUTION, pixels_per_cm);
+    set_field(TIFFTAG_XRESOLUTION, pixels_per_cm_x);
+    set_field(TIFFTAG_YRESOLUTION, pixels_per_cm_y);
 
     // Set the image description
     std::string description = "TODO"; // {\"shape\": [" + std::to_string(height) + ", " + std::to_string(width) + ", " +
@@ -304,34 +338,42 @@ void FastTiffWriter::setupTIFFDirectory(int level) {
     }
 }
 
-std::vector<std::byte> FastTiffWriter::read2x2TileGroup(TIFF* readTif, uint32_t row, uint32_t col) {
-    auto [tileHeight, tileWidth] = tileSize;
+std::vector<std::byte> LibtiffTiffWriter::read2x2TileGroup(TIFF *readTif, uint32_t row, uint32_t col,
+                                                           uint32_t prevWidth, uint32_t prevHeight) {
+    auto [tileWidth, tileHeight] = tileSize;
     int channels = imageSize[2];
-    auto [imageWidth, imageHeight] = getLevelDimensions(0);
+    uint32_t fullGroupWidth = 2 * tileWidth;
+    uint32_t fullGroupHeight = 2 * tileHeight;
 
-    std::vector<std::byte> groupBuffer(2 * tileWidth * 2 * tileHeight * channels, std::byte(0));
+    // Initialize a zero buffer for the 2x2 group
+    std::vector<std::byte> groupBuffer(fullGroupWidth * fullGroupHeight * channels, std::byte(0));
 
     for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 2; ++j) {
             uint32_t tileRow = row + i * tileHeight;
             uint32_t tileCol = col + j * tileWidth;
 
-            if (tileCol >= imageWidth || tileRow >= imageHeight) {
-                continue;  // Skip this tile if it's out of bounds
+            // Skip if this tile is out of bounds, this can happen when the image dimensions are smaller than 2x2 in
+            // tileSize
+            if (tileRow >= prevHeight || tileCol >= prevWidth) {
+                continue;
             }
 
             std::vector<uint8_t> tileBuf(TIFFTileSize(readTif));
 
             if (TIFFReadTile(readTif, tileBuf.data(), tileCol, tileRow, 0, 0) < 0) {
-                std::cout << "Failed to read tile at row " << tileRow << ", col " << tileCol << std::endl;
-                continue;
+                throw TiffReadException("failed to read tile at row " + std::to_string(tileRow) + ", col " +
+                                        std::to_string(tileCol));
             }
 
             // Copy tile data to groupBuffer
-            for (uint32_t y = 0; y < tileHeight; ++y) {
-                for (uint32_t x = 0; x < tileWidth; ++x) {
+            uint32_t copyWidth = std::min<uint32_t>(tileWidth, prevWidth - tileCol);
+            uint32_t copyHeight = std::min<uint32_t>(tileHeight, prevHeight - tileRow);
+            for (uint32_t y = 0; y < copyHeight; ++y) {
+                for (uint32_t x = 0; x < copyWidth; ++x) {
                     for (int c = 0; c < channels; ++c) {
-                        size_t groupIndex = ((i * tileHeight + y) * 2 * tileWidth + (j * tileWidth + x)) * channels + c;
+                        size_t groupIndex =
+                            ((i * tileHeight + y) * fullGroupWidth + (j * tileWidth + x)) * channels + c;
                         size_t tileIndex = (y * tileWidth + x) * channels + c;
                         groupBuffer[groupIndex] = static_cast<std::byte>(tileBuf[tileIndex]);
                     }
@@ -342,8 +384,7 @@ std::vector<std::byte> FastTiffWriter::read2x2TileGroup(TIFF* readTif, uint32_t 
 
     return groupBuffer;
 }
-
-void FastTiffWriter::writeDownsampledResolutionPage(int level) {
+void LibtiffTiffWriter::writeDownsampledResolutionPage(int level) {
     if (level <= 0 || level >= numLevels) {
         throw std::invalid_argument("Invalid level for downsampled resolution page");
     }
@@ -351,12 +392,7 @@ void FastTiffWriter::writeDownsampledResolutionPage(int level) {
     auto [prevWidth, prevHeight] = getLevelDimensions(level - 1);
     auto [currentWidth, currentHeight] = getLevelDimensions(level);
     int channels = imageSize[2];
-    auto [tileHeight, tileWidth] = tileSize;
-
-    std::cout << "Writing downsampled resolution page for level " << level << std::endl;
-    std::cout << "Previous level dimensions: " << prevWidth << "x" << prevHeight << std::endl;
-    std::cout << "Current level dimensions: " << currentWidth << "x" << currentHeight << std::endl;
-    std::cout << "Tile dimensions: " << tileWidth << "x" << tileHeight << std::endl;
+    auto [tileWidth, tileHeight] = tileSize;
 
     TIFFPtr readTif(TIFFOpen(filename.c_str(), "r"));
     if (!readTif) {
@@ -387,15 +423,17 @@ void FastTiffWriter::writeDownsampledResolutionPage(int level) {
             uint32_t row = tileY * tileHeight * 2;
             uint32_t col = tileX * tileWidth * 2;
 
-            std::vector<std::byte> groupBuffer = read2x2TileGroup(readTif.get(), row, col);
+            std::vector<std::byte> groupBuffer = read2x2TileGroup(readTif.get(), row, col, prevWidth, prevHeight);
+
+            //            std::vector<std::byte> groupBuffer = read2x2TileGroup(readTif.get(), row, col);
 
             std::vector<std::byte> downsampledBuffer(tileHeight * tileWidth * channels);
 
-            image_utils::downsample2x2(groupBuffer, 2 * tileWidth, 2 * tileHeight,
-                                       downsampledBuffer, tileWidth, tileHeight, channels);
+            image_utils::downsample2x2(groupBuffer, 2 * tileWidth, 2 * tileHeight, downsampledBuffer, tileWidth,
+                                       tileHeight, channels);
 
-            if (TIFFWriteTile(tif.get(), reinterpret_cast<uint8_t*>(downsampledBuffer.data()),
-                              tileX * tileWidth, tileY * tileHeight, 0, 0) < 0) {
+            if (TIFFWriteTile(tif.get(), reinterpret_cast<uint8_t *>(downsampledBuffer.data()), tileX * tileWidth,
+                              tileY * tileHeight, 0, 0) < 0) {
                 throw TiffWriteException("failed to write downsampled tile at level " + std::to_string(level) +
                                          ", row " + std::to_string(tileY) + ", col " + std::to_string(tileX));
             }
@@ -406,7 +444,7 @@ void FastTiffWriter::writeDownsampledResolutionPage(int level) {
     flush();
 }
 
-void FastTiffWriter::writePyramid() {
+void LibtiffTiffWriter::writePyramid() {
     numLevels = calculateLevels();
 
     // The base level (level 0) is already written, so we start from level 1
@@ -416,10 +454,10 @@ void FastTiffWriter::writePyramid() {
     }
 }
 
-PYBIND11_MODULE(fast_tiff_writer, m) {
-    py::class_<FastTiffWriter>(m, "FastTiffWriter")
-        .def(py::init([](py::object path, std::array<int, 3> size, double mpp, std::array<int, 2> tileSize,
-                         py::object compression, int quality, bool pyramid) {
+PYBIND11_MODULE(_libtiff_tiff_writer, m) {
+    py::class_<LibtiffTiffWriter>(m, "LibtiffTiffWriter")
+        .def(py::init([](py::object path, std::array<int, 3> size, std::array<float, 2> mpp,
+                         std::array<int, 2> tileSize, py::object compression, int quality) {
             fs::path cpp_path;
             if (py::isinstance<py::str>(path)) {
                 cpp_path = fs::path(path.cast<std::string>());
@@ -438,14 +476,13 @@ PYBIND11_MODULE(fast_tiff_writer, m) {
                 throw py::type_error("Expected str or CompressionType for compression");
             }
 
-            return new FastTiffWriter(std::move(cpp_path), size, mpp, tileSize, comp_type, quality);
+            return new LibtiffTiffWriter(std::move(cpp_path), size, mpp, tileSize, comp_type, quality);
         }))
-        .def("write_tile", &FastTiffWriter::writeTile)
-        .def("finalize", &FastTiffWriter::finalize)
-        .def("write_pyramid", &FastTiffWriter::writePyramid)
-        .def("flush", &FastTiffWriter::flush);
+        .def("write_tile", &LibtiffTiffWriter::writeTile)
+        .def("finalize", &LibtiffTiffWriter::finalize)
+        .def("write_pyramid", &LibtiffTiffWriter::writePyramid)
 
-    py::enum_<CompressionType>(m, "CompressionType")
+            py::enum_<CompressionType>(m, "CompressionType")
         .value("NONE", CompressionType::NONE)
         .value("JPEG", CompressionType::JPEG)
         .value("LZW", CompressionType::LZW)
