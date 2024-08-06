@@ -11,7 +11,7 @@ jobs:
     steps:
     - name: Install minimal dependencies
       run: |
-        sudo apt install -y libopenslide0 libgeos-dev
+        sudo apt install -y libopenslide0 libgeos-dev libtiff5-dev
     - uses: actions/checkout@v4
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
@@ -20,7 +20,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install pylint cython
+        python -m pip install pylint cython pybind11
         python -m pip install -e .
         python -m pip install pyhaloxml
         python -m pip install darwin-py
