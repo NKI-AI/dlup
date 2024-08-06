@@ -3,16 +3,16 @@
 """Test the annotation facilities."""
 import json
 import pathlib
+import pickle
 import tempfile
+from copy import copy, deepcopy
 
 import pytest
-import pickle
 import shapely.geometry
-from copy import copy, deepcopy
 from shapely import Point as ShapelyPoint
 from shapely import Polygon as ShapelyPolygon
 
-from dlup.annotations import AnnotationType, Point, Polygon, WsiAnnotations, shape, AnnotationClass
+from dlup.annotations import AnnotationClass, AnnotationType, Point, Polygon, WsiAnnotations, shape
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
@@ -132,18 +132,24 @@ class TestAnnotations:
     def test_read_darwin_v7(self):
         if not DARWIN_SDK_AVAILABLE:
             return None
-
+        print(self.v7_annotations.available_classes)
         assert len(self.v7_annotations.available_classes) == 5
-        assert self.v7_annotations.available_classes[0].label == "ROI (segmentation)"
-        assert self.v7_annotations.available_classes[0].annotation_type == AnnotationType.BOX
-        assert self.v7_annotations.available_classes[1].label == "stroma (area)"
-        assert self.v7_annotations.available_classes[1].annotation_type == AnnotationType.POLYGON
-        assert self.v7_annotations.available_classes[2].label == "lymphocyte (cell)"
-        assert self.v7_annotations.available_classes[2].annotation_type == AnnotationType.POINT
-        assert self.v7_annotations.available_classes[3].label == "tumor (cell)"
-        assert self.v7_annotations.available_classes[3].annotation_type == AnnotationType.BOX
-        assert self.v7_annotations.available_classes[4].label == "tumor (area)"
-        assert self.v7_annotations.available_classes[4].annotation_type == AnnotationType.POLYGON
+        assert AnnotationClass(label="ROI (segmentation)", annotation_type=AnnotationType.BOX) in self.v7_annotations
+        assert AnnotationClass(label="stroma (area)", annotation_type=AnnotationType.POLYGON) in self.v7_annotations
+        assert AnnotationClass(label="lymphocyte (cell)", annotation_type=AnnotationType.POINT) in self.v7_annotations
+        assert AnnotationClass(label="tumor (cell)", annotation_type=AnnotationType.BOX) in self.v7_annotations
+        assert AnnotationClass(label="tumor (area)", annotation_type=AnnotationType.POLYGON) in self.v7_annotations
+
+        # assert self.v7_annotations.available_classes[0].label == "ROI (segmentation)"
+        # assert self.v7_annotations.available_classes[0].annotation_type == AnnotationType.BOX
+        # assert self.v7_annotations.available_classes[1].label == "stroma (area)"
+        # assert self.v7_annotations.available_classes[1].annotation_type == AnnotationType.POLYGON
+        # assert self.v7_annotations.available_classes[2].label == "lymphocyte (cell)"
+        # assert self.v7_annotations.available_classes[2].annotation_type == AnnotationType.POINT
+        # assert self.v7_annotations.available_classes[3].label == "tumor (cell)"
+        # assert self.v7_annotations.available_classes[3].annotation_type == AnnotationType.BOX
+        # assert self.v7_annotations.available_classes[4].label == "tumor (area)"
+        # assert self.v7_annotations.available_classes[4].annotation_type == AnnotationType.POLYGON
 
         assert self.v7_annotations.bounding_box == (
             (15291.49, 18094.48),

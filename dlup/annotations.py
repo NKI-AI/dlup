@@ -33,19 +33,14 @@ import shapely.geometry
 import shapely.validation
 from shapely import geometry
 from shapely.geometry import MultiPolygon as ShapelyMultiPolygon
-from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.geometry import Point as ShapelyPoint
+from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
 from dlup.types import GenericNumber, PathLike
-from dlup.utils.annotations_utils import (
-    _get_geojson_color,
-    _get_geojson_z_index,
-    _get_v7_metadata,
-    _hex_to_rgb,
-)
+from dlup.utils.annotations_utils import _get_geojson_color, _get_geojson_z_index, _get_v7_metadata, _hex_to_rgb
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 # TODO:
@@ -63,6 +58,7 @@ class AnnotationType(str, Enum):
     BOX = "BOX"
     POLYGON = "POLYGON"
     TAG = "TAG"
+
 
 class AnnotationTypeToDLUPAnnotationType(Enum):
     # Shared annotation types
@@ -83,7 +79,9 @@ class AnnotationTypeToDLUPAnnotationType(Enum):
         try:
             return cls[annotation_type].value
         except KeyError:
-            raise NotImplementedError(f"annotation_type {annotation_type} is not implemented or not a valid dlup type.")
+            raise NotImplementedError(
+                f"annotation_type {annotation_type} is not implemented or not a valid dlup type."
+            )
 
 
 class AnnotationSorting(str, Enum):
@@ -142,12 +140,18 @@ class AnnotationClass:
             raise ValueError("z_index is not supported for point annotations or tags.")
 
 
-def _is_rectangle(polygon: Polygon | ShapelyPolygon) -> tuple[bool, bool]:
+def _is_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
     if not polygon.is_valid or len(polygon.exterior.coords) != 5 or len(polygon.interiors) != 0:
-        return False, False
+        return False
+    return bool(np.isclose(polygon.area, polygon.minimum_rotated_rectangle.area))
+
+
+def _is_alligned_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
+    if not _is_rectangle(polygon):
+        return False
     min_rotated_rect = polygon.minimum_rotated_rectangle
     aligned_rect = min_rotated_rect.minimum_rotated_rectangle
-    return (np.isclose(polygon.area, min_rotated_rect.area), min_rotated_rect == aligned_rect)
+    return bool(min_rotated_rect == aligned_rect)
 
 
 class GeoJsonDict(TypedDict):
@@ -161,7 +165,7 @@ class GeoJsonDict(TypedDict):
     metadata: Optional[dict[str, str | list[str]]]
 
 
-class AnnotatedGeometry(geometry.base.BaseGeometry):
+class AnnotatedGeometry(geometry.base.BaseGeometry):  # type: ignore[misc]
     __slots__ = geometry.base.BaseGeometry.__slots__
     _a_cls: ClassVar[dict[str, Any]] = {}
 
@@ -172,11 +176,11 @@ class AnnotatedGeometry(geometry.base.BaseGeometry):
     ) -> None:
         # Get annotation_class from args and kwargs. We do this because the __new__ method takes different (kw)args
         a_cls = next((arg for arg in args if isinstance(arg, AnnotationClass)), kwargs.get("a_cls", None))
-        self._a_cls[id(self)] = a_cls
+        self._a_cls[str(id(self))] = a_cls
 
     @property
     def annotation_class(self) -> AnnotationClass:
-        return cast(AnnotationClass, self._a_cls[id(self)])
+        return cast(AnnotationClass, self._a_cls[str(id(self))])
 
     @property
     def annotation_type(self) -> AnnotationType | str:
@@ -195,8 +199,8 @@ class AnnotatedGeometry(geometry.base.BaseGeometry):
         return self.annotation_class.z_index
 
     def __del__(self) -> None:
-        if id(self) in self._a_cls:
-            del self._a_cls[id(self)]
+        if str(id(self)) in self._a_cls:
+            del self._a_cls[str(id(self))]
 
     def __str__(self) -> str:
         return f"{self.annotation_class}, {self.wkt}"
@@ -206,7 +210,6 @@ class AnnotatedGeometry(geometry.base.BaseGeometry):
         if not geometry_equal:
             return False
 
-        # TODO: Check evaluation with ShapelyPolygon / ShapelyPoint. Does it evaluate to True?
         if not isinstance(other, type(self)):
             return False
 
@@ -214,34 +217,32 @@ class AnnotatedGeometry(geometry.base.BaseGeometry):
             return False
         return True
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: Any) -> None:
         raise TypeError(f"unsupported operand type(s) for +=: {type(self)} and {type(other)}")
-    
-    def __isub__(self, other):
+
+    def __isub__(self, other: Any) -> None:
         raise TypeError(f"unsupported operand type(s) for -=: {type(self)} and {type(other)}")
 
 
-class Point(ShapelyPoint, AnnotatedGeometry):
+class Point(ShapelyPoint, AnnotatedGeometry):  # type: ignore[misc]
     __slots__ = ShapelyPoint.__slots__
 
-    def __new__(
-        cls, coord: ShapelyPoint | tuple[float, float], a_cls: AnnotationClass = None
-    ) -> "Point":
+    def __new__(cls, coord: ShapelyPoint | tuple[float, float], a_cls: Optional[AnnotationClass] = None) -> "Point":
         point = super().__new__(cls, coord)
         point.__class__ = cls
         return cast("Point", point)
 
-    def __reduce__(self):  # type: ignore
-        return (self.__class__, (self.xy, self.annotation_class))
+    def __reduce__(self) -> tuple[type, tuple[tuple[float, float], Optional[AnnotationClass]]]:
+        return (self.__class__, ((self.x, self.y), self.annotation_class))
 
 
-class Polygon(ShapelyPolygon, AnnotatedGeometry):
+class Polygon(ShapelyPolygon, AnnotatedGeometry):  # type: ignore[misc]
     __slots__ = ShapelyPolygon.__slots__
 
     def __new__(
         cls,
         shell: Union[tuple[float, float], ShapelyPolygon],
-        holes: Optional[list[list[float, float]]] = None,
+        holes: Optional[list[list[list[float]]] | list[npt.NDArray[np.float_]]] = None,
         a_cls: Optional[AnnotationClass] = None,
     ) -> "Polygon":
         instance = super().__new__(cls, shell, holes)
@@ -249,14 +250,15 @@ class Polygon(ShapelyPolygon, AnnotatedGeometry):
         return cast("Polygon", instance)
 
     def intersect_with_box(
-        self, other: ShapelyPolygon,
+        self,
+        other: ShapelyPolygon,
     ) -> Optional[list["Polygon"]]:
         result = make_valid(self).intersection(other)
         if self.area > 0 and result.area == 0:
             return None
 
         # Verify if this box is still a box. Create annotation_type to polygon if that is not the case
-        if self.annotation_type == AnnotationType.BOX and not _is_rectangle(result)[0]:
+        if self.annotation_type == AnnotationType.BOX and not _is_rectangle(result):
             annotation_class = replace(self.annotation_class, annotation_type=AnnotationType.POLYGON)
         else:
             annotation_class = self.annotation_class
@@ -268,15 +270,19 @@ class Polygon(ShapelyPolygon, AnnotatedGeometry):
         else:
             raise NotImplementedError(f"{type(result)}")
 
-    def __reduce__(self):  # type: ignore
+    def __reduce__(
+        self,
+    ) -> tuple[type, tuple[list[tuple[float, float]], list[list[tuple[float, float]]], Optional[AnnotationClass]]]:
         return (
             self.__class__,
             (self.exterior.coords[:], [ring.coords[:] for ring in self.interiors], self.annotation_class),
         )
 
+
 class CoordinatesDict(TypedDict):
     type: str
-    coordinates: list[list[list[float]]]
+    coordinates: list[list[list[float]]] | list[list[tuple[float, float]]]
+
 
 def shape(
     coordinates: CoordinatesDict,
@@ -304,7 +310,7 @@ def shape(
         # TODO: Give every polygon in multipolygon their own annotation_class / annotation_type
         annotation_type = (
             AnnotationType.BOX
-            if geom_type == "polygon" and _is_rectangle(Polygon(_coordinates[0]))[0]
+            if geom_type == "polygon" and _is_rectangle(Polygon(_coordinates[0]))
             else AnnotationType.POLYGON
         )
         annotation_class = AnnotationClass(label=label, annotation_type=annotation_type, color=color, z_index=z_index)
@@ -364,7 +370,7 @@ class WsiAnnotations:
         layers: list[Point | Polygon],
         tags: Optional[list[AnnotationClass]] = None,
         offset_to_slide_bounds: bool = False,
-        sorting: AnnotationSorting = AnnotationSorting.NONE
+        sorting: AnnotationSorting | str = AnnotationSorting.NONE,
     ):
         """
         Parameters
@@ -387,17 +393,11 @@ class WsiAnnotations:
         self._offset_to_slide_bounds = offset_to_slide_bounds
         self._sorting = sorting
         self._sort_layers_in_place()
-        # TODO: This can be done in one line, but this will make the tests fail
-        # self._available_classes: list[AnnotationClass] = list(set(layer.annotation_class for layer in self._layers))
-        self._available_classes: list[AnnotationClass] = []
-        for layer in layers:
-            if layer.annotation_class in self._available_classes:
-                continue
-            self._available_classes.append(layer.annotation_class)
+        self._available_classes: set[AnnotationClass] = {layer.annotation_class for layer in self._layers}
         self._str_tree = STRtree(self._layers)
 
     @property
-    def available_classes(self) -> list[AnnotationClass]:
+    def available_classes(self) -> set[AnnotationClass]:
         return self._available_classes
 
     @property
@@ -417,7 +417,7 @@ class WsiAnnotations:
         return self._offset_to_slide_bounds
 
     @property
-    def sorting(self) -> bool:
+    def sorting(self) -> AnnotationSorting | str:
         return self._sorting
 
     def filter(self, labels: str | list[str] | tuple[str]) -> None:
@@ -434,16 +434,9 @@ class WsiAnnotations:
         -------
         None
         """
-        new_available_classes: list[AnnotationClass] = []
-        new_layers: list[Point | Polygon] = []
         _labels = [labels] if isinstance(labels, str) else labels
-        for layer in self._layers:
-            if layer.label in _labels:
-                new_available_classes += [layer.annotation_class]
-                new_layers += [layer]
-
-        self._available_classes = new_available_classes
-        self._layers = new_layers
+        self._layers = [layer for layer in self._layers if layer.label in _labels]
+        self._available_classes = {layer.annotation_class for layer in self._layers}
         self._str_tree = STRtree(self._layers)
 
     @property
@@ -551,7 +544,7 @@ class WsiAnnotations:
         cls,
         asap_xml: PathLike,
         scaling: float | None = None,
-        sorting: AnnotationSorting = AnnotationSorting.AREA,
+        sorting: AnnotationSorting | str = AnnotationSorting.AREA,
     ) -> WsiAnnotations:
         """
         Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
@@ -625,7 +618,10 @@ class WsiAnnotations:
 
     @classmethod
     def from_halo_xml(
-        cls, halo_xml: PathLike, scaling: float | None = None, sorting: AnnotationSorting = AnnotationSorting.NONE
+        cls,
+        halo_xml: PathLike,
+        scaling: float | None = None,
+        sorting: AnnotationSorting | str = AnnotationSorting.NONE,
     ) -> WsiAnnotations:
         """
         Read annotations as a Halo [1] XML file.
@@ -961,27 +957,25 @@ class WsiAnnotations:
 
             self._layers += other
             for item in other:
-                if item.annotation_class not in self:
-                    self._available_classes.append(item.annotation_class)
+                self._available_classes.add(item.annotation_class)
         elif isinstance(other, WsiAnnotations):
             if self.sorting != other.sorting or self.offset_to_slide_bounds != other.offset_to_slide_bounds:
                 raise ValueError("")
             self._layers += other._layers
 
-            if self.tags is None:
+            if self._tags is None:
                 self._tags = other._tags
-            elif other.tags is not None:
+            elif other._tags is not None:
+                assert self
                 self._tags += other._tags
 
-            for available_class in other.available_classes:
-                if available_class not in self:
-                    self._available_classes.append(available_class)
+            self._available_classes.update(other.available_classes)
         else:
             return NotImplemented
         self._sort_layers_in_place()
         self._str_tree = STRtree(self._layers)
         return self
-    
+
     def __radd__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
         # in-place addition (+=) of Point and Polygon will raise a TypeError
         if not isinstance(other, (WsiAnnotations, Point, Polygon)):
