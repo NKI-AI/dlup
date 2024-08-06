@@ -2,17 +2,17 @@
 """The setup script."""
 
 import ast
-from typing import Any
+from typing import Any, List
 
-from Cython.Build import cythonize  # type: ignore
-from setuptools import Extension, find_packages, setup  # type: ignore
+from skbuild import setup
+from Cython.Build import cythonize
+from setuptools import Extension
 
 with open("dlup/__init__.py") as f:
     for line in f:
         if line.startswith("__version__"):
-            version = ast.parse(line).body[0].value.s  # type: ignore
+            version = ast.parse(line).body[0].value.s
             break
-
 
 # Get the long description from the README file
 with open("README.md") as f:
@@ -42,7 +42,6 @@ class NumpyImportDefer:
 
 numpy = NumpyImportDefer()
 
-
 extension = Extension(
     name="dlup._background",
     sources=["dlup/_background.pyx"],
@@ -51,48 +50,25 @@ extension = Extension(
     extra_link_args=["-O3"],
 )
 
-libtiff_tiff_writer_extension = Extension(
-    name="dlup._libtiff_tiff_writer",
-    sources=["src/libtiff_tiff_writer.cpp"],
-    include_dirs=[],
-    extra_compile_args=["-std=c++17", "-O3", "-march=native", "-ffast-math"],
-    extra_link_args=["-O3"],
-)
 
-
-def get_ext_modules() -> list[Extension]:
-    extensions = cythonize([extension], compiler_directives={"language_level": "3"})
-    try:
-        import pybind11
-
-        libtiff_tiff_writer_extension.include_dirs.append(pybind11.get_include())
-        extensions.append(libtiff_tiff_writer_extension)
-    except ImportError:
-        print("Warning: pybind11 not found. Skipping libtiff_tiff_writer_extension.")
-    return extensions
+def get_ext_modules() -> List[Extension]:
+    return cythonize([extension], compiler_directives={"language_level": "3"})
 
 
 setup(
+    name="dlup",
+    version=version,
     author="Jonas Teuwen",
     author_email="j.teuwen@nki.nl",
+    description="A package for digital pathology image analysis",
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
+    url="https://github.com/NKI-AI/dlup",
+    packages=["dlup"],
+    cmake_install_dir="dlup",
+    cmake_with_sdist=True,
+    cmake_languages=("C", "CXX"),
     python_requires=">=3.10",
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: Apache Software License",
-        "Natural Language :: English",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-    ],
-    entry_points={
-        "console_scripts": [
-            "dlup=dlup.cli:main",
-        ],
-    },
-    setup_requires=["Cython>=0.29", "pybind11>=2.8.0"],
     install_requires=install_requires,
     extras_require={
         "dev": [
@@ -111,16 +87,22 @@ setup(
         ],
         "darwin": ["darwin-py>=0.8.59"],
     },
-    license="Apache Software License 2.0",
-    include_package_data=True,
-    keywords="dlup",
-    name="dlup",
-    packages=find_packages(include=["dlup", "dlup.*"]),
-    url="https://github.com/NKI-AI/dlup",
-    version=version,
     ext_modules=get_ext_modules(),
-    include_dirs=[
-        numpy.get_include(),
+    include_package_data=True,
+    license="Apache Software License 2.0",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache Software License",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
-    zip_safe=False,
+    keywords="dlup",
+    entry_points={
+        "console_scripts": [
+            "dlup=dlup.cli:main",
+        ],
+    },
 )
