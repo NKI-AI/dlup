@@ -1,4 +1,5 @@
 name: Pylint
+
 on:
   push:
     branches:
@@ -9,22 +10,37 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Install minimal dependencies
-      run: |
-        sudo apt install -y libopenslide0 libgeos-dev libtiff5-dev
-    - uses: actions/checkout@v4
+    - name: Check out repository
+      uses: actions/checkout@v4
+
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
-    - name: Install dependencies
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libopenslide0 libgeos-dev libtiff5-dev
+
+    - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install pylint cython pybind11
+        python -m pip install setuptools wheel
+        python -m pip install Cython pybind11
+
+    - name: Install package
+      run: |
         python -m pip install -e .
-        python -m pip install pyhaloxml
-        python -m pip install darwin-py
+
+    - name: Install additional dependencies
+      run: |
+        python -m pip install pylint pyhaloxml darwin-py
+
+    - name: Build extensions
+      run: |
         python setup.py build_ext --inplace
+
     - name: Analysing the code with pylint
       run: |
         pylint dlup --errors-only
