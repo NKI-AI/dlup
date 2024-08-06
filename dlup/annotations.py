@@ -175,7 +175,9 @@ def _get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], D
             raise RuntimeError("Expected A-channel of color to be 1.0")
         rgb_colors = (int(color[0]), int(color[1]), int(color[2]))
 
-        output[label] = DarwinV7Metadata(label=label, color=rgb_colors, annotation_type=annotation_type)
+        output[(label, annotation_type.value)] = DarwinV7Metadata(
+            label=label, color=rgb_colors, annotation_type=annotation_type
+        )
     return output
 
 
@@ -757,7 +759,7 @@ class WsiAnnotations:
             if annotation_type == AnnotationType.RASTER:
                 raise NotImplementedError("Raster annotations are not supported.")
 
-            annotation_color = v7_metadata[name].color if v7_metadata else None
+            annotation_color = v7_metadata[(name, annotation_type.value)].color if v7_metadata else None
 
             if annotation_type == AnnotationType.TAG:
                 tags.append(
@@ -785,6 +787,7 @@ class WsiAnnotations:
 
                 elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
                     curr_complex_polygon = _parse_darwin_complex_polygon(curr_data)
+                    print(f"COMPLEX DARWIN: with type {darwin_annotation_type}")
                     for polygon in curr_complex_polygon.geoms:
                         layers.append(Polygon(polygon, a_cls=_cls))
                 else:
