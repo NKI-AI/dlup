@@ -2,8 +2,8 @@
 """The setup script."""
 
 import ast
-from typing import Any
 
+import numpy
 from Cython.Build import cythonize  # type: ignore
 from setuptools import Extension  # type: ignore
 from skbuild import setup
@@ -32,15 +32,6 @@ install_requires = [
     "pybind11>=2.8.0",
 ]
 
-
-class NumpyImportDefer:
-    def __getattr__(self, attr: Any) -> Any:
-        import numpy
-
-        return getattr(numpy, attr)
-
-
-numpy = NumpyImportDefer()
 
 extension = Extension(
     name="dlup._background",
