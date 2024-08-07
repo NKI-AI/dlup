@@ -5,61 +5,53 @@ on:
     branches:
       - main
   pull_request:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11"]
-
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libopenslide0 libgeos-dev libvips42 libtiff5-dev pkg-config cmake ninja-build
-
-    - name: Cache pip
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py', '**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install tox tox-gh-actions
-
-    - name: Install build dependencies
-      run: |
-        pip install setuptools wheel scikit-build cmake ninja Cython numpy==1.26.4 pybind11
-
-    - name: Install project dependencies
-      run: |
-        pip install -e .[dev]
-
-    - name: Build package
-      run: |
-        python setup.py build_ext --inplace -- -DCMAKE_VERBOSE_MAKEFILE=ON
-        pip install -e .
-
-    - name: Run tests with tox
-      run: tox -vv
-
-    - name: Upload test results
-      uses: actions/upload-artifact@v3
-      if: failure()
-      with:
-        name: test-results
-        path: |
-          .tox/**/*.log
-          _skbuild/**/*.log
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y meson libgl1-mesa-glx libcairo2-dev libgdk-pixbuf2.0-dev libglib2.0-dev libjpeg-dev libpng-dev libtiff5-dev libxml2-dev libopenjp2-7-dev libsqlite3-dev zlib1g-dev libzstd-dev
+          sudo apt install -y libfftw3-dev libexpat1-dev libgsf-1-dev liborc-0.4-dev
+          python -m pip install scikit-build cmake ninja Cython pybind11 numpy==1.26.4
+      - name: Build and install OpenSlide
+        run: |
+          cd /tmp
+          git clone https://github.com/openslide/openslide.git
+          cd openslide
+          meson setup builddir
+          meson compile -C builddir
+          sudo meson install -C builddir
+      - name: Build and install libvips
+        run: |
+          cd /tmp
+          git clone https://github.com/libvips/libvips.git
+          cd libvips
+          meson setup builddir --prefix=/usr/local
+          meson compile -C builddir
+          sudo meson install -C builddir
+          sudo ldconfig
+      - name: Get pybind11 CMake path
+        id: get-pybind11-path
+        run: |
+          python -m pip install pybind11
+          echo "PYBIND11_CMAKE_PATH=$(python -c 'import pybind11; import os; print(os.path.join(pybind11.get_cmake_dir(), "pybind11Config.cmake"))')" >> $GITHUB_ENV
+      - name: Set CMAKE_PREFIX_PATH for pybind11
+        run: |
+          echo "CMAKE_PREFIX_PATH=$(dirname ${PYBIND11_CMAKE_PATH})" >> $GITHUB_ENV
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox tox-gh-actions
+          pip install -e .
+      - name: Test with tox
+        run: tox

@@ -26,7 +26,7 @@ install_requires = [
     "tqdm>=2.66.4",
     "pillow>=10.3.0",
     "openslide-python>=1.3.1",
-    "opencv-python>=4.9.0.80",
+    "opencv-python-headless>=4.9.0.80",
     "shapely>=2.0.4",
     "packaging>=24.0",
     "pybind11>=2.8.0",
@@ -59,6 +59,12 @@ setup(
     cmake_install_dir="dlup",
     cmake_with_sdist=True,
     cmake_languages=("C", "CXX"),
+    cmake_args=[
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_C_FLAGS=-O3 -march=native -mtune=native",
+        "-DCMAKE_CXX_FLAGS=-O3 -march=native -mtune=native",
+        "-DPYBIND11_FINDPYTHON=ON",
+    ],
     python_requires=">=3.10",
     install_requires=install_requires,
     extras_require={

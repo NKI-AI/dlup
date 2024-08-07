@@ -65,7 +65,7 @@ def get_sample_nonuniform_image(size: tuple[int, int] = (256, 256), divisions: i
     cell_height = height // y_divisions
 
     # Create an array to store the image
-    image_array = np.zeros((height, width, 4), dtype=np.uint8)
+    image_array = np.zeros((height, width, 4), dtype=float)
 
     # Define a set of distinct colors
     color_palette = [
@@ -105,4 +105,4 @@ def get_sample_nonuniform_image(size: tuple[int, int] = (256, 256), divisions: i
     for k in range(3):  # Apply only to RGB channels, not alpha
         image_array[:, :, k] = image_array[:, :, k] * sine_wave
 
-    return pyvips.Image.new_from_array(image_array)
+    return pyvips.Image.new_from_array(image_array.astype(np.uint8))
