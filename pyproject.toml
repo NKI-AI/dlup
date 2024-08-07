@@ -54,7 +54,7 @@ requires = [
     "numpy==1.26.4",
     "pybind11>=2.8.0"
     "wheel>=0.44",
-    "pyproject_api>=1.7.1",
+    "pyproject_api>=1.7.1"
 ]
 build-backend = "setuptools.build_meta"
 
