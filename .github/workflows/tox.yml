@@ -48,3 +48,8 @@ jobs:
         meson setup builddir
         meson compile -C builddir
         python -m pip install -e .
+        pip install tox
+    - name: Run tox
+      run: |
+        tox
+        
