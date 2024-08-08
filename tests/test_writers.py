@@ -1,9 +1,7 @@
 # Copyright (c) dlup contributors
 import tempfile
-import warnings
 
 import numpy as np
-import openslide
 import pytest
 import pyvips
 from PIL import Image, ImageColor
@@ -65,9 +63,7 @@ class TestTiffWriter:
 
             # TODO, let's make a test like this with a mockup too
             # Let's force it to open with openslide
-            with PyVipsSlide(temp_tiff.name) as slide0, PyVipsSlide(
-                temp_tiff.name, load_with_openslide=True
-            ) as slide1:
+            with PyVipsSlide(temp_tiff.name) as slide0, PyVipsSlide(temp_tiff.name, load_with_openslide=True) as slide1:
                 assert slide0._loader == "tiffload"
                 assert slide1._loader == "openslideload"
 

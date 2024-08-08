@@ -483,9 +483,7 @@ def shape(
         raise AnnotationError("z_index is not supported for point annotations.")
 
     if geom_type == "point":
-        annotation_class = AnnotationClass(
-            label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None
-        )
+        annotation_class = AnnotationClass(label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None)
         return [
             Point(
                 np.asarray(coordinates["coordinates"]),
@@ -493,9 +491,7 @@ def shape(
             )
         ]
     if geom_type == "multipoint":
-        annotation_class = AnnotationClass(
-            label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None
-        )
+        annotation_class = AnnotationClass(label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None)
         return [Point(np.asarray(c), a_cls=annotation_class) for c in coordinates["coordinates"]]
 
     if geom_type == "polygon":
@@ -956,9 +952,7 @@ class WsiAnnotations:
             z_index = None if annotation_type == AnnotationType.POINT or z_indices is None else z_indices[name]
             curr_data = curr_annotation.data
 
-            _cls = AnnotationClass(
-                label=name, annotation_type=annotation_type, color=annotation_color, z_index=z_index
-            )
+            _cls = AnnotationClass(label=name, annotation_type=annotation_type, color=annotation_color, z_index=z_index)
             if annotation_type == AnnotationType.POINT:
                 curr_point = Point((curr_data["x"], curr_data["y"]), a_cls=_cls)
                 layers.append(curr_point)

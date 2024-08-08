@@ -59,9 +59,7 @@ class TestComputeMaskedIndices:
         # Let's make a shapely polygon thats equal to
         # background_mask[14:20, 10:20] = True
         # background_mask[85:100, 50:80] = True
-        polygon0 = Polygon(
-            box(100, 140, 200, 200), AnnotationClass(annotation_type=AnnotationType.POLYGON, label="bg")
-        )
+        polygon0 = Polygon(box(100, 140, 200, 200), AnnotationClass(annotation_type=AnnotationType.POLYGON, label="bg"))
         polygon1 = Polygon(
             box(500, 850, 800, 1000), AnnotationClass(annotation_type=AnnotationType.POLYGON, label="bg")
         )

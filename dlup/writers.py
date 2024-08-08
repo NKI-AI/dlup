@@ -272,9 +272,7 @@ class TifffileImageWriter(ImageWriter):
         n_subresolutions = 0
         if self._pyramid:
             n_subresolutions = int(np.ceil(np.log2(np.asarray(native_size) / np.asarray(self._tile_size))).min())
-        shapes = [
-            np.floor(np.asarray(native_size) / 2**n).astype(int).tolist() for n in range(0, n_subresolutions + 1)
-        ]
+        shapes = [np.floor(np.asarray(native_size) / 2**n).astype(int).tolist() for n in range(0, n_subresolutions + 1)]
 
         # TODO: add to metadata "axes": "TCYXS", and "SignificantBits": 10,
         metadata = {

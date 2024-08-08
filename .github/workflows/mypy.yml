@@ -21,19 +21,11 @@ jobs:
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
         export PATH="$HOME/.cargo/bin:$PATH"
         rustup toolchain install stable
-    - name: Get pybind11 CMake path
-      id: get-pybind11-path
-      run: |
-        python -m pip install pybind11
-        echo "PYBIND11_CMAKE_PATH=$(python -c 'import pybind11; import os; print(os.path.join(pybind11.get_cmake_dir(), "pybind11Config.cmake"))')" >> $GITHUB_ENV
-    - name: Set CMAKE_PREFIX_PATH for pybind11
-      run: |
-        echo "CMAKE_PREFIX_PATH=$(dirname ${PYBIND11_CMAKE_PATH})" >> $GITHUB_ENV
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install mypy numpy==1.26.4 Cython pybind11 scikit-build
-        python setup.py build_ext --inplace
+        python -m pip install mypy numpy==1.26.4 Cython pybind11 spin meson
+        spin build
         python -m pip install -e ".[dev]"
         python -m pip install pyhaloxml
         python -m pip install darwin-py

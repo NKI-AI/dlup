@@ -1,65 +1,125 @@
-# Example configuration for Black, edited for DLUP.
+[build-system]
+build-backend = "mesonpy"
+requires = [
+    "meson-python>=0.15.0",
+    "Cython>=0.29",
+    "numpy==1.26.4",
+    "pybind11",
+]
 
-# NOTE: you have to use single-quoted strings in TOML for regular expressions.
-# It's the equivalent of r-strings in Python.  Multiline strings are treated as
-# verbose regular expressions by Black.  Use [ ] to denote a significant space
-# character.
+[project]
+name = "dlup"
+dynamic = ["version"]
+description = "A package for digital pathology image analysis"
+authors = [{name = "Jonas Teuwen", email = "j.teuwen@nki.nl"}]
+maintainers = [
+    {name = "DLUP Developers", email="j.teuwen@nki.nl"},
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy==1.26.4",
+    "tifftools>=1.5.2",
+    "tifffile>=2024.7.2",
+    "pyvips>=2.2.3",
+    "tqdm>=2.66.4",
+    "pillow>=10.3.0",
+    "openslide-python>=1.3.1",
+    "opencv-python-headless>=4.9.0.80",
+    "shapely>=2.0.4",
+    "packaging>=24.0",
+    "pybind11>=2.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "psutil",
+    "pytest>=8.2.1",
+    "mypy>=1.10.0",
+    "pytest-mock>=3.14.0",
+    "sphinx_copybutton>=0.5.2",
+    "numpydoc>=1.7.0",
+    "myst_parser>=3.0.1",
+    "sphinx-book-theme>=1.1.2",
+    "pylint>=3.2.2",
+    "pydantic>=2.7.2",
+    "types-Pillow>=10.2.0",
+    "darwin-py>=0.8.62",
+]
+darwin = ["darwin-py>=0.8.59"]
+
+[project.urls]
+Homepage = "https://github.com/NKI-AI/dlup"
+Documentation = "https://docs.aiforoncology.nl/dlup/"
+Source = "https://github.com/NKI-AI/dlup"
+"Bug Tracker" = "https://github.com/NKI-AI/dlup/issues"
+
+[tool.spin]
+package = 'dlup'
+
+[tool.spin.commands]
+"Build" = [
+  ".spin/cmds.py:build",
+  ".spin/cmds.py:test",
+  ".spin/cmds.py:mypy",
+  ".spin/cmds.py:lint",
+]
+"Environments" = [
+  "spin.cmds.meson.run",
+  ".spin/cmds.py:ipython",
+  ".spin/cmds.py:python",
+]
+"Documentation" = [
+  ".spin/cmds.py:docs",
+  ".spin/cmds.py:changelog",
+]
 
 [tool.black]
-line-length = 119 # PyCharm line length
-target-version = ['py38', 'py39']
+line-length = 120
+target-version = ['py310', 'py311']
 include = '\.pyi?$'
 exclude = '''
 /(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | \.idea
-  | _build
-  | buck-out
-  | build
-  | dist
+ \.eggs
+ | \.git
+ | \.hg
+ | \.mypy_cache
+ | \.tox
+ | \.venv
+ | \.idea
+ | _build
+ | buck-out
+ | build
+ | dist
 )/
 '''
 
 [tool.isort]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 119
+profile = "black"
+line_length = 120
 
 [tool.pylint.format]
 max-line-length = "120"
 
 [tool.pylint.'TYPECHECK']
-generated-members=['numpy.*', 'torch.*', 'np.*', 'cv2.*', 'openslide.*']
+generated-members = ['numpy.*', 'torch.*', 'np.*', 'cv2.*', 'openslide.*']
 
 [tool.pylint.master]
 extension-pkg-whitelist = ["dlup._background"]
 ignore-patterns = '.*\.pyi'
 
-[build-system]
-requires = [
-    "setuptools>=72.1.0",
-    "wheel",
-    "scikit-build>=0.13",
-    "cmake>=3.18",
-    "ninja",
-    "Cython>=0.29",
-    "numpy==1.26.4",
-    "pybind11>=2.8.0",
-    "wheel>=0.44",
-    "pyproject_api>=1.7.1"
-]
-build-backend = "setuptools.build_meta"
-
 [tool.cython-lint]
 max-line-length = 120
-
-[tool.pytest.ini_options]
-norecursedirs = ["_skbuild"]
