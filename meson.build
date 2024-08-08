@@ -36,12 +36,14 @@ incdir_numpy = include_directories(numpy_include)
 incdir_pybind11 = include_directories(pybind11_include)
 
 install_dir = py.get_install_dir(pure: false)
-
+install_data('README.md', install_dir : install_dir)
+install_data('LICENSE', install_dir : install_dir)
+install_subdir('dlup', install_dir : install_dir)
 
 _background = py.extension_module('_background',
                                   'dlup/_background.pyx',
                                   include_directories : [incdir_numpy],
-                                  subdir : '../../../' / 'dlup',
+                                  subdir : 'dlup',
                                   install: true,
                                   cpp_args : ['-O3', '-march=native', '-ffast-math'])
 
@@ -50,6 +52,7 @@ _libtiff_tiff_writer = py.extension_module('_libtiff_tiff_writer',
                                            'src/libtiff_tiff_writer.cpp',
                                            include_directories : [incdir_pybind11],
                                            install : true,
-                                           subdir : '../../../' / 'dlup',
+                                           subdir : 'dlup',
                                            cpp_args: ['-std=c++17', '-O3', '-march=native', '-ffast-math'],
                                            dependencies : [libtiff_dep])
+
