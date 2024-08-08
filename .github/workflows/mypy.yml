@@ -47,9 +47,8 @@ jobs:
       run: |
         meson setup builddir
         meson compile -C builddir
-        python -m pip install
-        python -m pip install -e .
         python -m pip install mypy
+        python -m pip install -e .
     - name: Run mypy
       run: |
         mypy .
