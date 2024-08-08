@@ -24,7 +24,7 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install mypy numpy==1.26.4 Cython pybind11 spin meson
+        python -m pip install mypy numpy==1.26.4 Cython pybind11 spin meson ninja
         meson setup builddir
         meson compile -C builddir
         python -m pip install -e ".[dev]"
