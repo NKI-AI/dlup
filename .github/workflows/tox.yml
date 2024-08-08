@@ -45,4 +45,6 @@ jobs:
         python -m pip install pylint pyhaloxml darwin-py
     - name: Install package
       run: |
+        meson setup builddir
+        meson compile -C builddir
         python -m pip install -e .
