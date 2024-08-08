@@ -35,11 +35,14 @@ print(os.path.relpath(pybind11.get_include(), os.getcwd()))
 incdir_numpy = include_directories(numpy_include)
 incdir_pybind11 = include_directories(pybind11_include)
 
+install_dir = py.get_install_dir(pure: false)
+
+
 _background = py.extension_module('_background',
                                   'dlup/_background.pyx',
                                   include_directories : [incdir_numpy],
-                                  install : true,
-                                  install_dir : 'join_paths(meson.current_source_dir(), 'dlup')',
+                                  subdir : '../../../' / 'dlup',
+                                  install: true,
                                   cpp_args : ['-O3', '-march=native', '-ffast-math'])
 
 # pybind11 extension
@@ -47,18 +50,6 @@ _libtiff_tiff_writer = py.extension_module('_libtiff_tiff_writer',
                                            'src/libtiff_tiff_writer.cpp',
                                            include_directories : [incdir_pybind11],
                                            install : true,
+                                           subdir : '../../../' / 'dlup',
                                            cpp_args: ['-std=c++17', '-O3', '-march=native', '-ffast-math'],
-                                           install_dir : join_paths(meson.current_source_dir(), 'dlup'),
                                            dependencies : [libtiff_dep])
-
-
-python_sources = [
-    'dlup/__init__.py',
-    # Add other Python files in the dlup directory
-]
-
-py.install_sources(
-    python_sources,
-    pure : false,
-    subdir : 'dlup'
-)

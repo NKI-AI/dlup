@@ -39,8 +39,8 @@ jobs:
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
+        python -m pip install pyvips --use-pep517
         python -m pip install ninja Cython pybind11 numpy meson pyhaloxml darwin-py
     - name: Install package
       run: |
         spin build
-        pip install -e .
