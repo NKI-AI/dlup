@@ -25,7 +25,8 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install mypy numpy==1.26.4 Cython pybind11 spin meson
-        spin build
+        meson setup builddir
+        meson compile -C builddir
         python -m pip install -e ".[dev]"
         python -m pip install pyhaloxml
         python -m pip install darwin-py
