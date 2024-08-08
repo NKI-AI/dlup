@@ -42,7 +42,7 @@ jobs:
         python -m pip install ninja Cython pybind11 numpy meson
     - name: Install additional dependencies
       run: |
-        python -m pip install pylint pyhaloxml darwin-py
+        python -m pip install pylint pyhaloxml darwin-py ninja
     - name: Install package
       run: |
         meson setup builddir
