@@ -10,7 +10,6 @@ import openslide
 import pyvips
 from packaging.version import Version
 
-from dlup import UnsupportedSlideError
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import PathLike
 from dlup.utils.image import check_if_mpp_is_valid
@@ -97,18 +96,7 @@ class PyVipsSlide(AbstractSlideBackend):
 
         for level in range(0, self._level_count):
             image = self._get_image(level)
-            openslide_shape = (
-                int(image.get(f"openslide.level[{level}].width")),
-                int(image.get(f"openslide.level[{level}].height")),
-            )
-            pyvips_shape = (image.width, image.height)
-            if not openslide_shape == pyvips_shape:
-                raise UnsupportedSlideError(
-                    f"Reading {path} failed as openslide metadata reports different shapes than pyvips. "
-                    f"Got {openslide_shape} and {pyvips_shape}."
-                )
-
-            self._shapes.append(pyvips_shape)
+            self._shapes.append((image.width, image.height))
             self._downsamples.append(float(image.get(f"openslide.level[{level}].downsample")))
 
         mpp_x, mpp_y = None, None

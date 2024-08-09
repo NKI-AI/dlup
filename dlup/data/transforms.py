@@ -1,4 +1,5 @@
 # Copyright (c) dlup contributors
+"""This module contains the transforms which can be applied to the output of a Dataset class"""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -104,7 +105,7 @@ def convert_annotations(
 
         original_values = None
         interiors = [np.asarray(pi.coords).round().astype(np.int32) for pi in curr_annotation.interiors]
-        if interiors is not []:
+        if interiors != []:
             original_values = mask.copy()
             holes_mask = np.zeros(region_size, dtype=np.int32)
             # Get a mask where the holes are

@@ -24,11 +24,11 @@ import PIL.ImageCms
 import pyvips
 from pyvips.enums import Kernel as VipsKernel
 
-from dlup import UnsupportedSlideError
+from dlup._exceptions import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
-from dlup.backends import ImageBackend
 from dlup.backends.common import AbstractSlideBackend
 from dlup.types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
+from dlup.utils.backends import ImageBackend
 from dlup.utils.image import check_if_mpp_is_valid
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
@@ -255,21 +255,6 @@ class SlideImage:
         """
         return getattr(self._wsi, "color_profile", None)
 
-    @property
-    def _pil_color_transform(self) -> PIL.ImageCms.ImageCmsTransform | None:
-        if self.color_profile is None:
-            return None
-
-        color_profile = PIL.ImageCms.getOpenProfile(self.color_profile)  # type: ignore
-
-        if self.__color_transforms is None:
-            to_profile = PIL.ImageCms.createProfile("sRGB")
-            intent = PIL.ImageCms.getDefaultIntent(color_profile)  # type: ignore
-            self.__color_transform = PIL.ImageCms.buildTransform(
-                self.color_profile, to_profile, self._wsi.mode, self._wsi.mode, intent, 0
-            )
-        return self.__color_transform
-
     def __enter__(self) -> "SlideImage":
         return self
 
@@ -435,8 +420,8 @@ class SlideImage:
                 box=box,
             )
 
-            if self._apply_color_profile and self._pil_color_transform is not None:
-                PIL.ImageCms.applyTransform(pil_region, self._pil_color_transform, inPlace=True)
+            if self._apply_color_profile:
+                warnings.warn("Applying color profile is not supported with PIL backend.", UserWarning)
 
             return pyvips.Image.new_from_array(np.asarray(pil_region), interpretation=vips_region.interpretation)
 

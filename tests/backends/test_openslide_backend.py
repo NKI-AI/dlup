@@ -7,7 +7,7 @@ import openslide.lowlevel as openslide_lowlevel
 import pytest
 import pyvips
 
-from dlup import UnsupportedSlideError
+from dlup._exceptions import UnsupportedSlideError
 from dlup.backends.openslide_backend import (
     TIFF_PROPERTY_NAME_RESOLUTION_UNIT,
     TIFF_PROPERTY_NAME_X_RESOLUTION,

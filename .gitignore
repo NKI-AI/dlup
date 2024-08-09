@@ -2,6 +2,12 @@
 _background.c
 _background.cpp
 _background.html
+_background.cpython-*-darwin.so
+_libtiff_tiff_writer.cpython-*.so
+
+# Output files
+*.tif
+*.tiff
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -9,7 +15,7 @@ __pycache__/
 *$py.class
 
 # C extensions
-*.so
+_skbuild
 
 # CMake
 CMakeCache.txt
@@ -119,3 +125,4 @@ dlup/preprocessors/tests/data/test_output
 
 # OS files
 .DS_Store
+_background.cpython-311-darwin.so

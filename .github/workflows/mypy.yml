@@ -8,23 +8,47 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: mypy
     steps:
-    -   name: Install minimal dependencies
-        run: |
-            sudo apt install -y libgeos-dev
+    - name: Install build dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y meson libgl1-mesa-glx libcairo2-dev libgdk-pixbuf2.0-dev libglib2.0-dev libjpeg-dev libpng-dev libtiff5-dev libxml2-dev libopenjp2-7-dev libsqlite3-dev zlib1g-dev libzstd-dev
+        sudo apt install -y libfftw3-dev libexpat1-dev libgsf-1-dev liborc-0.4-dev libtiff5-dev
+    - name: Build and install OpenSlide
+      run: |
+        git clone https://github.com/openslide/openslide.git
+        cd openslide
+        meson setup builddir
+        meson compile -C builddir
+        sudo meson install -C builddir
+        cd ..
+    - name: Build and install libvips
+      run: |
+        git clone https://github.com/libvips/libvips.git
+        cd libvips
+        meson setup builddir --prefix=/usr/local
+        meson compile -C builddir
+        sudo meson install -C builddir
+        sudo ldconfig
+        cd ..
     - uses: actions/checkout@v4
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
-    - name: Install Dependencies
+    - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
+        python -m pip install ninja Cython pybind11 numpy meson
+    - name: Install additional dependencies
+      run: |
+        python -m pip install pylint pyhaloxml darwin-py ninja
+    - name: Install package
+      run: |
+        meson setup builddir
+        meson compile -C builddir
         python -m pip install mypy
-        python -m pip install -e ".[dev]"
-        python -m pip install pyhaloxml
-        python -m pip install darwin-py
-    - name: mypy
+        python -m pip install -e .
+    - name: Run mypy
       run: |
         mypy .
