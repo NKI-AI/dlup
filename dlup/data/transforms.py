@@ -1,4 +1,5 @@
 # Copyright (c) dlup contributors
+"""This module contains the transforms which can be applied to the output of a Dataset class"""
 from __future__ import annotations
 
 from collections import defaultdict

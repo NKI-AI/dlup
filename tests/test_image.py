@@ -14,7 +14,8 @@ import openslide
 import pytest
 import pyvips
 
-from dlup import SlideImage, UnsupportedSlideError
+from dlup import SlideImage
+from dlup._exceptions import UnsupportedSlideError
 
 from .backends.test_openslide_backend import SLIDE_CONFIGS, MockOpenSlideSlide, SlideConfig
 

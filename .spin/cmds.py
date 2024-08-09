@@ -1,7 +1,8 @@
 import subprocess
-import click
 import webbrowser
 from pathlib import Path
+
+import click
 
 
 @click.group()

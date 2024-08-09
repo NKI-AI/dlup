@@ -7,8 +7,9 @@ import pyvips
 from PIL import Image, ImageColor
 
 from dlup import SlideImage
-from dlup.backends import ImageBackend, OpenSlideSlide, PyVipsSlide
+from dlup.backends import OpenSlideSlide, PyVipsSlide
 from dlup.backends.pyvips_backend import open_slide as open_pyvips_slide
+from dlup.utils.backends import ImageBackend
 from dlup.writers import LibtiffImageWriter, TiffCompression, TifffileImageWriter, _color_dict_to_color_lut
 
 COLORMAP = {

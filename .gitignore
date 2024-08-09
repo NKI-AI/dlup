@@ -3,6 +3,7 @@ _background.c
 _background.cpp
 _background.html
 _background.cpython-*-darwin.so
+_libtiff_tiff_writer.cpython-*.so
 
 # Output files
 *.tif

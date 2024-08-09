@@ -108,7 +108,7 @@ private:
     std::array<int, 2> tileSize;
     CompressionType compression;
     int quality;
-    int tileCounter;
+    uint32_t tileCounter;
     int numLevels = calculateLevels();
     TIFFPtr tif;
 
@@ -393,7 +393,6 @@ void LibtiffTiffWriter::writeDownsampledResolutionPage(int level) {
     }
 
     auto [prevWidth, prevHeight] = getLevelDimensions(level - 1);
-    auto [currentWidth, currentHeight] = getLevelDimensions(level);
     int channels = imageSize[2];
     auto [tileWidth, tileHeight] = tileSize;
 
