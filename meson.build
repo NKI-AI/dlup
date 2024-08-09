@@ -55,4 +55,3 @@ _libtiff_tiff_writer = py.extension_module('_libtiff_tiff_writer',
                                            subdir : 'dlup',
                                            cpp_args: ['-std=c++17', '-O3', '-march=native', '-ffast-math'],
                                            dependencies : [libtiff_dep])
-

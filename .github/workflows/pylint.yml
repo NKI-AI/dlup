@@ -45,11 +45,8 @@ jobs:
         python -m pip install pylint pyhaloxml darwin-py ninja
     - name: Install package
       run: |
-        meson setup builddir
-        meson compile -C builddir
         python -m pip install pylint
-        python -m pip install -e .
+        python -m pip install .
     - name: Run pylint
       run: |
-        pylint dlup --errors-only .
-  
+        pylint dlup --errors-only
