@@ -3,6 +3,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <unordered_map>
+
 #include <memory>
 #include <vector>
 
@@ -10,69 +11,96 @@ namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 namespace py = pybind11;
 
-typedef bg::model::point<double, 2, bg::cs::cartesian> Point;
-typedef bg::model::polygon<Point> BoostPolygon;
-typedef bg::model::ring<Point> Ring;
+typedef bg::model::point<double, 2, bg::cs::cartesian> BoostPoint;
+typedef bg::model::polygon<BoostPoint> BoostPolygon;
+typedef bg::model::ring<BoostPoint> BoostRing;
 
 class BaseGeometry {
 public:
     virtual ~BaseGeometry() = default;
     std::unordered_map<std::string, py::object> parameters;
 
-    void set_parameter(const std::string& name, py::object value) {
+    void setField(const std::string& name, py::object value) {
         parameters[name] = value;
     }
 
-    py::object get_parameter(const std::string& name) const {
+    py::object getField(const std::string& name) const {
         auto it = parameters.find(name);
         if (it != parameters.end()) {
             return it->second;
         }
         return py::none();
     }
+
+    std::vector<std::string> getFields() const {
+        std::vector<std::string> field_names;
+        for (const auto& param : parameters) {
+            field_names.push_back(param.first);
+        }
+        return field_names;
+    }
 };
 
-class PolygonWrapper : public BaseGeometry {
+class Polygon : public BaseGeometry {
 public:
-public:
-    BoostPolygon polygon;
-    PolygonWrapper() = default;
-    PolygonWrapper(const BoostPolygon& p) : polygon(p) {}
-    PolygonWrapper(const std::vector<std::pair<double, double>>& exterior,
-                   const std::vector<std::vector<std::pair<double, double>>>& interiors = {}) {
+    std::shared_ptr<BoostPolygon> polygon;
+
+    Polygon() : polygon(std::make_shared<BoostPolygon>()) {}
+    Polygon(const BoostPolygon& p) : polygon(std::make_shared<BoostPolygon>(p)) {}
+    Polygon(std::shared_ptr<BoostPolygon> p) : polygon(p) {}
+
+    Polygon(const std::vector<std::pair<double, double>>& exterior,
+                   const std::vector<std::vector<std::pair<double, double>>>& interiors = {})
+        : polygon(std::make_shared<BoostPolygon>()) 
+    {
         set_exterior(exterior);
         set_interiors(interiors);
     }
 
+    static std::shared_ptr<Polygon> fromWkt(const std::string& wkt) {
+        auto p = std::make_shared<Polygon>();
+        bg::read_wkt(wkt, *(p->polygon));
+        return p;
+    }
+
+    std::string toWkt() const {
+        std::stringstream ss;
+        ss << bg::wkt(*polygon);
+        return ss.str();
+    }
+
     void set_exterior(const std::vector<std::pair<double, double>>& coordinates) {
-        bg::exterior_ring(polygon).clear();
+        bg::exterior_ring(*polygon).clear();
         for (const auto& coord : coordinates) {
-            bg::append(polygon, Point(coord.first, coord.second));
+            bg::append(*polygon, BoostPoint(coord.first, coord.second));
         }
         // Close the ring if it's not already closed
         if (coordinates.front() != coordinates.back()) {
-            bg::append(polygon, Point(coordinates.front().first, coordinates.front().second));
+            bg::append(*polygon, BoostPoint(coordinates.front().first, coordinates.front().second));
         }
     }
 
     void set_interiors(const std::vector<std::vector<std::pair<double, double>>>& interiors) {
-        polygon.inners().clear();
-        for (const auto& interior_coords : interiors) {
-            typename BoostPolygon::ring_type inner;
-            for (const auto& coord : interior_coords) {
-                bg::append(inner, Point(coord.first, coord.second));
+        bg::interior_rings(*polygon).clear();
+        polygon->inners().resize(interiors.size());
+        for (size_t i = 0; i < interiors.size(); ++i) {
+            const auto& interior_coords = interiors[i];
+            auto& inner = polygon->inners()[i];
+            inner.clear();
+            // Process the interior ring in reverse order
+            for (auto it = interior_coords.rbegin(); it != interior_coords.rend(); ++it) {
+                bg::append(inner, BoostPoint(it->first, it->second));
             }
             // Close the ring if it's not already closed
             if (interior_coords.front() != interior_coords.back()) {
-                bg::append(inner, Point(interior_coords.front().first, interior_coords.front().second));
+                bg::append(inner, BoostPoint(interior_coords.back().first, interior_coords.back().second));
             }
-            polygon.inners().push_back(inner);
         }
     }
 
     std::vector<std::pair<double, double>> get_exterior() const {
         std::vector<std::pair<double, double>> result;
-        for (const auto& point : bg::exterior_ring(polygon)) {
+        for (const auto& point : bg::exterior_ring(*polygon)) {
             result.emplace_back(bg::get<0>(point), bg::get<1>(point));
         }
         return result;
@@ -80,7 +108,7 @@ public:
 
     std::vector<std::vector<std::pair<double, double>>> get_interiors() const {
         std::vector<std::vector<std::pair<double, double>>> result;
-        for (const auto& inner : polygon.inners()) {
+        for (const auto& inner : polygon->inners()) {
             std::vector<std::pair<double, double>> inner_result;
             for (const auto& point : inner) {
                 inner_result.emplace_back(bg::get<0>(point), bg::get<1>(point));
@@ -91,91 +119,61 @@ public:
     }
 
     double get_area() const {
-        return bg::area(polygon);
+        return bg::area(*polygon);
     }
-    std::string debug_print() const {
-        std::stringstream ss;
-        ss << "Exterior: ";
-        for (const auto& point : bg::exterior_ring(polygon)) {
-            ss << "(" << bg::get<0>(point) << "," << bg::get<1>(point) << ") ";
-        }
-        ss << std::endl;
-
-        ss << "Number of inner rings: " << polygon.inners().size() << std::endl;
-
-        for (size_t i = 0; i < polygon.inners().size(); ++i) {
-            ss << "Interior " << i << ": ";
-            for (const auto& point : polygon.inners()[i]) {
-                ss << "(" << bg::get<0>(point) << "," << bg::get<1>(point) << ") ";
-            }
-            ss << std::endl;
-        }
-
-        double outer_area = bg::area(bg::exterior_ring(polygon));
-        ss << "Outer ring area: " << outer_area << std::endl;
-
-        double inner_area = 0;
-        for (const auto& inner : polygon.inners()) {
-            inner_area += bg::area(inner);
-        }
-        ss << "Total inner rings area: " << inner_area << std::endl;
-
-        ss << "Calculated total area: " << outer_area - inner_area << std::endl;
-        ss << "get_area() result: " << get_area() << std::endl;
-
-        return ss.str();
-    }
-
 };
 
-class PointWrapper : public BaseGeometry {
+class Point : public BaseGeometry {
 public:
-    Point point;
+    BoostPoint point;
 
-    PointWrapper() : point() {}
-    PointWrapper(const Point& p) : point(p) {}
-    PointWrapper(double x, double y) : point(x, y) {}
+    Point() : point() {}
+    Point(const BoostPoint& p) : point(p) {}
+    Point(double x, double y) : point(x, y) {}
 };
 
 class GeometryContainer {
 public:
-    std::vector<std::shared_ptr<PolygonWrapper>> polygons;
-    std::vector<std::shared_ptr<PointWrapper>> points;
+    std::vector<std::shared_ptr<Polygon>> polygons;
+    std::vector<std::shared_ptr<Point>> points;
 
-    void add_polygon(const std::shared_ptr<PolygonWrapper>& p) {
+    void add_polygon(const std::shared_ptr<Polygon>& p) {
         polygons.push_back(p);
     }
 
-    void add_point(const std::shared_ptr<PointWrapper>& p) {
+    void add_point(const std::shared_ptr<Point>& p) {
         points.push_back(p);
     }
 
-    py::object read_region(const Point& coordinates, double scaling, double size) {
-        // Implementation remains the same as before
-        // ...
+    py::object read_region(const BoostPoint& coordinates, double scaling, double size) {
+        // To implement.
     }
 };
 
 PYBIND11_MODULE(_geometry, m) {
     py::class_<BaseGeometry, std::shared_ptr<BaseGeometry>>(m, "BaseGeometry")
-        .def("set_parameter", &BaseGeometry::set_parameter)
-        .def("get_parameter", &BaseGeometry::get_parameter);
+        .def("set_parameter", &BaseGeometry::setField)
+        .def("get_parameter", &BaseGeometry::getField);
 
-    py::class_<PolygonWrapper, BaseGeometry, std::shared_ptr<PolygonWrapper>>(m, "BoostPolygon")
+    py::class_<Polygon, BaseGeometry, std::shared_ptr<Polygon>>(m, "BoostPolygon")
         .def(py::init<>())
         .def(py::init<const BoostPolygon&>())
         .def(py::init<const std::vector<std::pair<double, double>>&,
                       const std::vector<std::vector<std::pair<double, double>>>&>())
-        .def("get_area", &PolygonWrapper::get_area)
-        .def("debug_print", &PolygonWrapper::debug_print)
-        .def("set_exterior", &PolygonWrapper::set_exterior)
-        .def("set_interiors", &PolygonWrapper::set_interiors)
-        .def("get_exterior", &PolygonWrapper::get_exterior)
-        .def("get_interiors", &PolygonWrapper::get_interiors);
+        .def(py::init([](const Polygon& other) {
+            return std::make_shared<Polygon>(other.polygon);
+        }))
+        .def_static("from_wkt", &Polygon::fromWkt)
+        .def("to_wkt", &Polygon::toWkt)
+        .def("set_exterior", &Polygon::set_exterior)
+        .def("set_interiors", &Polygon::set_interiors)
+        .def("get_exterior", &Polygon::get_exterior)
+        .def("get_interiors", &Polygon::get_interiors)
+        .def("get_area", &Polygon::get_area);
 
-    py::class_<PointWrapper, BaseGeometry, std::shared_ptr<PointWrapper>>(m, "Point")
+    py::class_<Point, BaseGeometry, std::shared_ptr<Point>>(m, "Point")
         .def(py::init<>())
-        .def(py::init<const Point&>());
+        .def(py::init<const BoostPoint&>());
 
     py::class_<GeometryContainer, std::shared_ptr<GeometryContainer>>(m, "GeometryContainer")
         .def(py::init<>())
