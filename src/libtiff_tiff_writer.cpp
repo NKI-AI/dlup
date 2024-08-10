@@ -15,12 +15,22 @@
 #include <tiffio.h>
 #include <vector>
 
+#ifdef HAVE_ZSTD
+#include <zstd.h>
+#endif
+
 namespace fs = std::filesystem;
 namespace py = pybind11;
 
 class TiffException : public std::runtime_error {
 public:
     explicit TiffException(const std::string &message) : std::runtime_error(message) {}
+};
+
+class TiffCompressionNotSupportedError : public TiffException {
+public:
+    explicit TiffCompressionNotSupportedError(const std::string &message)
+        : TiffException("Compression not supported: " + message) {}
 };
 
 class TiffOpenException : public TiffException {
@@ -43,7 +53,7 @@ public:
     explicit TiffReadException(const std::string &message) : TiffException("Failed to read TIFF data: " + message) {}
 };
 
-enum class CompressionType { NONE, JPEG, LZW, DEFLATE };
+enum class CompressionType { NONE, JPEG, LZW, DEFLATE, ZSTD };
 
 CompressionType string_to_compression_type(const std::string &compression) {
     if (compression == "NONE")
@@ -54,6 +64,8 @@ CompressionType string_to_compression_type(const std::string &compression) {
         return CompressionType::LZW;
     if (compression == "DEFLATE")
         return CompressionType::DEFLATE;
+    if (compression == "ZSTD")
+        return CompressionType::ZSTD;
     throw std::invalid_argument("Invalid compression type: " + compression);
 }
 
@@ -311,6 +323,14 @@ void LibtiffTiffWriter::setupTIFFDirectory(int level) {
     case CompressionType::DEFLATE:
         set_field(TIFFTAG_COMPRESSION, COMPRESSION_ADOBE_DEFLATE);
         break;
+    case CompressionType::ZSTD:
+#ifdef HAVE_ZSTD
+        set_field(TIFFTAG_COMPRESSION, COMPRESSION_ZSTD);
+        set_field(TIFFTAG_ZSTD_LEVEL, 3); // 3 is the default
+        break;
+#else
+        throw TiffCompressionNotSupportedError("ZSTD");
+#endif
     default:
         throw TiffSetupException("Unknown compression type");
     }
@@ -476,8 +496,8 @@ PYBIND11_MODULE(_libtiff_tiff_writer, m) {
             return new LibtiffTiffWriter(std::move(cpp_path), size, mpp, tileSize, comp_type, quality);
         }))
         .def("write_tile", &LibtiffTiffWriter::writeTile)
-        .def("finalize", &LibtiffTiffWriter::finalize)
-        .def("write_pyramid", &LibtiffTiffWriter::writePyramid);
+        .def("write_pyramid", &LibtiffTiffWriter::writePyramid)
+        .def("finalize", &LibtiffTiffWriter::finalize);
 
     py::enum_<CompressionType>(m, "CompressionType")
         .value("NONE", CompressionType::NONE)
@@ -490,4 +510,5 @@ PYBIND11_MODULE(_libtiff_tiff_writer, m) {
     py::register_exception<TiffReadException>(m, "TiffReadException");
     py::register_exception<TiffWriteException>(m, "TiffWriteException");
     py::register_exception<TiffSetupException>(m, "TiffSetupException");
+    py::register_exception<TiffCompressionNotSupportedError>(m, "TiffCompressionNotSupportedError");
 }

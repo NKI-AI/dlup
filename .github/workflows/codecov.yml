@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env: 
+    env:
       CODECOV_CI: true
     steps:
     - name: Install build dependencies

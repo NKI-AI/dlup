@@ -18,6 +18,15 @@ if not libtiff_dep.found()
     error('libtiff not found. Please install libtiff development files.')
 endif
 
+# Check for ZSTD library
+zstd_dep = dependency('libzstd', required : false)
+have_zstd = zstd_dep.found()
+if have_zstd
+    message('ZSTD support enabled')
+else
+    message('ZSTD support disabled')
+endif
+
 # Capture the output of the run_command and convert to relative paths
 numpy_include = run_command(py, ['-c', '''
 import os
@@ -72,11 +81,21 @@ _background = py.extension_module('_background',
                                   install_dir : install_dir / 'dlup',
                                   cpp_args : ['-O3', '-march=native', '-ffast-math'])
 
+# Define the base dependencies and compiler arguments
+base_deps = [libtiff_dep]
+base_cpp_args = ['-std=c++17', '-O3', '-march=native', '-ffast-math']
+
+# Add ZSTD support if available
+if have_zstd
+    base_deps += [zstd_dep]
+    base_cpp_args += ['-DHAVE_ZSTD']
+endif
+
 # pybind11 extension
 _libtiff_tiff_writer = py.extension_module('_libtiff_tiff_writer',
                                            'src/libtiff_tiff_writer.cpp',
                                            include_directories : [incdir_pybind11],
                                            install : true,
                                            install_dir : install_dir / 'dlup',
-                                           cpp_args : ['-std=c++17', '-O3', '-march=native', '-ffast-math'],
-                                           dependencies : [libtiff_dep])
+                                           cpp_args : base_cpp_args,
+                                           dependencies : base_deps)
