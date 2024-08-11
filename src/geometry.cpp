@@ -252,7 +252,6 @@ public:
                 // Add the polygon to the output list
                 auto& polygon = polygons[index];
 
-                // Access the BoostPolygon from your custom Polygon class
                 std::shared_ptr<BoostPolygon> boost_polygon = polygon->polygon;
 
                 // Print the WKT of the BoostPolygon
@@ -261,14 +260,11 @@ public:
                 std::cout << "BoostPolygon WKT: " << ss.str() << std::endl;
 
                 std::deque<BoostPolygon> output;
-                // boost::geometry::intersection(polygon, query_polygon, output);
                 bg::intersection(*(polygon->polygon), query_box, output);
-                // Print the WKT the output list
                 for (const auto& p : output) {
                     std::stringstream ss;
                     ss << bg::wkt(p);
                     std::cout << "Cropped output WKT: " << ss.str() << std::endl;
-                    // Convert BoostPolygon to your custom Polygon class and append to py_output
                     auto cropped_polygon = std::make_shared<Polygon>(p);
                     py_output.append(call_polygon_factory(cropped_polygon));
                 }
