@@ -63,6 +63,27 @@ public:
     //     return p;
     // }
 
+    
+    // TODO: We don't just need to intersect with a box, but with any geometry
+    std::vector<std::shared_ptr<Polygon>> intersection(const BoostBox& box) const {
+        std::vector<BoostPolygon> intersection_result;
+        bg::intersection(*polygon, box, intersection_result);
+
+        std::vector<std::shared_ptr<Polygon>> result;
+        for (const auto& intersected_boost_polygon : intersection_result) {
+            auto intersected_polygon = std::make_shared<Polygon>(intersected_boost_polygon);
+            
+            // Copy the parameters from this polygon to the new one
+            for (const auto& param : parameters) {
+                intersected_polygon->setField(param.first, param.second);
+            }
+            
+            result.push_back(intersected_polygon);
+        }
+
+        return result;
+    }
+
     std::string toWkt() const {
         std::stringstream ss;
         ss << bg::wkt(*polygon);
@@ -200,31 +221,29 @@ public:
     bgi::rtree<std::pair<BoostBox, size_t>, bgi::quadratic<16>> rtree;
 
     // Static method to access the singleton instance of the factory function
-    static py::function& polygonz_factory() {
-        static py::function instance;  // Singleton instance, initialized only once
+    static py::function &pythonPolygonFactory() {
+        static py::function instance; // Singleton instance, initialized only once
         return instance;
     }
 
     // Method to set the factory function
-    static void set_polygonz_factory(py::function factory) {
-        polygonz_factory() = factory;
-    }
+    static void setPolygonFactory(py::function factory) { pythonPolygonFactory() = factory; }
 
-    void add_polygon(const std::shared_ptr<Polygon>& p) {
+    void add_polygon(const std::shared_ptr<Polygon> &p) {
         BoostBox box;
         bg::envelope(*(p->polygon), box);
         rtree.insert(std::make_pair(box, polygons.size()));
         polygons.push_back(p);
     }
 
-    void add_point(const std::shared_ptr<Point>& p) {
+    void add_point(const std::shared_ptr<Point> &p) {
         BoostBox box(*(p->point), *(p->point));
         rtree.insert(std::make_pair(box, polygons.size() + points.size()));
         points.push_back(p);
     }
 
-    py::object read_region(const std::pair<double, double>& coordinates, double scaling, const std::pair<double, double>& size) {
-        // Convert std::array<int, 2> to BoostPoint
+    py::object read_region(const std::pair<double, double> &coordinates, double scaling,
+                           const std::pair<double, double> &size) {
         BoostPoint top_left(coordinates.first, coordinates.second);
         BoostPoint bottom_right(coordinates.first + size.first / scaling, coordinates.second + size.second / scaling);
         BoostBox query_box(top_left, bottom_right);
@@ -236,39 +255,31 @@ public:
         std::vector<std::pair<BoostBox, size_t>> results;
         rtree.query(bgi::intersects(query_box), std::back_inserter(results));
 
-        std::sort(results.begin(), results.end(), 
-                  [](const auto& a, const auto& b) { return a.second < b.second; });
+        std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
 
-        std::stringstream ss;
-        std::cout << "Query box: " << bg::wkt(query_box) << std::endl;
-
+        // std::stringstream ss;
+        // std::cout << "Query box: " << bg::wkt(query_box) << std::endl;
 
         py::list py_output;
-        for (const auto& result : results) {
+        for (const auto &result : results) {
             size_t index = result.second;
 
             // Determine if the index corresponds to a polygon or a point
+            // The insertation in the R-tree is done in the order of polygons and points so we can easily tell
+
             if (index < polygons.size()) {
                 // Add the polygon to the output list
-                auto& polygon = polygons[index];
+                auto &polygon = polygons[index];
 
-                std::shared_ptr<BoostPolygon> boost_polygon = polygon->polygon;
+                // std::cout << "Original Polygon WKT: " << bg::wkt(*(polygon->polygon)) << std::endl;
 
-                // Print the WKT of the BoostPolygon
-                std::stringstream ss;
-                ss << bg::wkt(*boost_polygon);
-                std::cout << "BoostPolygon WKT: " << ss.str() << std::endl;
+                // Use the new intersect method
+                auto intersected_polygons = polygon->intersection(query_box);
 
-                std::deque<BoostPolygon> output;
-                bg::intersection(*(polygon->polygon), query_box, output);
-                for (const auto& p : output) {
-                    std::stringstream ss;
-                    ss << bg::wkt(p);
-                    std::cout << "Cropped output WKT: " << ss.str() << std::endl;
-                    auto cropped_polygon = std::make_shared<Polygon>(p);
-                    py_output.append(call_polygon_factory(cropped_polygon));
+                for (const auto &intersected_polygon : intersected_polygons) {
+                    // std::cout << "Intersected Polygon WKT: " << intersected_polygon->toWkt() << std::endl;
+                    py_output.append(callPolygonFactory(intersected_polygon));
                 }
-                py_output.append(polygon);
 
             } else {
                 py_output.append(points[index - polygons.size()]);
@@ -279,7 +290,7 @@ public:
     }
 
 private:
-    void transform_geometry(std::shared_ptr<BaseGeometry> geom, const BoostPoint& origin, double scaling) {
+    void transform_geometry(std::shared_ptr<BaseGeometry> geom, const BoostPoint &origin, double scaling) {
         if (auto polygon = std::dynamic_pointer_cast<Polygon>(geom)) {
             bg::strategy::transform::scale_transformer<double, 2, 2> scale(scaling, scaling);
             bg::strategy::transform::translate_transformer<double, 2, 2> translate(-origin.get<0>(), -origin.get<1>());
@@ -292,18 +303,18 @@ private:
             point->setCoordinates(x, y);
         }
     }
-    py::object call_polygon_factory(const std::shared_ptr<Polygon>& polygon) {
-        if (polygonz_factory() != py::function()) {
-            std::cout << "Using factory function" << std::endl;
+    py::object callPolygonFactory(const std::shared_ptr<Polygon> &polygon) {
+        if (pythonPolygonFactory() != py::function()) {
+            // std::cout << "Using factory function" << std::endl;
             try {
-                py::object result = polygonz_factory()(polygon);
+                py::object result = pythonPolygonFactory()(polygon);
                 // Ensure the result is a valid Python object
                 if (result.ptr() != nullptr) {
                     return result;
                 } else {
                     std::cerr << "Factory function returned null object" << std::endl;
                 }
-            } catch (const std::exception& e) {
+            } catch (const std::exception &e) {
                 std::cerr << "Exception in factory function: " << e.what() << std::endl;
             } catch (...) {
                 std::cerr << "Unknown exception in factory function" << std::endl;
@@ -314,11 +325,10 @@ private:
     }
 };
 
-
 PYBIND11_MODULE(_geometry, m) {
     py::class_<BaseGeometry, std::shared_ptr<BaseGeometry>>(m, "BaseGeometry")
-        .def("set_parameter", &BaseGeometry::setField)
-        .def("get_parameter", &BaseGeometry::getField);
+        .def("set_field", &BaseGeometry::setField)
+        .def("get_field", &BaseGeometry::getField);
 
     py::class_<Polygon, BaseGeometry, std::shared_ptr<Polygon>>(m, "Polygon")
         .def(py::init<>())
@@ -353,7 +363,7 @@ PYBIND11_MODULE(_geometry, m) {
         .def("rotate", &Point::rotate, py::arg("angle"), py::arg("origin") = Point(0, 0))
         .def("scale", &Point::scale, py::arg("scaling"), py::arg("origin") = Point(0, 0));
 
-    m.def("set_polygonz_factory", &GeometryContainer::set_polygonz_factory);
+    m.def("set_polygon_factory", &GeometryContainer::setPolygonFactory);
 
     py::class_<GeometryContainer, std::shared_ptr<GeometryContainer>>(m, "GeometryContainer")
         .def(py::init<>())

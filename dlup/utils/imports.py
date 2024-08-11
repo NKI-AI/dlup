@@ -23,3 +23,4 @@ def _module_available(module_path: str) -> bool:
 PYTORCH_AVAILABLE = _module_available("pytorch")
 PYHALOXML_AVAILABLE = _module_available("pyhaloxml")
 DARWIN_SDK_AVAILABLE = _module_available("darwin")
+SHAPELY_AVAILABLE = _module_available("shapely")
