@@ -9,7 +9,7 @@ class DlupPolygon(_dg.Polygon):
         # Ensure no new Polygon is created; just wrap the existing one
         if len(args) == 1 and len(kwargs) == 0 and isinstance(args[0], _dg.Polygon):
             super().__init__(args[0])  # This should keep the original parameters intact
-        else: # This needs to be way more elaborate
+        else:  # This needs to be way more elaborate
             fields = {}
             if "label" in kwargs:
                 fields["label"] = kwargs.pop("label")
@@ -73,20 +73,28 @@ def dlup_polygon_factory(polygon):
     except _dg.GeometryError as e:
         raise RuntimeError(f"Generic exception raised trying to create Polygon from C++ backend {polygon}") from e
 
+
 # This is required to ensure that the polygons created in the C++ code are converted to the correct Python class
 _dg.set_polygon_factory(dlup_polygon_factory)
 
 
 class DlupPoint(_dg.Point):
-    def __init__(self, x, y, label=None, index=None, color=None):
-        super().__init__(x, y)
-        # This also needs a factory to support transforms on the point, unless we change it in place. Is that a good idea?
-        if label is not None:
-            self.set_field("label", label)
-        if index is not None:
-            self.set_field("index", index)
-        if color is not None:
-            self.set_field("color", color)
+    def __init__(self, *args, **kwargs):
+        # Ensure no new Point is created; just wrap the existing one
+        if len(args) == 1 and len(kwargs) == 0 and isinstance(args[0], _dg.Point):
+            super().__init__(args[0])  # This should keep the original parameters intact
+        else:  # This needs to be way more elaborate
+            fields = {}
+            if "label" in kwargs:
+                fields["label"] = kwargs.pop("label")
+            if "index" in kwargs:
+                fields["index"] = kwargs.pop("index")
+            if "color" in kwargs:
+                fields["color"] = kwargs.pop("color")
+
+            super().__init__(*args, **kwargs)
+            for key, value in fields.items():
+                self.set_field(key, value)
 
     @property
     def label(self):
@@ -105,8 +113,39 @@ class DlupPoint(_dg.Point):
             origin = DlupPoint(0, 0)
         return super().scale(scaling, origin)
 
+    def __repr__(self):
+        repr_string = f"<{self.__class__.__name__}("
+        parts = []
+        if self.label:
+            parts.append(f"label='{self.label}'")
+        if self.color:
+            parts.append(f"color='{self.color}'")
+        if self.index is not None:
+            parts.append(f"index={self.index}")
+
+        repr_string += ", ".join(parts)
+
+        if len(self.wkt) > 30:
+            repr_string += f") WKT='{self.wkt[:30]}...'>"
+        else:
+            repr_string += f") WKT='{self.wkt}'>"
+        return repr_string
+
+
+def dlup_point_factory(point):
+    try:
+        dlup_point = DlupPoint(point)
+        return dlup_point
+    except _dg.GeometryFactoryFunctionError as e:
+        raise RuntimeError(f"Could not create Point from C++ backend {point}") from e
+    except _dg.GeometryError as e:
+        raise RuntimeError(f"Generic exception raised trying to create Point from C++ backend {point}") from e
+
+
+# Register the point factory
+_dg.set_point_factory(dlup_point_factory)
+
 
 class DlupGeometryContainer(_dg.GeometryContainer):
     def __init__(self):
         super().__init__()
-
