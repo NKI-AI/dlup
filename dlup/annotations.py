@@ -254,7 +254,7 @@ class AnnotatedGeometry(geometry.base.BaseGeometry):  # type: ignore[misc]
         if not isinstance(other, type(self)):
             return False
 
-        if not other.annotation_class == self.annotation_class:
+        if other.annotation_class != self.annotation_class:
             return False
         return True
 
@@ -1034,51 +1034,45 @@ class WsiAnnotations:
         raise NotImplementedError
 
 
-class _ComplexDarwinPolygonWrapper:
-    """Wrapper class for a complex polygon (i.e. polygon with holes) from a Darwin annotation."""
-
-    def __init__(self, polygon: ShapelyPolygon):
-        self.geom = polygon
-        self.hole = False
-        self.holes: list[float] = []
-
-
 def _parse_darwin_complex_polygon(annotation: dict[str, Any]) -> ShapelyMultiPolygon:
     """
     Parse a complex polygon (i.e. polygon with holes) from a Darwin annotation.
-
     Parameters
     ----------
     annotation : dict
-
     Returns
     -------
     ShapelyMultiPolygon
     """
-    polygons = [
-        _ComplexDarwinPolygonWrapper(ShapelyPolygon([(p["x"], p["y"]) for p in path])) for path in annotation["paths"]
-    ]
-
-    # Naive even-odd rule, but seems to work
-    sorted_polygons = sorted(polygons, key=lambda x: x.geom.area, reverse=True)
-    for idx, my_polygon in enumerate(sorted_polygons):
-        for outer_polygon in reversed(sorted_polygons[:idx]):
-            contains = outer_polygon.geom.contains(my_polygon.geom)
-            if contains and outer_polygon.hole:
+    # Create Polygons and sort by area in descending order
+    polygons: list[ShapelyPolygon] = sorted(
+        [ShapelyPolygon([(p["x"], p["y"]) for p in path]) for path in annotation["paths"]],
+        key=lambda x: x.area,
+        reverse=True,
+    )
+    outer_polygons: list[tuple[ShapelyPolygon, list[ShapelyPolygon], bool]] = []
+    for polygon in polygons:
+        is_hole = False
+        # Check if the polygon can be a hole in any of the previously processed polygons
+        for outer_poly, holes, outer_poly_is_hole in reversed(outer_polygons):
+            contains = outer_poly.contains(polygon)
+            # If polygon is contained by a hole, it should be added as new polygon
+            if contains and outer_poly_is_hole:
                 break
-            if outer_polygon.hole:
-                continue
-            if contains:
-                my_polygon.hole = True
-                outer_polygon.holes.append(my_polygon.geom.exterior.coords)
+            # Polygon is added as hole if outer polygon is not a hole
+            elif contains:
+                holes.append(polygon.exterior.coords)
+                is_hole = True
+                break
+        outer_polygons.append((polygon, [], is_hole))
 
-    # create complex polygon with MultiPolygon
-    complex_polygon = [
-        ShapelyPolygon(my_polygon.geom.exterior.coords, my_polygon.holes)
-        for my_polygon in sorted_polygons
-        if not my_polygon.hole
-    ]
-    return ShapelyMultiPolygon(complex_polygon)
+    return ShapelyMultiPolygon(
+        [
+            ShapelyPolygon(outer_poly.exterior.coords, holes)
+            for outer_poly, holes, _is_hole in outer_polygons
+            if not _is_hole
+        ]
+    )
 
 
 def _parse_asap_coordinates(
