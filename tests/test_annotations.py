@@ -8,8 +8,6 @@ import tempfile
 
 import pytest
 import shapely.geometry
-from shapely import Point as ShapelyPoint
-from shapely import Polygon as ShapelyPolygon
 
 from dlup.annotations import AnnotationClass, AnnotationType, Point, Polygon, WsiAnnotations, shape
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
@@ -195,8 +193,7 @@ class TestAnnotations:
         exterior = [(0, 0), (4, 0), (4, 4), (0, 4)]
         hole1 = [(1, 1), (2, 1), (2, 2), (1, 2)]
         hole2 = [(3, 3), (3, 3.5), (3.5, 3.5), (3.5, 3)]
-        shapely_polygon_with_holes = ShapelyPolygon(exterior, [hole1, hole2])
-        dlup_polygon_with_holes = Polygon(shapely_polygon_with_holes, a_cls=annotation_class)
+        dlup_polygon_with_holes = Polygon(exterior, [hole1, hole2], a_cls=annotation_class)
         dlup_solid_polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)], a_cls=annotation_class)
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
             pickle.dump(dlup_solid_polygon, pickled_polygon_file)
@@ -216,11 +213,9 @@ class TestAnnotations:
         annotation_class = AnnotationClass(
             label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0), z_index=None
         )
-        coordinates = [(1, 2)]
-        shapely_point = ShapelyPoint(coordinates)
-        dlup_point = Point(shapely_point, a_cls=annotation_class)
+        dlup_point = Point([(1, 2)], a_cls=annotation_class)
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_point_file:
-            pickle.dump(shapely_point, pickled_point_file)
+            pickle.dump(dlup_point, pickled_point_file)
             pickled_point_file.flush()
             pickled_point_file.seek(0)
             loaded_point = pickle.load(pickled_point_file)
