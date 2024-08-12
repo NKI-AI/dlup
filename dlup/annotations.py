@@ -974,12 +974,14 @@ class WsiAnnotations:
 
         if isinstance(other, list):
             if not all(isinstance(item, (Point, Polygon)) for item in other):
-                raise TypeError("")
+                raise TypeError("can only add list purely containing Point and Polygon objects to WsiAnnotations")
             new_layers = self._layers + other
             new_tags = self.tags
         elif isinstance(other, WsiAnnotations):
             if self.sorting != other.sorting or self.offset_to_slide_bounds != other.offset_to_slide_bounds:
-                raise ValueError("")
+                raise ValueError(
+                    "Both sorting and offset_to_slide_bounds must be the same to add WsiAnnotations together."
+                )
             new_layers = self._layers + other._layers
             new_tags = self.tags if self.tags is not None else [] + other.tags if other.tags is not None else None
         else:
@@ -994,14 +996,16 @@ class WsiAnnotations:
 
         if isinstance(other, list):
             if not all(isinstance(item, (Point, Polygon)) for item in other):
-                raise TypeError("")
+                raise TypeError("can only add list purely containing Point and Polygon objects to WsiAnnotations")
 
             self._layers += other
             for item in other:
                 self._available_classes.add(item.annotation_class)
         elif isinstance(other, WsiAnnotations):
             if self.sorting != other.sorting or self.offset_to_slide_bounds != other.offset_to_slide_bounds:
-                raise ValueError("")
+                raise ValueError(
+                    "Both sorting and offset_to_slide_bounds must be the same to add WsiAnnotations together."
+                )
             self._layers += other._layers
 
             if self._tags is None:
@@ -1017,10 +1021,17 @@ class WsiAnnotations:
         self._str_tree = STRtree(self._layers)
         return self
 
-    def __radd__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
+    def __radd__(self, other: WsiAnnotations | Point | Polygon | list[Point | Polygon]) -> WsiAnnotations:
         # in-place addition (+=) of Point and Polygon will raise a TypeError
-        if not isinstance(other, (WsiAnnotations, Point, Polygon)):
+        if not isinstance(other, (WsiAnnotations, Point, Polygon, list)):
             return NotImplemented
+        if isinstance(other, list):
+            if not all(isinstance(item, (Point, Polygon)) for item in other):
+                raise TypeError("can only add list purely containing Point and Polygon objects to WsiAnnotations")
+            raise TypeError(
+                "use the __add__ or __iadd__ operator instead of __radd__ when working with lists to avoid \
+                            unexpected behavior."
+            )
         return self + other
 
     def __sub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:

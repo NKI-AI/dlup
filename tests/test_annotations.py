@@ -53,6 +53,14 @@ class TestAnnotations:
     _v7_annotations = None
     _v7_raster_annotations = None
 
+    additinoaL_point_a_cls = AnnotationClass(label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0))
+    additional_point = Point((1, 2), a_cls=additinoaL_point_a_cls)
+
+    additional_polygon_a_cls = AnnotationClass(
+        label="example", annotation_type=AnnotationType.POLYGON, color=(255, 0, 0), z_index=1
+    )
+    additional_polygon = Polygon([(0, 0), (4, 0), (4, 4), (0, 4)], a_cls=additional_polygon_a_cls)
+
     @property
     def v7_annotations(self):
         if self._v7_annotations is None:
@@ -229,3 +237,111 @@ class TestAnnotations:
 
         annotations.filter(["non-existing"])
         assert len(annotations._layers) == 0
+
+    def test_length(self):
+        annotations = self.geojson_annotations
+        assert len(annotations._layers) == len(annotations)
+
+    def test_dunder_add_methods_with_point(self):
+        annotations = self.geojson_annotations.copy()
+        initial_annotations_id = id(annotations)
+        initial_length = len(annotations)
+
+        # __add__
+        new_annotations = annotations + self.additional_point
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 1 == len(new_annotations)
+        assert self.additional_point in new_annotations
+
+        # __radd__
+        new_annotations = self.additional_point + annotations
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 1 == len(new_annotations)
+        assert self.additional_point in new_annotations
+        with pytest.raises(TypeError):
+            self.additional_point += annotations
+
+        # __iadd__
+        annotations += self.additional_point
+        assert initial_annotations_id == id(annotations)
+        assert initial_length + 1 == len(annotations)
+        assert self.additional_point in annotations
+
+    def test_add_with_polygon(self):
+        annotations = self.geojson_annotations.copy()
+        initial_annotations_id = id(annotations)
+        initial_length = len(annotations)
+
+        # __add__
+        new_annotations = annotations + self.additional_polygon
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 1 == len(new_annotations)
+        assert self.additional_polygon in new_annotations
+
+        # __radd__
+        new_annotations = self.additional_polygon + annotations
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 1 == len(new_annotations)
+        assert self.additional_polygon in new_annotations
+        with pytest.raises(TypeError):
+            self.additional_polygon += annotations
+
+        # __iadd__
+        annotations += self.additional_polygon
+        assert initial_annotations_id == id(annotations)
+        assert initial_length + 1 == len(annotations)
+        assert self.additional_polygon in annotations
+
+    def test_add_with_list(self):
+        annotations = self.geojson_annotations.copy()
+        initial_annotations_id = id(annotations)
+        initial_length = len(annotations)
+
+        # __add__
+        new_annotations = annotations + [self.additional_point, self.additional_polygon]
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 2 == len(new_annotations)
+        assert self.additional_polygon in new_annotations
+        assert self.additional_point in new_annotations
+
+        # __radd__
+        _annotations_list = [self.additional_point, self.additional_polygon]
+        with pytest.raises(TypeError):
+            new_annotations = _annotations_list + annotations
+
+        _annotations_list = [self.additional_point, self.additional_polygon]
+        with pytest.raises(TypeError):
+            _annotations_list += annotations
+
+        # __iadd__
+        annotations += [self.additional_point, self.additional_polygon]
+        assert initial_annotations_id == id(annotations)
+        assert initial_length + 2 == len(annotations)
+        assert all(ann in new_annotations for ann in annotations)
+
+    def test_add_with_wsi_annotations(self):
+        annotations = self.geojson_annotations.copy()
+        other_annotations = self.geojson_annotations.copy()
+        initial_annotations_id = id(annotations)
+        initial_length = len(annotations)
+
+        # __add__
+        new_annotations = annotations + other_annotations
+        assert initial_annotations_id != id(new_annotations)
+        assert len(annotations) + len(other_annotations) == len(new_annotations)
+        assert all(ann in new_annotations for ann in annotations)
+
+        # __iadd__
+        annotations += other_annotations
+        assert initial_annotations_id == id(annotations)
+        assert initial_length + len(other_annotations) == len(annotations)
+        assert all(ann in annotations for ann in other_annotations)
+
+    def test_add_with_invalid_type(self):
+        annotations = self.geojson_annotations.copy()
+        with pytest.raises(TypeError):
+            _ = annotations + "invalid type"
+        with pytest.raises(TypeError):
+            annotations += "invalid type"
+        with pytest.raises(TypeError):
+            _ = "invalid type" + annotations
