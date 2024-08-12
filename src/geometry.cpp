@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 namespace py = pybind11;
@@ -22,20 +23,17 @@ using BoostRing = bg::model::ring<BoostPoint>;
 using BoostLineString = bg::model::linestring<BoostPoint>;
 using BoostMultiPolygon = bg::model::multi_polygon<BoostPolygon>;
 
-
 class FactoryGuard {
 public:
-    FactoryGuard(py::function& factory_ref, py::function new_factory)
+    FactoryGuard(py::function &factory_ref, py::function new_factory)
         : factory_ref_(factory_ref), original_factory_(factory_ref) {
         factory_ref_ = new_factory;
     }
 
-    ~FactoryGuard() {
-        factory_ref_ = original_factory_;
-    }
+    ~FactoryGuard() { factory_ref_ = original_factory_; }
 
 private:
-    py::function& factory_ref_;
+    py::function &factory_ref_;
     py::function original_factory_;
 };
 
@@ -53,8 +51,7 @@ public:
         }
         return std::nullopt;
     }
-
-    std::vector<std::string> getFields() const {
+    auto getFields() const {
         std::vector<std::string> fieldNames;
         fieldNames.reserve(parameters.size());
         std::transform(parameters.begin(), parameters.end(), std::back_inserter(fieldNames),
@@ -91,26 +88,7 @@ public:
         setInteriors(std::move(interiors));
     }
 
-    // TODO: We don't just need to intersect with a box, but with any geometry
-    // TODO: Need to remark that it only intersects with boost-type structures
-    // TODO: If we extend it we don't want conflicts between parameters
-    // std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const {
-    //     std::vector<BoostPolygon> intersectionResult;
-    //     bg::intersection(*polygon, otherPolygon, intersectionResult);
-
-    //     std::vector<std::shared_ptr<Polygon>> result;
-    //     for (const auto &intersectedBoostPolygon : intersectionResult) {
-    //         auto intersectedPolygon = std::make_shared<Polygon>(intersectedBoostPolygon);
-    //         // Copy the parameters from this polygon to the new one
-    //         for (const auto &param : parameters) {
-    //             intersectedPolygon->setField(param.first, param.second);
-    //         }
-
-    //         result.push_back(intersectedPolygon);
-    //     }
-
-    //     return result;
-    // }
+    // TODO: Box is probably sufficient.
     std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const {
         // Make the polygon valid before performing the intersection
         BoostPolygon validPolygon = GeometryUtils::makeValid(*polygon);
@@ -126,51 +104,11 @@ public:
                 intersectedPolygon->setField(param.first, param.second);
             }
 
-            result.push_back(intersectedPolygon);
+            result.emplace_back(intersectedPolygon);
         }
 
         return result;
     }
-
-    // This does a smart merge, but seems to impact performance quite significantly.
-    // We need to check downstream, e.g. after creating a mask if the unionizing is worth doing.
-    // std::vector<std::shared_ptr<Polygon>> intersection(const BoostBox &box) const {
-    //     std::vector<BoostPolygon> intersectionResult;
-    //     bg::intersection(*polygon, box, intersectionResult);
-
-    //     if (intersectionResult.empty()) {
-    //         return {};
-    //     }
-    //     std::vector<BoostPolygon> mergedPolygons;
-    //     for (const auto &poly : intersectionResult) {
-    //         bool merged = false;
-    //         for (auto &mergedPoly : mergedPolygons) {
-    //             if (bg::intersects(poly, mergedPoly)) {
-    //                 std::vector<BoostPolygon> unionResult;
-    //                 bg::union_(mergedPoly, poly, unionResult);
-    //                 if (!unionResult.empty()) {
-    //                     mergedPoly = unionResult[0];
-    //                     merged = true;
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //         if (!merged) {
-    //             mergedPolygons.push_back(poly);
-    //         }
-    //     }
-
-    //     std::vector<std::shared_ptr<Polygon>> result;
-    //     for (const auto &mergedPoly : mergedPolygons) {
-    //         auto newPolygon = std::make_shared<Polygon>(mergedPoly);
-    //         for (const auto &param : parameters) {
-    //             newPolygon->setField(param.first, param.second);
-    //         }
-    //         result.push_back(newPolygon);
-    //     }
-
-    //     return result;
-    // }
 
     std::string toWkt() const override { return convertToWkt(*polygon); }
 
@@ -189,7 +127,7 @@ public:
             for (const auto &point : inner) {
                 inner_result.emplace_back(bg::get<0>(point), bg::get<1>(point));
             }
-            result.push_back(inner_result);
+            result.emplace_back(inner_result);
         }
         return result;
     }
@@ -298,36 +236,29 @@ public:
     std::vector<std::shared_ptr<Point>> points;
     bgi::rtree<std::pair<BoostBox, size_t>, bgi::quadratic<16>> rtree;
 
+    static void setPolygonFactory(py::function factory) { polygonFactory() = std::move(factory); }
 
-    static void setPolygonFactory(py::function factory) {
-        polygonFactory() = std::move(factory);
-    }
-
-    static void setPointFactory(py::function factory) {
-        pointFactory() = std::move(factory);
-    }
+    static void setPointFactory(py::function factory) { pointFactory() = std::move(factory); }
 
     // FactoryGuard creation functions for RAII management
     static FactoryGuard createPolygonFactoryGuard(py::function factory) {
         return FactoryGuard(polygonFactory(), factory);
     }
 
-    static FactoryGuard createPointFactoryGuard(py::function factory) {
-        return FactoryGuard(pointFactory(), factory);
-    }
+    static FactoryGuard createPointFactoryGuard(py::function factory) { return FactoryGuard(pointFactory(), factory); }
 
     void addPolygon(const std::shared_ptr<Polygon> &p) {
         // Print the parameters of the polygon being added
         BoostBox box;
         bg::envelope(*(p->polygon), box);
         rtree.insert(std::make_pair(box, polygons.size()));
-        polygons.push_back(p);
+        polygons.emplace_back(p);
     }
 
     void addPoint(const std::shared_ptr<Point> &p) {
         BoostBox box(*(p->point), *(p->point));
         rtree.insert(std::make_pair(box, polygons.size() + points.size()));
-        points.push_back(p);
+        points.emplace_back(p);
     }
 
     py::list getPolygons() {
@@ -340,12 +271,15 @@ public:
 
     py::object readRegion(const std::pair<double, double> &coordinates, double scaling,
                           const std::pair<double, double> &size) {
-        BoostPoint topLeft(coordinates.first, coordinates.second);
-        BoostPoint bottomRight(coordinates.first + size.first / scaling, coordinates.second + size.second / scaling);
+        BoostPoint topLeft(coordinates.first / scaling, coordinates.second / scaling);
+        BoostPoint bottomRight((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
         BoostBox queryBox(topLeft, bottomRight);
 
         BoostPolygon intersectionPolygon;
         bg::convert(queryBox, intersectionPolygon);
+
+        // Let's log our query box
+        std::cout << "Query box: " << bg::wkt(queryBox) << std::endl;
 
         std::vector<std::pair<BoostBox, size_t>> results;
         rtree.query(bgi::intersects(queryBox), std::back_inserter(results));
@@ -389,7 +323,6 @@ private:
         return instance;
     }
 
-    // Call the appropriate factory function based on the type of the object
     py::object callFactoryFunction(const std::shared_ptr<Polygon> &polygon) {
         return invokeFactoryFunction(polygonFactory(), polygon);
     }

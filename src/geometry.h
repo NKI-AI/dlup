@@ -38,8 +38,8 @@ BoostPolygon makeValid(const BoostPolygon &polygon) {
 }
 
 void applyAffineTransformation(BoostPolygon &polygon, const std::pair<double, double> &origin, double scaling) {
-    bg::strategy::transform::matrix_transformer<double, 2, 2> transform(scaling, 0, -origin.first * scaling, 0, scaling,
-                                                                        -origin.second * scaling, 0, 0, 1);
+    bg::strategy::transform::matrix_transformer<double, 2, 2> transform(scaling, 0, -origin.first, 0, scaling,
+                                                                        -origin.second, 0, 0, 1);
 
     // TODO: This is a bit weird that we can't just immediately apply this to the polygon
     // Apply the transformation to each point of the exterior ring

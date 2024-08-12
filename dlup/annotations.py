@@ -1053,7 +1053,6 @@ class WsiAnnotations:
             one can annotate a larger region, and the smaller regions should overwrite the previous part.
             A function `dlup.data.transforms.convert_annotations` can be used to convert such outputs to a mask.
         3.  The annotations are cropped to the region-of-interest, or filtered in case of points. Polygons which
-            convert into points after intersection are removed. If it's a image-level label, nothing happens.
         4.  The annotation is rescaled and shifted to the origin to match the local patch coordinate system.
 
         The final returned data is a list of `dlup.annotations.Polygon` or `dlup.annotations.Point`.
