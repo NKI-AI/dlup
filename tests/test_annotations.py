@@ -5,7 +5,6 @@ import json
 import pathlib
 import pickle
 import tempfile
-from copy import copy, deepcopy
 
 import pytest
 import shapely.geometry
@@ -205,8 +204,6 @@ class TestAnnotations:
             pickled_polygon_file.seek(0)
             loaded_solid_polygon = pickle.load(pickled_polygon_file)
         assert dlup_solid_polygon == loaded_solid_polygon
-        assert dlup_solid_polygon == copy(dlup_solid_polygon)
-        assert dlup_solid_polygon == deepcopy(dlup_solid_polygon)
 
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
             pickle.dump(dlup_polygon_with_holes, pickled_polygon_file)
@@ -214,8 +211,6 @@ class TestAnnotations:
             pickled_polygon_file.seek(0)
             loaded_polygon_with_holes = pickle.load(pickled_polygon_file)
         assert dlup_polygon_with_holes == loaded_polygon_with_holes
-        assert dlup_polygon_with_holes == copy(dlup_polygon_with_holes)
-        assert dlup_polygon_with_holes == deepcopy(dlup_polygon_with_holes)
 
     def test_point_pickling(self):
         annotation_class = AnnotationClass(

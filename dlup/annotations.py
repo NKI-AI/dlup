@@ -935,7 +935,6 @@ class WsiAnnotations:
                 _annotations = annotation.intersect_with_box(query_box)
                 if _annotations is not None:
                     cropped_annotations += _annotations
-            # Tags could end up here in theory?
             else:
                 cropped_annotations.append(annotation)
 
@@ -1025,13 +1024,13 @@ class WsiAnnotations:
         return self + other
 
     def __sub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
-        raise NotImplementedError
+        return NotImplemented
 
     def __isub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
-        raise NotImplementedError
+        return NotImplemented
 
     def __rsub__(self, other: WsiAnnotations) -> WsiAnnotations:
-        raise NotImplementedError
+        return NotImplemented
 
 
 def _parse_darwin_complex_polygon(annotation: dict[str, Any]) -> ShapelyMultiPolygon:
