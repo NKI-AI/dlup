@@ -4,19 +4,66 @@
 #include <pybind11/stl.h>
 #include <unordered_map>
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/algorithms/correct.hpp>
+#include <boost/geometry/algorithms/is_valid.hpp>
+#include <boost/geometry/algorithms/simplify.hpp>
+#include <boost/geometry/geometries/geometries.hpp>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 namespace py = pybind11;
 
-typedef bg::model::d2::point_xy<double> BoostPoint;
-typedef bg::model::polygon<BoostPoint> BoostPolygon;
-typedef bg::model::box<BoostPoint> BoostBox;
-typedef bg::model::ring<BoostPoint> BoostRing;
-typedef bg::model::linestring<BoostPoint> BoostLineString;
-typedef bg::model::multi_polygon<BoostPolygon> BoostMultiPolygon;
+using BoostPoint = bg::model::d2::point_xy<double>;
+using BoostPolygon = bg::model::polygon<BoostPoint>;
+using BoostBox = bg::model::box<BoostPoint>;
+using BoostRing = bg::model::ring<BoostPoint>;
+using BoostLineString = bg::model::linestring<BoostPoint>;
+using BoostMultiPolygon = bg::model::multi_polygon<BoostPolygon>;
+
+class GeometryError : public std::runtime_error {
+public:
+    explicit GeometryError(const std::string &message) : std::runtime_error(message) {}
+};
+
+class GeometryIntersectionError : public GeometryError {
+public:
+    explicit GeometryIntersectionError(const std::string &message) : GeometryError(message) {}
+};
+
+class GeometryTransformationError : public GeometryError {
+public:
+    explicit GeometryTransformationError(const std::string &message) : GeometryError(message) {}
+};
+
+class GeometryFactoryFunctionError : public GeometryError {
+public:
+    explicit GeometryFactoryFunctionError(const std::string &message) : GeometryError(message) {}
+};
+
+// Function to make a polygon valid
+BoostPolygon makeValid(const BoostPolygon &polygon) {
+    BoostPolygon validPolygon = polygon;
+
+    // Check if the polygon is valid
+    if (!bg::is_valid(validPolygon)) {
+        // Correct the polygon (removing self-intersections and duplicate points)
+        bg::correct(validPolygon);
+
+        // If still not valid, simplify it
+        if (!bg::is_valid(validPolygon)) {
+            BoostPolygon simplifiedPolygon;
+            bg::simplify(validPolygon, simplifiedPolygon, 0.01); // Adjust tolerance as needed
+            validPolygon = simplifiedPolygon;
+        }
+    }
+
+    return validPolygon;
+}
 
 class BaseGeometry {
 public:
@@ -25,21 +72,23 @@ public:
 
     void setField(const std::string &name, py::object value) { parameters[name] = value; }
 
-    py::object getField(const std::string &name) const {
+    std::optional<py::object> getField(const std::string &name) const {
         auto it = parameters.find(name);
         if (it != parameters.end()) {
             return it->second;
         }
-        return py::none();
+        return std::nullopt;
     }
 
     std::vector<std::string> getFields() const {
         std::vector<std::string> fieldNames;
-        for (const auto &param : parameters) {
-            fieldNames.push_back(param.first);
-        }
+        fieldNames.reserve(parameters.size());
+        std::transform(parameters.begin(), parameters.end(), std::back_inserter(fieldNames),
+                       [](const auto &param) { return param.first; });
         return fieldNames;
     }
+
+    std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
 };
 
 class Polygon : public BaseGeometry {
@@ -57,32 +106,87 @@ public:
         setInteriors(interiors);
     }
 
-    // static std::shared_ptr<Polygon> fromWkt(const std::string& wkt) {
-    //     auto p = std::make_shared<Polygon>();
-    //     bg::read_wkt(wkt, *(p->polygon));
-    //     return p;
-    // }
-
-    
     // TODO: We don't just need to intersect with a box, but with any geometry
-    std::vector<std::shared_ptr<Polygon>> intersection(const BoostBox& box) const {
-        std::vector<BoostPolygon> intersection_result;
-        bg::intersection(*polygon, box, intersection_result);
+    // TODO: Need to remark that it only intersects with boost-type structures
+    // TODO: If we extend it we don't want conflicts between parameters
+    // std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const {
+    //     std::vector<BoostPolygon> intersectionResult;
+    //     bg::intersection(*polygon, otherPolygon, intersectionResult);
+
+    //     std::vector<std::shared_ptr<Polygon>> result;
+    //     for (const auto &intersectedBoostPolygon : intersectionResult) {
+    //         auto intersectedPolygon = std::make_shared<Polygon>(intersectedBoostPolygon);
+    //         // Copy the parameters from this polygon to the new one
+    //         for (const auto &param : parameters) {
+    //             intersectedPolygon->setField(param.first, param.second);
+    //         }
+
+    //         result.push_back(intersectedPolygon);
+    //     }
+
+    //     return result;
+    // }
+    std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const {
+        // Make the polygon valid before performing the intersection
+        BoostPolygon validPolygon = makeValid(*polygon);
+        BoostPolygon validOtherPolygon = makeValid(otherPolygon);
+
+        std::vector<BoostPolygon> intersectionResult;
+        bg::intersection(validPolygon, validOtherPolygon, intersectionResult);
 
         std::vector<std::shared_ptr<Polygon>> result;
-        for (const auto& intersected_boost_polygon : intersection_result) {
-            auto intersected_polygon = std::make_shared<Polygon>(intersected_boost_polygon);
-            
+        for (const auto &intersectedBoostPolygon : intersectionResult) {
+            auto intersectedPolygon = std::make_shared<Polygon>(intersectedBoostPolygon);
             // Copy the parameters from this polygon to the new one
-            for (const auto& param : parameters) {
-                intersected_polygon->setField(param.first, param.second);
+            for (const auto &param : parameters) {
+                intersectedPolygon->setField(param.first, param.second);
             }
-            
-            result.push_back(intersected_polygon);
+
+            result.push_back(intersectedPolygon);
         }
 
         return result;
     }
+
+    // This does a smart merge, but seems to impact performance quite significantly.
+    // We need to check downstream, e.g. after creating a mask if the unionizing is worth doing.
+    // std::vector<std::shared_ptr<Polygon>> intersection(const BoostBox &box) const {
+    //     std::vector<BoostPolygon> intersectionResult;
+    //     bg::intersection(*polygon, box, intersectionResult);
+
+    //     if (intersectionResult.empty()) {
+    //         return {};
+    //     }
+    //     std::vector<BoostPolygon> mergedPolygons;
+    //     for (const auto &poly : intersectionResult) {
+    //         bool merged = false;
+    //         for (auto &mergedPoly : mergedPolygons) {
+    //             if (bg::intersects(poly, mergedPoly)) {
+    //                 std::vector<BoostPolygon> unionResult;
+    //                 bg::union_(mergedPoly, poly, unionResult);
+    //                 if (!unionResult.empty()) {
+    //                     mergedPoly = unionResult[0];
+    //                     merged = true;
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //         if (!merged) {
+    //             mergedPolygons.push_back(poly);
+    //         }
+    //     }
+
+    //     std::vector<std::shared_ptr<Polygon>> result;
+    //     for (const auto &mergedPoly : mergedPolygons) {
+    //         auto newPolygon = std::make_shared<Polygon>(mergedPoly);
+    //         for (const auto &param : parameters) {
+    //             newPolygon->setField(param.first, param.second);
+    //         }
+    //         result.push_back(newPolygon);
+    //     }
+
+    //     return result;
+    // }
 
     std::string toWkt() const {
         std::stringstream ss;
@@ -90,6 +194,31 @@ public:
         return ss.str();
     }
 
+    std::vector<std::pair<double, double>> getExterior() const {
+        std::vector<std::pair<double, double>> result;
+        for (const auto &point : bg::exterior_ring(*polygon)) {
+            result.emplace_back(bg::get<0>(point), bg::get<1>(point));
+        }
+        return result;
+    }
+
+    std::vector<std::vector<std::pair<double, double>>> getInteriors() const {
+        std::vector<std::vector<std::pair<double, double>>> result;
+        for (const auto &inner : polygon->inners()) {
+            std::vector<std::pair<double, double>> inner_result;
+            for (const auto &point : inner) {
+                inner_result.emplace_back(bg::get<0>(point), bg::get<1>(point));
+            }
+            result.push_back(inner_result);
+        }
+        return result;
+    }
+
+    double getArea() const { return bg::area(*polygon); }
+
+    ~Polygon() override = default;
+
+private:
     void setExterior(const std::vector<std::pair<double, double>> &coordinates) {
         bg::exterior_ring(*polygon).clear();
         for (const auto &coord : coordinates) {
@@ -119,28 +248,6 @@ public:
             }
         }
     }
-
-    std::vector<std::pair<double, double>> getExterior() const {
-        std::vector<std::pair<double, double>> result;
-        for (const auto &point : bg::exterior_ring(*polygon)) {
-            result.emplace_back(bg::get<0>(point), bg::get<1>(point));
-        }
-        return result;
-    }
-
-    std::vector<std::vector<std::pair<double, double>>> getInteriors() const {
-        std::vector<std::vector<std::pair<double, double>>> result;
-        for (const auto &inner : polygon->inners()) {
-            std::vector<std::pair<double, double>> inner_result;
-            for (const auto &point : inner) {
-                inner_result.emplace_back(bg::get<0>(point), bg::get<1>(point));
-            }
-            result.push_back(inner_result);
-        }
-        return result;
-    }
-
-    double getArea() const { return bg::area(*polygon); }
 };
 
 class Point : public BaseGeometry {
@@ -151,12 +258,6 @@ public:
     Point(const BoostPoint &p) : point(std::make_shared<BoostPoint>(p)) {}
     Point(std::shared_ptr<BoostPoint> p) : point(p) {}
     Point(double x, double y) : point(std::make_shared<BoostPoint>(x, y)) {}
-
-    // static std::shared_ptr<Point> fromWkt(const std::string& wkt) {
-    //     auto p = std::make_shared<Point>();
-    //     bg::read_wkt(wkt, *(p->point));
-    //     return p;
-    // }
 
     std::string toWkt() const {
         std::stringstream ss;
@@ -229,98 +330,110 @@ public:
     // Method to set the factory function
     static void setPolygonFactory(py::function factory) { pythonPolygonFactory() = factory; }
 
-    void add_polygon(const std::shared_ptr<Polygon> &p) {
+    void addPolygon(const std::shared_ptr<Polygon> &p) {
+        // Print the parameters of the polygon being added
         BoostBox box;
         bg::envelope(*(p->polygon), box);
         rtree.insert(std::make_pair(box, polygons.size()));
         polygons.push_back(p);
     }
 
-    void add_point(const std::shared_ptr<Point> &p) {
+    void addPoint(const std::shared_ptr<Point> &p) {
         BoostBox box(*(p->point), *(p->point));
         rtree.insert(std::make_pair(box, polygons.size() + points.size()));
         points.push_back(p);
     }
 
-    py::object read_region(const std::pair<double, double> &coordinates, double scaling,
-                           const std::pair<double, double> &size) {
-        BoostPoint top_left(coordinates.first, coordinates.second);
-        BoostPoint bottom_right(coordinates.first + size.first / scaling, coordinates.second + size.second / scaling);
-        BoostBox query_box(top_left, bottom_right);
+    py::list getPolygons() {
+        py::list py_polygons;
+        for (const auto &polygon : polygons) {
+            py_polygons.append(callPolygonFactory(polygon));
+        }
+        return py_polygons;
+    }
 
-        // Convert BoostBox to BoostPolygon
-        BoostPolygon query_polygon;
-        bg::convert(query_box, query_polygon);
+    py::object readRegion(const std::pair<double, double> &coordinates, double scaling,
+                          const std::pair<double, double> &size) {
+        BoostPoint topLeft(coordinates.first, coordinates.second);
+        BoostPoint bottomRight(coordinates.first + size.first / scaling, coordinates.second + size.second / scaling);
+        BoostBox queryBox(topLeft, bottomRight);
+
+        BoostPolygon intersectionPolygon;
+        bg::convert(queryBox, intersectionPolygon);
 
         std::vector<std::pair<BoostBox, size_t>> results;
-        rtree.query(bgi::intersects(query_box), std::back_inserter(results));
+        rtree.query(bgi::intersects(queryBox), std::back_inserter(results));
 
         std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
 
-        // std::stringstream ss;
-        // std::cout << "Query box: " << bg::wkt(query_box) << std::endl;
-
-        py::list py_output;
+        py::list pyOutput;
         for (const auto &result : results) {
             size_t index = result.second;
-
             // Determine if the index corresponds to a polygon or a point
             // The insertation in the R-tree is done in the order of polygons and points so we can easily tell
-
             if (index < polygons.size()) {
-                // Add the polygon to the output list
                 auto &polygon = polygons[index];
-
-                // std::cout << "Original Polygon WKT: " << bg::wkt(*(polygon->polygon)) << std::endl;
-
-                // Use the new intersect method
-                auto intersected_polygons = polygon->intersection(query_box);
-
-                for (const auto &intersected_polygon : intersected_polygons) {
-                    // std::cout << "Intersected Polygon WKT: " << intersected_polygon->toWkt() << std::endl;
-                    py_output.append(callPolygonFactory(intersected_polygon));
+                auto intersectedPolygons = polygon->intersection(intersectionPolygon);
+                for (const auto &intersectedPolygon : intersectedPolygons) {
+                    applyAffineTransformation(*intersectedPolygon->polygon, coordinates, scaling);
+                    pyOutput.append(callPolygonFactory(intersectedPolygon));
                 }
 
             } else {
-                py_output.append(points[index - polygons.size()]);
+                auto &point = points[index - polygons.size()];
+                applyAffineTransformation(*point->point, coordinates, scaling);
+                // TODO: Factor
+                pyOutput.append(point);
             }
         }
 
-        return py_output;
+        return pyOutput;
     }
 
 private:
-    void transform_geometry(std::shared_ptr<BaseGeometry> geom, const BoostPoint &origin, double scaling) {
-        if (auto polygon = std::dynamic_pointer_cast<Polygon>(geom)) {
-            bg::strategy::transform::scale_transformer<double, 2, 2> scale(scaling, scaling);
-            bg::strategy::transform::translate_transformer<double, 2, 2> translate(-origin.get<0>(), -origin.get<1>());
-            BoostPolygon transformed;
-            bg::transform(*(polygon->polygon), transformed, scale);
-            bg::transform(transformed, *(polygon->polygon), translate);
-        } else if (auto point = std::dynamic_pointer_cast<Point>(geom)) {
-            double x = (point->getX() - origin.get<0>()) * scaling;
-            double y = (point->getY() - origin.get<1>()) * scaling;
-            point->setCoordinates(x, y);
+    void applyAffineTransformation(BoostPolygon &polygon, const std::pair<double, double> &origin, double scaling) {
+        bg::strategy::transform::matrix_transformer<double, 2, 2> transform(scaling, 0, -origin.first * scaling, 0,
+                                                                            scaling, -origin.second * scaling, 0, 0, 1);
+
+        // TODO: This is a bit weird that we can't just immediately apply this to the polygon
+        // Apply the transformation to each point of the exterior ring
+        for (auto &point : bg::exterior_ring(polygon)) {
+            bg::transform(point, point, transform);
+        }
+
+        // Apply the transformation to each point of each interior ring
+        for (auto &ring : bg::interior_rings(polygon)) {
+            for (auto &point : ring) {
+                bg::transform(point, point, transform);
+            }
         }
     }
+
+    void applyAffineTransformation(BoostPoint &point, const std::pair<double, double> &origin, double scaling) {
+        double x = (bg::get<0>(point) - origin.first) * scaling;
+        double y = (bg::get<1>(point) - origin.second) * scaling;
+        bg::set<0>(point, x);
+        bg::set<1>(point, y);
+    }
+
     py::object callPolygonFactory(const std::shared_ptr<Polygon> &polygon) {
         if (pythonPolygonFactory() != py::function()) {
-            // std::cout << "Using factory function" << std::endl;
             try {
                 py::object result = pythonPolygonFactory()(polygon);
                 // Ensure the result is a valid Python object
                 if (result.ptr() != nullptr) {
                     return result;
                 } else {
-                    std::cerr << "Factory function returned null object" << std::endl;
+                    throw GeometryFactoryFunctionError("Factory function returned null object");
                 }
+
             } catch (const std::exception &e) {
-                std::cerr << "Exception in factory function: " << e.what() << std::endl;
+                throw GeometryFactoryFunctionError(std::string("Exception in factory function: ") + e.what());
             } catch (...) {
-                std::cerr << "Unknown exception in factory function" << std::endl;
+                throw GeometryFactoryFunctionError("Unknown exception in factory function");
             }
         }
-        // Fallback to direct casting if factory function fails or is not set
+        // Fallback to direct casting if factory function is not set
         return py::cast(polygon);
     }
 };
@@ -328,27 +441,34 @@ private:
 PYBIND11_MODULE(_geometry, m) {
     py::class_<BaseGeometry, std::shared_ptr<BaseGeometry>>(m, "BaseGeometry")
         .def("set_field", &BaseGeometry::setField)
-        .def("get_field", &BaseGeometry::getField);
+        .def("get_field", &BaseGeometry::getField)
+        .def_property_readonly("fields", &BaseGeometry::getFields)
+        .def_property_readonly("pointer_id", &BaseGeometry::getPointerId);
 
     py::class_<Polygon, BaseGeometry, std::shared_ptr<Polygon>>(m, "Polygon")
         .def(py::init<>())
         .def(py::init<const BoostPolygon &>())
         .def(py::init<const std::vector<std::pair<double, double>> &,
                       const std::vector<std::vector<std::pair<double, double>>> &>())
-        .def(py::init([](const Polygon &other) { return std::make_shared<Polygon>(other.polygon); }))
-        // .def_static("from_wkt", &Polygon::fromWkt)
-        .def("to_wkt", &Polygon::toWkt)
-        .def("set_exterior", &Polygon::setExterior)
-        .def("set_interiors", &Polygon::setInteriors)
+        .def(py::init([](const std::shared_ptr<Polygon> &p) {
+            // Share the same C++ object, not creating a new one
+            return p;
+        }))
+        .def(py::init([](const Polygon &other) {
+            // Explicitly copy parameters when copying the polygon
+            auto new_polygon = std::make_shared<Polygon>(*other.polygon);
+            new_polygon->parameters = other.parameters; // Copy the parameters
+            return new_polygon;
+        }))
         .def("get_exterior", &Polygon::getExterior)
         .def("get_interiors", &Polygon::getInteriors)
-        .def("get_area", &Polygon::getArea);
+        .def_property_readonly("wkt", &Polygon::toWkt)
+        .def_property_readonly("area", &Polygon::getArea);
 
     py::class_<Point, BaseGeometry, std::shared_ptr<Point>>(m, "Point")
         .def(py::init<>())
         .def(py::init<const BoostPoint &>())
         .def(py::init<double, double>())
-        // .def_static("from_wkt", &Point::fromWkt)
         .def("to_wkt", &Point::toWkt)
         .def("set_coordinates", &Point::setCoordinates)
         .def("get_coordinates", &Point::getCoordinates)
@@ -367,9 +487,14 @@ PYBIND11_MODULE(_geometry, m) {
 
     py::class_<GeometryContainer, std::shared_ptr<GeometryContainer>>(m, "GeometryContainer")
         .def(py::init<>())
-        .def("add_polygon", &GeometryContainer::add_polygon)
-        .def("add_point", &GeometryContainer::add_point)
-        .def("read_region", &GeometryContainer::read_region)
-        .def_property_readonly("polygons", [](const GeometryContainer &self) { return self.polygons; })
+        .def("add_polygon", &GeometryContainer::addPolygon)
+        .def("add_point", &GeometryContainer::addPoint)
+        .def("read_region", &GeometryContainer::readRegion)
+        .def_property_readonly("polygons", &GeometryContainer::getPolygons)
         .def_property_readonly("points", [](const GeometryContainer &self) { return self.points; });
+
+    py::register_exception<GeometryError>(m, "GeometryError");
+    py::register_exception<GeometryIntersectionError>(m, "GeometryIntersectionError");
+    py::register_exception<GeometryTransformationError>(m, "GeometryTransformationError");
+    py::register_exception<GeometryFactoryFunctionError>(m, "GeometryFactoryFunctionError");
 }
