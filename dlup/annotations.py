@@ -14,7 +14,7 @@ Supported file formats:
 - HaloXML
 """
 from __future__ import annotations
-
+import time
 import copy
 import errno
 import functools
@@ -1110,6 +1110,7 @@ class WsiAnnotations:
         for annotation in cropped_annotations:
             annotation = transform(annotation, _affine_coords)
             output.append(annotation)
+
         return output
 
     def __contains__(self, item: Union[str, AnnotationClass]) -> bool:

@@ -51,6 +51,9 @@ incdir_pybind11 = include_directories(pybind11_include)
 boost_modules = ['system', 'serialization']
 boost_dep = dependency('boost', modules : boost_modules, required : true)
 
+# OpenCV
+opencv_dep = dependency('opencv4', required : true)
+
 ### End Includes ### 
 
 
@@ -84,4 +87,4 @@ _geometry = py.extension_module('_geometry',
                                 include_directories : [incdir_pybind11],
                                 install : true,
                                 cpp_args : base_cpp_args,
-                                dependencies : base_deps + boost_dep)
+                                dependencies : base_deps + boost_dep + opencv_dep)

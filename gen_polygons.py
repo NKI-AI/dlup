@@ -22,7 +22,8 @@ print(f"Time to load annotations (dlup v0.7.0): {(time.time() - start_time):.5f}
 # Bounding box:
 bbox = annotations.bounding_box
 print(f"Bounding box: {bbox}")
-region_start = (500, 0)
+region_start = (0, 0)
+
 
 # Let's get the region
 start_time = time.time()
@@ -93,12 +94,44 @@ print(LUT)
 np.asarray((56630.2124, 69640.6535)) * 0.02
 region_size = (1393, 1133)
 
+
+
 _, mask, _ = convert_annotations(region, region_size=region_size, index_map=index_map)
 print(mask.shape)
 
 
 PIL.Image.fromarray(LUT[mask]).resize((1133 // 2, 1393 // 2)).save("dlup_original.png")
 
+mask_ = region2.to_mask(region_size, index_map, 0)
+PIL.Image.fromarray(LUT[mask_]).resize((1133 // 2, 1393 // 2)).save("dlup_new_opencv.png")
 
 mask3 = convert_annotations_new(region2.polygons, region_size=region_size, index_map=index_map)
 PIL.Image.fromarray(LUT[mask3]).resize((1133 // 2, 1393 // 2)).save("dlup_new.png")
+
+print()
+# Let's time everything separately.
+print("Benchmark\n=========")
+
+annotations = WsiAnnotations.from_geojson(fn, sorting="NONE")
+bbox = annotations.bounding_box
+
+start_time = time.time()
+region = annotations.read_region(region_start, 0.02, bbox[1])
+print(f"Time to read region (dlup v0.7.0): {(time.time() - start_time) * 1000:.2f}ms")
+start_time2 = time.time()
+_, mask, _ = convert_annotations(region, region_size=region_size, index_map=index_map)
+print(f"Time to convert annotations to mask (dlup v0.7.0): {(time.time() - start_time2) * 1000:.2f}ms")
+total_time = (time.time() - start_time)
+print(f"Total time to read region and convert to mask (dlup v0.7.0): {total_time * 1000:.2f}ms")
+print()
+annotations2 = WsiAnnotations2.from_geojson(fn)
+start_time = time.time()
+region2 = annotations2.read_region(region_start, 0.02, bbox[1])
+print(f"Time to read region (dlup v0.8.0.beta): {(time.time() - start_time) * 1000:.2f}ms")
+start_time2 = time.time()
+mask_ = region2.to_mask(region_size, index_map, 0)
+print(f"Time to convert annotations to mask (dlup v0.8.0.beta): {(time.time() - start_time2) * 1000:.2f}ms")
+total_time2 = (time.time() - start_time)
+print(f"Total time to read region and convert to mask (dlup v0.8.0.beta): {total_time2 * 1000:.2f}ms")
+
+print(f"\nSpeedup: {total_time/total_time2:.3f} times")

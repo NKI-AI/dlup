@@ -213,9 +213,7 @@ class WsiAnnotationsExperimental:
         return data
 
     def read_region(self, coordinates: tuple[int, int], scaling: float, size: tuple[int, int]):
-        start_time = time.time()
         region = self._layers.read_region(coordinates, scaling, size)
-        print(f"Time to read region (dlup v0.8.0.beta): {(time.time() - start_time):.5f}s")
         return region
 
     def scale(self, scaling: float) -> None:
