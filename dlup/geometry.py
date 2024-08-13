@@ -23,16 +23,28 @@ class DlupPolygon(_dg.Polygon):
                 self.set_field(key, value)
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self.get_field("label")
 
+    @label.setter
+    def label(self, value: str) -> None:
+        self.set_field("label", value)
+
     @property
-    def index(self):
+    def index(self) -> int:
         return self.get_field("index")
+
+    @index.setter
+    def index(self, value: int) -> None:
+        self.set_field("index", value)
 
     @property
     def color(self):
         return self.get_field("color")
+
+    @color.setter
+    def color(self, value: str) -> None:
+        self.set_field("color", value)
 
     def to_shapely(self):
         if not SHAPELY_AVAILABLE:

@@ -133,7 +133,7 @@ def shape(
 class WsiAnnotationsExperimental:
     """Class that holds all annotations for a specific image"""
 
-    def __init__(self, layers):
+    def __init__(self, layers: DlupGeometryContainer):
         self._layers = layers
         self._tags = []
 
@@ -151,7 +151,7 @@ class WsiAnnotationsExperimental:
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
 
         _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
-        layers: list[DlupPolygon | DlupPoint] = []
+        geometries: list[DlupPolygon | DlupPoint] = []
         for path in _geojsons:
             path = pathlib.Path(path)
             if not path.exists():
@@ -172,10 +172,10 @@ class WsiAnnotationsExperimental:
                         raise ValueError("Could not find label in the GeoJSON properties.")
 
                     _geometry = shape(x["geometry"], label=_label, color=_color)
-                    layers += _geometry
+                    geometries += _geometry
 
         container = DlupGeometryContainer()
-        for layer in layers:
+        for layer in geometries:
             if isinstance(layer, DlupPolygon):
                 container.add_polygon(layer)
             elif isinstance(layer, DlupPoint):
@@ -210,17 +210,23 @@ class WsiAnnotationsExperimental:
 
         return data
 
-    def read_region(self, coordinates, scaling, size):
+    def read_region(self, coordinates: tuple[int, int], scaling: float, size: tuple[int, int]):
         return self._layers.read_region(coordinates, scaling, size)
 
     def scale(self, scaling: float) -> None:
-        """Scale the annotations by a multiplication factor.
+        """
+        Scale the annotations by a multiplication factor.
         This operation will be performed in-place.
 
         Parameters
         ----------
         scaling : float
             The scaling factor to apply to the annotations.
+
+        Notes
+        -----
+        This invalidates the R-tree. You could rebuild this manually using `.rebuild_rtree()`, or have the function
+        `read_region()` do it for you on-demand.
 
         Returns
         -------
@@ -230,14 +236,19 @@ class WsiAnnotationsExperimental:
 
     def set_offset(self, offset: tuple[float, float]) -> None:
         """Set the offset for the annotations. This operation will be performed in-place.
-        
+
         For example, if the offset is 1, 1, the annotations will be moved by 1 unit in the x and y direction.
 
         Parameters
         ----------
         offset : tuple[float, float]
             The offset to apply to the annotations.
-        
+
+        Notes
+        -----
+        This invalidates the R-tree. You could rebuild this manually using `.rebuild_rtree()`, or have the function
+        `read_region()` do it for you on-demand.
+
         Returns
         -------
         None
@@ -245,16 +256,42 @@ class WsiAnnotationsExperimental:
         self._layers.set_offset(offset)
 
     def rebuild_rtree(self):
+        """
+        Rebuild the R-tree for the annotations. This operation will be performed in-place.
+        The R-tree is used for fast spatial queries on the annotations and is invalidated when the annotations are
+        modified. This function will rebuild the R-tree. Strictly speaking, this is not required as the R-tree will be
+        rebuilt on-demand when you invoke a `read_region()`. You could however do this if you want to avoid the `read_region()`
+        to do it for you the first time it runs.
+        """
+
         self._layers.rebuild_rtree()
 
+    def reindex_polygons(self, index_map: dict[str, int]):
+        """
+        Reindex the polygons in the annotations. This operation will be performed in-place.
+        This is useful if you want to change the index of the polygons in the annotations.
+
+        This requires that the `.label` property on the polygons is set.
+
+        Parameters
+        ----------
+        index_map : dict[str, int]
+            A dictionary that maps the label to the new index.
+
+        Returns
+        -------
+        None
+        """
+        self._layers.reindex_polygons(index_map)
+
     def filter_polygons(self, label: str) -> None:
-        """Filter polygons in-place. 
+        """Filter polygons in-place.
 
         Note
         ----
         This will internally invalidate the R-tree. You could rebuild this manually using `.rebuild_rtree()`, or
         have the function itself do this on-demand (typically when you invoke a `.read_region()`)
-          
+
         Parameters
         ----------
         label : str
@@ -264,4 +301,3 @@ class WsiAnnotationsExperimental:
         for polygon in self._layers.polygons:
             if polygon.label == label:
                 self._layers.remove_polygon(polygon)
-
