@@ -203,7 +203,7 @@ class WsiAnnotationsExperimental:
             data["metadata"] = {"tags": [_.label for _ in self.tags]}
 
         all_layers = self._layers.polygons + self._layers.points
-        for idx, curr_annotation in enumerate(self._layers.polygons):
+        for idx, curr_annotation in enumerate(all_layers):
             json_dict = _geometry_to_geojson(curr_annotation, label=curr_annotation.label, color=curr_annotation.color)
             json_dict["id"] = str(idx)
             data["features"].append(json_dict)
