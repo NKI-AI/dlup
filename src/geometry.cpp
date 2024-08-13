@@ -214,6 +214,7 @@ std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &
     BoostPolygon validPolygon = GeometryUtils::makeValid(*polygon);
 
     std::vector<BoostPolygon> intersectionResult;
+    // intersectionResult.reserve(validPolygon.inners().size() * 5);
     bg::intersection(validPolygon, otherPolygon, intersectionResult);
 
     std::vector<std::shared_ptr<Polygon>> result;
@@ -303,6 +304,9 @@ cv::Mat generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> 
     std::vector<cv::Point> exterior_cv_points;
     std::vector<std::vector<cv::Point>> interiors_cv_points;
 
+    // exterior_cv_points.reserve(100000);
+    // interiors_cv_points.reserve(100000);
+
     for (const auto &annotation : annotations) {
         int index_value = index_map.at(annotation->getField("label")->cast<std::string>());
 
@@ -351,7 +355,6 @@ cv::Mat generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> 
 
     return mask;
 }
-
 
 py::array_t<int> maskToPyArray(const cv::Mat &mask) {
     // Ensure the mask is of type CV_32S (int type)
@@ -508,6 +511,8 @@ public:
         return py_polygons;
     }
 
+    void sortPolygons(const py::function &keyFunc, bool reverse);
+
     void removePolygon(const PolygonPtr &p);
     void removePolygon(size_t index);
 
@@ -526,24 +531,45 @@ public:
                                 const std::pair<double, double> &size);
 
     // TODO: Rethink the need for this function.
-    void reindexPolygons(const std::map<std::string, int> &indexMap) {
-        for (auto &polygon : polygons) {
-            std::optional<py::object> label_opt = polygon->getField("label");
+    void reindexPolygons(const std::map<std::string, int> &indexMap);
+};
 
-            if (label_opt.has_value()) {
-                std::string label = label_opt->cast<std::string>();
-                auto it = indexMap.find(label);
-                if (it != indexMap.end()) {
-                    polygon->setField("index", py::int_(it->second));
-                } else {
-                    throw std::invalid_argument("Label '" + label + "' not found in indexMap");
-                }
+void GeometryContainer::reindexPolygons(const std::map<std::string, int> &indexMap) {
+    for (auto &polygon : polygons) {
+        std::optional<py::object> label_opt = polygon->getField("label");
+
+        if (label_opt.has_value()) {
+            std::string label = label_opt->cast<std::string>();
+            auto it = indexMap.find(label);
+            if (it != indexMap.end()) {
+                polygon->setField("index", py::int_(it->second));
             } else {
-                throw std::invalid_argument("Polygon does not have a value for the 'label' field");
+                throw std::invalid_argument("Label '" + label + "' not found in indexMap");
             }
+        } else {
+            throw std::invalid_argument("Polygon does not have a value for the 'label' field");
         }
     }
-};
+}
+
+void GeometryContainer::sortPolygons(const py::function &keyFunc, bool reverse) {
+    std::sort(polygons.begin(), polygons.end(), [&keyFunc, reverse](const PolygonPtr &a, const PolygonPtr &b) {
+        py::object keyA = keyFunc(a);
+        py::object keyB = keyFunc(b);
+
+        if (py::isinstance<py::str>(keyA) && py::isinstance<py::str>(keyB)) {
+            return reverse ? (keyA.cast<std::string>() > keyB.cast<std::string>())
+                           : (keyA.cast<std::string>() < keyB.cast<std::string>());
+        } else if (py::isinstance<py::float_>(keyA) && py::isinstance<py::float_>(keyB)) {
+            return reverse ? (keyA.cast<double>() > keyB.cast<double>()) : (keyA.cast<double>() < keyB.cast<double>());
+        } else if (py::isinstance<py::int_>(keyA) && py::isinstance<py::int_>(keyB)) {
+            return reverse ? (keyA.cast<int>() > keyB.cast<int>()) : (keyA.cast<int>() < keyB.cast<int>());
+        } else {
+            throw std::invalid_argument("Unsupported key type for sorting.");
+        }
+    });
+    rtreeWrapper.invalidate();
+}
 
 void GeometryContainer::scale(double scaling) {
     for (auto &point : points) {
@@ -633,8 +659,13 @@ AnnotationRegion GeometryContainer::readRegion(const std::pair<double, double> &
 
     std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
 
+    // const size_t estimatedSize = 10000; //  Estimated size
+
     std::vector<std::shared_ptr<Polygon>> intersectedPolygons;
     std::vector<std::shared_ptr<Point>> intersectedPoints;
+
+    // intersectedPolygons.reserve(estimatedSize);
+    // intersectedPoints.reserve(estimatedSize);
 
     for (const auto &result : results) {
         size_t index = result.second;
@@ -731,6 +762,7 @@ PYBIND11_MODULE(_geometry, m) {
         .def("remove_polygon", py::overload_cast<size_t>(&GeometryContainer::removePolygon),
              "Remove a polygon by its index")
         .def("reindex_polygons", &GeometryContainer::reindexPolygons)
+        .def("sort_polygons", &GeometryContainer::sortPolygons, "Sort polygons by a custom key function")
 
         // Overload remove_point to handle both object and index
         .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryContainer::removePoint),

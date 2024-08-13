@@ -7,7 +7,6 @@ import cv2 as cv2
 from dlup.annotations import WsiAnnotations
 from dlup.annotations_experimental import WsiAnnotationsExperimental as WsiAnnotations2
 from dlup.data.transforms import convert_annotations
-from dlup.annotations_experimental import convert_annotations as convert_annotations_new
 
 fn = Path("TCGA-E9-A1R4-01Z-00-DX1.B04D5A22-8CE5-49FD-8510-14444F46894D.geojson")
 import numpy as np
@@ -17,6 +16,39 @@ annotations = WsiAnnotations.from_geojson(fn, sorting="NONE")
 import PIL.Image
 
 print(f"Time to load annotations (dlup v0.7.0): {(time.time() - start_time):.5f}s")
+
+
+
+# TODO: Temporary here
+def convert_annotations_new(
+    annotations,
+    region_size: tuple[int, int],
+    default_value: int = 0,
+    index_map: dict[str, int] = None,
+):
+    mask = np.empty(region_size, dtype=np.int32)
+    mask[:] = default_value
+    for curr_annotation in annotations:
+        holes_mask = None
+        index_value = index_map[curr_annotation.label]
+        original_values = None
+        interiors = [(np.asarray(pi)).round().astype(np.int32) for pi in curr_annotation.get_interiors()]
+        if interiors != []:
+            original_values = mask.copy()
+            holes_mask = np.zeros(region_size, dtype=np.int32)
+            # Get a mask where the holes are
+            cv2.fillPoly(holes_mask, interiors, [1])
+
+        cv2.fillPoly(
+            mask,
+            [(np.asarray(curr_annotation.get_exterior())).round().astype(np.int32)],
+            [index_value],
+        )
+        if interiors != []:
+            # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
+            mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
+    return mask
+
 
 
 # Bounding box:

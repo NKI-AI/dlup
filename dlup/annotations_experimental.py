@@ -306,33 +306,26 @@ class WsiAnnotationsExperimental:
                 self._layers.remove_polygon(polygon)
 
 
-# TODO: Temporary here
-def convert_annotations(
-    annotations,
-    region_size: tuple[int, int],
-    default_value: int = 0,
-    index_map: dict[str, int] = None,
-):
-    mask = np.empty(region_size, dtype=np.int32)
-    mask[:] = default_value
-    for curr_annotation in annotations:
-        holes_mask = None
-        index_value = index_map[curr_annotation.label]
-        original_values = None
-        interiors = [(np.asarray(pi)).round().astype(np.int32) for pi in curr_annotation.get_interiors()]
-        if interiors != []:
-            original_values = mask.copy()
-            holes_mask = np.zeros(region_size, dtype=np.int32)
-            # Get a mask where the holes are
-            cv2.fillPoly(holes_mask, interiors, [1])
+    def sort_polygons(self, key: callable, reverse: bool = False) -> None:
+        """Sort the polygons in-place.
 
-        cv2.fillPoly(
-            mask,
-            [(np.asarray(curr_annotation.get_exterior())).round().astype(np.int32)],
-            [index_value],
-        )
-        if interiors != []:
-            # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
-            mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
-    return mask
+        Parameters
+        ----------
+        key : callable
+            The key to sort the polygons on, this has to be a lambda function or similar.
+            For instance `lambda polygon: polygon.area` will sort the polygons on the area, or 
+            `lambda polygon: polygon.get_field(field_name)` will sort the polygons on that field.
+        reverse : bool
+            Whether to sort in reverse order.
 
+        Note
+        ----
+        This will internally invalidate the R-tree. You could rebuild this manually using `.rebuild_rtree()`, or
+        have the function itself do this on-demand (typically when you invoke a `.read_region()`)
+
+        Returns
+        -------
+        None
+
+        """
+        self._layers.sort_polygons(key, reverse)
