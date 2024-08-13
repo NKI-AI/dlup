@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#define DLUPDEBUG
+
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 namespace py = pybind11;
@@ -282,18 +284,83 @@ public:
 
 class AnnotationRegion {
 public:
-    AnnotationRegion(py::list polygons, py::list points)
+    AnnotationRegion(std::vector<std::shared_ptr<Polygon>> polygons, std::vector<std::shared_ptr<Point>> points)
         : polygons_(std::move(polygons)), points_(std::move(points)) {}
 
-    py::list getPolygons() const { return polygons_; }
-    py::list getPoints() const { return points_; }
+    static void setPolygonFactory(py::function factory) { polygonFactory() = std::move(factory); }
+    static void setPointFactory(py::function factory) { pointFactory() = std::move(factory); }
+
+    static FactoryGuard createPolygonFactoryGuard(py::function factory) {
+        return FactoryGuard(polygonFactory(), factory);
+    }
+
+    static FactoryGuard createPointFactoryGuard(py::function factory) { return FactoryGuard(pointFactory(), factory); }
+
+    static py::object callFactoryFunction(const std::shared_ptr<Polygon> &polygon) {
+        return invokeFactoryFunction(polygonFactory(), polygon);
+    }
+
+    static py::object callFactoryFunction(const std::shared_ptr<Point> &point) {
+        return invokeFactoryFunction(pointFactory(), point);
+    }
+
+    py::list getPolygons() const {
+#ifdef DLUPDEBUG
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+#endif
+        py::list py_polygons;
+        for (const auto &polygon : polygons_) {
+            py_polygons.append(callFactoryFunction(polygon));
+        }
+#ifdef DLUPDEBUG
+        std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+        std::cout << "Elapsed time in AnnotationRegion::getPolygons: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
+#endif
+        return py_polygons;
+    }
+
+    py::list getPoints() const {
+        py::list py_points;
+        for (const auto &point : points_) {
+            py_points.append(callFactoryFunction(point));
+        }
+        return py_points;
+    }
 
 private:
-    py::list polygons_;
-    py::list points_;
+    std::vector<std::shared_ptr<Polygon>> polygons_;
+    std::vector<std::shared_ptr<Point>> points_;
+
+    static py::function &polygonFactory() {
+        static py::function instance;
+        return instance;
+    }
+
+    static py::function &pointFactory() {
+        static py::function instance;
+        return instance;
+    }
+
+    template <typename T>
+    static py::object invokeFactoryFunction(py::function factoryFunction, const std::shared_ptr<T> &object) {
+        if (factoryFunction != py::function()) {
+            try {
+                py::object result = factoryFunction(object);
+                if (result.ptr() != nullptr) {
+                    return result;
+                } else {
+                    throw GeometryFactoryFunctionError("Factory function returned null object");
+                }
+            } catch (const std::exception &e) {
+                throw GeometryFactoryFunctionError(std::string("Exception in factory function: ") + e.what());
+            } catch (...) {
+                throw GeometryFactoryFunctionError("Unknown exception in factory function");
+            }
+        }
+        return py::cast(object);
+    }
 };
-
-
 
 class GeometryContainer {
 public:
@@ -304,17 +371,6 @@ public:
     std::vector<PolygonPtr> polygons;
     std::vector<PointPtr> points;
     RTreeWrapper rtreeWrapper;
-
-    static void setPolygonFactory(py::function factory) { polygonFactory() = std::move(factory); }
-
-    static void setPointFactory(py::function factory) { pointFactory() = std::move(factory); }
-
-    // FactoryGuard creation functions for RAII management
-    static FactoryGuard createPolygonFactoryGuard(py::function factory) {
-        return FactoryGuard(polygonFactory(), factory);
-    }
-
-    static FactoryGuard createPointFactoryGuard(py::function factory) { return FactoryGuard(pointFactory(), factory); }
 
     void addPolygon(const PolygonPtr &p) {
         // Print the parameters of the polygon being added
@@ -331,10 +387,18 @@ public:
     }
 
     py::list getPolygons() {
+#ifdef DLUPDEBUG
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+#endif
         py::list py_polygons;
         for (const auto &polygon : polygons) {
-            py_polygons.append(callFactoryFunction(polygon));
+            py_polygons.append(AnnotationRegion::callFactoryFunction(polygon));
         }
+#ifdef DLUPDEBUG
+        std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+        std::cout << "Elapsed time in GeometryContainer::getPolygons: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
+#endif
         return py_polygons;
     }
 
@@ -353,63 +417,25 @@ public:
     bool isRTreeInvalidated() const { return rtreeWrapper.isInvalidated(); }
 
     AnnotationRegion readRegion(const std::pair<double, double> &coordinates, double scaling,
-                          const std::pair<double, double> &size);
+                                const std::pair<double, double> &size);
 
+    // TODO: Rethink the need for this function.
+    void reindexPolygons(const std::map<std::string, int> &indexMap) {
+        for (auto &polygon : polygons) {
+            std::optional<py::object> label_opt = polygon->getField("label");
 
-// TODO: Rethink the need for this function.
-void reindexPolygons(const std::map<std::string, int> &indexMap) {
-    for (auto &polygon : polygons) {
-        std::optional<py::object> label_opt = polygon->getField("label");
-
-        if (label_opt.has_value()) {
-            std::string label = label_opt->cast<std::string>();
-            auto it = indexMap.find(label);
-            if (it != indexMap.end()) {
-                polygon->setField("index", py::int_(it->second));
-            } else {
-                throw std::invalid_argument("Label '" + label + "' not found in indexMap");
-            }
-        } else {
-            throw std::invalid_argument("Polygon does not have a value for the 'label' field");
-        }
-    }
-}
-
-
-private:
-    static py::function &polygonFactory() {
-        static py::function instance;
-        return instance;
-    }
-
-    static py::function &pointFactory() {
-        static py::function instance;
-        return instance;
-    }
-
-    py::object callFactoryFunction(const PolygonPtr &polygon) {
-        return invokeFactoryFunction(polygonFactory(), polygon);
-    }
-
-    py::object callFactoryFunction(const PointPtr &point) { return invokeFactoryFunction(pointFactory(), point); }
-
-    template <typename T>
-    py::object invokeFactoryFunction(py::function factoryFunction, const std::shared_ptr<T> &object) {
-        if (factoryFunction != py::function()) {
-            try {
-                py::object result = factoryFunction(object);
-                if (result.ptr() != nullptr) {
-                    return result;
+            if (label_opt.has_value()) {
+                std::string label = label_opt->cast<std::string>();
+                auto it = indexMap.find(label);
+                if (it != indexMap.end()) {
+                    polygon->setField("index", py::int_(it->second));
                 } else {
-                    throw GeometryFactoryFunctionError("Factory function returned null object");
+                    throw std::invalid_argument("Label '" + label + "' not found in indexMap");
                 }
-            } catch (const std::exception &e) {
-                throw GeometryFactoryFunctionError(std::string("Exception in factory function: ") + e.what());
-            } catch (...) {
-                throw GeometryFactoryFunctionError("Unknown exception in factory function");
+            } else {
+                throw std::invalid_argument("Polygon does not have a value for the 'label' field");
             }
         }
-        return py::cast(object);
     }
 };
 
@@ -431,7 +457,6 @@ void GeometryContainer::setOffset(std::pair<double, double> offset) {
         GeometryUtils::applyAffineTransformation(*polygon->polygon, offset, 1.0);
     }
     rtreeWrapper.invalidate();
-
 }
 
 void GeometryContainer::rebuildRTree() {
@@ -486,11 +511,11 @@ void GeometryContainer::removePoint(size_t index) {
 }
 
 AnnotationRegion GeometryContainer::readRegion(const std::pair<double, double> &coordinates, double scaling,
-                                         const std::pair<double, double> &size) {
+                                               const std::pair<double, double> &size) {
 
-    // Let's time this function
+#ifdef DLUPDEBUG
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
+#endif
     BoostPoint topLeft(coordinates.first / scaling, coordinates.second / scaling);
     BoostPoint bottomRight((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
     BoostBox queryBox(topLeft, bottomRight);
@@ -502,42 +527,34 @@ AnnotationRegion GeometryContainer::readRegion(const std::pair<double, double> &
 
     std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
 
-    py::list polygonList;
-    py::list pointList;
+    std::vector<std::shared_ptr<Polygon>> intersectedPolygons;
+    std::vector<std::shared_ptr<Point>> intersectedPoints;
 
     for (const auto &result : results) {
         size_t index = result.second;
-            // Determine if the index corresponds to a polygon or a point
-        // The insertation in the R-tree is done in the order of polygons and points so we can easily tell
         if (index < polygons.size()) {
             auto &polygon = polygons[index];
-            auto intersectedPolygons = polygon->intersection(intersectionPolygon);
-            for (const auto &intersectedPolygon : intersectedPolygons) {
+            auto intersections = polygon->intersection(intersectionPolygon);
+            for (const auto &intersectedPolygon : intersections) {
                 GeometryUtils::applyAffineTransformation(*intersectedPolygon->polygon, coordinates, scaling);
-                polygonList.append(callFactoryFunction(intersectedPolygon));
+                intersectedPolygons.push_back(intersectedPolygon);
             }
         } else {
             auto &point = points[index - polygons.size()];
-            // Let's make a copy before we apply the transformation, otherwise it will be changed in-place
             auto transformedPoint = std::make_shared<Point>(*point);
             GeometryUtils::applyAffineTransformation(*transformedPoint->point, coordinates, scaling);
-            pointList.append(callFactoryFunction(transformedPoint));
+            intersectedPoints.push_back(transformedPoint);
         }
     }
-    // Let's time this function
+#ifdef DLUPDEBUG
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    std::cout << "Elapsed time in readRegion: "
+    std::cout << "Elapsed time in GeometryContainer::readRegion: "
               << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
-
-    begin = std::chrono::steady_clock::now();
-    auto returnValue = AnnotationRegion(std::move(polygonList), std::move(pointList));
-    end = std::chrono::steady_clock::now();
-    std::cout << "Elapsed time to construct return value: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
+#endif
+    auto returnValue = AnnotationRegion(std::move(intersectedPolygons), std::move(intersectedPoints));
 
     return returnValue;
 }
-
 
 PYBIND11_MODULE(_geometry, m) {
     py::class_<BaseGeometry, std::shared_ptr<BaseGeometry>>(m, "BaseGeometry")
@@ -594,8 +611,8 @@ PYBIND11_MODULE(_geometry, m) {
         .def("scale", &Point::scale, py::arg("scaling"), py::arg("origin") = Point(0, 0))
         .def_property_readonly("wkt", &Point::toWkt);
 
-    m.def("set_polygon_factory", &GeometryContainer::setPolygonFactory);
-    m.def("set_point_factory", &GeometryContainer::setPointFactory);
+    m.def("set_polygon_factory", &AnnotationRegion::setPolygonFactory);
+    m.def("set_point_factory", &AnnotationRegion::setPointFactory);
 
     py::class_<GeometryContainer, std::shared_ptr<GeometryContainer>>(m, "GeometryContainer")
         .def(py::init<>())
