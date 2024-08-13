@@ -1,6 +1,11 @@
 project('dlup', 'cpp', 'cython',
   version : '0.7.0',
-  default_options : ['warning_level=3', 'cpp_std=c++17'])
+  default_options : ['buildtype=release', 'warning_level=3', 'cpp_std=c++17'])
+
+cpp_args = ['-O3', '-march=native', '-ffast-math', '-funroll-loops', '-flto', '-pipe', '-fomit-frame-pointer']
+link_args = ['-flto']
+
+b_unity = true
 
 
 ### Includes ####
@@ -62,16 +67,16 @@ _background = py.extension_module('_background',
                                   include_directories : [incdir_numpy],
                                   install : true,
                                   subdir : '',
-                                  cpp_args : ['-O3', '-march=native', '-ffast-math'])
+                                  link_args : link_args,
+                                  cpp_args : cpp_args)
 
 # Define the base dependencies and compiler arguments
-base_deps = [libtiff_dep]
-base_cpp_args = ['-std=c++17', '-O3', '-march=native', '-ffast-math']
 
 # Add ZSTD support if available
+base_deps = [libtiff_dep]
 if have_zstd
     base_deps += [zstd_dep]
-    base_cpp_args += ['-DHAVE_ZSTD']
+    cpp_args += ['-DHAVE_ZSTD']
 endif
 
 # tiff writer extension
@@ -79,12 +84,14 @@ _libtiff_tiff_writer = py.extension_module('_libtiff_tiff_writer',
                                            'src/libtiff_tiff_writer.cpp',
                                            include_directories : [incdir_pybind11],
                                            install : true,
-                                           cpp_args : base_cpp_args,
+                                           cpp_args : cpp_args,
+                                           link_args : link_args,
                                            dependencies : base_deps)
 
 _geometry = py.extension_module('_geometry', 
                                 'src/geometry.cpp',
                                 include_directories : [incdir_pybind11],
                                 install : true,
-                                cpp_args : base_cpp_args,
+                                cpp_args : cpp_args,
+                                link_args : link_args,
                                 dependencies : base_deps + boost_dep + opencv_dep)

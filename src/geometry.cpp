@@ -128,6 +128,8 @@ public:
 
     Polygon() : polygon(std::make_shared<BoostPolygon>()) {}
     Polygon(const BoostPolygon &p) : polygon(std::make_shared<BoostPolygon>(p)) {}
+    // This doesn't work, but is probably
+    // Polygon(BoostPolygon &&p) : polygon(std::make_shared<BoostPolygon>(std::move(p))) {}
     Polygon(std::shared_ptr<BoostPolygon> p) : polygon(p) {}
 
     Polygon(const std::vector<std::pair<double, double>> &exterior,
@@ -154,6 +156,7 @@ private:
 
 std::vector<std::pair<double, double>> Polygon::getExterior() const {
     std::vector<std::pair<double, double>> result;
+    result.reserve(bg::exterior_ring(*polygon).size());
     for (const auto &point : bg::exterior_ring(*polygon)) {
         result.emplace_back(bg::get<0>(point), bg::get<1>(point));
     }
@@ -162,6 +165,7 @@ std::vector<std::pair<double, double>> Polygon::getExterior() const {
 
 std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() const {
     std::vector<std::vector<std::pair<double, double>>> result;
+    result.reserve(polygon->inners().size());
     for (const auto &inner : polygon->inners()) {
         std::vector<std::pair<double, double>> inner_result;
         for (const auto &point : inner) {
@@ -174,6 +178,7 @@ std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() cons
 
 void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordinates) {
     bg::exterior_ring(*polygon).clear();
+    bg::exterior_ring(*polygon).reserve(coordinates.size());
     for (const auto &coord : coordinates) {
         bg::append(*polygon, BoostPoint(coord.first, coord.second));
     }
@@ -185,6 +190,7 @@ void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordina
 
 void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors) {
     bg::interior_rings(*polygon).clear();
+    bg::exterior_ring(*polygon).reserve(interiors.size());
     polygon->inners().resize(interiors.size());
     for (size_t i = 0; i < interiors.size(); ++i) {
         const auto &interior_coords = interiors[i];
@@ -249,8 +255,8 @@ public:
         bg::set<1>(*point, y);
     }
     std::pair<double, double> getCoordinates() const { return std::make_pair(bg::get<0>(*point), bg::get<1>(*point)); }
-    double getX() const { return bg::get<0>(*point); }
-    double getY() const { return bg::get<1>(*point); }
+    inline double getX() const { return bg::get<0>(*point); }
+    inline double getY() const { return bg::get<1>(*point); }
     double distanceTo(const Point &other) const { return bg::distance(*point, *(other.point)); }
     bool equals(const Point &other) const { return bg::equals(*point, *(other.point)); }
     bool within(const Polygon &polygon) const { return bg::within(*point, *(polygon.polygon)); }
@@ -346,57 +352,6 @@ cv::Mat generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> 
     return mask;
 }
 
-// cv::Mat generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> &annotations, cv::Size region_size,
-//                                     const std::unordered_map<std::string, int> &index_map, int default_value) {
-//     // Create the mask and initialize with the default value
-//     cv::Mat mask(region_size, CV_32S, cv::Scalar(default_value));
-
-//     for (const auto &annotation : annotations) {
-//         // Extract the label and map it to an index value
-//         int index_value = index_map.at(annotation->getField("label")->cast<std::string>());
-
-//         // Convert the exterior and interiors to OpenCV points
-//         std::vector<cv::Point> exterior_cv_points;
-//         for (const auto &[x, y] : annotation->getExterior()) {
-//             exterior_cv_points.emplace_back(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
-//         }
-
-//         std::vector<std::vector<cv::Point>> interiors_cv_points;
-//         for (const auto &interior : annotation->getInteriors()) {
-//             std::vector<cv::Point> interior_cv;
-//             for (const auto &[x, y] : interior) {
-//                 interior_cv.emplace_back(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
-//             }
-//             interiors_cv_points.push_back(std::move(interior_cv));
-//         }
-
-//         // Backup original mask values where holes will be drawn
-//         cv::Mat original_values = mask.clone();
-//         cv::Mat holes_mask = cv::Mat::zeros(region_size, CV_8U);
-//         if (!interiors_cv_points.empty()) {
-//             cv::fillPoly(holes_mask, interiors_cv_points, cv::Scalar(1));
-//         }
-
-// #ifdef DLUPDEBUG
-//         // Debug: Check matrix types and sizes before the setTo operation
-//         std::cout << "mask type: " << mask.type() << ", size: " << mask.size << std::endl;
-//         std::cout << "original_values type: " << original_values.type() << ", size: " << original_values.size <<
-//         std::endl; std::cout << "holes_mask type: " << holes_mask.type() << ", size: " << holes_mask.size <<
-//         std::endl;
-// #endif
-
-//         // Fill the exterior polygon in the mask
-//         cv::fillPoly(mask, std::vector<std::vector<cv::Point>>{exterior_cv_points}, cv::Scalar(index_value));
-
-//         // If interiors exist, reset the holes in the mask using the backup
-//         if (!interiors_cv_points.empty()) {
-//                 original_values.copyTo(mask, holes_mask);
-
-//         }
-//     }
-
-//     return mask;
-// }
 
 py::array_t<int> maskToPyArray(const cv::Mat &mask) {
     // Ensure the mask is of type CV_32S (int type)
