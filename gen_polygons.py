@@ -128,6 +128,9 @@ for key, color in color_map.items():
 
 print(LUT)
 
+# other map
+LUT2 = annotations2._layers.color_lut
+
 np.asarray((56630.2124, 69640.6535)) * 0.02
 region_size = (1393, 1133)
 
@@ -140,7 +143,7 @@ print(mask.shape)
 PIL.Image.fromarray(LUT[mask]).resize((1133 // 2, 1393 // 2)).save("dlup_original.png")
 
 mask_ = region2.to_mask(region_size, index_map, 0)
-PIL.Image.fromarray(LUT[mask_]).resize((1133 // 2, 1393 // 2)).save("dlup_new_opencv.png")
+PIL.Image.fromarray(LUT2[mask_]).resize((1133 // 2, 1393 // 2)).save("dlup_new_opencv.png")
 
 mask3 = convert_annotations_new(region2.polygons, region_size=region_size, index_map=index_map)
 PIL.Image.fromarray(LUT[mask3]).resize((1133 // 2, 1393 // 2)).save("dlup_new.png")

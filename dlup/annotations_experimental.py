@@ -329,3 +329,32 @@ class WsiAnnotationsExperimental:
 
         """
         self._layers.sort_polygons(key, reverse)
+
+    def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        """Get the bounding box of the annotations combining points and polygons.
+        
+        Returns
+        -------
+        tuple[tuple[float, float], tuple[float, float]]
+            The bounding box of the annotations.
+        
+        """
+        return self._layers.bounding_box
+    
+    def color_lut(self) -> np.ndarray:
+        """Get the color lookup table for the annotations.
+
+        Requires that the polygons have an index and color set.
+
+        Example
+        -------
+        >>> color_lut = annotations.color_lut
+        >>> colored_image = PIL.Image.fromarray(color_lut[mask])
+        
+        Returns
+        -------
+        np.ndarray
+            The color lookup table.
+        
+        """
+        return self._layers.color_lut
