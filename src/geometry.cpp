@@ -280,6 +280,21 @@ public:
     }
 };
 
+class AnnotationRegion {
+public:
+    AnnotationRegion(py::list polygons, py::list points)
+        : polygons_(std::move(polygons)), points_(std::move(points)) {}
+
+    py::list getPolygons() const { return polygons_; }
+    py::list getPoints() const { return points_; }
+
+private:
+    py::list polygons_;
+    py::list points_;
+};
+
+
+
 class GeometryContainer {
 public:
     // Whatever any LLM says this has to be a shared pointer as we share it with the python interpreter
@@ -337,8 +352,29 @@ public:
 
     bool isRTreeInvalidated() const { return rtreeWrapper.isInvalidated(); }
 
-    py::object readRegion(const std::pair<double, double> &coordinates, double scaling,
+    AnnotationRegion readRegion(const std::pair<double, double> &coordinates, double scaling,
                           const std::pair<double, double> &size);
+
+
+// TODO: Rethink the need for this function.
+void reindexPolygons(const std::map<std::string, int> &indexMap) {
+    for (auto &polygon : polygons) {
+        std::optional<py::object> label_opt = polygon->getField("label");
+
+        if (label_opt.has_value()) {
+            std::string label = label_opt->cast<std::string>();
+            auto it = indexMap.find(label);
+            if (it != indexMap.end()) {
+                polygon->setField("index", py::int_(it->second));
+            } else {
+                throw std::invalid_argument("Label '" + label + "' not found in indexMap");
+            }
+        } else {
+            throw std::invalid_argument("Polygon does not have a value for the 'label' field");
+        }
+    }
+}
+
 
 private:
     static py::function &polygonFactory() {
@@ -449,8 +485,11 @@ void GeometryContainer::removePoint(size_t index) {
     rtreeWrapper.invalidate();
 }
 
-py::object GeometryContainer::readRegion(const std::pair<double, double> &coordinates, double scaling,
+AnnotationRegion GeometryContainer::readRegion(const std::pair<double, double> &coordinates, double scaling,
                                          const std::pair<double, double> &size) {
+
+    // Let's time this function
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
     BoostPoint topLeft(coordinates.first / scaling, coordinates.second / scaling);
     BoostPoint bottomRight((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
@@ -463,31 +502,42 @@ py::object GeometryContainer::readRegion(const std::pair<double, double> &coordi
 
     std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
 
-    py::list pyOutput;
+    py::list polygonList;
+    py::list pointList;
+
     for (const auto &result : results) {
         size_t index = result.second;
-        // Determine if the index corresponds to a polygon or a point
+            // Determine if the index corresponds to a polygon or a point
         // The insertation in the R-tree is done in the order of polygons and points so we can easily tell
         if (index < polygons.size()) {
             auto &polygon = polygons[index];
             auto intersectedPolygons = polygon->intersection(intersectionPolygon);
             for (const auto &intersectedPolygon : intersectedPolygons) {
                 GeometryUtils::applyAffineTransformation(*intersectedPolygon->polygon, coordinates, scaling);
-                pyOutput.append(callFactoryFunction(intersectedPolygon));
+                polygonList.append(callFactoryFunction(intersectedPolygon));
             }
-
         } else {
             auto &point = points[index - polygons.size()];
             // Let's make a copy before we apply the transformation, otherwise it will be changed in-place
-            point = std::make_shared<Point>(*point);
-
-            GeometryUtils::applyAffineTransformation(*point->point, coordinates, scaling);
-            pyOutput.append(callFactoryFunction(point));
+            auto transformedPoint = std::make_shared<Point>(*point);
+            GeometryUtils::applyAffineTransformation(*transformedPoint->point, coordinates, scaling);
+            pointList.append(callFactoryFunction(transformedPoint));
         }
     }
+    // Let's time this function
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Elapsed time in readRegion: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
 
-    return pyOutput;
+    begin = std::chrono::steady_clock::now();
+    auto returnValue = AnnotationRegion(std::move(polygonList), std::move(pointList));
+    end = std::chrono::steady_clock::now();
+    std::cout << "Elapsed time to construct return value: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
+
+    return returnValue;
 }
+
 
 PYBIND11_MODULE(_geometry, m) {
     py::class_<BaseGeometry, std::shared_ptr<BaseGeometry>>(m, "BaseGeometry")
@@ -557,6 +607,7 @@ PYBIND11_MODULE(_geometry, m) {
              "Remove a polygon by passing the Polygon object")
         .def("remove_polygon", py::overload_cast<size_t>(&GeometryContainer::removePolygon),
              "Remove a polygon by its index")
+        .def("reindex_polygons", &GeometryContainer::reindexPolygons)
 
         // Overload remove_point to handle both object and index
         .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryContainer::removePoint),
@@ -570,6 +621,10 @@ PYBIND11_MODULE(_geometry, m) {
         .def_property_readonly("pointer_id", &GeometryContainer::getPointerId)
         .def_property_readonly("polygons", &GeometryContainer::getPolygons)
         .def_property_readonly("points", [](const GeometryContainer &self) { return self.points; });
+
+    py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "RegionResult")
+        .def_property_readonly("polygons", &AnnotationRegion::getPolygons)
+        .def_property_readonly("points", &AnnotationRegion::getPoints);
 
     py::register_exception<GeometryError>(m, "GeometryError");
     py::register_exception<GeometryIntersectionError>(m, "GeometryIntersectionError");

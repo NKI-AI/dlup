@@ -4,7 +4,9 @@ Experimental annotations module for dlup.
 
 """
 from __future__ import annotations
+import cv2
 
+import time
 import errno
 import json
 import os
@@ -211,7 +213,10 @@ class WsiAnnotationsExperimental:
         return data
 
     def read_region(self, coordinates: tuple[int, int], scaling: float, size: tuple[int, int]):
-        return self._layers.read_region(coordinates, scaling, size)
+        start_time = time.time()
+        region = self._layers.read_region(coordinates, scaling, size)
+        print(f"Time to read region (dlup v0.8.0.beta): {(time.time() - start_time):.5f}s")
+        return region
 
     def scale(self, scaling: float) -> None:
         """
@@ -301,3 +306,35 @@ class WsiAnnotationsExperimental:
         for polygon in self._layers.polygons:
             if polygon.label == label:
                 self._layers.remove_polygon(polygon)
+
+
+# TODO: Temporary here
+def convert_annotations(
+    annotations,
+    region_size: tuple[int, int],
+    default_value: int = 0,
+    index_map: dict[str, int] = None,
+):
+    mask = np.empty(region_size, dtype=np.int32)
+    mask[:] = default_value
+    for curr_annotation in annotations:
+        holes_mask = None
+        index_value = index_map[curr_annotation.label]
+        original_values = None
+        interiors = [(np.asarray(pi)).round().astype(np.int32) for pi in curr_annotation.get_interiors()]
+        if interiors != []:
+            original_values = mask.copy()
+            holes_mask = np.zeros(region_size, dtype=np.int32)
+            # Get a mask where the holes are
+            cv2.fillPoly(holes_mask, interiors, [1])
+
+        cv2.fillPoly(
+            mask,
+            [(np.asarray(curr_annotation.get_exterior())).round().astype(np.int32)],
+            [index_value],
+        )
+        if interiors != []:
+            # TODO: This is a bit hacky to ignore mypy here, but I don't know how to fix it.
+            mask = np.where(holes_mask == 1, original_values, mask)  # type: ignore
+    return mask
+
