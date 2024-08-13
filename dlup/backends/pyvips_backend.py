@@ -10,8 +10,8 @@ import openslide
 import pyvips
 from packaging.version import Version
 
-from dlup.backends.common import AbstractSlideBackend
 from dlup._types import PathLike
+from dlup.backends.common import AbstractSlideBackend
 from dlup.utils.image import check_if_mpp_is_valid
 
 PYVIPS_ASSOCIATED_IMAGES = "slide-associated-images"

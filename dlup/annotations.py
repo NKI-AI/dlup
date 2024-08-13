@@ -24,7 +24,7 @@ import pathlib
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Any, ClassVar, Iterable, NamedTuple, Optional, Type, TypedDict, TypeVar, Union, cast
+from typing import Any, Callable, ClassVar, Iterable, NamedTuple, Optional, Type, TypedDict, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -33,6 +33,7 @@ import shapely.affinity
 import shapely.geometry
 import shapely.validation
 from shapely import geometry
+from shapely import lib as shapely_lib
 from shapely.geometry import MultiPolygon as ShapelyMultiPolygon
 from shapely.geometry import Point as ShapelyPoint
 from shapely.geometry import Polygon as ShapelyPolygon
@@ -82,9 +83,7 @@ class AnnotationTypeToDLUPAnnotationType(Enum):
         try:
             return cls[annotation_type].value
         except KeyError:
-            raise NotImplementedError(
-                f"annotation_type {annotation_type} is not implemented or not a valid dlup type."
-            )
+            raise NotImplementedError(f"annotation_type {annotation_type} is not implemented or not a valid dlup type.")
 
 
 class AnnotationSorting(str, Enum):
@@ -193,6 +192,45 @@ def _is_alligned_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
     min_rotated_rect = polygon.minimum_rotated_rectangle
     aligned_rect = min_rotated_rect.minimum_rotated_rectangle
     return bool(min_rotated_rect == aligned_rect)
+
+
+def transform(
+    geometry: Point | Polygon, transformation: Callable[[npt.NDArray[np.float_]], npt.NDArray[np.float_]]
+) -> Point | Polygon:
+    """
+    Transform a geometry. Function taken from Shapely 2.0.1 under the BSD 3-Clause "New" or "Revised" License.
+    Parameters
+    ----------
+    geometry : Point or Polygon
+    transformation : Callable
+        Function mapping a numpy array of coordinates to a new numpy array of coordinates.
+    Returns
+    -------
+    Point or Polygon
+        The transformed point
+    """
+    original_class = geometry.annotation_class
+    geometry_arr = np.array(geometry, dtype=np.object_)  # makes a copy
+    coordinates = shapely_lib.get_coordinates(geometry_arr, False, False)
+    new_coordinates = transformation(coordinates)
+    # check the array to yield understandable error messages
+    if not isinstance(new_coordinates, np.ndarray):
+        raise ValueError("The provided transformation did not return a numpy array")
+    if new_coordinates.dtype != np.float64:
+        raise ValueError(
+            "The provided transformation returned an array with an unexpected dtype ({new_coordinates.dtype})"
+        )
+    if new_coordinates.shape != coordinates.shape:
+        # if the shape is too small we will get a segfault
+        raise ValueError(
+            "The provided transformation returned an array with an unexpected shape ({new_coordinates.shape})"
+        )
+    geometry_arr = shapely_lib.set_coordinates(geometry_arr, new_coordinates)
+    returned_geometry = geometry_arr.item()
+
+    if original_class.annotation_type != "POINT":
+        return Polygon(returned_geometry, a_cls=original_class)
+    return Point(returned_geometry, a_cls=original_class)
 
 
 class GeoJsonDict(TypedDict):
@@ -338,9 +376,7 @@ def shape(
         if z_index is not None:
             raise AnnotationError("z_index is not supported for point annotations.")
 
-        annotation_class = AnnotationClass(
-            label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None
-        )
+        annotation_class = AnnotationClass(label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None)
         _coordinates = coordinates["coordinates"]
         return [
             Point(np.asarray(c), a_cls=annotation_class)
@@ -938,12 +974,14 @@ class WsiAnnotations:
             else:
                 cropped_annotations.append(annotation)
 
-        affine_matrix = [scaling, 0, 0, scaling, -location[0], -location[1]]
-        transformed_annotations = [
-            type(_ann)(shapely.affinity.affine_transform(_ann, affine_matrix), a_cls=_ann.annotation_class)
-            for _ann in cropped_annotations
-        ]
-        return transformed_annotations
+        def _affine_coords(coords: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
+            return coords * scaling - np.asarray(location, dtype=np.float_)
+
+        output: list[Polygon | Point] = []
+        for annotation in cropped_annotations:
+            annotation = transform(annotation, _affine_coords)
+            output.append(annotation)
+        return output
 
     def __str__(self) -> str:
         return (

@@ -5,8 +5,8 @@ import numpy as np
 import pyvips
 import tifffile
 
-from dlup.backends.common import AbstractSlideBackend
 from dlup._types import PathLike
+from dlup.backends.common import AbstractSlideBackend
 from dlup.utils.tifffile_utils import get_tile
 
 

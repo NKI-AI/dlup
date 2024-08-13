@@ -26,8 +26,8 @@ from pyvips.enums import Kernel as VipsKernel
 
 from dlup._exceptions import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
-from dlup.backends.common import AbstractSlideBackend
 from dlup._types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
+from dlup.backends.common import AbstractSlideBackend
 from dlup.utils.backends import ImageBackend
 from dlup.utils.image import check_if_mpp_is_valid
 
