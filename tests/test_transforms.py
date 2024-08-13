@@ -78,7 +78,8 @@ def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
 
 def test_convert_annotations_label_not_present():
     polygon = Polygon(
-        [(1, 1), (1, 7), (7, 7), (7, 1)], a_cls=AnnotationClass(label="polygon", annotation_type=AnnotationType.POLYGON)
+        [(1, 1), (1, 7), (7, 7), (7, 1)],
+        a_cls=AnnotationClass(label="polygon", annotation_type=AnnotationType.POLYGON),
     )
     with pytest.raises(ValueError, match="Label polygon is not in the index map {}"):
         convert_annotations([polygon], (10, 10), {})
@@ -101,15 +102,11 @@ def _create_complex_polygons():
 
     shell1 = [(4, 4), (4, 9), (9, 9), (9, 4)]
     holes1 = [[(5, 5), (5, 7), (7, 7), (7, 5)], [(7, 7), (5, 9), (5, 9), (9, 9)]]
-    spolygon = ShapelyPolygon(
-        shell1, holes=holes1
-    )
+    spolygon = ShapelyPolygon(shell1, holes=holes1)
     polygon1 = Polygon(spolygon, a_cls=AnnotationClass(label="polygon2", annotation_type=AnnotationType.POLYGON))
-    
+
     shell_roi = [(3, 3), (3, 6), (6, 6), (6, 3)]
-    roi = Polygon(
-        shell_roi, a_cls=AnnotationClass(label="roi", annotation_type=AnnotationType.POLYGON)
-    )
+    roi = Polygon(shell_roi, a_cls=AnnotationClass(label="roi", annotation_type=AnnotationType.POLYGON))
 
     target = np.asarray(
         [
@@ -144,7 +141,8 @@ def test_convert_annotations_multiple_polygons_and_holes():
 
 def test_convert_annotations_out_of_bounds():
     polygon = Polygon(
-        [(2, 2), (2, 11), (11, 11), (11, 2)], a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
+        [(2, 2), (2, 11), (11, 11), (11, 2)],
+        a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON),
     )
     points, mask, roi_mask = convert_annotations([polygon], (10, 10), {"polygon1": 2})
 
@@ -204,11 +202,13 @@ class TestRenameLabels:
 
     def test_remap_polygon(self, transformer1):
         old_annotation = Polygon(
-            [(2, 2), (2, 8), (8, 8), (8, 2)], a_cls=AnnotationClass(label="old_name", annotation_type=AnnotationType.POLYGON)
+            [(2, 2), (2, 8), (8, 8), (8, 2)],
+            a_cls=AnnotationClass(label="old_name", annotation_type=AnnotationType.POLYGON),
         )
 
         random_box = Polygon(
-            [(2, 2), (2, 8), (8, 8), (8, 2)], a_cls=AnnotationClass(label="some_box", annotation_type=AnnotationType.BOX)
+            [(2, 2), (2, 8), (8, 8), (8, 2)],
+            a_cls=AnnotationClass(label="some_box", annotation_type=AnnotationType.BOX),
         )
 
         random_point = Point((1, 1), a_cls=AnnotationClass(label="some_point", annotation_type=AnnotationType.POINT))
