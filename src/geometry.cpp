@@ -23,6 +23,7 @@ using BoostRing = bg::model::ring<BoostPoint>;
 using BoostLineString = bg::model::linestring<BoostPoint>;
 using BoostMultiPolygon = bg::model::multi_polygon<BoostPolygon>;
 
+
 class FactoryGuard {
 public:
     FactoryGuard(py::function &factory_ref, py::function new_factory)
@@ -37,6 +38,52 @@ private:
     py::function original_factory_;
 };
 
+class RTreeWrapper {
+public:
+    using RTreeType = bgi::rtree<std::pair<BoostBox, size_t>, bgi::quadratic<16>>;
+
+    RTreeWrapper() : rTreeInvalidated(true) {}
+
+    void insert(const BoostBox &box, size_t index) {
+        rtree.insert(std::make_pair(box, index));
+        rTreeInvalidated = false;
+    }
+
+    template <typename QueryType, typename OutputIterator>
+    void query(const QueryType &query, OutputIterator out) {
+        if (rTreeInvalidated) {
+            rebuild();
+        }
+        rtree.query(query, out);
+    }
+
+    void invalidate() {
+        rTreeInvalidated = true;
+    }
+
+    void clear() {
+        rtree.clear();
+        rTreeInvalidated = true;
+    }
+
+    bool isInvalidated() const {
+        return rTreeInvalidated;
+    }
+
+private:
+    void rebuild() {
+        // Rebuild the tree based on existing polygons and points (if available)
+        // This is left as a placeholder since the actual data to rebuild with is managed externally
+        rtree.clear();
+        // Example: Add logic to rebuild rtree using stored polygons and points
+        rTreeInvalidated = false;
+    }
+
+    RTreeType rtree;
+    bool rTreeInvalidated;
+};
+
+
 class BaseGeometry {
 public:
     virtual ~BaseGeometry() = default;
@@ -45,12 +92,12 @@ public:
     void setField(const std::string &name, py::object value) { parameters[name] = value; }
 
     std::optional<py::object> getField(const std::string &name) const {
-        auto it = parameters.find(name);
-        if (it != parameters.end()) {
+        if (auto it = parameters.find(name); it != parameters.end()) {
             return it->second;
         }
         return std::nullopt;
     }
+
     auto getFields() const {
         std::vector<std::string> fieldNames;
         fieldNames.reserve(parameters.size());
@@ -60,7 +107,6 @@ public:
     }
 
     std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
-
     virtual std::string toWkt() const = 0; // Force derived classes to provide the WKT
 
 protected:
@@ -89,82 +135,92 @@ public:
     }
 
     // TODO: Box is probably sufficient.
-    std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const {
-        // Make the polygon valid before performing the intersection
-        BoostPolygon validPolygon = GeometryUtils::makeValid(*polygon);
-
-        std::vector<BoostPolygon> intersectionResult;
-        bg::intersection(validPolygon, otherPolygon, intersectionResult);
-
-        std::vector<std::shared_ptr<Polygon>> result;
-        for (const auto &intersectedBoostPolygon : intersectionResult) {
-            auto intersectedPolygon = std::make_shared<Polygon>(intersectedBoostPolygon);
-            // Copy the parameters from this polygon to the new one
-            for (const auto &param : parameters) {
-                intersectedPolygon->setField(param.first, param.second);
-            }
-
-            result.emplace_back(intersectedPolygon);
-        }
-
-        return result;
-    }
+    std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const;
 
     std::string toWkt() const override { return convertToWkt(*polygon); }
 
-    std::vector<std::pair<double, double>> getExterior() const {
-        std::vector<std::pair<double, double>> result;
-        for (const auto &point : bg::exterior_ring(*polygon)) {
-            result.emplace_back(bg::get<0>(point), bg::get<1>(point));
-        }
-        return result;
-    }
-
-    std::vector<std::vector<std::pair<double, double>>> getInteriors() const {
-        std::vector<std::vector<std::pair<double, double>>> result;
-        for (const auto &inner : polygon->inners()) {
-            std::vector<std::pair<double, double>> inner_result;
-            for (const auto &point : inner) {
-                inner_result.emplace_back(bg::get<0>(point), bg::get<1>(point));
-            }
-            result.emplace_back(inner_result);
-        }
-        return result;
-    }
+    std::vector<std::pair<double, double>> getExterior() const;
+    std::vector<std::vector<std::pair<double, double>>> getInteriors() const;
 
     double getArea() const { return bg::area(*polygon); }
 
 private:
-    void setExterior(const std::vector<std::pair<double, double>> &coordinates) {
-        bg::exterior_ring(*polygon).clear();
-        for (const auto &coord : coordinates) {
-            bg::append(*polygon, BoostPoint(coord.first, coord.second));
+    void setExterior(const std::vector<std::pair<double, double>> &coordinates);
+    void setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors);
+};
+
+std::vector<std::pair<double, double>> Polygon::getExterior() const {
+    std::vector<std::pair<double, double>> result;
+    for (const auto &point : bg::exterior_ring(*polygon)) {
+        result.emplace_back(bg::get<0>(point), bg::get<1>(point));
+    }
+    return result;
+}
+
+std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() const {
+    std::vector<std::vector<std::pair<double, double>>> result;
+    for (const auto &inner : polygon->inners()) {
+        std::vector<std::pair<double, double>> inner_result;
+        for (const auto &point : inner) {
+            inner_result.emplace_back(bg::get<0>(point), bg::get<1>(point));
+        }
+        result.emplace_back(inner_result);
+    }
+    return result;
+}
+
+void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordinates) {
+    bg::exterior_ring(*polygon).clear();
+    for (const auto &coord : coordinates) {
+        bg::append(*polygon, BoostPoint(coord.first, coord.second));
+    }
+    // Close the ring if it's not already closed
+    if (coordinates.front() != coordinates.back()) {
+        bg::append(*polygon, BoostPoint(coordinates.front().first, coordinates.front().second));
+    }
+}
+
+void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors) {
+    bg::interior_rings(*polygon).clear();
+    polygon->inners().resize(interiors.size());
+    for (size_t i = 0; i < interiors.size(); ++i) {
+        const auto &interior_coords = interiors[i];
+        auto &inner = polygon->inners()[i];
+        inner.clear();
+
+        // Process the interior ring in reverse order
+        for (auto it = interior_coords.rbegin(); it != interior_coords.rend(); ++it) {
+            bg::append(inner, BoostPoint(it->first, it->second));
         }
         // Close the ring if it's not already closed
-        if (coordinates.front() != coordinates.back()) {
-            bg::append(*polygon, BoostPoint(coordinates.front().first, coordinates.front().second));
+        if (interior_coords.front() != interior_coords.back()) {
+            bg::append(inner, BoostPoint(interior_coords.back().first, interior_coords.back().second));
         }
     }
+}
 
-    void setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors) {
-        bg::interior_rings(*polygon).clear();
-        polygon->inners().resize(interiors.size());
-        for (size_t i = 0; i < interiors.size(); ++i) {
-            const auto &interior_coords = interiors[i];
-            auto &inner = polygon->inners()[i];
-            inner.clear();
+std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &otherPolygon) const {
+    // Make the polygon valid if needed before performing the intersection
+    // TODO: This simplifies the polygon!!
+    BoostPolygon validPolygon = GeometryUtils::makeValid(*polygon);
 
-            // Process the interior ring in reverse order
-            for (auto it = interior_coords.rbegin(); it != interior_coords.rend(); ++it) {
-                bg::append(inner, BoostPoint(it->first, it->second));
-            }
-            // Close the ring if it's not already closed
-            if (interior_coords.front() != interior_coords.back()) {
-                bg::append(inner, BoostPoint(interior_coords.back().first, interior_coords.back().second));
-            }
+    std::vector<BoostPolygon> intersectionResult;
+    bg::intersection(validPolygon, otherPolygon, intersectionResult);
+
+    std::vector<std::shared_ptr<Polygon>> result;
+    for (const auto &intersectedBoostPolygon : intersectionResult) {
+        auto intersectedPolygon = std::make_shared<Polygon>(intersectedBoostPolygon);
+        // Copy the parameters from this polygon to the new one
+
+        for (const auto &param : parameters) {
+            intersectedPolygon->setField(param.first, param.second);
         }
+
+        result.emplace_back(intersectedPolygon);
     }
-};
+
+    return result;
+}
 
 class Point : public BaseGeometry {
 public:
@@ -232,9 +288,13 @@ public:
 
 class GeometryContainer {
 public:
-    std::vector<std::shared_ptr<Polygon>> polygons;
-    std::vector<std::shared_ptr<Point>> points;
-    bgi::rtree<std::pair<BoostBox, size_t>, bgi::quadratic<16>> rtree;
+    // Whatever any LLM says this has to be a shared pointer as we share it with the python interpreter
+    using PolygonPtr = std::shared_ptr<Polygon>;
+    using PointPtr = std::shared_ptr<Point>;
+
+    std::vector<PolygonPtr> polygons;
+    std::vector<PointPtr> points;
+    RTreeWrapper rtreeWrapper;
 
     static void setPolygonFactory(py::function factory) { polygonFactory() = std::move(factory); }
 
@@ -247,17 +307,17 @@ public:
 
     static FactoryGuard createPointFactoryGuard(py::function factory) { return FactoryGuard(pointFactory(), factory); }
 
-    void addPolygon(const std::shared_ptr<Polygon> &p) {
+    void addPolygon(const PolygonPtr &p) {
         // Print the parameters of the polygon being added
         BoostBox box;
         bg::envelope(*(p->polygon), box);
-        rtree.insert(std::make_pair(box, polygons.size()));
+        rtreeWrapper.insert(box, polygons.size());
         polygons.emplace_back(p);
     }
 
-    void addPoint(const std::shared_ptr<Point> &p) {
+    void addPoint(const PointPtr &p) {
         BoostBox box(*(p->point), *(p->point));
-        rtree.insert(std::make_pair(box, polygons.size() + points.size()));
+        rtreeWrapper.insert(box, polygons.size() + points.size());
         points.emplace_back(p);
     }
 
@@ -269,48 +329,22 @@ public:
         return py_polygons;
     }
 
-    py::object readRegion(const std::pair<double, double> &coordinates, double scaling,
-                          const std::pair<double, double> &size) {
-        BoostPoint topLeft(coordinates.first / scaling, coordinates.second / scaling);
-        BoostPoint bottomRight((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
-        BoostBox queryBox(topLeft, bottomRight);
+    void removePolygon(const PolygonPtr &p);
+    void removePolygon(size_t index);
 
-        BoostPolygon intersectionPolygon;
-        bg::convert(queryBox, intersectionPolygon);
+    void removePoint(const PointPtr &p);
+    void removePoint(size_t index);
 
-        // Let's log our query box
-        std::cout << "Query box: " << bg::wkt(queryBox) << std::endl;
+    void rebuildRTree();
 
-        std::vector<std::pair<BoostBox, size_t>> results;
-        rtree.query(bgi::intersects(queryBox), std::back_inserter(results));
+    std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
 
-        std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
-
-        py::list pyOutput;
-        for (const auto &result : results) {
-            size_t index = result.second;
-            // Determine if the index corresponds to a polygon or a point
-            // The insertation in the R-tree is done in the order of polygons and points so we can easily tell
-            if (index < polygons.size()) {
-                auto &polygon = polygons[index];
-                auto intersectedPolygons = polygon->intersection(intersectionPolygon);
-                for (const auto &intersectedPolygon : intersectedPolygons) {
-                    GeometryUtils::applyAffineTransformation(*intersectedPolygon->polygon, coordinates, scaling);
-                    pyOutput.append(callFactoryFunction(intersectedPolygon));
-                }
-
-            } else {
-                auto &point = points[index - polygons.size()];
-                // Let's make a copy before we apply the transformation, otherwise it will be changed in-place
-                point = std::make_shared<Point>(*point);
-
-                GeometryUtils::applyAffineTransformation(*point->point, coordinates, scaling);
-                pyOutput.append(callFactoryFunction(point));
-            }
-        }
-
-        return pyOutput;
+    bool isRTreeInvalidated() const {
+        return rtreeWrapper.isInvalidated();
     }
+
+    py::object readRegion(const std::pair<double, double> &coordinates, double scaling,
+                          const std::pair<double, double> &size);
 
 private:
     static py::function &polygonFactory() {
@@ -323,11 +357,11 @@ private:
         return instance;
     }
 
-    py::object callFactoryFunction(const std::shared_ptr<Polygon> &polygon) {
+    py::object callFactoryFunction(const PolygonPtr &polygon) {
         return invokeFactoryFunction(polygonFactory(), polygon);
     }
 
-    py::object callFactoryFunction(const std::shared_ptr<Point> &point) {
+    py::object callFactoryFunction(const PointPtr &point) {
         return invokeFactoryFunction(pointFactory(), point);
     }
 
@@ -350,6 +384,98 @@ private:
         return py::cast(object);
     }
 };
+
+    void GeometryContainer::rebuildRTree() {
+        rtreeWrapper.clear();
+        for (size_t i = 0; i < polygons.size(); ++i) {
+            BoostBox box;
+            bg::envelope(*(polygons[i]->polygon), box);
+            rtreeWrapper.insert(box, i);
+        }
+        for (size_t i = 0; i < points.size(); ++i) {
+            BoostBox box(*(points[i]->point), *(points[i]->point));
+            rtreeWrapper.insert(box, polygons.size() + i);
+        }
+    }
+
+void GeometryContainer::removePolygon(const PolygonPtr &p) {
+    auto it = std::find(polygons.begin(), polygons.end(), p);
+    if (it != polygons.end()) {
+        polygons.erase(it);
+        rtreeWrapper.invalidate();
+    } else {
+        throw GeometryNotFoundError("Polygon not found");
+    }
+}
+
+void GeometryContainer::removePolygon(size_t index) {
+    if (index >= polygons.size()) {
+        throw std::out_of_range("Polygon index out of range");
+    }
+
+    polygons.erase(polygons.begin() + index);
+    rtreeWrapper.invalidate();
+}
+
+void GeometryContainer::removePoint(const PointPtr &p) {
+    auto it = std::find(points.begin(), points.end(), p);
+    if (it != points.end()) {
+        points.erase(it);
+        rtreeWrapper.invalidate();
+    } else {
+        throw GeometryNotFoundError("Point not found");
+    }
+}
+
+void GeometryContainer::removePoint(size_t index) {
+    if (index >= points.size()) {
+        throw std::out_of_range("Point index out of range");
+    }
+
+    points.erase(points.begin() + index);
+    rtreeWrapper.invalidate();
+
+}
+
+py::object GeometryContainer::readRegion(const std::pair<double, double> &coordinates, double scaling,
+                                         const std::pair<double, double> &size) {
+
+    BoostPoint topLeft(coordinates.first / scaling, coordinates.second / scaling);
+    BoostPoint bottomRight((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
+    BoostBox queryBox(topLeft, bottomRight);
+
+    BoostPolygon intersectionPolygon;
+    bg::convert(queryBox, intersectionPolygon);
+    std::vector<std::pair<BoostBox, size_t>> results;
+    rtreeWrapper.query(bgi::intersects(queryBox), std::back_inserter(results));
+
+    std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
+
+    py::list pyOutput;
+    for (const auto &result : results) {
+        size_t index = result.second;
+        // Determine if the index corresponds to a polygon or a point
+        // The insertation in the R-tree is done in the order of polygons and points so we can easily tell
+        if (index < polygons.size()) {
+            auto &polygon = polygons[index];
+            auto intersectedPolygons = polygon->intersection(intersectionPolygon);
+            for (const auto &intersectedPolygon : intersectedPolygons) {
+                GeometryUtils::applyAffineTransformation(*intersectedPolygon->polygon, coordinates, scaling);
+                pyOutput.append(callFactoryFunction(intersectedPolygon));
+            }
+
+        } else {
+            auto &point = points[index - polygons.size()];
+            // Let's make a copy before we apply the transformation, otherwise it will be changed in-place
+            point = std::make_shared<Point>(*point);
+
+            GeometryUtils::applyAffineTransformation(*point->point, coordinates, scaling);
+            pyOutput.append(callFactoryFunction(point));
+        }
+    }
+
+    return pyOutput;
+}
 
 PYBIND11_MODULE(_geometry, m) {
     py::class_<BaseGeometry, std::shared_ptr<BaseGeometry>>(m, "BaseGeometry")
@@ -413,7 +539,21 @@ PYBIND11_MODULE(_geometry, m) {
         .def(py::init<>())
         .def("add_polygon", &GeometryContainer::addPolygon)
         .def("add_point", &GeometryContainer::addPoint)
+
+        // Overload remove_polygon to handle both object and index
+        .def("remove_polygon", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryContainer::removePolygon),
+             "Remove a polygon by passing the Polygon object")
+        .def("remove_polygon", py::overload_cast<size_t>(&GeometryContainer::removePolygon),
+             "Remove a polygon by its index")
+
+        // Overload remove_point to handle both object and index
+        .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryContainer::removePoint),
+             "Remove a point by passing the Point object")
+        .def("remove_point", py::overload_cast<size_t>(&GeometryContainer::removePoint), "Remove a point by its index")
         .def("read_region", &GeometryContainer::readRegion)
+        .def("rebuild_rtree", &GeometryContainer::rebuildRTree)
+        .def_property_readonly("rtree_invalidated", &GeometryContainer::isRTreeInvalidated)
+        .def_property_readonly("pointer_id", &GeometryContainer::getPointerId)
         .def_property_readonly("polygons", &GeometryContainer::getPolygons)
         .def_property_readonly("points", [](const GeometryContainer &self) { return self.points; });
 
@@ -421,4 +561,5 @@ PYBIND11_MODULE(_geometry, m) {
     py::register_exception<GeometryIntersectionError>(m, "GeometryIntersectionError");
     py::register_exception<GeometryTransformationError>(m, "GeometryTransformationError");
     py::register_exception<GeometryFactoryFunctionError>(m, "GeometryFactoryFunctionError");
+    py::register_exception<GeometryNotFoundError>(m, "GeometryNotFoundError");
 }
