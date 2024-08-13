@@ -4,7 +4,7 @@ import shapely.geometry
 
 import dlup._geometry as dg
 from dlup.annotations import WsiAnnotations
-from dlup.annotations2 import WsiAnnotations2
+from dlup.annotations_experimental import WsiAnnotationsExperimental
 from dlup.geometry import DlupGeometryContainer, DlupPoint, DlupPolygon
 
 # Let's test conversion
@@ -61,10 +61,37 @@ for polygon in polygons:
     second_pointers.append(polygon.pointer_id)
     container.add_polygon(polygon)
 
+# So my polygons are now this:
+print("Polygons")
+print(container.polygons)
+
+# # Remove the one with label 'taart'
+# container.filter_polygons({"label": "taart"})
+# print(container.polygons)
+
 second_point_pointers = []
 for point in points:
     container.add_point(point)
     second_point_pointers.append(point.pointer_id)
+
+print(f"Points: {container.points}: {len(container.points)}")
+# Let's remove a point
+assert container.rtree_invalidated == False
+
+print(f"Rtree valid: {not container.rtree_invalidated}")
+container.remove_point(points[0])
+assert container.rtree_invalidated == True
+container.rebuild_rtree()
+assert container.rtree_invalidated == False
+print(f"Rtree valid: {not container.rtree_invalidated}")
+container.remove_point(0)
+print(f"Rtree valid: {not container.rtree_invalidated}")
+assert container.rtree_invalidated == True
+
+
+print(container.points)
+print(f"Points after deletion: {container.points}: {len(container.points)}")
+
 
 assert pointers == second_pointers
 assert point_pointers == second_point_pointers
@@ -130,7 +157,7 @@ print(f"Time to read region (dlup v0.7.0): {dlup_reg:.5f}s")
 print()
 
 start_time = time.time()
-annotations2 = WsiAnnotations2.from_geojson(fn)
+annotations2 = WsiAnnotationsExperimental.from_geojson(fn)
 print(f"Time to load annotations (dlup v0.8.0.beta): {(time.time() - start_time):.5f}s")
 
 start_time = time.time()

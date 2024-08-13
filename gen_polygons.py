@@ -1,13 +1,12 @@
+import json
 import time
 from pathlib import Path
 
 import cv2 as cv2
 
-import dlup._geometry as dg
 from dlup.annotations import WsiAnnotations
-from dlup.annotations2 import WsiAnnotations2
+from dlup.annotations_experimental import WsiAnnotationsExperimental as WsiAnnotations2
 from dlup.data.transforms import convert_annotations
-from dlup.geometry import DlupGeometryContainer, DlupPoint, DlupPolygon
 
 fn = Path("TCGA-E9-A1R4-01Z-00-DX1.B04D5A22-8CE5-49FD-8510-14444F46894D.geojson")
 import numpy as np
@@ -22,7 +21,7 @@ print(f"Time to load annotations (dlup v0.7.0): {(time.time() - start_time):.5f}
 # Bounding box:
 bbox = annotations.bounding_box
 print(f"Bounding box: {bbox}")
-region_start = (500, 500)
+region_start = (250, 250)
 
 # Let's get the region
 start_time = time.time()
@@ -38,6 +37,10 @@ annotations2 = WsiAnnotations2.from_geojson(fn)
 
 start_time = time.time()
 region2 = annotations2.read_region(region_start, 0.02, bbox[1])
+
+with open("dlup_region.json", "w") as f:
+    json.dump(annotations2.as_geojson(), f, indent=2)
+
 # Let's get all label names
 labels0 = set([_.label for _ in region2])
 # print(f"Labels 1: {labels}")
@@ -77,6 +80,7 @@ region_size = (1393, 1133)
 
 _, mask, _ = convert_annotations(region, region_size=region_size, index_map=index_map)
 print(mask.shape)
+
 
 PIL.Image.fromarray(LUT[mask]).resize((1133 // 2, 1393 // 2)).save("dlup_original.png")
 

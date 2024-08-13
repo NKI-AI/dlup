@@ -23,7 +23,6 @@ using BoostRing = bg::model::ring<BoostPoint>;
 using BoostLineString = bg::model::linestring<BoostPoint>;
 using BoostMultiPolygon = bg::model::multi_polygon<BoostPolygon>;
 
-
 class FactoryGuard {
 public:
     FactoryGuard(py::function &factory_ref, py::function new_factory)
@@ -57,18 +56,14 @@ public:
         rtree.query(query, out);
     }
 
-    void invalidate() {
-        rTreeInvalidated = true;
-    }
+    void invalidate() { rTreeInvalidated = true; }
 
     void clear() {
         rtree.clear();
         rTreeInvalidated = true;
     }
 
-    bool isInvalidated() const {
-        return rTreeInvalidated;
-    }
+    bool isInvalidated() const { return rTreeInvalidated; }
 
 private:
     void rebuild() {
@@ -82,7 +77,6 @@ private:
     RTreeType rtree;
     bool rTreeInvalidated;
 };
-
 
 class BaseGeometry {
 public:
@@ -335,13 +329,12 @@ public:
     void removePoint(const PointPtr &p);
     void removePoint(size_t index);
 
+    void scale(double scaling);
     void rebuildRTree();
 
     std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
 
-    bool isRTreeInvalidated() const {
-        return rtreeWrapper.isInvalidated();
-    }
+    bool isRTreeInvalidated() const { return rtreeWrapper.isInvalidated(); }
 
     py::object readRegion(const std::pair<double, double> &coordinates, double scaling,
                           const std::pair<double, double> &size);
@@ -361,9 +354,7 @@ private:
         return invokeFactoryFunction(polygonFactory(), polygon);
     }
 
-    py::object callFactoryFunction(const PointPtr &point) {
-        return invokeFactoryFunction(pointFactory(), point);
-    }
+    py::object callFactoryFunction(const PointPtr &point) { return invokeFactoryFunction(pointFactory(), point); }
 
     template <typename T>
     py::object invokeFactoryFunction(py::function factoryFunction, const std::shared_ptr<T> &object) {
@@ -385,18 +376,28 @@ private:
     }
 };
 
-    void GeometryContainer::rebuildRTree() {
-        rtreeWrapper.clear();
-        for (size_t i = 0; i < polygons.size(); ++i) {
-            BoostBox box;
-            bg::envelope(*(polygons[i]->polygon), box);
-            rtreeWrapper.insert(box, i);
-        }
-        for (size_t i = 0; i < points.size(); ++i) {
-            BoostBox box(*(points[i]->point), *(points[i]->point));
-            rtreeWrapper.insert(box, polygons.size() + i);
-        }
+void GeometryContainer::scale(double scaling) {
+    for (auto &point : points) {
+        GeometryUtils::applyAffineTransformation(*point->point, {0.0, 0.0}, scaling);
     }
+    for (auto &polygon : polygons) {
+        GeometryUtils::applyAffineTransformation(*polygon->polygon, {0.0, 0.0}, scaling);
+    }
+    rtreeWrapper.invalidate();
+}
+
+void GeometryContainer::rebuildRTree() {
+    rtreeWrapper.clear();
+    for (size_t i = 0; i < polygons.size(); ++i) {
+        BoostBox box;
+        bg::envelope(*(polygons[i]->polygon), box);
+        rtreeWrapper.insert(box, i);
+    }
+    for (size_t i = 0; i < points.size(); ++i) {
+        BoostBox box(*(points[i]->point), *(points[i]->point));
+        rtreeWrapper.insert(box, polygons.size() + i);
+    }
+}
 
 void GeometryContainer::removePolygon(const PolygonPtr &p) {
     auto it = std::find(polygons.begin(), polygons.end(), p);
@@ -434,7 +435,6 @@ void GeometryContainer::removePoint(size_t index) {
 
     points.erase(points.begin() + index);
     rtreeWrapper.invalidate();
-
 }
 
 py::object GeometryContainer::readRegion(const std::pair<double, double> &coordinates, double scaling,
@@ -520,8 +520,8 @@ PYBIND11_MODULE(_geometry, m) {
         }))
         .def("set_coordinates", &Point::setCoordinates)
         .def("get_coordinates", &Point::getCoordinates)
-        .def("get_x", &Point::getX)
-        .def("get_y", &Point::getY)
+        .def_property_readonly("x", &Point::getX)
+        .def_property_readonly("y", &Point::getY)
         .def("distance_to", &Point::distanceTo)
         .def("equals", &Point::equals)
         .def("within", &Point::within)

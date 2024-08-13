@@ -9,6 +9,11 @@ public:
     explicit GeometryError(const std::string &message) : std::runtime_error(message) {}
 };
 
+class GeometryNotFoundError : public GeometryError {
+public:
+    explicit GeometryNotFoundError(const std::string &message) : GeometryError(message) {}
+};
+
 class GeometryIntersectionError : public GeometryError {
 public:
     explicit GeometryIntersectionError(const std::string &message) : GeometryError(message) {}
