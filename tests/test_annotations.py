@@ -8,8 +8,6 @@ import tempfile
 
 import pytest
 import shapely.geometry
-from shapely import Point as ShapelyPoint
-from shapely import Polygon as ShapelyPolygon
 
 from dlup.annotations import AnnotationClass, AnnotationType, Point, Polygon, WsiAnnotations, shape
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
@@ -54,6 +52,14 @@ class TestAnnotations:
 
     _v7_annotations = None
     _v7_raster_annotations = None
+
+    additinoaL_point_a_cls = AnnotationClass(label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0))
+    additional_point = Point((1, 2), a_cls=additinoaL_point_a_cls)
+
+    additional_polygon_a_cls = AnnotationClass(
+        label="example", annotation_type=AnnotationType.POLYGON, color=(255, 0, 0), z_index=1
+    )
+    additional_polygon = Polygon([(0, 0), (4, 0), (4, 4), (0, 4)], a_cls=additional_polygon_a_cls)
 
     @property
     def v7_annotations(self):
@@ -126,6 +132,10 @@ class TestAnnotations:
             assert region == []
 
     def test_copy(self):
+        # FIXME: deepcopy and copy are different. filter gives different classes for a shallow copy because the _layers
+        # and available_classes get overwritten with a new instances and the original instances do not get changed.
+        # If we modify _layers and _available_classes directly, this test would assert that they are the same and a
+        # copy.deepcopy(self.asap_annotations) would assert they are different
         copied_annotations = self.asap_annotations.copy()
         # Now we can change a parameter
         copied_annotations.filter([""])
@@ -134,18 +144,27 @@ class TestAnnotations:
     def test_read_darwin_v7(self):
         if not DARWIN_SDK_AVAILABLE:
             return None
-
         assert len(self.v7_annotations.available_classes) == 5
-        assert self.v7_annotations.available_classes[0].label == "ROI (segmentation)"
-        assert self.v7_annotations.available_classes[0].annotation_type == AnnotationType.BOX
-        assert self.v7_annotations.available_classes[1].label == "stroma (area)"
-        assert self.v7_annotations.available_classes[1].annotation_type == AnnotationType.POLYGON
-        assert self.v7_annotations.available_classes[2].label == "lymphocyte (cell)"
-        assert self.v7_annotations.available_classes[2].annotation_type == AnnotationType.POINT
-        assert self.v7_annotations.available_classes[3].label == "tumor (cell)"
-        assert self.v7_annotations.available_classes[3].annotation_type == AnnotationType.BOX
-        assert self.v7_annotations.available_classes[4].label == "tumor (area)"
-        assert self.v7_annotations.available_classes[4].annotation_type == AnnotationType.POLYGON
+        assert (
+            AnnotationClass(label="ROI (segmentation)", annotation_type=AnnotationType.BOX, color=(143, 0, 255))
+            in self.v7_annotations
+        )
+        assert (
+            AnnotationClass(label="stroma (area)", annotation_type=AnnotationType.POLYGON, color=(0, 236, 123))
+            in self.v7_annotations
+        )
+        assert (
+            AnnotationClass(label="lymphocyte (cell)", annotation_type=AnnotationType.POINT, color=(0, 236, 123))
+            in self.v7_annotations
+        )
+        assert (
+            AnnotationClass(label="tumor (cell)", annotation_type=AnnotationType.BOX, color=(255, 46, 0))
+            in self.v7_annotations
+        )
+        assert (
+            AnnotationClass(label="tumor (area)", annotation_type=AnnotationType.POLYGON, color=(255, 46, 0))
+            in self.v7_annotations
+        )
 
         assert self.v7_annotations.bounding_box == (
             (15291.49, 18094.48),
@@ -182,8 +201,7 @@ class TestAnnotations:
         exterior = [(0, 0), (4, 0), (4, 4), (0, 4)]
         hole1 = [(1, 1), (2, 1), (2, 2), (1, 2)]
         hole2 = [(3, 3), (3, 3.5), (3.5, 3.5), (3.5, 3)]
-        shapely_polygon_with_holes = ShapelyPolygon(exterior, [hole1, hole2])
-        dlup_polygon_with_holes = Polygon(shapely_polygon_with_holes, a_cls=annotation_class)
+        dlup_polygon_with_holes = Polygon(exterior, [hole1, hole2], a_cls=annotation_class)
         dlup_solid_polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)], a_cls=annotation_class)
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
             pickle.dump(dlup_solid_polygon, pickled_polygon_file)
@@ -203,11 +221,9 @@ class TestAnnotations:
         annotation_class = AnnotationClass(
             label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0), z_index=None
         )
-        coordinates = [(1, 2)]
-        shapely_point = ShapelyPoint(coordinates)
-        dlup_point = Point(shapely_point, a_cls=annotation_class)
+        dlup_point = Point([(1, 2)], a_cls=annotation_class)
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_point_file:
-            pickle.dump(shapely_point, pickled_point_file)
+            pickle.dump(dlup_point, pickled_point_file)
             pickled_point_file.flush()
             pickled_point_file.seek(0)
             loaded_point = pickle.load(pickled_point_file)
@@ -217,7 +233,115 @@ class TestAnnotations:
         annotations = self.asap_annotations.copy()
         annotations.filter(["healthy glands"])
         assert len(annotations._layers) == 1
-        assert annotations.available_classes[0].label == "healthy glands"
+        assert "healthy glands" in annotations
 
         annotations.filter(["non-existing"])
         assert len(annotations._layers) == 0
+
+    def test_length(self):
+        annotations = self.geojson_annotations
+        assert len(annotations._layers) == len(annotations)
+
+    def test_dunder_add_methods_with_point(self):
+        annotations = self.geojson_annotations.copy()
+        initial_annotations_id = id(annotations)
+        initial_length = len(annotations)
+
+        # __add__
+        new_annotations = annotations + self.additional_point
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 1 == len(new_annotations)
+        assert self.additional_point in new_annotations
+
+        # __radd__
+        new_annotations = self.additional_point + annotations
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 1 == len(new_annotations)
+        assert self.additional_point in new_annotations
+        with pytest.raises(TypeError):
+            self.additional_point += annotations
+
+        # __iadd__
+        annotations += self.additional_point
+        assert initial_annotations_id == id(annotations)
+        assert initial_length + 1 == len(annotations)
+        assert self.additional_point in annotations
+
+    def test_add_with_polygon(self):
+        annotations = self.geojson_annotations.copy()
+        initial_annotations_id = id(annotations)
+        initial_length = len(annotations)
+
+        # __add__
+        new_annotations = annotations + self.additional_polygon
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 1 == len(new_annotations)
+        assert self.additional_polygon in new_annotations
+
+        # __radd__
+        new_annotations = self.additional_polygon + annotations
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 1 == len(new_annotations)
+        assert self.additional_polygon in new_annotations
+        with pytest.raises(TypeError):
+            self.additional_polygon += annotations
+
+        # __iadd__
+        annotations += self.additional_polygon
+        assert initial_annotations_id == id(annotations)
+        assert initial_length + 1 == len(annotations)
+        assert self.additional_polygon in annotations
+
+    def test_add_with_list(self):
+        annotations = self.geojson_annotations.copy()
+        initial_annotations_id = id(annotations)
+        initial_length = len(annotations)
+
+        # __add__
+        new_annotations = annotations + [self.additional_point, self.additional_polygon]
+        assert initial_annotations_id != id(new_annotations)
+        assert initial_length + 2 == len(new_annotations)
+        assert self.additional_polygon in new_annotations
+        assert self.additional_point in new_annotations
+
+        # __radd__
+        _annotations_list = [self.additional_point, self.additional_polygon]
+        with pytest.raises(TypeError):
+            new_annotations = _annotations_list + annotations
+
+        _annotations_list = [self.additional_point, self.additional_polygon]
+        with pytest.raises(TypeError):
+            _annotations_list += annotations
+
+        # __iadd__
+        annotations += [self.additional_point, self.additional_polygon]
+        assert initial_annotations_id == id(annotations)
+        assert initial_length + 2 == len(annotations)
+        assert all(ann in new_annotations for ann in annotations)
+
+    def test_add_with_wsi_annotations(self):
+        annotations = self.geojson_annotations.copy()
+        other_annotations = self.geojson_annotations.copy()
+        initial_annotations_id = id(annotations)
+        initial_length = len(annotations)
+
+        # __add__
+        new_annotations = annotations + other_annotations
+        assert initial_annotations_id != id(new_annotations)
+        assert len(annotations) + len(other_annotations) == len(new_annotations)
+        assert all(ann in new_annotations for ann in annotations)
+
+        # __iadd__
+        annotations += other_annotations
+        assert initial_annotations_id == id(annotations)
+        assert initial_length + len(other_annotations) == len(annotations)
+        assert all(ann in annotations for ann in other_annotations)
+
+    def test_add_with_invalid_type(self):
+        annotations = self.geojson_annotations.copy()
+        with pytest.raises(TypeError):
+            _ = annotations + "invalid type"
+        with pytest.raises(TypeError):
+            annotations += "invalid type"
+        with pytest.raises(TypeError):
+            _ = "invalid type" + annotations

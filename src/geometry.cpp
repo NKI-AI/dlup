@@ -7,10 +7,11 @@
 
 #include "exceptions.h"
 #include "geometry.h"
-#include "geometry2.h"
+#include "geometry_utils.h"
+#include "opencv.h"
+#include "region.h"
+#include "rtree.h"
 #include <memory>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/opencv.hpp>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <stdexcept>
@@ -33,63 +34,6 @@ using BoostMultiPolygon = bg::model::multi_polygon<BoostPolygon>;
 
 namespace py = pybind11;
 
-class FactoryGuard {
-public:
-    FactoryGuard(py::function &factory_ref, py::function new_factory)
-        : factory_ref_(factory_ref), original_factory_(factory_ref) {
-        factory_ref_ = new_factory;
-    }
-
-    ~FactoryGuard() { factory_ref_ = original_factory_; }
-
-private:
-    py::function &factory_ref_;
-    py::function original_factory_;
-};
-
-class RTreeWrapper {
-public:
-    using RTreeType = bgi::rtree<std::pair<BoostBox, size_t>, bgi::quadratic<16>>;
-
-    RTreeWrapper() : rTreeInvalidated(true) {}
-
-    void insert(const BoostBox &box, size_t index) {
-        rtree.insert(std::make_pair(box, index));
-        rTreeInvalidated = false;
-    }
-
-    template <typename QueryType, typename OutputIterator>
-    void query(const QueryType &query, OutputIterator out) {
-        if (rTreeInvalidated) {
-            rebuild();
-        }
-        rtree.query(query, out);
-    }
-
-    void invalidate() { rTreeInvalidated = true; }
-
-    void clear() {
-        rtree.clear();
-        rTreeInvalidated = true;
-    }
-
-    bool isInvalidated() const { return rTreeInvalidated; }
-
-private:
-    void rebuild() {
-        // Rebuild the tree based on existing polygons and points (if available)
-        // This is left as a placeholder since the actual data to rebuild with is managed externally
-        rtree.clear();
-        // Example: Add logic to rebuild rtree using stored polygons and points
-        rTreeInvalidated = false;
-    }
-
-    RTreeType rtree;
-    bool rTreeInvalidated;
-};
-
-
-
 std::vector<std::pair<double, double>> Polygon::getExterior() const {
     std::vector<std::pair<double, double>> result;
     result.reserve(bg::exterior_ring(*polygon).size());
@@ -100,6 +44,7 @@ std::vector<std::pair<double, double>> Polygon::getExterior() const {
 }
 
 std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() const {
+    // correctIfNeeded();
     std::vector<std::vector<std::pair<double, double>>> result;
     result.reserve(polygon->inners().size());
     for (const auto &inner : polygon->inners()) {
@@ -112,39 +57,53 @@ std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() cons
     return result;
 }
 
+void Polygon::correctIfNeeded() const {
+    if (!isCorrected) {
+        bg::correct(*polygon); // Dereference the shared pointer to apply the correction
+        isCorrected = true;
+    }
+}
+
 void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordinates) {
     bg::exterior_ring(*polygon).clear();
     bg::exterior_ring(*polygon).reserve(coordinates.size());
     for (const auto &coord : coordinates) {
         bg::append(*polygon, BoostPoint(coord.first, coord.second));
     }
+
     // Close the ring if it's not already closed
+    // Shapely does this, so we want to keep compatibility.
     if (coordinates.front() != coordinates.back()) {
         bg::append(*polygon, BoostPoint(coordinates.front().first, coordinates.front().second));
     }
+
+    isCorrected = false; // Mark as not corrected. Correction reorients and closes
 }
 
 void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors) {
     bg::interior_rings(*polygon).clear();
-    bg::exterior_ring(*polygon).reserve(interiors.size());
     polygon->inners().resize(interiors.size());
+
     for (size_t i = 0; i < interiors.size(); ++i) {
         const auto &interior_coords = interiors[i];
         auto &inner = polygon->inners()[i];
         inner.clear();
 
-        // Process the interior ring in reverse order
-        for (auto it = interior_coords.rbegin(); it != interior_coords.rend(); ++it) {
-            bg::append(inner, BoostPoint(it->first, it->second));
+        for (const auto &coord : interior_coords) {
+            bg::append(inner, BoostPoint(coord.first, coord.second));
         }
+
         // Close the ring if it's not already closed
         if (interior_coords.front() != interior_coords.back()) {
-            bg::append(inner, BoostPoint(interior_coords.back().first, interior_coords.back().second));
+            bg::append(inner, BoostPoint(interior_coords.front().first, interior_coords.front().second));
         }
     }
+
+    isCorrected = false; // Mark as not corrected. Correction reorients and closes
 }
 
 std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &otherPolygon) const {
+    // correctIfNeeded();
     // Make the polygon valid if needed before performing the intersection
     // TODO: This simplifies the polygon!!
     BoostPolygon validPolygon = GeometryUtils::makeValid(*polygon);
@@ -168,184 +127,35 @@ std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &
     return result;
 }
 
+void Polygon::simplifyPolygon(double tolerance) { bg::simplify(*polygon, *polygon, tolerance); }
 
-cv::Mat generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> &annotations, cv::Size region_size,
-                                    const std::unordered_map<std::string, int> &index_map, int default_value) {
-    // Create the mask and initialize with the default value
-    cv::Mat mask(region_size, CV_32S, cv::Scalar(default_value));
-
-    std::vector<cv::Point> exterior_cv_points;
-    std::vector<std::vector<cv::Point>> interiors_cv_points;
-
-    // exterior_cv_points.reserve(100000);
-    // interiors_cv_points.reserve(100000);
-
-    for (const auto &annotation : annotations) {
-        int index_value = index_map.at(annotation->getField("label")->cast<std::string>());
-
-        // Convert exterior points
-        exterior_cv_points.clear();
-        const auto &exterior = annotation->getExterior();
-        exterior_cv_points.reserve(exterior.size());
-        for (const auto &[x, y] : exterior) {
-            exterior_cv_points.emplace_back(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
-        }
-
-        // Convert interior points
-        interiors_cv_points.clear();
-        const auto &interiors = annotation->getInteriors();
-        interiors_cv_points.reserve(interiors.size());
-        for (const auto &interior : interiors) {
-            std::vector<cv::Point> interior_cv;
-            interior_cv.reserve(interior.size());
-            for (const auto &[x, y] : interior) {
-                interior_cv.emplace_back(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
-            }
-            interiors_cv_points.push_back(std::move(interior_cv));
-        }
-
-        // Only clone mask if necessary
-        cv::Mat original_values;
-        if (!interiors_cv_points.empty()) {
-            original_values = mask.clone();
-        }
-
-        // Create a mask for holes if necessary
-        cv::Mat holes_mask;
-        if (!interiors_cv_points.empty()) {
-            holes_mask = cv::Mat::zeros(region_size, CV_8U);
-            cv::fillPoly(holes_mask, interiors_cv_points, cv::Scalar(1));
-        }
-
-        // Fill the exterior polygon in the mask
-        cv::fillPoly(mask, std::vector<std::vector<cv::Point>>{exterior_cv_points}, cv::Scalar(index_value));
-
-        // If interiors exist, reset the holes in the mask using the backup
-        if (!interiors_cv_points.empty()) {
-            original_values.copyTo(mask, holes_mask);
-        }
+py::list AnnotationRegion::getPolygons() const {
+#ifdef DLUPDEBUG
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+#endif
+    py::list py_polygons;
+    for (const auto &polygon : polygons_) {
+        py_polygons.append(callFactoryFunction(polygon));
     }
-
-    return mask;
+#ifdef DLUPDEBUG
+    std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+    std::cout << "Elapsed time in AnnotationRegion::getPolygons: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
+#endif
+    return py_polygons;
 }
 
-py::array_t<int> maskToPyArray(const cv::Mat &mask) {
-    // Ensure the mask is of type CV_32S (int type)
-    if (mask.type() != CV_32S) {
-        throw std::runtime_error("Mask must be of type CV_32S (int).");
+py::list AnnotationRegion::getPoints() const {
+    py::list py_points;
+    for (const auto &point : points_) {
+        py_points.append(callFactoryFunction(point));
     }
-
-    // Create a buffer info that describes the numpy array
-    py::buffer_info buf_info(mask.data,                             // Pointer to buffer
-                             sizeof(int),                           // Size of one scalar element
-                             py::format_descriptor<int>::format(),  // Python struct-style format descriptor
-                             2,                                     // Number of dimensions
-                             {mask.rows, mask.cols},                // Buffer dimensions
-                             {sizeof(int) * mask.cols, sizeof(int)} // Strides (in bytes) for each dimension
-    );
-
-    // Create the numpy array from the buffer info
-    return py::array_t<int>(buf_info);
+    return py_points;
 }
 
-class AnnotationRegion {
+class GeometryCollection {
 public:
-    AnnotationRegion(std::vector<std::shared_ptr<Polygon>> polygons, std::vector<std::shared_ptr<Point>> points)
-        : polygons_(std::move(polygons)), points_(std::move(points)) {}
-
-    static void setPolygonFactory(py::function factory) { polygonFactory() = std::move(factory); }
-    static void setPointFactory(py::function factory) { pointFactory() = std::move(factory); }
-
-    static FactoryGuard createPolygonFactoryGuard(py::function factory) {
-        return FactoryGuard(polygonFactory(), factory);
-    }
-
-    static FactoryGuard createPointFactoryGuard(py::function factory) { return FactoryGuard(pointFactory(), factory); }
-
-    static py::object callFactoryFunction(const std::shared_ptr<Polygon> &polygon) {
-        return invokeFactoryFunction(polygonFactory(), polygon);
-    }
-
-    static py::object callFactoryFunction(const std::shared_ptr<Point> &point) {
-        return invokeFactoryFunction(pointFactory(), point);
-    }
-
-    py::list getPolygons() const {
-#ifdef DLUPDEBUG
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-#endif
-        py::list py_polygons;
-        for (const auto &polygon : polygons_) {
-            py_polygons.append(callFactoryFunction(polygon));
-        }
-#ifdef DLUPDEBUG
-        std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
-        std::cout << "Elapsed time in AnnotationRegion::getPolygons: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
-#endif
-        return py_polygons;
-    }
-
-    py::list getPoints() const {
-        py::list py_points;
-        for (const auto &point : points_) {
-            py_points.append(callFactoryFunction(point));
-        }
-        return py_points;
-    }
-
-    py::array_t<int> toMask(std::tuple<int, int> mask_size, const std::unordered_map<std::string, int> &index_map,
-                            int default_value = 0) const {
-#ifdef DLUPDEBUG
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-#endif
-        cv::Size region_size(std::get<1>(mask_size), std::get<0>(mask_size));
-        cv::Mat mask = generateMaskFromAnnotations(polygons_, region_size, index_map, default_value);
-#ifdef DLUPDEBUG
-        std::cout
-            << "AnnotationRegion::toMask: mask generated in "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count()
-            << " ms" << std::endl;
-#endif
-        return maskToPyArray(mask);
-    }
-
-private:
-    std::vector<std::shared_ptr<Polygon>> polygons_;
-    std::vector<std::shared_ptr<Point>> points_;
-
-    static py::function &polygonFactory() {
-        static py::function instance;
-        return instance;
-    }
-
-    static py::function &pointFactory() {
-        static py::function instance;
-        return instance;
-    }
-
-    template <typename T>
-    static py::object invokeFactoryFunction(py::function factoryFunction, const std::shared_ptr<T> &object) {
-        if (factoryFunction != py::function()) {
-            try {
-                py::object result = factoryFunction(object);
-                if (result.ptr() != nullptr) {
-                    return result;
-                } else {
-                    throw GeometryFactoryFunctionError("Factory function returned null object");
-                }
-            } catch (const std::exception &e) {
-                throw GeometryFactoryFunctionError(std::string("Exception in factory function: ") + e.what());
-            } catch (...) {
-                throw GeometryFactoryFunctionError("Unknown exception in factory function");
-            }
-        }
-        return py::cast(object);
-    }
-};
-
-class GeometryContainer {
-public:
+    GeometryCollection();
     // Whatever any LLM says this has to be a shared pointer as we share it with the python interpreter
     using PolygonPtr = std::shared_ptr<Polygon>;
     using PointPtr = std::shared_ptr<Point>;
@@ -354,50 +164,29 @@ public:
     std::vector<PointPtr> points;
     RTreeWrapper rtreeWrapper;
 
-    void addPolygon(const PolygonPtr &p) {
-        // Print the parameters of the polygon being added
-        BoostBox box;
-        bg::envelope(*(p->polygon), box);
-        rtreeWrapper.insert(box, polygons.size());
-        polygons.emplace_back(p);
-    }
+    void addPolygon(const PolygonPtr &p);
+    void addPoint(const PointPtr &p);
 
-    void addPoint(const PointPtr &p) {
-        BoostBox box(*(p->point), *(p->point));
-        rtreeWrapper.insert(box, polygons.size() + points.size());
-        points.emplace_back(p);
-    }
-
-    py::list getPolygons() {
-#ifdef DLUPDEBUG
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-#endif
-        py::list py_polygons;
-        for (const auto &polygon : polygons) {
-            py_polygons.append(AnnotationRegion::callFactoryFunction(polygon));
-        }
-#ifdef DLUPDEBUG
-        std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
-        std::cout << "Elapsed time in GeometryContainer::getPolygons: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
-#endif
-        return py_polygons;
-    }
-
+    py::list getPolygons();
+    py::list getPoints();
     std::pair<std::pair<double, double>, std::pair<double, double>> computeBoundingBox() const;
-
-
     void sortPolygons(const py::function &keyFunc, bool reverse);
 
     void removePolygon(const PolygonPtr &p);
     void removePolygon(size_t index);
-
     void removePoint(const PointPtr &p);
     void removePoint(size_t index);
 
     void scale(double scaling);
     void setOffset(std::pair<double, double> offset);
-    void rebuildRTree();
+    void rebuildRTree() { rtreeWrapper.rebuild(); }
+    void simplifyPolygons(double tolerance) {
+        for (auto &polygon : polygons) {
+            polygon->simplifyPolygon(tolerance);
+        }
+    }
+
+    int size() const { return polygons.size() + points.size(); }
 
     std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
 
@@ -410,54 +199,113 @@ public:
     void reindexPolygons(const std::map<std::string, int> &indexMap);
 };
 
-    std::pair<std::pair<double, double>, std::pair<double, double>> GeometryContainer::computeBoundingBox() const {
-        // Initialize an empty bounding box
-        BoostBox overallBoundingBox;
+GeometryCollection::GeometryCollection() : rtreeWrapper(this) {}
 
-        bool isFirst = true;
+std::pair<std::pair<double, double>, std::pair<double, double>> GeometryCollection::computeBoundingBox() const {
+    // Initialize an empty bounding box
+    BoostBox overallBoundingBox;
 
-        // Iterate over all polygons and compute their bounding boxes
-        for (const auto &polygon : polygons) {
-            BoostBox polygonBox;
-            bg::envelope(*(polygon->polygon), polygonBox);
+    bool isFirst = true;
 
-            if (isFirst) {
-                overallBoundingBox = polygonBox;
-                isFirst = false;
-            } else {
-                bg::expand(overallBoundingBox, polygonBox);
-            }
+    // Iterate over all polygons and compute their bounding boxes
+    for (const auto &polygon : polygons) {
+        BoostBox polygonBox;
+        bg::envelope(*(polygon->polygon), polygonBox);
+
+        if (isFirst) {
+            overallBoundingBox = polygonBox;
+            isFirst = false;
+        } else {
+            bg::expand(overallBoundingBox, polygonBox);
         }
-
-        // Iterate over all points and compute their bounding boxes
-        for (const auto &point : points) {
-            BoostBox pointBox(*(point->point), *(point->point));
-
-            if (isFirst) {
-                overallBoundingBox = pointBox;
-                isFirst = false;
-            } else {
-                bg::expand(overallBoundingBox, pointBox);
-            }
-        }
-
-        // Extract min and max points
-        const auto& min_corner = overallBoundingBox.min_corner();
-        const auto& max_corner = overallBoundingBox.max_corner();
-
-        double min_x = bg::get<0>(min_corner);
-        double min_y = bg::get<1>(min_corner);
-        double max_x = bg::get<0>(max_corner);
-        double max_y = bg::get<1>(max_corner);
-
-        double width = max_x - min_x;
-        double height = max_y - min_y;
-
-        return std::make_pair(std::make_pair(min_x, min_y), std::make_pair(width, height));
     }
 
+    // Iterate over all points and compute their bounding boxes
+    for (const auto &point : points) {
+        BoostBox pointBox(*(point->point), *(point->point));
 
-void GeometryContainer::reindexPolygons(const std::map<std::string, int> &indexMap) {
+        if (isFirst) {
+            overallBoundingBox = pointBox;
+            isFirst = false;
+        } else {
+            bg::expand(overallBoundingBox, pointBox);
+        }
+    }
+
+    // Extract min and max points
+    const auto &min_corner = overallBoundingBox.min_corner();
+    const auto &max_corner = overallBoundingBox.max_corner();
+
+    double min_x = bg::get<0>(min_corner);
+    double min_y = bg::get<1>(min_corner);
+    double max_x = bg::get<0>(max_corner);
+    double max_y = bg::get<1>(max_corner);
+
+    double width = max_x - min_x;
+    double height = max_y - min_y;
+
+    return std::make_pair(std::make_pair(min_x, min_y), std::make_pair(width, height));
+}
+
+void RTreeWrapper::rebuild() {
+    clear(); // Clear the existing R-tree
+
+    // Rebuild the tree using polygons and points from GeometryCollection
+    const auto &polygons = geometryCollection->polygons;
+    for (size_t i = 0; i < polygons.size(); ++i) {
+        BoostBox box;
+        bg::envelope(*(polygons[i]->polygon), box);
+        insert(box, i);
+    }
+
+    const auto &points = geometryCollection->points;
+    for (size_t i = 0; i < points.size(); ++i) {
+        BoostBox box(*(points[i]->point), *(points[i]->point));
+        insert(box, polygons.size() + i);
+    }
+
+    rTreeInvalidated = false;
+}
+
+void GeometryCollection::addPoint(const PointPtr &p) {
+    BoostBox box(*(p->point), *(p->point));
+    rtreeWrapper.insert(box, polygons.size() + points.size());
+    points.emplace_back(p);
+}
+
+void GeometryCollection::addPolygon(const PolygonPtr &p) {
+    // Print the parameters of the polygon being added
+    BoostBox box;
+    bg::envelope(*(p->polygon), box);
+    rtreeWrapper.insert(box, polygons.size());
+    polygons.emplace_back(p);
+}
+
+py::list GeometryCollection::getPolygons() {
+#ifdef DLUPDEBUG
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+#endif
+    py::list py_polygons;
+    for (const auto &polygon : polygons) {
+        py_polygons.append(AnnotationRegion::callFactoryFunction(polygon));
+    }
+#ifdef DLUPDEBUG
+    std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+    std::cout << "Elapsed time in GeometryCollection::getPolygons: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
+#endif
+    return py_polygons;
+}
+
+py::list GeometryCollection::getPoints() {
+    py::list py_points;
+    for (const auto &point : points) {
+        py_points.append(AnnotationRegion::callFactoryFunction(point));
+    }
+    return py_points;
+}
+
+void GeometryCollection::reindexPolygons(const std::map<std::string, int> &indexMap) {
     for (auto &polygon : polygons) {
         std::optional<py::object> label_opt = polygon->getField("label");
 
@@ -475,7 +323,7 @@ void GeometryContainer::reindexPolygons(const std::map<std::string, int> &indexM
     }
 }
 
-void GeometryContainer::sortPolygons(const py::function &keyFunc, bool reverse) {
+void GeometryCollection::sortPolygons(const py::function &keyFunc, bool reverse) {
     std::sort(polygons.begin(), polygons.end(), [&keyFunc, reverse](const PolygonPtr &a, const PolygonPtr &b) {
         py::object keyA = keyFunc(a);
         py::object keyB = keyFunc(b);
@@ -494,7 +342,7 @@ void GeometryContainer::sortPolygons(const py::function &keyFunc, bool reverse) 
     rtreeWrapper.invalidate();
 }
 
-void GeometryContainer::scale(double scaling) {
+void GeometryCollection::scale(double scaling) {
     for (auto &point : points) {
         GeometryUtils::applyAffineTransformation(*point->point, {0.0, 0.0}, scaling);
     }
@@ -504,7 +352,7 @@ void GeometryContainer::scale(double scaling) {
     rtreeWrapper.invalidate();
 }
 
-void GeometryContainer::setOffset(std::pair<double, double> offset) {
+void GeometryCollection::setOffset(std::pair<double, double> offset) {
     for (auto &point : points) {
         GeometryUtils::applyAffineTransformation(*point->point, offset, 1.0);
     }
@@ -514,20 +362,20 @@ void GeometryContainer::setOffset(std::pair<double, double> offset) {
     rtreeWrapper.invalidate();
 }
 
-void GeometryContainer::rebuildRTree() {
-    rtreeWrapper.clear();
-    for (size_t i = 0; i < polygons.size(); ++i) {
-        BoostBox box;
-        bg::envelope(*(polygons[i]->polygon), box);
-        rtreeWrapper.insert(box, i);
-    }
-    for (size_t i = 0; i < points.size(); ++i) {
-        BoostBox box(*(points[i]->point), *(points[i]->point));
-        rtreeWrapper.insert(box, polygons.size() + i);
-    }
-}
+// void GeometryCollection::rebuildRTree() {
+//     rtreeWrapper.clear();
+//     for (size_t i = 0; i < polygons.size(); ++i) {
+//         BoostBox box;
+//         bg::envelope(*(polygons[i]->polygon), box);
+//         rtreeWrapper.insert(box, i);
+//     }
+//     for (size_t i = 0; i < points.size(); ++i) {
+//         BoostBox box(*(points[i]->point), *(points[i]->point));
+//         rtreeWrapper.insert(box, polygons.size() + i);
+//     }
+// }
 
-void GeometryContainer::removePolygon(const PolygonPtr &p) {
+void GeometryCollection::removePolygon(const PolygonPtr &p) {
     auto it = std::find(polygons.begin(), polygons.end(), p);
     if (it != polygons.end()) {
         polygons.erase(it);
@@ -537,7 +385,7 @@ void GeometryContainer::removePolygon(const PolygonPtr &p) {
     }
 }
 
-void GeometryContainer::removePolygon(size_t index) {
+void GeometryCollection::removePolygon(size_t index) {
     if (index >= polygons.size()) {
         throw std::out_of_range("Polygon index out of range");
     }
@@ -546,7 +394,7 @@ void GeometryContainer::removePolygon(size_t index) {
     rtreeWrapper.invalidate();
 }
 
-void GeometryContainer::removePoint(const PointPtr &p) {
+void GeometryCollection::removePoint(const PointPtr &p) {
     auto it = std::find(points.begin(), points.end(), p);
     if (it != points.end()) {
         points.erase(it);
@@ -556,7 +404,7 @@ void GeometryContainer::removePoint(const PointPtr &p) {
     }
 }
 
-void GeometryContainer::removePoint(size_t index) {
+void GeometryCollection::removePoint(size_t index) {
     if (index >= points.size()) {
         throw std::out_of_range("Point index out of range");
     }
@@ -565,8 +413,8 @@ void GeometryContainer::removePoint(size_t index) {
     rtreeWrapper.invalidate();
 }
 
-AnnotationRegion GeometryContainer::readRegion(const std::pair<double, double> &coordinates, double scaling,
-                                               const std::pair<double, double> &size) {
+AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> &coordinates, double scaling,
+                                                const std::pair<double, double> &size) {
 
 #ifdef DLUPDEBUG
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -608,10 +456,10 @@ AnnotationRegion GeometryContainer::readRegion(const std::pair<double, double> &
     }
 #ifdef DLUPDEBUG
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    std::cout << "Elapsed time in GeometryContainer::readRegion: "
+    std::cout << "Elapsed time in GeometryCollection:readRegion: "
               << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
 #endif
-    auto returnValue = AnnotationRegion(std::move(intersectedPolygons), std::move(intersectedPoints));
+    auto returnValue = AnnotationRegion(std::move(intersectedPolygons), std::move(intersectedPoints), std::move(size));
 
     return returnValue;
 }
@@ -638,8 +486,18 @@ PYBIND11_MODULE(_geometry, m) {
             newPolygon->parameters = other.parameters; // Copy the parameters
             return newPolygon;
         }))
+        .def("set_exterior", &Polygon::setExterior)
+        .def("set_interiors", &Polygon::setInteriors)
         .def("get_exterior", &Polygon::getExterior)
+        .def("get_exterior_iterator", [](Polygon& self) {
+            return py::make_iterator(self.getExteriorAsIterator().begin(), self.getExteriorAsIterator().end());
+        })
+        .def("get_interiors_iterator", [](Polygon& self) {
+            return py::make_iterator(self.getInteriorAsIterator().begin(), self.getInteriorAsIterator().end());
+        })
         .def("get_interiors", &Polygon::getInteriors)
+        .def("correct_orientation", &Polygon::correctIfNeeded)
+        .def("simplify", &Polygon::simplifyPolygon)
         .def_property_readonly("wkt", &Polygon::toWkt)
         .def_property_readonly("area", &Polygon::getArea);
 
@@ -665,51 +523,50 @@ PYBIND11_MODULE(_geometry, m) {
         .def("equals", &Point::equals)
         .def("within", &Point::within)
         .def("centroid", &Point::centroid)
-        .def("azimuth", &Point::azimuth)
-        .def("translate", &Point::translate)
-        .def("rotate", &Point::rotate, py::arg("angle"), py::arg("origin") = Point(0, 0))
         .def("scale", &Point::scale, py::arg("scaling"), py::arg("origin") = Point(0, 0))
         .def_property_readonly("wkt", &Point::toWkt);
 
     m.def("set_polygon_factory", &AnnotationRegion::setPolygonFactory);
     m.def("set_point_factory", &AnnotationRegion::setPointFactory);
 
-    py::class_<GeometryContainer, std::shared_ptr<GeometryContainer>>(m, "GeometryContainer")
+    py::class_<GeometryCollection, std::shared_ptr<GeometryCollection>>(m, "GeometryCollection")
         .def(py::init<>())
-        .def("add_polygon", &GeometryContainer::addPolygon)
-        .def("add_point", &GeometryContainer::addPoint)
+        .def("add_polygon", &GeometryCollection::addPolygon)
+        .def("add_point", &GeometryCollection::addPoint)
 
         // Overload remove_polygon to handle both object and index
-        .def("remove_polygon", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryContainer::removePolygon),
+        .def("remove_polygon", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryCollection::removePolygon),
              "Remove a polygon by passing the Polygon object")
-        .def("remove_polygon", py::overload_cast<size_t>(&GeometryContainer::removePolygon),
+        .def("remove_polygon", py::overload_cast<size_t>(&GeometryCollection::removePolygon),
              "Remove a polygon by its index")
-        .def("reindex_polygons", &GeometryContainer::reindexPolygons)
-        .def("sort_polygons", &GeometryContainer::sortPolygons, "Sort polygons by a custom key function")
+        .def("reindex_polygons", &GeometryCollection::reindexPolygons)
+        .def("sort_polygons", &GeometryCollection::sortPolygons, "Sort polygons by a custom key function")
+        .def("simplify_polygons", &GeometryCollection::simplifyPolygons)
+        .def("size", &GeometryCollection::size)
 
         // Overload remove_point to handle both object and index
-        .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryContainer::removePoint),
+        .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryCollection::removePoint),
              "Remove a point by passing the Point object")
-        .def("remove_point", py::overload_cast<size_t>(&GeometryContainer::removePoint), "Remove a point by its index")
-        .def("read_region", &GeometryContainer::readRegion)
-        .def("rebuild_rtree", &GeometryContainer::rebuildRTree, "Rebuild the R-tree index manually")
-        .def("scale", &GeometryContainer::scale, "Scale all geometries by a factor")
-        .def("set_offset", &GeometryContainer::setOffset, "Set an offset for all geometries")
-        .def_property_readonly("rtree_invalidated", &GeometryContainer::isRTreeInvalidated)
-        .def_property_readonly("pointer_id", &GeometryContainer::getPointerId)
-        .def_property_readonly("bounding_box", &GeometryContainer::computeBoundingBox)
-        .def_property_readonly("polygons", &GeometryContainer::getPolygons)
-        .def_property_readonly("points", [](const GeometryContainer &self) { return self.points; });
+        .def("remove_point", py::overload_cast<size_t>(&GeometryCollection::removePoint), "Remove a point by its index")
+        .def("read_region", &GeometryCollection::readRegion)
+        .def("rebuild_rtree", &GeometryCollection::rebuildRTree, "Rebuild the R-tree index manually")
+        .def("scale", &GeometryCollection::scale, "Scale all geometries by a factor")
+        .def("set_offset", &GeometryCollection::setOffset, "Set an offset for all geometries")
+        .def_property_readonly("rtree_invalidated", &GeometryCollection::isRTreeInvalidated)
+        .def_property_readonly("pointer_id", &GeometryCollection::getPointerId)
+        .def_property_readonly("bounding_box", &GeometryCollection::computeBoundingBox)
+        .def_property_readonly("polygons", &GeometryCollection::getPolygons)
+        .def_property_readonly("points", &GeometryCollection::getPoints);
 
-    py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "RegionResult")
+    py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "AnnotationRegion")
         .def_property_readonly("polygons", &AnnotationRegion::getPolygons)
         .def_property_readonly("points", &AnnotationRegion::getPoints)
-        .def("to_mask", &AnnotationRegion::toMask, py::arg("mask_size"), py::arg("index_map"),
-             py::arg("default_value") = 0);
+        .def("to_mask", &AnnotationRegion::toMask, py::arg("default_value") = 0);
 
     py::register_exception<GeometryError>(m, "GeometryError");
     py::register_exception<GeometryIntersectionError>(m, "GeometryIntersectionError");
     py::register_exception<GeometryTransformationError>(m, "GeometryTransformationError");
     py::register_exception<GeometryFactoryFunctionError>(m, "GeometryFactoryFunctionError");
     py::register_exception<GeometryNotFoundError>(m, "GeometryNotFoundError");
+    py::register_exception<GeometryCoordinatesError>(m, "GeometryCoordinatesError");
 }

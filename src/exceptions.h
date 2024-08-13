@@ -14,6 +14,11 @@ public:
     explicit GeometryNotFoundError(const std::string &message) : GeometryError(message) {}
 };
 
+class GeometryCoordinatesError : public GeometryError {
+public:
+    explicit GeometryCoordinatesError(const std::string &message) : GeometryError(message) {}
+};
+
 class GeometryIntersectionError : public GeometryError {
 public:
     explicit GeometryIntersectionError(const std::string &message) : GeometryError(message) {}

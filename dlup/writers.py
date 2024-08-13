@@ -19,8 +19,8 @@ from tifffile import tifffile
 
 import dlup
 from dlup._libtiff_tiff_writer import LibtiffTiffWriter
-from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup._types import PathLike
+from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.utils.tifffile_utils import get_tile
 
 

@@ -1,68 +1,163 @@
-#ifndef GEOMETRY_UTILITIES_H
-#define GEOMETRY_UTILITIES_H
+#ifndef GEOMETRY_H
+#define GEOMETRY_H
+#pragma once
 
 #include <boost/geometry.hpp>
-#include <boost/geometry/algorithms/correct.hpp>
-#include <boost/geometry/algorithms/is_valid.hpp>
-#include <boost/geometry/algorithms/simplify.hpp>
-#include <boost/geometry/algorithms/transform.hpp>
-#include <boost/geometry/geometries/geometries.hpp>
-
-namespace GeometryUtils {
+#include <memory>
+#include <optional>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace bg = boost::geometry;
+namespace py = pybind11;
 
-// Aliases for common types
 using BoostPoint = bg::model::d2::point_xy<double>;
 using BoostPolygon = bg::model::polygon<BoostPoint>;
+using BoostRing = bg::model::ring<BoostPoint>;
 
-// Function to make a polygon valid
-BoostPolygon makeValid(const BoostPolygon &polygon) {
-    BoostPolygon validPolygon = polygon;
+class BaseGeometry {
+public:
+    virtual ~BaseGeometry() = default;
+    std::unordered_map<std::string, py::object> parameters;
 
-    // Check if the polygon is valid
-    if (!bg::is_valid(validPolygon)) {
-        // Correct the polygon (removing self-intersections and duplicate points)
-        bg::correct(validPolygon);
+    virtual void setField(const std::string &name, py::object value) { parameters[name] = value; }
 
-        // If still not valid, simplify it
-        if (!bg::is_valid(validPolygon)) {
-            BoostPolygon simplifiedPolygon;
-            // TODO: emit a warning
-            bg::simplify(validPolygon, simplifiedPolygon, 0.01); // TODO: Adjust tolerance
-            validPolygon = simplifiedPolygon;
+    std::optional<py::object> getField(const std::string &name) const {
+        if (auto it = parameters.find(name); it != parameters.end()) {
+            return it->second;
         }
+        return std::nullopt;
     }
 
-    return validPolygon;
-}
-
-void applyAffineTransformation(BoostPolygon &polygon, const std::pair<double, double> &origin, double scaling) {
-    bg::strategy::transform::matrix_transformer<double, 2, 2> transform(scaling, 0, -origin.first, 0, scaling,
-                                                                        -origin.second, 0, 0, 1);
-
-    // TODO: This is a bit weird that we can't just immediately apply this to the polygon
-    // Apply the transformation to each point of the exterior ring
-    for (auto &point : bg::exterior_ring(polygon)) {
-        bg::transform(point, point, transform);
+    auto getFields() const {
+        std::vector<std::string> fieldNames;
+        fieldNames.reserve(parameters.size());
+        std::transform(parameters.begin(), parameters.end(), std::back_inserter(fieldNames),
+                       [](const auto &param) { return param.first; });
+        return fieldNames;
     }
 
-    // Apply the transformation to each point of each interior ring
-    for (auto &ring : bg::interior_rings(polygon)) {
-        for (auto &point : ring) {
-            bg::transform(point, point, transform);
+    std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
+    virtual std::string toWkt() const = 0; // Force derived classes to provide the WKT
+
+protected:
+    template <typename GeometryType>
+    std::string convertToWkt(const GeometryType &geometry) const {
+        std::stringstream ss;
+        ss << boost::geometry::wkt(geometry);
+        return ss.str();
+    }
+};
+
+class Polygon : public BaseGeometry {
+public:
+    using ExteriorRing = std::vector<BoostPoint>&;
+    using InteriorRings = std::vector<BoostRing>&;
+
+    ~Polygon() override = default;
+    std::shared_ptr<BoostPolygon> polygon;
+
+    Polygon() : polygon(std::make_shared<BoostPolygon>()) {}
+    Polygon(const BoostPolygon &p) : polygon(std::make_shared<BoostPolygon>(p)) {}
+    // This doesn't work, but is probably
+    // Polygon(BoostPolygon &&p) : polygon(std::make_shared<BoostPolygon>(std::move(p))) {}
+    Polygon(std::shared_ptr<BoostPolygon> p) : polygon(p) {}
+
+    Polygon(const std::vector<std::pair<double, double>> &exterior,
+            const std::vector<std::vector<std::pair<double, double>>> &interiors = {})
+        : polygon(std::make_shared<BoostPolygon>()) {
+        setExterior(std::move(exterior));
+        setInteriors(std::move(interiors));
+    }
+
+    // TODO: Box is probably sufficient.
+    std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const;
+
+    std::string toWkt() const override {
+         return convertToWkt(*polygon); }
+
+    std::vector<std::pair<double, double>> getExterior() const;
+    std::vector<std::vector<std::pair<double, double>>> getInteriors() const;
+
+    ExteriorRing getExteriorAsIterator() {
+        return bg::exterior_ring(*polygon);
+    }
+
+    InteriorRings getInteriorAsIterator() {
+        return polygon->inners();
+    }
+
+
+    double getArea() const { 
+        // Shapely reorients the polygon in memory if it is not oriented correctly, but keeps the coordinates
+        // So we need to make a copy here to avoid modifying the original polygon
+        if (!isCorrected) {
+            // Make a copy of the current polygon
+            BoostPolygon newPolygon = *polygon;
+            bg::correct(newPolygon);  // Correct the copied polygon
+            return bg::area(newPolygon);
         }
+
+        return bg::area(*polygon); 
     }
-}
 
-// Function to apply an affine transformation to a point
-void applyAffineTransformation(BoostPoint &point, const std::pair<double, double> &origin, double scaling) {
-    double x = (bg::get<0>(point) - origin.first) * scaling;
-    double y = (bg::get<1>(point) - origin.second) * scaling;
-    bg::set<0>(point, x);
-    bg::set<1>(point, y);
-}
+    void setExterior(const std::vector<std::pair<double, double>> &coordinates);
+    void setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors);
+    void correctIfNeeded() const;
+    void simplifyPolygon(double tolerance);
+private:
+    mutable bool isCorrected = false;  // mutable allows modification in const methods
+};
 
-} // namespace GeometryUtils
+class Point : public BaseGeometry {
+public:
+    ~Point() override = default;
+    std::shared_ptr<BoostPoint> point;
 
-#endif // GEOMETRY_UTILITIES_H
+    Point() : point(std::make_shared<BoostPoint>()) {}
+    Point(const BoostPoint &p) : point(std::make_shared<BoostPoint>(p)) {}
+    Point(std::shared_ptr<BoostPoint> p) : point(p) {}
+    Point(double x, double y) : point(std::make_shared<BoostPoint>(x, y)) {}
+
+    Point(const Point &other) : BaseGeometry(other), point(std::make_shared<BoostPoint>(*other.point)) {
+        parameters = other.parameters; // Copy parameters
+    }
+
+    // Factory function for creating points from Python
+    static std::shared_ptr<Point> create(double x, double y) { return std::make_shared<Point>(x, y); }
+
+    std::string toWkt() const override { return convertToWkt(*point); }
+
+    void setCoordinates(double x, double y) {
+        bg::set<0>(*point, x);
+        bg::set<1>(*point, y);
+    }
+    std::pair<double, double> getCoordinates() const { return std::make_pair(bg::get<0>(*point), bg::get<1>(*point)); }
+    inline double getX() const { return bg::get<0>(*point); }
+    inline double getY() const { return bg::get<1>(*point); }
+    double distanceTo(const Point &other) const { return bg::distance(*point, *(other.point)); }
+    bool equals(const Point &other) const { return bg::equals(*point, *(other.point)); }
+    bool within(const Polygon &polygon) const { return bg::within(*point, *(polygon.polygon)); }
+
+    std::shared_ptr<Point> centroid(const Polygon &polygon) const {
+        BoostPoint centroid;
+        bg::centroid(*(polygon.polygon), centroid);
+        return std::make_shared<Point>(centroid);
+    }
+
+    std::shared_ptr<Point> scale(double scaling, const Point &origin = Point(0, 0)) const {
+        BoostPoint scaled;
+        double dx = getX() - origin.getX();
+        double dy = getY() - origin.getY();
+
+        bg::strategy::transform::scale_transformer<double, 2, 2> scale(scaling);
+        bg::transform(BoostPoint(dx, dy), scaled, scale);
+
+        return std::make_shared<Point>(scaled.get<0>() + origin.getX(), scaled.get<1>() + origin.getY());
+    }
+};
+
+#endif // GEOMETRY_H

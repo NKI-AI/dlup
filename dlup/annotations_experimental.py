@@ -4,27 +4,23 @@ Experimental annotations module for dlup.
 
 """
 from __future__ import annotations
-import cv2
-
-import time
+import numpy.typing as npt
 import errno
 import json
 import os
 import pathlib
-from typing import Any, Iterable, Optional, Type, TypedDict
+from typing import Any, Iterable, Optional, Type, TypedDict, TypeVar, Callable
 
 import numpy as np
-from shapely.geometry import MultiPolygon as ShapelyMultiPolygon
 
 from dlup._exceptions import AnnotationError
 from dlup._types import PathLike
-from dlup.annotations import (
-    CoordinatesDict,
-    GeoJsonDict,
-    _geometry_to_geojson,
-    _get_geojson_color,
-)
-from dlup.geometry import DlupGeometryContainer, DlupPoint, DlupPolygon
+from dlup.annotations import GeoJsonDict
+from dlup.utils.annotations_utils import _get_geojson_color
+from dlup.geometry import DlupPoint, DlupPolygon, GeometryCollection
+from dlup._geometry import AnnotationRegion
+from dlup._types import GenericNumber
+_TSlideAnnotations = TypeVar("_TSlideAnnotations", bound="SlideAnnotations")
 
 
 class CoordinatesDict(TypedDict):
@@ -32,12 +28,14 @@ class CoordinatesDict(TypedDict):
     coordinates: list[list[list[float]]]
 
 
-def _geometry_to_geojson(geometry: Polygon | Point, label: str, color: tuple[int, int, int] | None) -> dict[str, Any]:
+def _geometry_to_geojson(
+    geometry: DlupPolygon | DlupPoint, label: str | None, color: tuple[int, int, int] | None
+) -> dict[str, Any]:
     """Function to convert a geometry to a GeoJSON object.
 
     Parameters
     ----------
-    geometry : Polygon | Point
+    geometry : DlupPolygon | DlupPoint
         A polygon or point object
     label : str
         The label name
@@ -50,7 +48,7 @@ def _geometry_to_geojson(geometry: Polygon | Point, label: str, color: tuple[int
         Output dictionary representing the data in GeoJSON
 
     """
-    geojson = {
+    geojson: dict[str, Any] = {
         "type": "Feature",
         "properties": {
             "classification": {
@@ -78,9 +76,12 @@ def _geometry_to_geojson(geometry: Polygon | Point, label: str, color: tuple[int
             "type": "Point",
             "coordinates": [geometry.x, geometry.y],
         }
+    else:
+        raise ValueError(f"Unsupported geometry type {type(geometry)}")
 
     if color is not None:
-        geojson["properties"]["classification"]["color"] = color
+        classification: dict[str, Any] = geojson["properties"]["classification"]
+        classification["color"] = color
 
     return geojson
 
@@ -113,41 +114,38 @@ def shape(
         )
         return [polygon]
     if geom_type == "multipolygon":
-        multi_polygon = ShapelyMultiPolygon(
-            [
-                [
-                    np.asarray(c[0]),
-                    [np.asarray(hole) for hole in c[1:]],
-                ]
-                for c in coordinates["coordinates"]
-            ]
-        )
-
-        output = []
-        for polygon in multi_polygon.geoms:
-            shell = polygon.exterior.coords
-            holes = [hole.coords for hole in polygon.interiors]
-            output.append(DlupPolygon(shell, holes, label=label, color=color))
+        output: list[DlupPolygon | DlupPoint] = []
+        for polygon_coords in coordinates["coordinates"]:
+            exterior = np.asarray(polygon_coords[0])
+            interiors = [np.asarray(hole) for hole in polygon_coords[1:]]
+            output.append(DlupPolygon(exterior, interiors, label=label, color=color))
+        return output
 
     raise AnnotationError(f"Unsupported geom_type {geom_type}")
 
 
-class WsiAnnotationsExperimental:
+class SlideTag:
+    pass
+
+
+class SlideAnnotations:
     """Class that holds all annotations for a specific image"""
 
-    def __init__(self, layers: DlupGeometryContainer):
+    def __init__(self, layers: GeometryCollection, tags: Optional[tuple[SlideTag, ...]] = None) -> None:
         self._layers = layers
-        self._tags = []
+        self._tags = tags
+
+        self._offset_to_slide_bounds = False
 
     @property
-    def tags(self) -> list[str]:
+    def tags(self) -> Optional[tuple[SlideTag, ...]]:
         return self._tags
 
     @classmethod
     def from_geojson(
-        cls: Type[_TWsiAnnotations],
+        cls: Type[_TSlideAnnotations],
         geojsons: PathLike | Iterable[PathLike],
-    ) -> _TWsiAnnotations:
+    ) -> _TSlideAnnotations:
 
         if isinstance(geojsons, str):
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
@@ -176,16 +174,17 @@ class WsiAnnotationsExperimental:
                     _geometry = shape(x["geometry"], label=_label, color=_color)
                     geometries += _geometry
 
-        container = DlupGeometryContainer()
+        collection = GeometryCollection()
         for layer in geometries:
             if isinstance(layer, DlupPolygon):
-                container.add_polygon(layer)
+                collection.add_polygon(layer)
             elif isinstance(layer, DlupPoint):
-                container.add_point(layer)
+                collection.add_point(layer)
             else:
                 raise ValueError(f"Unsupported layer type {type(layer)}")
 
-        return cls(layers=container)
+        return cls(layers=collection)
+
 
     def as_geojson(self) -> GeoJsonDict:
         """
@@ -212,7 +211,62 @@ class WsiAnnotationsExperimental:
 
         return data
 
-    def read_region(self, coordinates: tuple[int, int], scaling: float, size: tuple[int, int]):
+    def simplify(self, tolerance: float) -> None:
+        """Simplify the polygons in the annotation (i.e. reduce points). Other annotations will remain unchanged.
+        All points in the resulting polygons object will be in the tolerance distance of the original polygon.
+
+        Parameters
+        ----------
+        tolerance : float
+            The tolerance to simplify the polygons with.
+        Returns
+        -------
+        None
+        """
+        self._layers.simplify(tolerance)
+
+    def __contains__(self, item: DlupPoint | DlupPolygon) -> bool:
+        if isinstance(item, DlupPoint):
+            return item in self._layers.points
+
+        if isinstance(item, DlupPolygon):
+            return item in self._layers.polygons
+
+        return False
+
+    # def __getitem__(self, item) -> DlupPolygon | DlupPoint:
+    #     pass
+
+    def __len__(self) -> int:
+        return self._layers.size()
+
+    # def __iter__(self):
+    #     # First returns all the polygons then all points
+    #     for polygon in self._layers.polygons:
+    #         yield polygon
+
+    #     for point in self._layers.points:
+    #         yield point
+
+    def __add__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
+        raise NotImplementedError
+
+    def __iadd__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
+        raise NotImplementedError
+
+    def __radd__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
+        raise NotImplementedError
+
+    def __sub__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
+        raise NotImplementedError
+
+    def __isub__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
+        raise NotImplementedError
+
+    def __rsub__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
+        raise NotImplementedError
+
+    def read_region(self, coordinates: tuple[GenericNumber, GenericNumber], scaling: float, size: tuple[GenericNumber, GenericNumber]) -> AnnotationRegion:
         region = self._layers.read_region(coordinates, scaling, size)
         return region
 
@@ -258,7 +312,20 @@ class WsiAnnotationsExperimental:
         """
         self._layers.set_offset(offset)
 
-    def rebuild_rtree(self):
+    @property
+    def offset_to_slide_bounds(self) -> bool:
+        """
+        If True, the annotations need to be offset to the slide bounds. This is useful when the annotations are read
+        from a file format which requires this, for instance HaloXML. When set, yo uwill need to call `set_offset()` to
+        apply the offset to the annotations.
+
+        Returns
+        -------
+        bool
+        """
+        return self._offset_to_slide_bounds
+
+    def rebuild_rtree(self) -> None:
         """
         Rebuild the R-tree for the annotations. This operation will be performed in-place.
         The R-tree is used for fast spatial queries on the annotations and is invalidated when the annotations are
@@ -269,7 +336,7 @@ class WsiAnnotationsExperimental:
 
         self._layers.rebuild_rtree()
 
-    def reindex_polygons(self, index_map: dict[str, int]):
+    def reindex_polygons(self, index_map: dict[str, int]) -> None:
         """
         Reindex the polygons in the annotations. This operation will be performed in-place.
         This is useful if you want to change the index of the polygons in the annotations.
@@ -305,15 +372,14 @@ class WsiAnnotationsExperimental:
             if polygon.label == label:
                 self._layers.remove_polygon(polygon)
 
-
-    def sort_polygons(self, key: callable, reverse: bool = False) -> None:
+    def sort_polygons(self, key: Callable[[DlupPolygon], int | float | str], reverse: bool = False) -> None:
         """Sort the polygons in-place.
 
         Parameters
         ----------
         key : callable
             The key to sort the polygons on, this has to be a lambda function or similar.
-            For instance `lambda polygon: polygon.area` will sort the polygons on the area, or 
+            For instance `lambda polygon: polygon.area` will sort the polygons on the area, or
             `lambda polygon: polygon.get_field(field_name)` will sort the polygons on that field.
         reverse : bool
             Whether to sort in reverse order.
@@ -332,29 +398,31 @@ class WsiAnnotationsExperimental:
 
     def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """Get the bounding box of the annotations combining points and polygons.
-        
+
         Returns
         -------
         tuple[tuple[float, float], tuple[float, float]]
             The bounding box of the annotations.
-        
+
         """
         return self._layers.bounding_box
-    
-    def color_lut(self) -> np.ndarray:
+
+    def color_lut(self) -> npt.NDArray[np.uint8]:
         """Get the color lookup table for the annotations.
 
-        Requires that the polygons have an index and color set.
+        Requires that the polygons have an index and color set. Be aware that for the background always the value 0 is assumed.
+        So if you are using the `to_mask(default_value=0)` with a default value other than 0, the LUT will still have this as index 0.
 
         Example
         -------
         >>> color_lut = annotations.color_lut
-        >>> colored_image = PIL.Image.fromarray(color_lut[mask])
-        
+        >>> region = annotations.read_region(region_start, 0.02, region_size).to_mask()
+        >>> colored_mask = PIL.Image.fromarray(color_lut[mask])
+
         Returns
         -------
         np.ndarray
             The color lookup table.
-        
+
         """
         return self._layers.color_lut
