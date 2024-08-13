@@ -511,6 +511,9 @@ public:
         return py_polygons;
     }
 
+    std::pair<std::pair<double, double>, std::pair<double, double>> computeBoundingBox() const;
+
+
     void sortPolygons(const py::function &keyFunc, bool reverse);
 
     void removePolygon(const PolygonPtr &p);
@@ -533,6 +536,53 @@ public:
     // TODO: Rethink the need for this function.
     void reindexPolygons(const std::map<std::string, int> &indexMap);
 };
+
+    std::pair<std::pair<double, double>, std::pair<double, double>> GeometryContainer::computeBoundingBox() const {
+        // Initialize an empty bounding box
+        BoostBox overallBoundingBox;
+
+        bool isFirst = true;
+
+        // Iterate over all polygons and compute their bounding boxes
+        for (const auto &polygon : polygons) {
+            BoostBox polygonBox;
+            bg::envelope(*(polygon->polygon), polygonBox);
+
+            if (isFirst) {
+                overallBoundingBox = polygonBox;
+                isFirst = false;
+            } else {
+                bg::expand(overallBoundingBox, polygonBox);
+            }
+        }
+
+        // Iterate over all points and compute their bounding boxes
+        for (const auto &point : points) {
+            BoostBox pointBox(*(point->point), *(point->point));
+
+            if (isFirst) {
+                overallBoundingBox = pointBox;
+                isFirst = false;
+            } else {
+                bg::expand(overallBoundingBox, pointBox);
+            }
+        }
+
+        // Extract min and max points
+        const auto& min_corner = overallBoundingBox.min_corner();
+        const auto& max_corner = overallBoundingBox.max_corner();
+
+        double min_x = bg::get<0>(min_corner);
+        double min_y = bg::get<1>(min_corner);
+        double max_x = bg::get<0>(max_corner);
+        double max_y = bg::get<1>(max_corner);
+
+        double width = max_x - min_x;
+        double height = max_y - min_y;
+
+        return std::make_pair(std::make_pair(min_x, min_y), std::make_pair(width, height));
+    }
+
 
 void GeometryContainer::reindexPolygons(const std::map<std::string, int> &indexMap) {
     for (auto &polygon : polygons) {
@@ -774,6 +824,7 @@ PYBIND11_MODULE(_geometry, m) {
         .def("set_offset", &GeometryContainer::setOffset, "Set an offset for all geometries")
         .def_property_readonly("rtree_invalidated", &GeometryContainer::isRTreeInvalidated)
         .def_property_readonly("pointer_id", &GeometryContainer::getPointerId)
+        .def_property_readonly("bounding_box", &GeometryContainer::computeBoundingBox)
         .def_property_readonly("polygons", &GeometryContainer::getPolygons)
         .def_property_readonly("points", [](const GeometryContainer &self) { return self.points; });
 

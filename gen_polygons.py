@@ -67,7 +67,12 @@ print()
 
 start_time = time.time()
 annotations2 = WsiAnnotations2.from_geojson(fn)
+bbox = annotations2._layers.bounding_box
+print(f"Bounding box v0.8.0.beta: {bbox}")
+
 print(f"Time to load annotations (dlup v0.8.0.beta): {(time.time() - start_time):.5f}s")
+
+
 
 start_time = time.time()
 region2 = annotations2.read_region(region_start, 0.02, bbox[1])
