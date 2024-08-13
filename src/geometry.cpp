@@ -330,6 +330,7 @@ public:
     void removePoint(size_t index);
 
     void scale(double scaling);
+    void setOffset(std::pair<double, double> offset);
     void rebuildRTree();
 
     std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
@@ -384,6 +385,17 @@ void GeometryContainer::scale(double scaling) {
         GeometryUtils::applyAffineTransformation(*polygon->polygon, {0.0, 0.0}, scaling);
     }
     rtreeWrapper.invalidate();
+}
+
+void GeometryContainer::setOffset(std::pair<double, double> offset) {
+    for (auto &point : points) {
+        GeometryUtils::applyAffineTransformation(*point->point, offset, 1.0);
+    }
+    for (auto &polygon : polygons) {
+        GeometryUtils::applyAffineTransformation(*polygon->polygon, offset, 1.0);
+    }
+    rtreeWrapper.invalidate();
+
 }
 
 void GeometryContainer::rebuildRTree() {
@@ -551,7 +563,9 @@ PYBIND11_MODULE(_geometry, m) {
              "Remove a point by passing the Point object")
         .def("remove_point", py::overload_cast<size_t>(&GeometryContainer::removePoint), "Remove a point by its index")
         .def("read_region", &GeometryContainer::readRegion)
-        .def("rebuild_rtree", &GeometryContainer::rebuildRTree)
+        .def("rebuild_rtree", &GeometryContainer::rebuildRTree, "Rebuild the R-tree index manually")
+        .def("scale", &GeometryContainer::scale, "Scale all geometries by a factor")
+        .def("set_offset", &GeometryContainer::setOffset, "Set an offset for all geometries")
         .def_property_readonly("rtree_invalidated", &GeometryContainer::isRTreeInvalidated)
         .def_property_readonly("pointer_id", &GeometryContainer::getPointerId)
         .def_property_readonly("polygons", &GeometryContainer::getPolygons)

@@ -228,6 +228,22 @@ class WsiAnnotationsExperimental:
         """
         self._layers.scale(scaling)
 
+    def set_offset(self, offset: tuple[float, float]) -> None:
+        """Set the offset for the annotations. This operation will be performed in-place.
+        
+        For example, if the offset is 1, 1, the annotations will be moved by 1 unit in the x and y direction.
+
+        Parameters
+        ----------
+        offset : tuple[float, float]
+            The offset to apply to the annotations.
+        
+        Returns
+        -------
+        None
+        """
+        self._layers.set_offset(offset)
+
     def rebuild_rtree(self):
         self._layers.rebuild_rtree()
 
