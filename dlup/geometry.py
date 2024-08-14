@@ -2,6 +2,7 @@
 """Module for geometric objects"""
 import dlup._geometry as _dg
 from dlup.utils.imports import SHAPELY_AVAILABLE
+import numpy as np
 
 
 class DlupPolygon(_dg.Polygon):
@@ -161,3 +162,23 @@ _dg.set_point_factory(dlup_point_factory)
 class DlupGeometryContainer(_dg.GeometryContainer):
     def __init__(self):
         super().__init__()
+
+    @property
+    def color_lut(self):
+        color_map = {}
+        for r in self.polygons:
+            color = r.color
+            index = r.index
+            if not index:
+                raise ValueError("Index needs to be set on Polygon to create a color lookup table")
+            if not color:
+                raise ValueError("Color needs to be set on Polygon to create a color lookup table")
+        
+            color_map[index] = color
+
+        max_index = max(color_map.keys())
+        LUT = np.zeros((max_index + 1, 3), dtype=np.uint8)
+        for key, color in color_map.items():
+            LUT[key] = color
+
+        return LUT
