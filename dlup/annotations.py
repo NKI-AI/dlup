@@ -185,7 +185,7 @@ def _is_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
         return False
     return bool(np.isclose(polygon.area, polygon.minimum_rotated_rectangle.area))
 
-
+  
 def _is_alligned_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
     if not _is_rectangle(polygon):
         return False
