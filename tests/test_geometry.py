@@ -97,7 +97,7 @@ class TestGeometry:
         polygon.set_field("random", True)
         assert (
             repr(polygon)
-            == "<DlupPolygon(color=(1, 1, 1), index=1, random=True, label=label) WKT='POLYGON((1 1,2 3,3 4,0 0,1 1))'>"
+            == "<DlupPolygon(color=(1, 1, 1), index=1, label=label, random=True) WKT='POLYGON((1 1,2 3,3 4,0 0,1 1))'>"
         )
 
         point = DlupPoint(1, 1, label="label", index=1, color=(1, 1, 1))
@@ -304,9 +304,16 @@ class TestGeometry:
         pointer_id = point.pointer_id
         point.scale(2)
 
-        # TODO: Doesn't work
-        # assert point == DlupPoint(2, 2)
+        assert point == DlupPoint(2, 2)
         assert point.pointer_id == pointer_id
+
+    def test_polygon_scaling(self):
+        polygon = DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
+        pointer_id = polygon.pointer_id
+        polygon.scale(2)
+
+        assert polygon == DlupPolygon([(0, 0), (0, 6), (6, 6), (6, 0)], [[(2, 2), (2, 4), (4, 4), (4, 2)]])
+        assert polygon.pointer_id == pointer_id
 
     @pytest.mark.parametrize("scaling", [1.0, 2.0])
     def test_read_region(self, scaling):
@@ -468,3 +475,22 @@ class TestGeometry:
         assert len(regions.polygons) == 1
         assert regions.points == [DlupPoint(2, 2, index=1), DlupPoint(4, 4)]
         assert regions.polygons == [DlupPolygon([(0, 0), (0, 5), (5, 5), (5, 0)], [])]
+
+    def test_geometry_scaling(self):
+        collection = GeometryCollection()
+        for polygon in polygons:
+            collection.add_polygon(polygon)
+
+        for point in points:
+            collection.add_point(point)
+
+        collection.scale(2)
+
+        polygon0 = collection.polygons[0]
+        points0 = collection.points[0]
+
+        assert points0 == DlupPoint(2, 2, label="label0")
+        assert polygon0.get_exterior() == [(0, 0), (0, 6), (6, 6), (6, 0), (0, 0)]
+        assert polygon0.get_interiors() == []
+
+        assert polygon0 == DlupPolygon([(0, 0), (0, 6), (6, 6), (6, 0), (0, 0)], [], color=(1,1,1), index=1, label="label 0")

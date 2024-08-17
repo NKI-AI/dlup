@@ -4,22 +4,23 @@ Experimental annotations module for dlup.
 
 """
 from __future__ import annotations
-import numpy.typing as npt
+
 import errno
 import json
 import os
 import pathlib
-from typing import Any, Iterable, Optional, Type, TypedDict, TypeVar, Callable
+from typing import Any, Callable, Iterable, Optional, Type, TypedDict, TypeVar
 
 import numpy as np
+import numpy.typing as npt
 
 from dlup._exceptions import AnnotationError
-from dlup._types import PathLike
-from dlup.annotations import GeoJsonDict
-from dlup.utils.annotations_utils import _get_geojson_color
-from dlup.geometry import DlupPoint, DlupPolygon, GeometryCollection
 from dlup._geometry import AnnotationRegion
-from dlup._types import GenericNumber
+from dlup._types import GenericNumber, PathLike
+from dlup.annotations import GeoJsonDict
+from dlup.geometry import DlupPoint, DlupPolygon, GeometryCollection
+from dlup.utils.annotations_utils import _get_geojson_color
+
 _TSlideAnnotations = TypeVar("_TSlideAnnotations", bound="SlideAnnotations")
 
 
@@ -145,6 +146,7 @@ class SlideAnnotations:
     def from_geojson(
         cls: Type[_TSlideAnnotations],
         geojsons: PathLike | Iterable[PathLike],
+        scaling: float = 1.0,
     ) -> _TSlideAnnotations:
 
         if isinstance(geojsons, str):
@@ -183,8 +185,10 @@ class SlideAnnotations:
             else:
                 raise ValueError(f"Unsupported layer type {type(layer)}")
 
-        return cls(layers=collection)
+        if scaling != 1.0:
+            collection.scale(scaling)
 
+        return cls(layers=collection)
 
     def as_geojson(self) -> GeoJsonDict:
         """
@@ -210,6 +214,18 @@ class SlideAnnotations:
             data["features"].append(json_dict)
 
         return data
+    
+    @property
+    def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        """Get the bounding box of the annotations combining points and polygons.
+
+        Returns
+        -------
+        tuple[tuple[float, float], tuple[float, float]]
+            The bounding box of the annotations.
+
+        """
+        return self._layers.bounding_box
 
     def simplify(self, tolerance: float) -> None:
         """Simplify the polygons in the annotation (i.e. reduce points). Other annotations will remain unchanged.
@@ -266,7 +282,12 @@ class SlideAnnotations:
     def __rsub__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
         raise NotImplementedError
 
-    def read_region(self, coordinates: tuple[GenericNumber, GenericNumber], scaling: float, size: tuple[GenericNumber, GenericNumber]) -> AnnotationRegion:
+    def read_region(
+        self,
+        coordinates: tuple[GenericNumber, GenericNumber],
+        scaling: float,
+        size: tuple[GenericNumber, GenericNumber],
+    ) -> AnnotationRegion:
         region = self._layers.read_region(coordinates, scaling, size)
         return region
 
@@ -396,17 +417,7 @@ class SlideAnnotations:
         """
         self._layers.sort_polygons(key, reverse)
 
-    def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
-        """Get the bounding box of the annotations combining points and polygons.
-
-        Returns
-        -------
-        tuple[tuple[float, float], tuple[float, float]]
-            The bounding box of the annotations.
-
-        """
-        return self._layers.bounding_box
-
+    @property
     def color_lut(self) -> npt.NDArray[np.uint8]:
         """Get the color lookup table for the annotations.
 

@@ -43,7 +43,7 @@ class _BaseGeometry:
         if field is None:
             return None
         # if field is not isinstance(field, str):
-            # raise ValueError(f"Label must be a string, got {type(field)}")
+        # raise ValueError(f"Label must be a string, got {type(field)}")
         assert isinstance(field, str)
         return field
 
@@ -114,7 +114,7 @@ class _BaseGeometry:
     def __repr__(self) -> str:
         repr_string = f"<{self.__class__.__name__}("
         parts = []
-        for field in self.fields:
+        for field in sorted(self.fields):
             value = self.get_field(field)
             parts.append(f"{field}={value}")
 
@@ -186,10 +186,10 @@ class DlupPolygon(_dg.Polygon, _BaseGeometry):
     def __setstate__(self, state: dict[str, dict[str, Any]]) -> None:
         exterior = state["_object"]["exterior"]
         interiors = state["_object"]["interiors"]
-        
+
         # Use the class method directly instead of calling on self
         DlupPolygon.__init__(self, exterior, interiors)
-        
+
         for key, value in state["_fields"].items():
             self.set_field(key, value)
 
@@ -317,11 +317,6 @@ class DlupPoint(_dg.Point, _BaseGeometry):
         DlupPoint.__init__(self, coordinates[0], coordinates[1])
         for key, value in state["_fields"].items():
             self.set_field(key, value)
-
-    def scale(self, scaling: float, origin: Optional["DlupPoint"] = None) -> None:
-        if origin is None:
-            origin = DlupPoint(0, 0)
-        super().scale(scaling, origin)
 
 def _point_factory(point: _dg.Point) -> DlupPoint:
     return DlupPoint(point)

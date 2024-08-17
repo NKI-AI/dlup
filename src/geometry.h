@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "geometry_utils.h"
 
 namespace bg = boost::geometry;
 namespace py = pybind11;
@@ -107,6 +108,7 @@ public:
     void setExterior(const std::vector<std::pair<double, double>> &coordinates);
     void setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors);
     void correctIfNeeded() const;
+    void scale(double scaling);
     void simplifyPolygon(double tolerance);
 private:
     mutable bool isCorrected = false;  // mutable allows modification in const methods
@@ -148,15 +150,8 @@ public:
         return std::make_shared<Point>(centroid);
     }
 
-    std::shared_ptr<Point> scale(double scaling, const Point &origin = Point(0, 0)) const {
-        BoostPoint scaled;
-        double dx = getX() - origin.getX();
-        double dy = getY() - origin.getY();
-
-        bg::strategy::transform::scale_transformer<double, 2, 2> scale(scaling);
-        bg::transform(BoostPoint(dx, dy), scaled, scale);
-
-        return std::make_shared<Point>(scaled.get<0>() + origin.getX(), scaled.get<1>() + origin.getY());
+    void scale(double scaling) {
+        setCoordinates(getX() * scaling, getY() * scaling);
     }
 };
 

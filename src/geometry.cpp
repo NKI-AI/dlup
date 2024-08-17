@@ -102,6 +102,10 @@ void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, doubl
     isCorrected = false; // Mark as not corrected. Correction reorients and closes
 }
 
+void Polygon::scale(double scaling) {
+    GeometryUtils::applyAffineTransformation(*polygon, {0.0, 0.0}, scaling);
+}
+
 std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &otherPolygon) const {
     // correctIfNeeded();
     // Make the polygon valid if needed before performing the intersection
@@ -344,36 +348,23 @@ void GeometryCollection::sortPolygons(const py::function &keyFunc, bool reverse)
 
 void GeometryCollection::scale(double scaling) {
     for (auto &point : points) {
-        GeometryUtils::applyAffineTransformation(*point->point, {0.0, 0.0}, scaling);
+        point->scale(scaling);
     }
     for (auto &polygon : polygons) {
-        GeometryUtils::applyAffineTransformation(*polygon->polygon, {0.0, 0.0}, scaling);
+        polygon->scale(scaling);
     }
     rtreeWrapper.invalidate();
 }
 
 void GeometryCollection::setOffset(std::pair<double, double> offset) {
     for (auto &point : points) {
-        GeometryUtils::applyAffineTransformation(*point->point, offset, 1.0);
+        GeometryUtils::applyAffineTransformation(*point->point, {-offset.first, -offset.second}, 1.0);
     }
     for (auto &polygon : polygons) {
-        GeometryUtils::applyAffineTransformation(*polygon->polygon, offset, 1.0);
+        GeometryUtils::applyAffineTransformation(*polygon->polygon, {-offset.first, -offset.second}, 1.0);
     }
     rtreeWrapper.invalidate();
 }
-
-// void GeometryCollection::rebuildRTree() {
-//     rtreeWrapper.clear();
-//     for (size_t i = 0; i < polygons.size(); ++i) {
-//         BoostBox box;
-//         bg::envelope(*(polygons[i]->polygon), box);
-//         rtreeWrapper.insert(box, i);
-//     }
-//     for (size_t i = 0; i < points.size(); ++i) {
-//         BoostBox box(*(points[i]->point), *(points[i]->point));
-//         rtreeWrapper.insert(box, polygons.size() + i);
-//     }
-// }
 
 void GeometryCollection::removePolygon(const PolygonPtr &p) {
     auto it = std::find(polygons.begin(), polygons.end(), p);
@@ -495,6 +486,7 @@ PYBIND11_MODULE(_geometry, m) {
         .def("get_interiors_iterator", [](Polygon& self) {
             return py::make_iterator(self.getInteriorAsIterator().begin(), self.getInteriorAsIterator().end());
         })
+        .def("scale", &Polygon::scale, py::arg("scaling"))
         .def("get_interiors", &Polygon::getInteriors)
         .def("correct_orientation", &Polygon::correctIfNeeded)
         .def("simplify", &Polygon::simplifyPolygon)
@@ -523,7 +515,7 @@ PYBIND11_MODULE(_geometry, m) {
         .def("equals", &Point::equals)
         .def("within", &Point::within)
         .def("centroid", &Point::centroid)
-        .def("scale", &Point::scale, py::arg("scaling"), py::arg("origin") = Point(0, 0))
+        .def("scale", &Point::scale, py::arg("scaling"))
         .def_property_readonly("wkt", &Point::toWkt);
 
     m.def("set_polygon_factory", &AnnotationRegion::setPolygonFactory);

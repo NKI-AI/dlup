@@ -1,7 +1,7 @@
 from typing import Callable, overload
 
-from dlup.geometry import DlupPoint, DlupPolygon
 from dlup._types import GenericNumber
+from dlup.geometry import DlupPoint, DlupPolygon
 
 class Polygon:
     @property
@@ -49,4 +49,9 @@ class GeometryCollection:
     def size(self) -> int: ...
     def simplify(self, tolerance: float) -> None: ...
     def scale(self, scaling: float) -> None: ...
-    def read_region(self, coordinates: tuple[GenericNumber, GenericNumber], scaling: float, size: tuple[GenericNumber, GenericNumber]) -> AnnotationRegion: ...
+    def read_region(
+        self,
+        coordinates: tuple[GenericNumber, GenericNumber],
+        scaling: float,
+        size: tuple[GenericNumber, GenericNumber],
+    ) -> AnnotationRegion: ...
