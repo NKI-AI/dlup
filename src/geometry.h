@@ -2,6 +2,7 @@
 #define GEOMETRY_H
 #pragma once
 
+#include "geometry_utils.h"
 #include <boost/geometry.hpp>
 #include <memory>
 #include <optional>
@@ -10,7 +11,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "geometry_utils.h"
 
 namespace bg = boost::geometry;
 namespace py = pybind11;
@@ -55,8 +55,8 @@ protected:
 
 class Polygon : public BaseGeometry {
 public:
-    using ExteriorRing = std::vector<BoostPoint>&;
-    using InteriorRings = std::vector<BoostRing>&;
+    using ExteriorRing = std::vector<BoostPoint> &;
+    using InteriorRings = std::vector<BoostRing> &;
 
     ~Polygon() override = default;
     std::shared_ptr<BoostPolygon> polygon;
@@ -77,32 +77,27 @@ public:
     // TODO: Box is probably sufficient.
     std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const;
 
-    std::string toWkt() const override {
-         return convertToWkt(*polygon); }
+    std::string toWkt() const override { return convertToWkt(*polygon); }
 
     std::vector<std::pair<double, double>> getExterior() const;
     std::vector<std::vector<std::pair<double, double>>> getInteriors() const;
 
-    ExteriorRing getExteriorAsIterator() {
-        return bg::exterior_ring(*polygon);
-    }
+    bool contains(const Polygon &other) const { return bg::within(*(other.polygon), *polygon); }
 
-    InteriorRings getInteriorAsIterator() {
-        return polygon->inners();
-    }
+    ExteriorRing getExteriorAsIterator() { return bg::exterior_ring(*polygon); }
+    InteriorRings getInteriorAsIterator() { return polygon->inners(); }
 
-
-    double getArea() const { 
+    double getArea() const {
         // Shapely reorients the polygon in memory if it is not oriented correctly, but keeps the coordinates
         // So we need to make a copy here to avoid modifying the original polygon
         if (!isCorrected) {
             // Make a copy of the current polygon
             BoostPolygon newPolygon = *polygon;
-            bg::correct(newPolygon);  // Correct the copied polygon
+            bg::correct(newPolygon); // Correct the copied polygon
             return bg::area(newPolygon);
         }
 
-        return bg::area(*polygon); 
+        return bg::area(*polygon);
     }
 
     void setExterior(const std::vector<std::pair<double, double>> &coordinates);
@@ -110,8 +105,9 @@ public:
     void correctIfNeeded() const;
     void scale(double scaling);
     void simplifyPolygon(double tolerance);
+
 private:
-    mutable bool isCorrected = false;  // mutable allows modification in const methods
+    mutable bool isCorrected = false; // mutable allows modification in const methods
 };
 
 class Point : public BaseGeometry {
@@ -150,9 +146,7 @@ public:
         return std::make_shared<Point>(centroid);
     }
 
-    void scale(double scaling) {
-        setCoordinates(getX() * scaling, getY() * scaling);
-    }
+    void scale(double scaling) { setCoordinates(getX() * scaling, getY() * scaling); }
 };
 
 #endif // GEOMETRY_H

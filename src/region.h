@@ -80,7 +80,7 @@ private:
 
     template <typename T>
     static py::object invokeFactoryFunction(py::function factoryFunction, const std::shared_ptr<T> &object) {
-        if (factoryFunction != py::function()) {
+        if (!factoryFunction.is(py::function())) {
             try {
                 py::object result = factoryFunction(object);
                 if (result.ptr() != nullptr) {

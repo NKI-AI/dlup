@@ -325,7 +325,7 @@ class TestGeometry:
             poly.set_field("label", f"label {idx}")
 
         assert not collection.rtree_invalidated
-        regions = collection.read_region((2, 2), scaling, (10, 10))
+        collection.read_region((2, 2), scaling, (10, 10))
 
         # TODO: Add more elaborate tests for regions
 
@@ -443,7 +443,7 @@ class TestGeometry:
 
     def test_geometry_equality_different_type_and_length(self):
         collection0 = GeometryCollection()
-        assert collection0 != None
+        assert collection0 is not None
         collection1 = GeometryCollection()
 
         assert collection0 == collection1
@@ -493,4 +493,6 @@ class TestGeometry:
         assert polygon0.get_exterior() == [(0, 0), (0, 6), (6, 6), (6, 0), (0, 0)]
         assert polygon0.get_interiors() == []
 
-        assert polygon0 == DlupPolygon([(0, 0), (0, 6), (6, 6), (6, 0), (0, 0)], [], color=(1,1,1), index=1, label="label 0")
+        assert polygon0 == DlupPolygon(
+            [(0, 0), (0, 6), (6, 6), (6, 0), (0, 0)], [], color=(1, 1, 1), index=1, label="label 0"
+        )

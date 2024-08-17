@@ -41,7 +41,7 @@ public:
     using RTreeType = bgi::rtree<std::pair<BoostBox, size_t>, bgi::quadratic<16>>;
 
     RTreeWrapper(GeometryCollection *geometryCollection)
-        : geometryCollection(geometryCollection), rTreeInvalidated(true) {}
+        : rTreeInvalidated(true), geometryCollection(geometryCollection) {}
 
     void insert(const BoostBox &box, size_t index) {
         rtree.insert(std::make_pair(box, index));

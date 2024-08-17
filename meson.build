@@ -59,7 +59,7 @@ boost_dep = dependency('boost', modules : boost_modules, required : true)
 # OpenCV
 opencv_dep = dependency('opencv4', required : true)
 
-### End Includes ### 
+### End Includes ###
 
 
 _background = py.extension_module('_background',
@@ -88,7 +88,7 @@ _libtiff_tiff_writer = py.extension_module('_libtiff_tiff_writer',
                                            link_args : link_args,
                                            dependencies : base_deps)
 
-_geometry = py.extension_module('_geometry', 
+_geometry = py.extension_module('_geometry',
                                 'src/geometry.cpp',
                                 include_directories : [incdir_pybind11],
                                 install : true,

@@ -42,7 +42,7 @@ from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
 from dlup._types import GenericNumber, PathLike
-from dlup.utils.annotations_utils import _get_geojson_color, _get_geojson_z_index, _hex_to_rgb
+from dlup.utils.annotations_utils import _get_geojson_z_index, get_geojson_color, hex_to_rgb
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 # TODO:
@@ -149,7 +149,7 @@ class DarwinV7Metadata(NamedTuple):
 
 
 @functools.lru_cache(maxsize=None)
-def _get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], DarwinV7Metadata]]:
+def get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], DarwinV7Metadata]]:
     if not DARWIN_SDK_AVAILABLE:
         raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
     import darwin.path_utils
@@ -185,7 +185,7 @@ def _is_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
         return False
     return bool(np.isclose(polygon.area, polygon.minimum_rotated_rectangle.area))
 
-  
+
 def _is_alligned_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
     if not _is_rectangle(polygon):
         return False
@@ -602,11 +602,11 @@ class WsiAnnotations:
                     properties = x["properties"]
                     if "classification" in properties:
                         _label = properties["classification"]["name"]
-                        _color = _get_geojson_color(properties["classification"])
+                        _color = get_geojson_color(properties["classification"])
                         _z_index = _get_geojson_z_index(properties["classification"])
                     elif properties.get("objectType", None) == "annotation":
                         _label = properties["name"]
-                        _color = _get_geojson_color(properties)
+                        _color = get_geojson_color(properties)
                         _z_index = _get_geojson_z_index(properties)
                     else:
                         raise ValueError("Could not find label in the GeoJSON properties.")
@@ -654,7 +654,7 @@ class WsiAnnotations:
                 if child.tag != "Annotation":
                     continue
                 label = child.attrib.get("PartOfGroup").strip()  # type: ignore
-                color = _hex_to_rgb(child.attrib.get("Color").strip())  # type: ignore
+                color = hex_to_rgb(child.attrib.get("Color").strip())  # type: ignore
 
                 _type = child.attrib.get("Type").lower()  # type: ignore
                 annotation_type = AnnotationTypeToDLUPAnnotationType.from_string(_type)
@@ -784,7 +784,7 @@ class WsiAnnotations:
 
         darwin_json_fn = pathlib.Path(darwin_json)
         darwin_an = darwin.utils.parse_darwin_json(darwin_json_fn, None)
-        v7_metadata = _get_v7_metadata(darwin_json_fn.parent)
+        v7_metadata = get_v7_metadata(darwin_json_fn.parent)
 
         tags = []
         layers = []

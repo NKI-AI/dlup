@@ -5,11 +5,16 @@ Experimental annotations module for dlup.
 """
 from __future__ import annotations
 
+import copy
 import errno
+import functools
 import json
 import os
 import pathlib
-from typing import Any, Callable, Iterable, Optional, Type, TypedDict, TypeVar
+import warnings
+import xml.etree.ElementTree as ET
+from enum import Enum
+from typing import Any, Callable, Iterable, NamedTuple, Optional, Type, TypedDict, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -17,16 +22,103 @@ import numpy.typing as npt
 from dlup._exceptions import AnnotationError
 from dlup._geometry import AnnotationRegion
 from dlup._types import GenericNumber, PathLike
-from dlup.annotations import GeoJsonDict
 from dlup.geometry import DlupPoint, DlupPolygon, GeometryCollection
-from dlup.utils.annotations_utils import _get_geojson_color
+from dlup.utils.annotations_utils import get_geojson_color, hex_to_rgb
+from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 _TSlideAnnotations = TypeVar("_TSlideAnnotations", bound="SlideAnnotations")
+
+
+class AnnotationType(str, Enum):
+    POINT = "POINT"
+    BOX = "BOX"
+    POLYGON = "POLYGON"
+    TAG = "TAG"
+    RASTER = "RASTER"
+
+
+class GeoJsonDict(TypedDict):
+    """
+    TypedDict for standard GeoJSON output
+    """
+
+    id: str | None
+    type: str
+    features: list[dict[str, str | dict[str, str]]]
+    metadata: Optional[dict[str, str | list[str]]]
 
 
 class CoordinatesDict(TypedDict):
     type: str
     coordinates: list[list[list[float]]]
+
+
+class DarwinV7Metadata(NamedTuple):
+    label: str
+    color: tuple[int, int, int]
+    annotation_type: AnnotationType
+
+
+@functools.lru_cache(maxsize=None)
+def get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], DarwinV7Metadata]]:
+    if not DARWIN_SDK_AVAILABLE:
+        raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
+    import darwin.path_utils
+
+    if not filename.is_dir():
+        raise RuntimeError("Provide the path to the root folder of the Darwin V7 annotations")
+
+    v7_metadata_fn = filename / ".v7" / "metadata.json"
+    if not v7_metadata_fn.exists():
+        return None
+    v7_metadata = darwin.path_utils.parse_metadata(v7_metadata_fn)
+    output = {}
+    for sample in v7_metadata["classes"]:
+        annotation_type = sample["type"]
+        # This is not implemented and can be skipped. The main function will raise a NonImplementedError
+        if annotation_type == "raster_layer":
+            continue
+
+        label = sample["name"]
+        color = sample["color"][5:-1].split(",")
+        if color[-1] != "1.0":
+            raise RuntimeError("Expected A-channel of color to be 1.0")
+        rgb_colors = (int(color[0]), int(color[1]), int(color[2]))
+
+        output[(label, annotation_type)] = DarwinV7Metadata(
+            label=label, color=rgb_colors, annotation_type=annotation_type
+        )
+    return output
+
+
+class AnnotationSorting(str, Enum):
+    """The ways to sort the annotations. This is used in the constructors of the `SlideAnnotations` class, and applied
+    to the output of `SlideAnnotations.read_region()`.
+
+    - REVERSE: Sort the output in reverse order.
+    - AREA: Often when the annotation tools do not properly support hierarchical order, one would annotate in a way
+        that the smaller objects are on top of the larger objects. This option sorts the output by area, so that the
+        larger objects appear first in the output and then the smaller objects.
+    - Z_INDEX: Sort the output by the z-index of the annotations. This is useful when the annotations have a z-index
+    - NONE: Do not apply any sorting and output as is presented in the input file.
+    """
+
+    REVERSE = "REVERSE"
+    AREA = "AREA"
+    Z_INDEX = "Z_INDEX"
+    NONE = "NONE"
+
+    def to_sorting_params(self) -> tuple[Callable[[DlupPolygon], Optional[int | float | str]], bool]:
+        """Get the sorting parameters for the annotation sorting."""
+        if self == AnnotationSorting.REVERSE:
+            return lambda x: None, True
+
+        if self == AnnotationSorting.AREA:
+            return lambda x: x.area, False
+
+        if self == AnnotationSorting.Z_INDEX:
+            return lambda x: x.get_field("z_index"), False
+        raise ValueError(f"Unsupported sorting {self}")
 
 
 def _geometry_to_geojson(
@@ -87,7 +179,7 @@ def _geometry_to_geojson(
     return geojson
 
 
-def shape(
+def geojson_to_dlup(
     coordinates: CoordinatesDict,
     label: str,
     color: Optional[tuple[int, int, int]] = None,
@@ -125,18 +217,28 @@ def shape(
     raise AnnotationError(f"Unsupported geom_type {geom_type}")
 
 
-class SlideTag:
-    pass
+class SlideTag(NamedTuple):
+    label: str
+    color: tuple[int, int, int]
 
 
 class SlideAnnotations:
     """Class that holds all annotations for a specific image"""
 
-    def __init__(self, layers: GeometryCollection, tags: Optional[tuple[SlideTag, ...]] = None) -> None:
+    def __init__(
+        self,
+        layers: GeometryCollection,
+        tags: Optional[tuple[SlideTag, ...]] = None,
+        sorting: Optional[AnnotationSorting | str] = None,
+    ) -> None:
         self._layers = layers
         self._tags = tags
-
+        self._sorting = sorting
         self._offset_to_slide_bounds = False
+
+    @property
+    def sorting(self) -> Optional[AnnotationSorting | str]:
+        return self._sorting
 
     @property
     def tags(self) -> Optional[tuple[SlideTag, ...]]:
@@ -146,8 +248,28 @@ class SlideAnnotations:
     def from_geojson(
         cls: Type[_TSlideAnnotations],
         geojsons: PathLike | Iterable[PathLike],
-        scaling: float = 1.0,
+        scaling: float | None = None,
+        sorting: AnnotationSorting | str = AnnotationSorting.NONE,
     ) -> _TSlideAnnotations:
+        """
+        Read annotations from a GeoJSON file.
+
+        Parameters
+        ----------
+        geojsons : Iterable, or PathLike
+            List of geojsons representing objects. The properties object must have the name which is the label of this
+            object.
+        scaling : float, optional
+            Scaling factor. Sometimes required when GeoJSON annotations are stored in a different resolution than the
+            original image.
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
+            By default, the annotations are sorted by area.
+
+        Returns
+        -------
+        SlideAnnotations
+        """
 
         if isinstance(geojsons, str):
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
@@ -166,14 +288,14 @@ class SlideAnnotations:
                     properties = x["properties"]
                     if "classification" in properties:
                         _label = properties["classification"]["name"]
-                        _color = _get_geojson_color(properties["classification"])
+                        _color = get_geojson_color(properties["classification"])
                     elif properties.get("objectType", None) == "annotation":
                         _label = properties["name"]
-                        _color = _get_geojson_color(properties)
+                        _color = get_geojson_color(properties)
                     else:
                         raise ValueError("Could not find label in the GeoJSON properties.")
 
-                    _geometry = shape(x["geometry"], label=_label, color=_color)
+                    _geometry = geojson_to_dlup(x["geometry"], label=_label, color=_color)
                     geometries += _geometry
 
         collection = GeometryCollection()
@@ -185,10 +307,179 @@ class SlideAnnotations:
             else:
                 raise ValueError(f"Unsupported layer type {type(layer)}")
 
-        if scaling != 1.0:
-            collection.scale(scaling)
+        SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
 
         return cls(layers=collection)
+
+    @classmethod
+    def from_asap_xml(
+        cls: Type[_TSlideAnnotations],
+        asap_xml: PathLike,
+        scaling: float | None = None,
+        sorting: AnnotationSorting | str = AnnotationSorting.AREA,
+    ) -> _TSlideAnnotations:
+        """
+        Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
+
+        Parameters
+        ----------
+        asap_xml : PathLike
+            Path to ASAP XML annotation file.
+        scaling : float, optional
+            Scaling factor. Sometimes required when ASAP annotations are stored in a different resolution than the
+            original image.
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
+            By default, the annotations are sorted by area.
+
+        References
+        ----------
+        .. [1] https://github.com/computationalpathologygroup/ASAP
+
+        Returns
+        -------
+        SlideAnnotations
+        """
+        tree = ET.parse(asap_xml)
+        opened_annotation = tree.getroot()
+        collection: GeometryCollection = GeometryCollection()
+        opened_annotations = 0
+        for parent in opened_annotation:
+            for child in parent:
+                if child.tag != "Annotation":
+                    continue
+                label = child.attrib.get("PartOfGroup").strip()  # type: ignore
+                color = hex_to_rgb(child.attrib.get("Color").strip())  # type: ignore
+
+                annotation_type = child.attrib.get("Type").lower()  # type: ignore
+                coordinates = _parse_asap_coordinates(child)
+
+                if annotation_type == "pointset":
+                    for point in coordinates:
+                        collection.add_point(DlupPoint(point, label=label, color=color))
+                        opened_annotations += 1
+
+                elif annotation_type == "polygon":
+                    polygon = DlupPolygon(coordinates, [], label=label, color=color)
+                    collection.add_polygon(polygon)
+                    opened_annotations += 1
+
+        SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
+
+        return cls(layers=collection)
+
+    @classmethod
+    def from_darwin_json(
+        cls: Type[_TSlideAnnotations],
+        darwin_json: PathLike,
+        scaling: float | None = None,
+        sorting: AnnotationSorting | str = AnnotationSorting.NONE,
+        z_indices: Optional[dict[str, int]] = None,
+    ) -> _TSlideAnnotations:
+        """
+        Read annotations as a V7 Darwin [1] JSON file. If available will read the `.v7/metadata.json` file to extract
+        colors from the annotations.
+
+        Parameters
+        ----------
+        darwin_json : PathLike
+            Path to the Darwin JSON file.
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
+            By default, the annotations are sorted by the z-index which is generated by the order of the saved
+            annotations.
+        scaling : float, optional
+            Scaling factor. Sometimes required when Darwin annotations are stored in a different resolution
+            than the original image.
+        z_indices: dict[str, int], optional
+            If set, these z_indices will be used rather than the default order.
+
+        References
+        ----------
+        .. [1] https://darwin.v7labs.com/
+
+        Returns
+        -------
+        SlideAnnotations
+
+        """
+        if not DARWIN_SDK_AVAILABLE:
+            raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
+        import darwin
+
+        darwin_json_fn = pathlib.Path(darwin_json)
+        darwin_an = darwin.utils.parse_darwin_json(darwin_json_fn, None)
+        v7_metadata = get_v7_metadata(darwin_json_fn.parent)
+
+        tags = ()
+
+        layers = GeometryCollection()
+        for curr_annotation in darwin_an.annotations:
+            name = curr_annotation.annotation_class.name
+            annotation_type = curr_annotation.annotation_class.annotation_type
+            if annotation_type == "raster_layer":
+                raise NotImplementedError("Raster annotations are not supported.")
+
+            annotation_color = v7_metadata[(name, annotation_type)].color if v7_metadata else None
+
+            if annotation_type == "tag":
+                tags += SlideTag(label=name, color=annotation_color)
+                continue
+
+            z_index = None if annotation_type == "keypoint" or z_indices is None else z_indices[name]
+            curr_data = curr_annotation.data
+
+            if annotation_type == "keypoint":
+                x, y = curr_data["x"], curr_data["y"]
+                curr_point = DlupPoint(curr_data["x"], curr_data["y"])
+                curr_point.label = name
+                curr_point.color = annotation_color
+                layers.add_point(curr_point)
+
+            elif annotation_type in ("polygon", "complex_polygon"):
+                if "path" in curr_data:  # This is a regular polygon
+                    curr_polygon = DlupPolygon(
+                        [(_["x"], _["y"]) for _ in curr_data["path"]], [], label=name, color=annotation_color
+                    )
+                    curr_polygon.set_field("z_index", z_index)
+                    layers.add_polygon(curr_polygon)
+
+                elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
+                    for curr_polygon in _parse_darwin_complex_polygon(curr_data, label=name, color=annotation_color):
+                        curr_polygon.set_field("z_index", z_index)
+                        layers.add_polygon(curr_polygon)
+                else:
+                    raise ValueError(f"Got unexpected data keys: {curr_data.keys()}")
+            elif annotation_type == "bounding_box":
+                warnings.warn(
+                    "Bounding box annotations are not fully supported and will be converted to Polygons.", UserWarning
+                )
+                x, y, w, h = curr_data["x"], curr_data["y"], curr_data["w"], curr_data["h"]
+                curr_polygon = DlupPolygon(
+                    [(x, y), (x + w, y), (x + w, y + h), (x, y + h)], [], label=name, color=annotation_color
+                )
+                curr_polygon.set_field("z_index", z_index)
+                layers.add_polygon(curr_polygon)
+
+            else:
+                raise ValueError(f"Annotation type {annotation_type} is not supported.")
+
+        SlideAnnotations._in_place_sort_and_scale(layers, scaling, sorting)
+        return cls(layers=layers, tags=tags, sorting=sorting)
+
+    @staticmethod
+    def _in_place_sort_and_scale(
+        collection: GeometryCollection, scaling: Optional[float], sorting: Optional[AnnotationSorting | str]
+    ) -> None:
+        if scaling != 1.0 and scaling is not None:
+            collection.scale(scaling)
+        if sorting == AnnotationSorting.NONE or sorting is None:
+            return
+        if isinstance(sorting, str):
+            key, reverse = AnnotationSorting[sorting].to_sorting_params()
+        else:
+            key, reverse = sorting.to_sorting_params()
+        collection.sort_polygons(key, reverse)
 
     def as_geojson(self) -> GeoJsonDict:
         """
@@ -214,7 +505,7 @@ class SlideAnnotations:
             data["features"].append(json_dict)
 
         return data
-    
+
     @property
     def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """Get the bounding box of the annotations combining points and polygons.
@@ -241,7 +532,9 @@ class SlideAnnotations:
         """
         self._layers.simplify(tolerance)
 
-    def __contains__(self, item: DlupPoint | DlupPolygon) -> bool:
+    def __contains__(self, item: str | DlupPoint | DlupPolygon) -> bool:
+        if isinstance(item, str):
+            return item in self.available_classes
         if isinstance(item, DlupPoint):
             return item in self._layers.points
 
@@ -250,37 +543,168 @@ class SlideAnnotations:
 
         return False
 
-    # def __getitem__(self, item) -> DlupPolygon | DlupPoint:
-    #     pass
-
     def __len__(self) -> int:
         return self._layers.size()
 
-    # def __iter__(self):
-    #     # First returns all the polygons then all points
-    #     for polygon in self._layers.polygons:
-    #         yield polygon
+    @property
+    def available_classes(self) -> set[str]:
+        """Get the available classes in the annotations.
 
-    #     for point in self._layers.points:
-    #         yield point
+        Returns
+        -------
+        set[str]
+            The available classes in the annotations.
 
-    def __add__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
-        raise NotImplementedError
+        """
+        available_classes = set()
+        for polygon in self._layers.polygons:
+            if polygon.label is not None:
+                available_classes.add(polygon.label)
+        for point in self._layers.points:
+            if point.label is not None:
+                available_classes.add(point.label)
 
-    def __iadd__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
-        raise NotImplementedError
+        return available_classes
 
-    def __radd__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
-        raise NotImplementedError
+    def __iter__(self) -> Iterable[DlupPolygon | DlupPoint]:
+        # First returns all the polygons then all points
+        for polygon in self._layers.polygons:
+            yield polygon
 
-    def __sub__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
-        raise NotImplementedError
+        for point in self._layers.points:
+            yield point
 
-    def __isub__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
-        raise NotImplementedError
+    def __add__(self, other: Any) -> "SlideAnnotations":
+        """
+        Add two annotations together. This will return a new `SlideAnnotations` object with the annotations combined.
+        The polygons will be added from left to right followed the points from left to right.
 
-    def __rsub__(self, other: _TSlideAnnotations) -> _TSlideAnnotations:
-        raise NotImplementedError
+        Notes
+        -----
+        - The polygons and points are shared between the objects. This means that if you modify the polygons or points
+          in the new object, the original objects will also be modified. If you wish to avoid this, you must add two
+          copies together.
+        - Note that the sorting is not applied to this object. You can apply this by calling `sort_polygons()` on
+        the resulting object.
+
+        Parameters
+        ----------
+        other : SlideAnnotations
+            The other annotations to add.
+
+        """
+        if not isinstance(other, (SlideAnnotations, DlupPoint, DlupPolygon, list)):
+            raise TypeError(f"Unsupported type {type(other)}")
+
+        if isinstance(other, SlideAnnotations):
+            if not self.sorting == other.sorting:
+                raise TypeError("Cannot add annotations with different sorting.")
+            if self._offset_to_slide_bounds != other._offset_to_slide_bounds:
+                raise TypeError(
+                    "Cannot add annotations with different requirements for offsetting to slide bounds "
+                    "(`_offset_to_slide_bounds`)."
+                )
+
+            tags: tuple[SlideTag, ...] = ()
+            if self.tags is not None and other.tags is not None:
+                tags = self.tags + other.tags
+
+            # Let's add the annotations
+            collection = GeometryCollection()
+            for polygon in self._layers.polygons:
+                collection.add_polygon(copy.deepcopy(polygon))
+            for point in self._layers.points:
+                collection.add_point(copy.deepcopy(point))
+
+            for polygon in other._layers.polygons:
+                collection.add_polygon(copy.deepcopy(polygon))
+            for point in other._layers.points:
+                collection.add_point(copy.deepcopy(point))
+
+            SlideAnnotations._in_place_sort_and_scale(collection, None, self.sorting)
+            return self.__class__(layers=collection, tags=tuple(tags) if tags else None, sorting=self.sorting)
+
+        if isinstance(other, (DlupPoint, DlupPolygon)):
+            other = [other]
+
+        if isinstance(other, list):
+            if not all(isinstance(item, (DlupPoint, DlupPolygon)) for item in other):
+                raise TypeError(
+                    f"can only add list purely containing Point and Polygon objects to {self.__class__.__name__}"
+                )
+
+            collection = copy.copy(self._layers)
+            for item in other:
+                if isinstance(item, DlupPolygon):
+                    collection.add_polygon(item)
+                elif isinstance(item, DlupPoint):
+                    collection.add_point(item)
+            SlideAnnotations._in_place_sort_and_scale(collection, None, self.sorting)
+            return self.__class__(layers=collection, tags=copy.copy(self._tags), sorting=self.sorting)
+
+        raise ValueError(f"Unsupported type {type(other)}")
+
+    def __iadd__(self, other: Any) -> "SlideAnnotations":
+        if isinstance(other, (DlupPoint, DlupPolygon)):
+            other = [other]
+
+        if isinstance(other, list):
+            if not all(isinstance(item, (DlupPoint, DlupPolygon)) for item in other):
+                raise TypeError(
+                    f"can only add list purely containing Point and Polygon objects {self.__class__.__name__}"
+                )
+
+            for item in other:
+                if isinstance(item, DlupPolygon):
+                    self._layers.add_polygon(copy.deepcopy(item))
+                elif isinstance(item, DlupPoint):
+                    self._layers.add_point(copy.deepcopy(item))
+
+        elif isinstance(other, SlideAnnotations):
+            if self.sorting != other.sorting or self.offset_to_slide_bounds != other.offset_to_slide_bounds:
+                raise ValueError(
+                    f"Both sorting and offset_to_slide_bounds must be the same to add {self.__class__.__name__}s together."
+                )
+
+            if self._tags is None:
+                self._tags = other._tags
+            elif other._tags is not None:
+                assert self
+                self._tags += other._tags
+
+            for polygon in other._layers.polygons:
+                self._layers.add_polygon(copy.deepcopy(polygon))
+            for point in other._layers.points:
+                self._layers.add_point(copy.deepcopy(point))
+        else:
+            return NotImplemented
+        SlideAnnotations._in_place_sort_and_scale(self._layers, None, self.sorting)
+
+        return self
+
+    def __radd__(self, other: Any) -> "SlideAnnotations":
+        # in-place addition (+=) of Point and Polygon will raise a TypeError
+        if not isinstance(other, (SlideAnnotations, DlupPoint, DlupPolygon, list)):
+            raise TypeError(f"Unsupported type {type(other)}")
+        if isinstance(other, list):
+            if not all(isinstance(item, (DlupPolygon, DlupPoint)) for item in other):
+                raise TypeError(
+                    f"can only add list purely containing Point and Polygon objects to {self.__class__.__name__}"
+                )
+            raise TypeError(
+                "use the __add__ or __iadd__ operator instead of __radd__ when working with lists to avoid \
+                            unexpected behavior."
+            )
+        return self + other
+
+    def __sub__(self, other: Any) -> "SlideAnnotations":
+        return NotImplemented
+
+    def __isub__(self, other: Any) -> "SlideAnnotations":
+        return NotImplemented
+
+    def __rsub__(self, other: Any) -> "SlideAnnotations":
+        return NotImplemented
 
     def read_region(
         self,
@@ -393,6 +817,41 @@ class SlideAnnotations:
             if polygon.label == label:
                 self._layers.remove_polygon(polygon)
 
+    def filter_points(self, label: str) -> None:
+        """Filter points in-place.
+
+        Note
+        ----
+        This will internally invalidate the R-tree. You could rebuild this manually using `.rebuild_rtree()`, or
+        have the function itself do this on-demand (typically when you invoke a `.read_region()`)
+
+        Parameters
+        ----------
+        label : str
+            The label to filter.
+
+        """
+        for point in self._layers.points:
+            if point.label == label:
+                self._layers.remove_point(point)
+
+    def filter(self, label: str) -> None:
+        """Filter annotations in-place.
+
+        Note
+        ----
+        This will internally invalidate the R-tree. You could rebuild this manually using `.rebuild_rtree()`, or
+        have the function itself do this on-demand (typically when you invoke a `.read_region()`)
+
+        Parameters
+        ----------
+        label : str
+            The label to filter.
+
+        """
+        self.filter_polygons(label)
+        self.filter_points(label)
+
     def sort_polygons(self, key: Callable[[DlupPolygon], int | float | str], reverse: bool = False) -> None:
         """Sort the polygons in-place.
 
@@ -437,3 +896,87 @@ class SlideAnnotations:
 
         """
         return self._layers.color_lut
+
+    def __copy__(self) -> "SlideAnnotations":
+        return self.__class__(layers=copy.copy(self._layers), tags=copy.copy(self._tags))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "SlideAnnotations":
+        return self.__class__(layers=copy.deepcopy(self._layers, memo), tags=copy.deepcopy(self._tags, memo))
+
+    def copy(self) -> "SlideAnnotations":
+        return self.__copy__()
+
+
+def _parse_asap_coordinates(
+    annotation_structure: ET.Element,
+) -> list[tuple[float, float]]:
+    """
+    Parse ASAP XML coordinates into list.
+
+    Parameters
+    ----------
+    annotation_structure : list of strings
+
+    Returns
+    -------
+    list[tuple[float, float]]
+
+    """
+    coordinates = []
+    coordinate_structure = annotation_structure[0]
+
+    for coordinate in coordinate_structure:
+        coordinates.append(
+            (
+                float(coordinate.get("X").replace(",", ".")),  # type: ignore
+                float(coordinate.get("Y").replace(",", ".")),  # type: ignore
+            )
+        )
+
+    return coordinates
+
+
+def _parse_darwin_complex_polygon(annotation: dict[str, Any], label: str, color: str) -> Iterable[DlupPolygon]:
+    """
+    Parse a complex polygon (i.e. polygon with holes) from a Darwin annotation.
+
+    Parameters
+    ----------
+    annotation : dict
+        The annotation dictionary
+    label : str
+        The label of the annotation
+    color : str
+        The color of the annotation
+
+    Returns
+    -------
+    Iterable[DlupPolygon]
+    """
+    # Create Polygons and sort by area in descending order
+    polygons = [DlupPolygon([(p["x"], p["y"]) for p in path], []) for path in annotation["paths"]]
+    polygons.sort(key=lambda x: x.area, reverse=True)
+
+    outer_polygons: list[tuple[DlupPolygon, list[DlupPolygon], bool]] = []
+    for polygon in polygons:
+        polygon.correct_orientation()
+        is_hole = False
+        # Check if the polygon can be a hole in any of the previously processed polygons
+        for outer_poly, holes, outer_poly_is_hole in reversed(outer_polygons):
+            contains = outer_poly.contains(polygon)
+            # If polygon is contained by a hole, it should be added as new polygon
+            if contains and outer_poly_is_hole:
+                break
+            # Polygon is added as hole if outer polygon is not a hole
+            elif contains:
+                holes.append(polygon.get_exterior())
+                is_hole = True
+                break
+        outer_polygons.append((polygon, [], is_hole))
+
+    for outer_poly, holes, _is_hole in outer_polygons:
+        if not _is_hole:
+            polygon = DlupPolygon(outer_poly.get_exterior(), holes)
+            polygon.label = label
+            polygon.color = color
+            yield polygon

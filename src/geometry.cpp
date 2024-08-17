@@ -102,9 +102,7 @@ void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, doubl
     isCorrected = false; // Mark as not corrected. Correction reorients and closes
 }
 
-void Polygon::scale(double scaling) {
-    GeometryUtils::applyAffineTransformation(*polygon, {0.0, 0.0}, scaling);
-}
+void Polygon::scale(double scaling) { GeometryUtils::applyAffineTransformation(*polygon, {0.0, 0.0}, scaling); }
 
 std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &otherPolygon) const {
     // correctIfNeeded();
@@ -339,6 +337,8 @@ void GeometryCollection::sortPolygons(const py::function &keyFunc, bool reverse)
             return reverse ? (keyA.cast<double>() > keyB.cast<double>()) : (keyA.cast<double>() < keyB.cast<double>());
         } else if (py::isinstance<py::int_>(keyA) && py::isinstance<py::int_>(keyB)) {
             return reverse ? (keyA.cast<int>() > keyB.cast<int>()) : (keyA.cast<int>() < keyB.cast<int>());
+        } else if (py::isinstance<py::none>(keyA) && py::isinstance<py::none>(keyB)) {
+            return false;
         } else {
             throw std::invalid_argument("Unsupported key type for sorting.");
         }
@@ -480,16 +480,20 @@ PYBIND11_MODULE(_geometry, m) {
         .def("set_exterior", &Polygon::setExterior)
         .def("set_interiors", &Polygon::setInteriors)
         .def("get_exterior", &Polygon::getExterior)
-        .def("get_exterior_iterator", [](Polygon& self) {
-            return py::make_iterator(self.getExteriorAsIterator().begin(), self.getExteriorAsIterator().end());
-        })
-        .def("get_interiors_iterator", [](Polygon& self) {
-            return py::make_iterator(self.getInteriorAsIterator().begin(), self.getInteriorAsIterator().end());
-        })
+        .def("get_exterior_iterator",
+             [](Polygon &self) {
+                 return py::make_iterator(self.getExteriorAsIterator().begin(), self.getExteriorAsIterator().end());
+             })
+        .def("get_interiors_iterator",
+             [](Polygon &self) {
+                 return py::make_iterator(self.getInteriorAsIterator().begin(), self.getInteriorAsIterator().end());
+             })
         .def("scale", &Polygon::scale, py::arg("scaling"))
         .def("get_interiors", &Polygon::getInteriors)
         .def("correct_orientation", &Polygon::correctIfNeeded)
         .def("simplify", &Polygon::simplifyPolygon)
+        .def("contains", &Polygon::contains, py::arg("other"),
+             "Check if the polygon fully contains another polygon. Does not check if the fields are equals")
         .def_property_readonly("wkt", &Polygon::toWkt)
         .def_property_readonly("area", &Polygon::getArea);
 

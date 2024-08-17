@@ -21,16 +21,54 @@ class _BaseGeometry:
 
     @classmethod
     def from_shapely(cls, shapely_geometry: ShapelyPoint | ShapelyPolygon) -> "_BaseGeometry":
+        """Create a new instance of the geometry from a Shapely geometry
+
+        Parameters
+        ----------
+        shapely_geometry : ShapelyPoint | ShapelyPolygon
+            The Shapely geometry to convert
+
+        Returns
+        -------
+        _BaseGeometry
+            The new instance of the geometry
+        """
         raise NotImplementedError
 
     def set_field(self, name: str, value: Any) -> None:
+        """Set a field on the geometry. This can be in arbitrary python object.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to set
+        value : Any
+            The value of the field
+
+        Returns
+        -------
+        None
+        """
         raise NotImplementedError
 
     def get_field(self, name: str) -> Any:
+        """Get a field from the geometry. This can be in arbitrary python object.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to get
+
+        Returns
+        -------
+        Any
+            The value of the field
+        """
         raise NotImplementedError
 
     @property
     def fields(self) -> list[str]:
+
         raise NotImplementedError
 
     @property
@@ -213,7 +251,8 @@ class DlupPolygon(_dg.Polygon, _BaseGeometry):
     def to_shapely(self) -> "ShapelyPolygon":
         if not SHAPELY_AVAILABLE:
             raise ImportError(
-                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
+                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, "
+                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
             )
         import shapely.geometry
 
@@ -262,7 +301,8 @@ class DlupPoint(_dg.Point, _BaseGeometry):
     def from_shapely(cls, shapely_point: "ShapelyPoint") -> "DlupPoint":
         if not SHAPELY_AVAILABLE:
             raise ImportError(
-                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
+                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, "
+                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
             )
 
         if not isinstance(shapely_point, ShapelyPoint):
@@ -273,7 +313,8 @@ class DlupPoint(_dg.Point, _BaseGeometry):
     def to_shapely(self) -> "ShapelyPoint":
         if not SHAPELY_AVAILABLE:
             raise ImportError(
-                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
+                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, "
+                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
             )
 
         return ShapelyPoint(self.get_coordinates())
@@ -317,6 +358,7 @@ class DlupPoint(_dg.Point, _BaseGeometry):
         DlupPoint.__init__(self, coordinates[0], coordinates[1])
         for key, value in state["_fields"].items():
             self.set_field(key, value)
+
 
 def _point_factory(point: _dg.Point) -> DlupPoint:
     return DlupPoint(point)

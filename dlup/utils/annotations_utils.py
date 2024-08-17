@@ -1,7 +1,7 @@
 from typing import Optional, cast
 
 
-def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     if "#" not in hex_color:
         if hex_color == "black":
             return 0, 0, 0
@@ -14,7 +14,7 @@ def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     return r, g, b
 
 
-def _get_geojson_color(properties: dict[str, str | list[int]]) -> Optional[tuple[int, int, int]]:
+def get_geojson_color(properties: dict[str, str | list[int]]) -> Optional[tuple[int, int, int]]:
     """Parse the properties dictionary of a GeoJSON object to get the color.
 
     Arguments
