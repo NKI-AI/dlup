@@ -6,7 +6,7 @@ from shapely.geometry import box
 
 from dlup import AnnotationType, SlideImage, WsiAnnotations
 from dlup._exceptions import DlupError
-from dlup.annotations import AnnotationClass, Polygon
+from dlup.annotations import AnnotationClass, DlupShapelyPolygon
 from dlup.background import compute_masked_indices
 from dlup.data.dataset import _coords_to_region
 from dlup.tiling import Grid
@@ -59,8 +59,10 @@ class TestComputeMaskedIndices:
         # Let's make a shapely polygon thats equal to
         # background_mask[14:20, 10:20] = True
         # background_mask[85:100, 50:80] = True
-        polygon0 = Polygon(box(100, 140, 200, 200), AnnotationClass(annotation_type=AnnotationType.POLYGON, label="bg"))
-        polygon1 = Polygon(
+        polygon0 = DlupShapelyPolygon(
+            box(100, 140, 200, 200), AnnotationClass(annotation_type=AnnotationType.POLYGON, label="bg")
+        )
+        polygon1 = DlupShapelyPolygon(
             box(500, 850, 800, 1000), AnnotationClass(annotation_type=AnnotationType.POLYGON, label="bg")
         )
 

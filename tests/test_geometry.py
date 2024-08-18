@@ -12,16 +12,16 @@ from shapely.geometry import Point as ShapelyPoint
 from shapely.geometry import Polygon as ShapelyPolygon
 
 import dlup._geometry as dg
-from dlup.geometry import DlupPoint, DlupPolygon, GeometryCollection, _BaseGeometry, _point_factory, _polygon_factory
+from dlup.geometry import GeometryCollection, Point, Polygon, _BaseGeometry, _point_factory, _polygon_factory
 
 polygons = [
-    DlupPolygon(dg.Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])),
-    DlupPolygon(dg.Polygon([(2, 2), (2, 5), (5, 5), (5, 2)], [])),
-    DlupPolygon(dg.Polygon([(4, 2), (4, 7), (7, 7), (7, 4)], [])),
-    DlupPolygon(dg.Polygon([(6, 6), (6, 9), (9, 9), (9, 6)], [])),
+    Polygon(dg.Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])),
+    Polygon(dg.Polygon([(2, 2), (2, 5), (5, 5), (5, 2)], [])),
+    Polygon(dg.Polygon([(4, 2), (4, 7), (7, 7), (7, 4)], [])),
+    Polygon(dg.Polygon([(6, 6), (6, 9), (9, 9), (9, 6)], [])),
 ]
 
-points = [DlupPoint(1, 1, label="label0"), DlupPoint(4, 4, index=1), DlupPoint(6, 6), DlupPoint(8, 8)]
+points = [Point(1, 1, label="label0"), Point(4, 4, index=1), Point(6, 6), Point(8, 8)]
 
 
 class TestGeometry:
@@ -37,7 +37,7 @@ class TestGeometry:
             _BaseGeometry().get_field("name")
 
     def test_try_to_set_incorrect_field_type(self):
-        base = DlupPolygon()
+        base = Polygon()
         with pytest.raises(ValueError):
             base.label = True
         with pytest.raises(ValueError):
@@ -48,12 +48,12 @@ class TestGeometry:
     def test_point_factory(self):
         c_point = dg.Point(1, 1)
         point = _point_factory(c_point)
-        assert point == DlupPoint(1, 1)
+        assert point == Point(1, 1)
 
     def test_polygon_factory(self):
         c_polygon = dg.Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])
         polygon = _polygon_factory(c_polygon)
-        assert polygon == DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)])
+        assert polygon == Polygon([(0, 0), (0, 3), (3, 3), (3, 0)])
 
     @pytest.mark.parametrize(
         "exterior,interiors,expected_area",
@@ -67,7 +67,7 @@ class TestGeometry:
     )
     def test_if_area_is_correct(self, exterior, interiors, expected_area):
         shapely_polygon = shapely.geometry.Polygon(exterior, interiors)
-        dlup_polygon = DlupPolygon(exterior, interiors)
+        dlup_polygon = Polygon(exterior, interiors)
         assert dlup_polygon.area == dlup_polygon.to_shapely().area == shapely_polygon.area == expected_area
 
     @pytest.mark.parametrize(
@@ -78,7 +78,7 @@ class TestGeometry:
         ],
     )
     def test_set_arbitrary_field(self, field_name, field_value):
-        polygon = DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)])
+        polygon = Polygon([(0, 0), (0, 3), (3, 3), (3, 0)])
         polygon.set_field(field_name, field_value)
         assert polygon.get_field(field_name) == field_value
 
@@ -93,18 +93,18 @@ class TestGeometry:
             assert new_object == object_to_pickle
 
     def test_repr(self):
-        polygon = DlupPolygon([(1, 1), (2, 3), (3, 4), (0, 0)], label="label", index=1, color=(1, 1, 1))
+        polygon = Polygon([(1, 1), (2, 3), (3, 4), (0, 0)], label="label", index=1, color=(1, 1, 1))
         polygon.set_field("random", True)
         assert (
             repr(polygon)
-            == "<DlupPolygon(color=(1, 1, 1), index=1, label=label, random=True) WKT='POLYGON((1 1,2 3,3 4,0 0,1 1))'>"
+            == "<Polygon(color=(1, 1, 1), index=1, label=label, random=True) WKT='POLYGON((1 1,2 3,3 4,0 0,1 1))'>"
         )
 
-        point = DlupPoint(1, 1, label="label", index=1, color=(1, 1, 1))
-        assert repr(point) == "<DlupPoint(color=(1, 1, 1), index=1, label=label) WKT='POINT(1 1)'>"
+        point = Point(1, 1, label="label", index=1, color=(1, 1, 1))
+        assert repr(point) == "<Point(color=(1, 1, 1), index=1, label=label) WKT='POINT(1 1)'>"
 
-        polygon = DlupPolygon([(1, 1) for _ in range(100)])
-        assert repr(polygon) == "<DlupPolygon() WKT='POLYGON((1 1,1 1,1 1,1 1,1 1,1...'>"
+        polygon = Polygon([(1, 1) for _ in range(100)])
+        assert repr(polygon) == "<Polygon() WKT='POLYGON((1 1,1 1,1 1,1 1,1 1,1...'>"
 
     @pytest.mark.parametrize("original_object", polygons + points)
     def test_deep_copy(self, original_object):
@@ -200,16 +200,16 @@ class TestGeometry:
         assert not collection.rtree_invalidated
 
     def test_wkt(self):
-        polygon = DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
+        polygon = Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
         assert polygon.wkt == "POLYGON((0 0,0 3,3 3,3 0,0 0),(1 1,1 2,2 2,2 1,1 1))"
 
-    @pytest.mark.parametrize("object_type", [DlupPolygon, DlupPoint])
+    @pytest.mark.parametrize("object_type", [Polygon, Point])
     def test_setting_properties(self, object_type):
         obj = object_type()
         obj.label = "test"
         obj.color = (1, 1, 1)
 
-        if isinstance(obj, DlupPolygon):
+        if isinstance(obj, Polygon):
             obj.index = 1
             assert obj.index == 1
 
@@ -227,7 +227,7 @@ class TestGeometry:
         # Add expected color LUT test here
 
     def test_close_loop(self):
-        polygon = DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
+        polygon = Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
 
         assert polygon.get_exterior() == [(0, 0), (0, 3), (3, 3), (3, 0), (0, 0)]
         assert polygon.get_interiors() == [[(1, 1), (1, 2), (2, 2), (2, 1), (1, 1)]]
@@ -237,10 +237,10 @@ class TestGeometry:
         interiors = [[(1, 1), (1, 2), (2, 2), (2, 1)]]
 
         shapely_polygon = ShapelyPolygon(exterior, interiors)
-        polygon_converted = DlupPolygon.from_shapely(shapely_polygon)
-        polygon_direct = DlupPolygon(exterior, interiors)
+        polygon_converted = Polygon.from_shapely(shapely_polygon)
+        polygon_direct = Polygon(exterior, interiors)
 
-        polygon_shapely_2 = DlupPolygon(shapely_polygon)
+        polygon_shapely_2 = Polygon(shapely_polygon)
         assert polygon_shapely_2 == polygon_converted
 
         assert (
@@ -254,16 +254,16 @@ class TestGeometry:
         assert shapely_polygon == polygon_direct.to_shapely()
 
     def test_from_shapely_point(self):
-        dlup_point = DlupPoint(1, 1)
+        dlup_point = Point(1, 1)
         shapely_point = ShapelyPoint(1, 1)
-        dlup_point2 = DlupPoint(shapely_point)
+        dlup_point2 = Point(shapely_point)
 
         assert dlup_point2 == dlup_point
 
-        assert dlup_point == DlupPoint.from_shapely(shapely_point)
+        assert dlup_point == Point.from_shapely(shapely_point)
         assert dlup_point.to_shapely() == shapely_point
 
-    @pytest.mark.parametrize("object_type", [DlupPoint, DlupPolygon])
+    @pytest.mark.parametrize("object_type", [Point, Polygon])
     def test_shapely_wrong_type(self, object_type):
         with pytest.raises(ValueError):
             object_type.from_shapely([])
@@ -284,7 +284,7 @@ class TestGeometry:
         assert [_.area for _ in collection.polygons] == [9.0, 9.0, 9.0, 12.0]
         assert collection.polygons[0] == polygons[0]
 
-    @pytest.mark.parametrize("object_type", [DlupPoint, DlupPolygon])
+    @pytest.mark.parametrize("object_type", [Point, Polygon])
     def test_to_shapely_missing(self, object_type, monkeypatch):
         monkeypatch.setattr("dlup.geometry.SHAPELY_AVAILABLE", False)
         with pytest.raises(ImportError):
@@ -295,24 +295,24 @@ class TestGeometry:
         monkeypatch.setattr("dlup.geometry.SHAPELY_AVAILABLE", False)
         with pytest.raises(ImportError):
             if object_type == ShapelyPoint:
-                DlupPoint.from_shapely(object_type())
+                Point.from_shapely(object_type())
             else:
-                DlupPolygon.from_shapely(object_type())
+                Polygon.from_shapely(object_type())
 
     def test_point_scaling(self):
-        point = DlupPoint(1, 1)
+        point = Point(1, 1)
         pointer_id = point.pointer_id
         point.scale(2)
 
-        assert point == DlupPoint(2, 2)
+        assert point == Point(2, 2)
         assert point.pointer_id == pointer_id
 
     def test_polygon_scaling(self):
-        polygon = DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
+        polygon = Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
         pointer_id = polygon.pointer_id
         polygon.scale(2)
 
-        assert polygon == DlupPolygon([(0, 0), (0, 6), (6, 6), (6, 0)], [[(2, 2), (2, 4), (4, 4), (4, 2)]])
+        assert polygon == Polygon([(0, 0), (0, 6), (6, 6), (6, 0)], [[(2, 2), (2, 4), (4, 4), (4, 2)]])
         assert polygon.pointer_id == pointer_id
 
     @pytest.mark.parametrize("scaling", [1.0, 2.0])
@@ -338,21 +338,21 @@ class TestGeometry:
 
         if shapely_available:
             shapely_polygon = ShapelyPolygon([(0, 0), (0, 3), (3, 3), (3, 0)])
-            DlupPolygon.from_shapely(shapely_polygon)
-            DlupPolygon(shapely_polygon)
+            Polygon.from_shapely(shapely_polygon)
+            Polygon(shapely_polygon)
         else:
             with pytest.raises(ImportError):
-                DlupPolygon.from_shapely(None)
+                Polygon.from_shapely(None)
 
     def test_compare_mismatch(self):
-        point = DlupPoint(1, 1)
-        polygon = DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
+        point = Point(1, 1)
+        polygon = Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [[(1, 1), (1, 2), (2, 2), (2, 1)]])
 
         assert point != polygon
 
     def test_compare_incorrect_fields(self):
-        point0 = DlupPoint(1, 1, label="label0")
-        point1 = DlupPoint(1, 1, label="label1")
+        point0 = Point(1, 1, label="label0")
+        point1 = Point(1, 1, label="label1")
 
         assert point0 != point1
 
@@ -377,16 +377,16 @@ class TestGeometry:
             polygons[0] -= polygons[0]
 
     def test_inequality(self):
-        polygon0 = DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])
-        polygon1 = DlupPolygon([(0, 0), (1, 3), (3, 3), (3, 0)], [])
+        polygon0 = Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])
+        polygon1 = Polygon([(0, 0), (1, 3), (3, 3), (3, 0)], [])
 
         polygon0.label = "test"
         polygon1.label = "test"
 
         assert polygon0 != polygon1
 
-        point0 = DlupPoint(0, 1)
-        point1 = DlupPoint(1, 1)
+        point0 = Point(0, 1)
+        point1 = Point(1, 1)
 
         point0.color = (1, 2, 3)
         point1.color = (1, 2, 3)
@@ -406,7 +406,7 @@ class TestGeometry:
 
     def test_geometry_collection_lut_exceptions(self):
         collection = GeometryCollection()
-        polygon = DlupPolygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])
+        polygon = Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])
         collection.add_polygon(polygon)
         with pytest.raises(ValueError):
             collection.color_lut
@@ -462,7 +462,7 @@ class TestGeometry:
         collection = GeometryCollection()
 
         # Let's make a nice polygon that's a square
-        polygon = DlupPolygon([(0, 0), (0, 8), (8, 8), (8, 0)], [])
+        polygon = Polygon([(0, 0), (0, 8), (8, 8), (8, 0)], [])
 
         collection.add_polygon(polygon)
 
@@ -473,8 +473,8 @@ class TestGeometry:
 
         assert len(regions.points) == 2
         assert len(regions.polygons) == 1
-        assert regions.points == [DlupPoint(2, 2, index=1), DlupPoint(4, 4)]
-        assert regions.polygons == [DlupPolygon([(0, 0), (0, 5), (5, 5), (5, 0)], [])]
+        assert regions.points == [Point(2, 2, index=1), Point(4, 4)]
+        assert regions.polygons == [Polygon([(0, 0), (0, 5), (5, 5), (5, 0)], [])]
 
     def test_geometry_scaling(self):
         collection = GeometryCollection()
@@ -489,10 +489,10 @@ class TestGeometry:
         polygon0 = collection.polygons[0]
         points0 = collection.points[0]
 
-        assert points0 == DlupPoint(2, 2, label="label0")
+        assert points0 == Point(2, 2, label="label0")
         assert polygon0.get_exterior() == [(0, 0), (0, 6), (6, 6), (6, 0), (0, 0)]
         assert polygon0.get_interiors() == []
 
-        assert polygon0 == DlupPolygon(
+        assert polygon0 == Polygon(
             [(0, 0), (0, 6), (6, 6), (6, 0), (0, 0)], [], color=(1, 1, 1), index=1, label="label 0"
         )

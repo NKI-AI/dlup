@@ -165,14 +165,14 @@ class _BaseGeometry:
         return repr_string
 
 
-class DlupPolygon(_dg.Polygon, _BaseGeometry):
+class Polygon(_dg.Polygon, _BaseGeometry):
     def __init__(self, *args: Any, **kwargs: Any):
         _BaseGeometry.__init__(self)
         if SHAPELY_AVAILABLE:
             if len(args) == 1 and len(kwargs) == 0 and isinstance(args[0], ShapelyPolygon):
-
                 warnings.warn(
-                    "Creating a Polygon from a Shapely Polygon is deprecated and will be removed dlup v1.0.0. Please use the `from_shapely` method instead.",
+                    "Creating a Polygon from a Shapely Polygon is deprecated and will be removed dlup v1.0.0. "
+                    "Please use the `from_shapely` method instead.",
                     UserWarning,
                 )
                 shapely_polygon = args[0]
@@ -201,10 +201,13 @@ class DlupPolygon(_dg.Polygon, _BaseGeometry):
                 self.set_field(key, value)
 
     @classmethod
-    def from_shapely(cls, shapely_polygon: "ShapelyPolygon") -> "DlupPolygon":
+    def from_shapely(cls, shapely_polygon: "ShapelyPolygon") -> "Polygon":
         if not SHAPELY_AVAILABLE:
             raise ImportError(
-                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
+                "Shapely is not available, and this functionality requires it. "
+                "Install it using `pip install shapely`, "
+                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html "
+                "for more information."
             )
 
         if not isinstance(shapely_polygon, ShapelyPolygon):
@@ -225,22 +228,22 @@ class DlupPolygon(_dg.Polygon, _BaseGeometry):
         exterior = state["_object"]["exterior"]
         interiors = state["_object"]["interiors"]
 
-        # Use the class method directly instead of calling on self
-        DlupPolygon.__init__(self, exterior, interiors)
+        Polygon.__init__(self, exterior, interiors)
 
         for key, value in state["_fields"].items():
             self.set_field(key, value)
 
-    def __copy__(self) -> "DlupPolygon":
+    def __copy__(self) -> "Polygon":
         warnings.warn(
-            "Copying a Polygon currently creates a complete new object, without reference to the previous one, and is essentially the same as a deepcopy."
+            "Copying a Polygon currently creates a complete new object, without reference to the previous one, "
+            "and is essentially the same as a deepcopy."
         )
-        new_copy = DlupPolygon(self)
+        new_copy = Polygon(self)
         return new_copy
 
-    def __deepcopy__(self, memo: Any) -> "DlupPolygon":
+    def __deepcopy__(self, memo: Any) -> "Polygon":
         # Create a deepcopy of the geometry
-        new_copy = DlupPolygon(copy.deepcopy(self.get_exterior(), memo), copy.deepcopy(self.get_interiors(), memo))
+        new_copy = Polygon(copy.deepcopy(self.get_exterior(), memo), copy.deepcopy(self.get_interiors(), memo))
 
         # Deepcopy the fields
         for field in self.fields:
@@ -251,9 +254,12 @@ class DlupPolygon(_dg.Polygon, _BaseGeometry):
     def to_shapely(self) -> "ShapelyPolygon":
         if not SHAPELY_AVAILABLE:
             raise ImportError(
-                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, "
-                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
+                "Shapely is not available, and this functionality requires it. "
+                "Install it using `pip install shapely`, "
+                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html "
+                "for more information."
             )
+
         import shapely.geometry
 
         exterior = self.get_exterior()
@@ -261,21 +267,22 @@ class DlupPolygon(_dg.Polygon, _BaseGeometry):
         return shapely.geometry.Polygon(exterior, interiors)
 
 
-def _polygon_factory(polygon: _dg.Polygon) -> "DlupPolygon":
-    return DlupPolygon(polygon)
+def _polygon_factory(polygon: _dg.Polygon) -> "Polygon":
+    return Polygon(polygon)
 
 
 # This is required to ensure that the polygons created in the C++ code are converted to the correct Python class
 _dg.set_polygon_factory(_polygon_factory)
 
 
-class DlupPoint(_dg.Point, _BaseGeometry):
+class Point(_dg.Point, _BaseGeometry):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         _BaseGeometry.__init__(self)
         if SHAPELY_AVAILABLE:
             if len(args) == 1 and len(kwargs) == 0 and isinstance(args[0], ShapelyPoint):
                 warnings.warn(
-                    "Creating a Polygon from a Shapely Point is deprecated and will be removed dlup v1.0.0. Please use the `from_shapely` method instead.",
+                    "Creating a Polygon from a Shapely Point is deprecated and will be removed dlup v1.0.0. "
+                    "Please use the `from_shapely` method instead.",
                     UserWarning,
                 )
                 shapely_point = args[0]
@@ -298,11 +305,13 @@ class DlupPoint(_dg.Point, _BaseGeometry):
                 self.set_field(key, value)
 
     @classmethod
-    def from_shapely(cls, shapely_point: "ShapelyPoint") -> "DlupPoint":
+    def from_shapely(cls, shapely_point: "ShapelyPoint") -> "Point":
         if not SHAPELY_AVAILABLE:
             raise ImportError(
-                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, "
-                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
+                "Shapely is not available, and this functionality requires it. "
+                "Install it using `pip install shapely`, "
+                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html "
+                "for more information."
             )
 
         if not isinstance(shapely_point, ShapelyPoint):
@@ -313,8 +322,10 @@ class DlupPoint(_dg.Point, _BaseGeometry):
     def to_shapely(self) -> "ShapelyPoint":
         if not SHAPELY_AVAILABLE:
             raise ImportError(
-                "Shapely is not available, and this functionality requires it. Install it using `pip install shapely`, "
-                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html for more information."
+                "Shapely is not available, and this functionality requires it. "
+                "Install it using `pip install shapely`, "
+                "or consult the documentation https://shapely.readthedocs.io/en/stable/installation.html "
+                "for more information."
             )
 
         return ShapelyPoint(self.get_coordinates())
@@ -327,18 +338,18 @@ class DlupPoint(_dg.Point, _BaseGeometry):
     def y(self) -> float:
         return self.get_coordinates()[1]
 
-    def __copy__(self) -> "DlupPoint":
+    def __copy__(self) -> "Point":
         # Create a new instance of DlupPolygon with the same geometry
-        new_copy = DlupPoint(self.x, self.y)
+        new_copy = Point(self.x, self.y)
 
         for field in self.fields:
             new_copy.set_field(field, self.get_field(field))
 
         return new_copy
 
-    def __deepcopy__(self, memo: Any) -> "DlupPoint":
+    def __deepcopy__(self, memo: Any) -> "Point":
         # Create a deepcopy of the geometry
-        new_copy = DlupPoint(copy.deepcopy(self.x), copy.deepcopy(self.y))
+        new_copy = Point(copy.deepcopy(self.x), copy.deepcopy(self.y))
 
         # Deepcopy the fields
         for field in self.fields:
@@ -355,13 +366,13 @@ class DlupPoint(_dg.Point, _BaseGeometry):
 
     def __setstate__(self, state: dict[str, dict[str, Any]]) -> None:
         coordinates = state["_object"]["coordinates"]
-        DlupPoint.__init__(self, coordinates[0], coordinates[1])
+        Point.__init__(self, coordinates[0], coordinates[1])
         for key, value in state["_fields"].items():
             self.set_field(key, value)
 
 
-def _point_factory(point: _dg.Point) -> DlupPoint:
-    return DlupPoint(point)
+def _point_factory(point: _dg.Point) -> Point:
+    return Point(point)
 
 
 # Register the point factory
@@ -400,11 +411,11 @@ class GeometryCollection(_dg.GeometryCollection):
         return state
 
     def __setstate__(self, state: dict[str, list[dict[str, Any]]]) -> None:
-        polygons = [DlupPolygon.__new__(DlupPolygon) for _ in state["_polygons"]]
+        polygons = [Polygon.__new__(Polygon) for _ in state["_polygons"]]
         for polygon, polygon_state in zip(polygons, state["_polygons"]):
             polygon.__setstate__(polygon_state)
 
-        points = [DlupPoint.__new__(DlupPoint) for _ in state["_points"]]
+        points = [Point.__new__(Point) for _ in state["_points"]]
         for point, point_state in zip(points, state["_points"]):
             point.__setstate__(point_state)
 
