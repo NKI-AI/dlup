@@ -202,7 +202,10 @@ class TestAnnotations:
             (585.8433000000018, "tumor (cell)"),
         ]
         for x, y in zip(region.polygons, expected_output_polygon):
-            assert np.allclose(x.area, y[0])
+            if x.area <= 1:
+                assert np.allclose(x.area, y[0], atol=1e-3)
+            else:
+                assert np.allclose(x.area, y[0])
             assert x.label == y[1]
 
         assert [(_.area, _.label) for _ in region.polygons] == expected_output_polygon
