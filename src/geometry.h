@@ -74,6 +74,11 @@ public:
         setInteriors(std::move(interiors));
     }
 
+    bool equals(const Polygon &other) const { 
+        bool polyEqual = bg::equals(*polygon, *(other.polygon));
+        return parameters == other.parameters && polyEqual;    
+    }
+
     // TODO: Box is probably sufficient.
     std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const;
 
@@ -137,7 +142,10 @@ public:
     inline double getX() const { return bg::get<0>(*point); }
     inline double getY() const { return bg::get<1>(*point); }
     double distanceTo(const Point &other) const { return bg::distance(*point, *(other.point)); }
-    bool equals(const Point &other) const { return bg::equals(*point, *(other.point)); }
+    bool equals(const Point &other) const { 
+        bool pointEqual = bg::equals(*point, *(other.point)); 
+        return parameters == other.parameters && pointEqual;
+    }
     bool within(const Polygon &polygon) const { return bg::within(*point, *(polygon.polygon)); }
 
     std::shared_ptr<Point> centroid(const Polygon &polygon) const {

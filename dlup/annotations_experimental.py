@@ -439,7 +439,7 @@ class SlideAnnotations:
                 curr_point = Point(curr_data["x"], curr_data["y"])
                 curr_point.label = name
                 curr_point.color = annotation_color
-                # collection.add_point(curr_point)
+                collection.add_point(curr_point)
 
             elif annotation_type in ("polygon", "complex_polygon"):
                 if "path" in curr_data:  # This is a regular polygon

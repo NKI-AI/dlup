@@ -271,16 +271,16 @@ void RTreeWrapper::rebuild() {
 
 void GeometryCollection::addPoint(const PointPtr &p) {
     BoostBox box(*(p->point), *(p->point));
-    rtreeWrapper.insert(box, polygons.size() + points.size());
     points.emplace_back(p);
+    rtreeWrapper.invalidate();
 }
 
 void GeometryCollection::addPolygon(const PolygonPtr &p) {
     // Print the parameters of the polygon being added
     BoostBox box;
     bg::envelope(*(p->polygon), box);
-    rtreeWrapper.insert(box, polygons.size());
     polygons.emplace_back(p);
+    rtreeWrapper.invalidate();
 }
 
 py::list GeometryCollection::getPolygons() {
@@ -407,6 +407,10 @@ void GeometryCollection::removePoint(size_t index) {
 AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> &coordinates, double scaling,
                                                 const std::pair<double, double> &size) {
 
+    if(rtreeWrapper.isInvalidated()) {
+        rtreeWrapper.rebuild();
+    }
+
 #ifdef DLUPDEBUG
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 #endif
@@ -494,6 +498,8 @@ PYBIND11_MODULE(_geometry, m) {
         .def("simplify", &Polygon::simplifyPolygon)
         .def("contains", &Polygon::contains, py::arg("other"),
              "Check if the polygon fully contains another polygon. Does not check if the fields are equals")
+        .def("equals", &Polygon::equals, py::arg("other"),
+             "Check if the polygon is equal to another polygon. Checks if the fields are equal.")
         .def_property_readonly("wkt", &Polygon::toWkt)
         .def_property_readonly("area", &Polygon::getArea);
 

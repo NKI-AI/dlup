@@ -427,7 +427,6 @@ class GeometryCollection(_dg.GeometryCollection):
             self.add_point(point)
 
     def __eq__(self, other: Any) -> bool:
-        warnings.warn("This is not enough, orders may change or so")
         if not isinstance(other, type(self)):
             return False
 

@@ -177,7 +177,7 @@ class TestGeometry:
         for point in points:
             collection.add_point(point)
 
-        assert not collection.rtree_invalidated
+        assert collection.rtree_invalidated
 
         assert len(collection.polygons) == 4
         assert len(collection.points) == 4
@@ -324,8 +324,9 @@ class TestGeometry:
         for idx, poly in enumerate(polygons):
             poly.set_field("label", f"label {idx}")
 
-        assert not collection.rtree_invalidated
+        assert collection.rtree_invalidated
         collection.read_region((2, 2), scaling, (10, 10))
+        assert not collection.rtree_invalidated
 
         # TODO: Add more elaborate tests for regions
 

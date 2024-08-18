@@ -86,6 +86,9 @@ class TestAnnotations:
         assert self.v7_annotations._layers.polygons == annotations._layers.polygons
         assert self.v7_annotations._layers.points == annotations._layers.points
 
+        self.v7_annotations.rebuild_rtree()
+        annotations.rebuild_rtree()
+
         v7_region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
         geojson_region = annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
 
@@ -166,8 +169,10 @@ class TestAnnotations:
     def test_read_darwin_v7(self):
         if not DARWIN_SDK_AVAILABLE:
             return None
-        assert len(self.v7_annotations.available_classes) == 4
 
+        assert len(self.v7_annotations.available_classes) == 5
+
+        assert "lymphocyte (cell)" in self.v7_annotations
         assert "ROI (segmentation)" in self.v7_annotations
         assert "stroma (area)" in self.v7_annotations
         assert "tumor (cell)" in self.v7_annotations
@@ -177,27 +182,26 @@ class TestAnnotations:
             (15291.49, 18094.48),
             (5122.9400000000005, 4597.509999999998),
         )
+        region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
 
-        # region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
-        
-        # expected_output_polygon = [
-        #     (6250000.0, "ROI (segmentation)"),
-        #     (1616768.0657540853, "stroma (area)"),
-        #     (398284.54274999996, "stroma (area)"),
-        #     (5124.669949999994, "stroma (area)"),
-        #     (103262.97951705182, "stroma (area)"),
-        #     (141.48809999997553, "tumor (cell)"),
-        #     (171.60999999998563, "tumor (cell)"),
-        #     (181.86480000002044, "tumor (cell)"),
-        #     (100.99830000001506, "tumor (cell)"),
-        #     (132.57199999999582, "tumor (cell)"),
-        #     (0.5479999999621504, "tumor (cell)"),
-        #     (7705.718799999958, "tumor (area)"),
-        #     (10985.104649999948, "tumor (area)"),
-        #     (585.8433000000018, "tumor (cell)"),
-        # ]
-
-        # assert [(_.area, _.label) for _ in region.polygons] == expected_output_polygon
+        expected_output_polygon = [
+            (6250000.0, "ROI (segmentation)"),
+            (1616768.0657540853, "stroma (area)"),
+            (398284.54274999996, "stroma (area)"),
+            (5124.669949999994, "stroma (area)"),
+            (103262.97951705182, "stroma (area)"),
+            (141.48809999997553, "tumor (cell)"),
+            (171.60999999998563, "tumor (cell)"),
+            (181.86480000002044, "tumor (cell)"),
+            (100.99830000001506, "tumor (cell)"),
+            (132.57199999999582, "tumor (cell)"),
+            (0.5479999999621504, "tumor (cell)"),
+            (7705.718799999958, "tumor (area)"),
+            (10985.104649999948, "tumor (area)"),
+            (585.8433000000018, "tumor (cell)"),
+        ]
+        assert [(_.area, _.label) for _ in region.polygons] == expected_output_polygon
+        assert len(region.points) == 3
 
     def test_annotation_filter(self):
         annotations = self.asap_annotations.copy()
