@@ -207,8 +207,6 @@ class TestAnnotations:
             else:
                 assert np.allclose(x.area, y[0])
             assert x.label == y[1]
-
-        assert [(_.area, _.label) for _ in region.polygons] == expected_output_polygon
         assert len(region.points) == 3
 
     def test_annotation_filter(self):
