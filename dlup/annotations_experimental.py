@@ -20,7 +20,7 @@ import numpy as np
 import numpy.typing as npt
 
 from dlup._exceptions import AnnotationError
-from dlup._geometry import AnnotationRegion
+from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import GenericNumber, PathLike
 from dlup.geometry import GeometryCollection, Point, Polygon
 from dlup.utils.annotations_utils import get_geojson_color, hex_to_rgb
@@ -55,7 +55,7 @@ class CoordinatesDict(TypedDict):
 
 class DarwinV7Metadata(NamedTuple):
     label: str
-    color: tuple[int, int, int]
+    color: Optional[tuple[int, int, int]]
     annotation_type: AnnotationType
 
 
@@ -219,7 +219,7 @@ def geojson_to_dlup(
 
 class SlideTag(NamedTuple):
     label: str
-    color: tuple[int, int, int]
+    color: Optional[tuple[int, int, int]]
 
 
 class SlideAnnotations:
@@ -315,7 +315,6 @@ class SlideAnnotations:
                 raise ValueError(f"Unsupported layer type {type(layer)}")
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
-        print(f"Added {len(collection.polygons)} polygons and {len(collection.points)} points using GeoJSON.")
         return cls(layers=collection)
 
     @classmethod
@@ -372,7 +371,6 @@ class SlideAnnotations:
                     opened_annotations += 1
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
-
         return cls(layers=collection)
 
     @classmethod
@@ -418,9 +416,9 @@ class SlideAnnotations:
         darwin_an = darwin.utils.parse_darwin_json(darwin_json_fn, None)
         v7_metadata = get_v7_metadata(darwin_json_fn.parent)
 
-        tags = ()
+        tags = []
 
-        layers = GeometryCollection()
+        collection = GeometryCollection()
         for curr_annotation in darwin_an.annotations:
             name = curr_annotation.annotation_class.name
             annotation_type = curr_annotation.annotation_class.annotation_type
@@ -430,7 +428,7 @@ class SlideAnnotations:
             annotation_color = v7_metadata[(name, annotation_type)].color if v7_metadata else None
 
             if annotation_type == "tag":
-                tags += SlideTag(label=name, color=annotation_color)
+                tags.append(SlideTag(label=name, color=annotation_color if annotation_color else None))
                 continue
 
             z_index = None if annotation_type == "keypoint" or z_indices is None else z_indices[name]
@@ -441,20 +439,22 @@ class SlideAnnotations:
                 curr_point = Point(curr_data["x"], curr_data["y"])
                 curr_point.label = name
                 curr_point.color = annotation_color
-                layers.add_point(curr_point)
+                # collection.add_point(curr_point)
 
             elif annotation_type in ("polygon", "complex_polygon"):
                 if "path" in curr_data:  # This is a regular polygon
                     curr_polygon = Polygon(
                         [(_["x"], _["y"]) for _ in curr_data["path"]], [], label=name, color=annotation_color
                     )
-                    curr_polygon.set_field("z_index", z_index)
-                    layers.add_polygon(curr_polygon)
+                    if z_index is not None:
+                        curr_polygon.set_field("z_index", z_index)
+                    collection.add_polygon(curr_polygon)
 
                 elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
                     for curr_polygon in _parse_darwin_complex_polygon(curr_data, label=name, color=annotation_color):
-                        curr_polygon.set_field("z_index", z_index)
-                        layers.add_polygon(curr_polygon)
+                        if z_index is not None:
+                            curr_polygon.set_field("z_index", z_index)
+                        collection.add_polygon(curr_polygon)
                 else:
                     raise ValueError(f"Got unexpected data keys: {curr_data.keys()}")
             elif annotation_type == "bounding_box":
@@ -465,14 +465,15 @@ class SlideAnnotations:
                 curr_polygon = Polygon(
                     [(x, y), (x + w, y), (x + w, y + h), (x, y + h)], [], label=name, color=annotation_color
                 )
-                curr_polygon.set_field("z_index", z_index)
-                layers.add_polygon(curr_polygon)
+                if z_index is not None:
+                    curr_polygon.set_field("z_index", z_index)
+                collection.add_polygon(curr_polygon)
 
             else:
                 raise ValueError(f"Annotation type {annotation_type} is not supported.")
 
-        SlideAnnotations._in_place_sort_and_scale(layers, scaling, sorting)
-        return cls(layers=layers, tags=tags, sorting=sorting)
+        SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
+        return cls(layers=collection, tags=tuple(tags), sorting=sorting)
 
     @staticmethod
     def _in_place_sort_and_scale(
@@ -946,7 +947,9 @@ def _parse_asap_coordinates(
     return coordinates
 
 
-def _parse_darwin_complex_polygon(annotation: dict[str, Any], label: str, color: str) -> Iterable[Polygon]:
+def _parse_darwin_complex_polygon(
+    annotation: dict[str, Any], label: str, color: Optional[tuple[int, int, int]]
+) -> Iterable[Polygon]:
     """
     Parse a complex polygon (i.e. polygon with holes) from a Darwin annotation.
 
@@ -956,7 +959,7 @@ def _parse_darwin_complex_polygon(annotation: dict[str, Any], label: str, color:
         The annotation dictionary
     label : str
         The label of the annotation
-    color : str
+    color : tuple[int, int, int]
         The color of the annotation
 
     Returns
@@ -967,9 +970,8 @@ def _parse_darwin_complex_polygon(annotation: dict[str, Any], label: str, color:
     polygons = [Polygon([(p["x"], p["y"]) for p in path], []) for path in annotation["paths"]]
     polygons.sort(key=lambda x: x.area, reverse=True)
 
-    outer_polygons: list[tuple[Polygon, list[Polygon], bool]] = []
+    outer_polygons: list[tuple[Polygon, list[Any], bool]] = []
     for polygon in polygons:
-        polygon.correct_orientation()
         is_hole = False
         # Check if the polygon can be a hole in any of the previously processed polygons
         for outer_poly, holes, outer_poly_is_hole in reversed(outer_polygons):

@@ -112,6 +112,11 @@ exclude = '''
 profile = "black"
 line_length = 120
 
+[tool.pylint]
+disable = [
+    "possibly-used-before-assignment",
+]
+
 [tool.pylint.format]
 max-line-length = "120"
 
