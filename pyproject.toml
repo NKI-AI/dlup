@@ -115,6 +115,7 @@ line_length = 120
 [tool.pylint]
 disable = [
     "possibly-used-before-assignment",
+    "import-error",
 ]
 
 [tool.pylint.format]

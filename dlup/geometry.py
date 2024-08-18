@@ -7,7 +7,7 @@ from typing import Any, Optional
 import numpy as np
 import numpy.typing as npt
 
-import dlup._geometry as _dg
+import dlup._geometry as _dg  # pylint: disable=no-name-in-module
 from dlup.utils.imports import SHAPELY_AVAILABLE
 
 if SHAPELY_AVAILABLE:
@@ -427,6 +427,7 @@ class GeometryCollection(_dg.GeometryCollection):
             self.add_point(point)
 
     def __eq__(self, other: Any) -> bool:
+        warnings.warn("This is not enough, orders may change or so")
         if not isinstance(other, type(self)):
             return False
 
