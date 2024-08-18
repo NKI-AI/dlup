@@ -2,7 +2,7 @@
 #define DLUP_GEOMETRY_POINT_H
 #pragma once
 
-#include "../geometry_utils.h"
+#include "utilities.h"
 #include "polygon.h"
 #include <boost/geometry.hpp>
 #include <memory>

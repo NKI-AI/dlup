@@ -5,14 +5,15 @@
 #include <pybind11/stl.h>
 #include <unordered_map>
 
-#include "exceptions.h"
+#include "geometry/exceptions.h"
 #include "geometry/base.h"
 #include "geometry/point.h"
 #include "geometry/polygon.h"
-#include "geometry_utils.h"
+#include "geometry/utilities.h"
+#include "geometry/collection.h"
 #include "opencv.h"
-#include "region.h"
-#include "rtree.h"
+#include "geometry/region.h"
+#include "geometry/rtree.h"
 #include <memory>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>

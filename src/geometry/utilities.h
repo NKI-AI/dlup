@@ -1,5 +1,6 @@
-#ifndef GEOMETRY_UTILITIES_H
-#define GEOMETRY_UTILITIES_H
+#ifndef DLUP_GEOMETRY_UTILITIES_H
+#define DLUP_GEOMETRY_UTILITIES_H
+#pragma once
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/algorithms/correct.hpp>
@@ -65,4 +66,4 @@ void applyAffineTransformation(BoostPoint &point, const std::pair<double, double
 
 } // namespace GeometryUtils
 
-#endif // GEOMETRY_UTILITIES_H
+#endif // DLUP_GEOMETRY_UTILITIES_H

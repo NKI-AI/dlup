@@ -4,7 +4,7 @@
 #pragma once
 
 
-#include "../geometry_utils.h"
+#include "utilities.h"
 #include <boost/geometry.hpp>
 #include <memory>
 #include <optional>
@@ -178,4 +178,4 @@ void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordina
     isCorrected = false; // Mark as not corrected. Correction reorients and closes
 }
 
-#endif DLUP_GEOMETRY_POLYGON_H
+#endif // DLUP_GEOMETRY_POLYGON_H

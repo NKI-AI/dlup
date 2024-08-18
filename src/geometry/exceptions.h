@@ -1,5 +1,5 @@
-#ifndef EXCEPTIONS_H
-#define EXCEPTIONS_H
+#ifndef DLUP_GEOMETRY_EXCEPTIONS_H
+#define DLUP_GEOMETRY_EXCEPTIONS_H
 
 #include <stdexcept>
 #include <string>
@@ -39,4 +39,4 @@ public:
     explicit GeometryInvalidPolygonError(const std::string &message) : GeometryError(message) {}
 };
 
-#endif // EXCEPTIONS_H
+#endif // DLUP_GEOMETRY_EXCEPTIONS_H

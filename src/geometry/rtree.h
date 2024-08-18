@@ -1,5 +1,6 @@
-#ifndef RTREE_H
-#define RTREE_H
+#ifndef DLUP_GEOMETRY_RTREE_H
+#define DLUP_GEOMETRY_RTREE_H
+#pragma once
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/geometries.hpp>
@@ -9,7 +10,7 @@
 #include <unordered_map>
 
 #include "exceptions.h"
-#include "geometry_utils.h"
+#include "utilities.h"
 #include <memory>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
@@ -72,4 +73,6 @@ private:
     GeometryCollection *geometryCollection; // Pointer to GeometryCollection
 };
 
-#endif // RTREE_H
+
+
+#endif // DLUP_GEOMETRY_RTREE_H

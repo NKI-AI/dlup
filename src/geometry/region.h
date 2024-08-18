@@ -1,5 +1,6 @@
-#ifndef DLUP_REGION_H
-#define DLUP_REGION_H
+#ifndef DLUP_GEOMETRY_REGION_H
+#define DLUP_GEOMETRY_REGION_H
+#pragma once
 
 #include <memory>
 #include <pybind11/numpy.h>
@@ -89,18 +90,10 @@ private:
 };
 
 py::list AnnotationRegion::getPolygons() const {
-#ifdef DLUPDEBUG
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-#endif
     py::list py_polygons;
     for (const auto &polygon : polygons_) {
         py_polygons.append(callFactoryFunction(polygon));
     }
-#ifdef DLUPDEBUG
-    std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
-    std::cout << "Elapsed time in AnnotationRegion::getPolygons: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
-#endif
     return py_polygons;
 }
 
@@ -112,4 +105,4 @@ py::list AnnotationRegion::getPoints() const {
     return py_points;
 }
 
-#endif // DLUP_REGION_H
+#endif // DLUP_GEOMETRY_REGION_H

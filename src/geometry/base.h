@@ -2,7 +2,7 @@
 #define DLUP_GEOMETRY_BASE_H
 #pragma once
 
-#include "../geometry_utils.h"
+#include "utilities.h"
 #include <boost/geometry.hpp>
 #include <memory>
 #include <optional>

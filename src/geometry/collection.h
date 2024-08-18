@@ -1,0 +1,7 @@
+#ifndef DLUP_GEOMETRY_COLLECTION_H
+#define DLUP_GEOMETRY_COLLECTION_H
+#pragma once
+
+
+
+#endif // DLUP_GEOMETRY_COLLECTION_H
