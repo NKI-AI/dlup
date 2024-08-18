@@ -57,7 +57,7 @@ jobs:
         echo "Current directory: $PWD"
         meson setup builddir
         meson compile -C builddir
-        meson install -C builddir
+        sudo meson install -C builddir
     - name: Run coverage
       run: |
         mv dlup _dlup # This is needed because otherwise it won't find the compiled libraries
