@@ -6,7 +6,9 @@
 #include <unordered_map>
 
 #include "exceptions.h"
-#include "geometry.h"
+#include "geometry/base.h"
+#include "geometry/point.h"
+#include "geometry/polygon.h"
 #include "geometry_utils.h"
 #include "opencv.h"
 #include "region.h"
@@ -34,126 +36,7 @@ using BoostMultiPolygon = bg::model::multi_polygon<BoostPolygon>;
 
 namespace py = pybind11;
 
-std::vector<std::pair<double, double>> Polygon::getExterior() const {
-    std::vector<std::pair<double, double>> result;
-    result.reserve(bg::exterior_ring(*polygon).size());
-    for (const auto &point : bg::exterior_ring(*polygon)) {
-        result.emplace_back(bg::get<0>(point), bg::get<1>(point));
-    }
-    return result;
-}
 
-std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() const {
-    // correctIfNeeded();
-    std::vector<std::vector<std::pair<double, double>>> result;
-    result.reserve(polygon->inners().size());
-    for (const auto &inner : polygon->inners()) {
-        std::vector<std::pair<double, double>> inner_result;
-        for (const auto &point : inner) {
-            inner_result.emplace_back(bg::get<0>(point), bg::get<1>(point));
-        }
-        result.emplace_back(inner_result);
-    }
-    return result;
-}
-
-void Polygon::correctIfNeeded() const {
-    if (!isCorrected) {
-        bg::correct(*polygon); // Dereference the shared pointer to apply the correction
-        isCorrected = true;
-    }
-}
-
-void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordinates) {
-    bg::exterior_ring(*polygon).clear();
-    bg::exterior_ring(*polygon).reserve(coordinates.size());
-    for (const auto &coord : coordinates) {
-        bg::append(*polygon, BoostPoint(coord.first, coord.second));
-    }
-
-    // Close the ring if it's not already closed
-    // Shapely does this, so we want to keep compatibility.
-    if (coordinates.front() != coordinates.back()) {
-        bg::append(*polygon, BoostPoint(coordinates.front().first, coordinates.front().second));
-    }
-
-    isCorrected = false; // Mark as not corrected. Correction reorients and closes
-}
-
-void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors) {
-    bg::interior_rings(*polygon).clear();
-    polygon->inners().resize(interiors.size());
-
-    for (size_t i = 0; i < interiors.size(); ++i) {
-        const auto &interior_coords = interiors[i];
-        auto &inner = polygon->inners()[i];
-        inner.clear();
-
-        for (const auto &coord : interior_coords) {
-            bg::append(inner, BoostPoint(coord.first, coord.second));
-        }
-
-        // Close the ring if it's not already closed
-        if (interior_coords.front() != interior_coords.back()) {
-            bg::append(inner, BoostPoint(interior_coords.front().first, interior_coords.front().second));
-        }
-    }
-
-    isCorrected = false; // Mark as not corrected. Correction reorients and closes
-}
-
-void Polygon::scale(double scaling) { GeometryUtils::applyAffineTransformation(*polygon, {0.0, 0.0}, scaling); }
-
-std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &otherPolygon) const {
-    // correctIfNeeded();
-    // Make the polygon valid if needed before performing the intersection
-    // TODO: This simplifies the polygon!!
-    BoostPolygon validPolygon = GeometryUtils::makeValid(*polygon);
-
-    std::vector<BoostPolygon> intersectionResult;
-    // intersectionResult.reserve(validPolygon.inners().size() * 5);
-    bg::intersection(validPolygon, otherPolygon, intersectionResult);
-
-    std::vector<std::shared_ptr<Polygon>> result;
-    for (const auto &intersectedBoostPolygon : intersectionResult) {
-        auto intersectedPolygon = std::make_shared<Polygon>(intersectedBoostPolygon);
-        // Copy the parameters from this polygon to the new one
-
-        for (const auto &param : parameters) {
-            intersectedPolygon->setField(param.first, param.second);
-        }
-
-        result.emplace_back(intersectedPolygon);
-    }
-
-    return result;
-}
-
-void Polygon::simplifyPolygon(double tolerance) { bg::simplify(*polygon, *polygon, tolerance); }
-
-py::list AnnotationRegion::getPolygons() const {
-#ifdef DLUPDEBUG
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-#endif
-    py::list py_polygons;
-    for (const auto &polygon : polygons_) {
-        py_polygons.append(callFactoryFunction(polygon));
-    }
-#ifdef DLUPDEBUG
-    std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
-    std::cout << "Elapsed time in AnnotationRegion::getPolygons: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
-#endif
-    return py_polygons;
-}
-
-py::list AnnotationRegion::getPoints() const {
-    py::list py_points;
-    for (const auto &point : points_) {
-        py_points.append(callFactoryFunction(point));
-    }
-    return py_points;
-}
 
 class GeometryCollection {
 public:
@@ -407,7 +290,7 @@ void GeometryCollection::removePoint(size_t index) {
 AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> &coordinates, double scaling,
                                                 const std::pair<double, double> &size) {
 
-    if(rtreeWrapper.isInvalidated()) {
+    if (rtreeWrapper.isInvalidated()) {
         rtreeWrapper.rebuild();
     }
 

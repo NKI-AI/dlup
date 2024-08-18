@@ -9,7 +9,6 @@
 #include <unordered_map>
 
 #include "exceptions.h"
-#include "geometry.h"
 #include "geometry_utils.h"
 #include <memory>
 #include <opencv2/imgproc.hpp>

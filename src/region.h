@@ -1,7 +1,6 @@
 #ifndef DLUP_REGION_H
 #define DLUP_REGION_H
 
-#include "geometry.h"
 #include <memory>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -49,17 +48,8 @@ public:
     py::list getPoints() const;
 
     py::array_t<int> toMask(int default_value = 0) const {
-#ifdef DLUPDEBUG
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-#endif
         cv::Size region_size(std::get<0>(mask_size_), std::get<1>(mask_size_));
         cv::Mat mask = generateMaskFromAnnotations(polygons_, region_size, default_value);
-#ifdef DLUPDEBUG
-        std::cout
-            << "AnnotationRegion::toMask: mask generated in "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count()
-            << " ms" << std::endl;
-#endif
         return maskToPyArray(mask);
     }
 
@@ -97,5 +87,29 @@ private:
         return py::cast(object);
     }
 };
+
+py::list AnnotationRegion::getPolygons() const {
+#ifdef DLUPDEBUG
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+#endif
+    py::list py_polygons;
+    for (const auto &polygon : polygons_) {
+        py_polygons.append(callFactoryFunction(polygon));
+    }
+#ifdef DLUPDEBUG
+    std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+    std::cout << "Elapsed time in AnnotationRegion::getPolygons: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(stop - end).count() << " ms" << std::endl;
+#endif
+    return py_polygons;
+}
+
+py::list AnnotationRegion::getPoints() const {
+    py::list py_points;
+    for (const auto &point : points_) {
+        py_points.append(callFactoryFunction(point));
+    }
+    return py_points;
+}
 
 #endif // DLUP_REGION_H
