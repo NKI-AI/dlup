@@ -18,7 +18,7 @@
             <Text>This is the single text field for this tag.</Text>
         </Tag>
     </Tags>
-    
+
     <Geometries>
         <!-- Polygon, MultiPolygon and Box can appear in any arbitrary order-->
         <Polygon label="Polygon1" color="#FF5733">

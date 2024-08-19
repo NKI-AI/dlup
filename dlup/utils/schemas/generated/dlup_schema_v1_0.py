@@ -138,6 +138,13 @@ class BoxType:
             "pattern": r"#[0-9a-fA-F]{6}",
         },
     )
+    order: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
 
 
 @dataclass
@@ -328,6 +335,13 @@ class MultiPolygonType:
             "type": "Attribute",
         },
     )
+    order: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
 
 
 @dataclass
@@ -350,6 +364,13 @@ class StandalonePolygonType(BasePolygonType):
         default=None,
         metadata={
             "type": "Attribute",
+        },
+    )
+    order: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
         },
     )
 

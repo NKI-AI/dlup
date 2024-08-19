@@ -52,3 +52,10 @@ annotations._layers.add_point(Point(1, 1, label="test1", color=(255, 255, 0)))
 
 with open("test.xml", "w") as f:
     f.write(annotations.as_dlup_xml())
+
+annotations2 = SlideAnnotations.from_dlup_xml("test.xml")
+region2 = annotations2.read_region((0, 0), scaling, bbox[1])
+LUT = annotations2.color_lut
+
+mask = LUT[region.to_mask()]
+PIL.Image.fromarray(mask).save("mask2.png")

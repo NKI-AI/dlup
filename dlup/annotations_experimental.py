@@ -19,6 +19,7 @@ from typing import Any, Callable, Iterable, NamedTuple, Optional, Type, TypedDic
 
 import numpy as np
 import numpy.typing as npt
+from xsdata.formats.dataclass.parsers import XmlParser
 from xsdata.formats.dataclass.serializers import XmlSerializer
 from xsdata.formats.dataclass.serializers.config import SerializerConfig
 from xsdata.models.datatype import XmlDate
@@ -484,6 +485,85 @@ class SlideAnnotations:
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
         return cls(layers=collection, tags=tuple(tags), sorting=sorting)
+
+    @classmethod
+    def from_dlup_xml(cls: Type[_TSlideAnnotations], dlup_xml: PathLike) -> _TSlideAnnotations:
+        """
+        Read annotations as a DLUP XML file.
+
+        Parameters
+        ----------
+        dlup_xml : PathLike
+            Path to the DLUP XML file.
+
+        Returns
+        -------
+        SlideAnnotations
+        """
+        parser = XmlParser()
+        with open(dlup_xml, "rb") as f:
+            dlup_annotations = parser.from_bytes(f.read(), XMLDlupAnnotations)
+
+        # We don't use this for now
+        # metadata = dlup_annotations.metadata
+        tags: list[SlideTag] = []
+        if dlup_annotations.tags:
+            for tag in dlup_annotations.tags.tag:
+                if not tag.label:
+                    raise ValueError("Tag does not have a label.")
+                curr_tag = SlideTag(label=tag.label, color=hex_to_rgb(tag.color) if tag.color else None)
+                tags.append(curr_tag)
+
+        collection = GeometryCollection()
+        polygons: list[tuple[Polygon, int]] = []
+        if not dlup_annotations.geometries:
+            return cls(layers=collection, tags=tuple(tags))
+
+        if dlup_annotations.geometries.polygon:
+            for curr_polygon in dlup_annotations.geometries.polygon:
+                if not curr_polygon.order:
+                    raise ValueError("Polygon does not have an order.")
+                if not curr_polygon.exterior:
+                    raise ValueError("Polygon does not have an exterior.")
+                exterior = [(point.x, point.y) for point in curr_polygon.exterior.point]
+                if curr_polygon.interiors:
+                    interiors = [
+                        [(point.x, point.y) for point in interior.point] for interior in curr_polygon.interiors.interior
+                    ]
+                else:
+                    interiors = []
+
+                polygon = Polygon(
+                    exterior,
+                    interiors,
+                    label=curr_polygon.label,
+                    index=curr_polygon.index,
+                    color=hex_to_rgb(curr_polygon.color) if curr_polygon.color else None,
+                )
+                polygons.append((polygon, curr_polygon.order))
+
+        # Complain if there are multipolygons
+        if dlup_annotations.geometries.multi_polygon:
+            raise NotImplementedError("Multipolygons are not supported.")
+
+        # Now we sort the polygons on order
+        for polygon, _ in sorted(polygons, key=lambda x: x[1]):
+            collection.add_polygon(polygon)
+
+        for curr_point in dlup_annotations.geometries.point:
+            point = Point(
+                curr_point.x,
+                curr_point.y,
+                label=curr_point.label,
+                color=hex_to_rgb(curr_point.color) if curr_point.color else None,
+            )
+            collection.add_point(point)
+
+        # Complain if there are multipoints
+        if dlup_annotations.geometries.multi_point:
+            raise NotImplementedError("Multipoints are not supported.")
+
+        return cls(layers=collection, tags=tuple(tags))
 
     @staticmethod
     def _in_place_sort_and_scale(

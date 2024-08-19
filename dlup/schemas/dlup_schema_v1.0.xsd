@@ -95,7 +95,7 @@
         <xs:attribute name="index" type="xs:integer" use="optional"/>
     </xs:complexType>
 
-    <!-- Base Polygon type without label and color -->
+    <!-- Base Polygon type without label, color, or order -->
     <xs:complexType name="BasePolygonType">
         <xs:sequence>
             <xs:element name="Exterior">
@@ -131,18 +131,19 @@
         </xs:sequence>
     </xs:complexType>
 
-    <!-- Standalone Polygon type extending the base type with label and color -->
+    <!-- Standalone Polygon type extending the base type with label, color, and order -->
     <xs:complexType name="StandalonePolygonType">
         <xs:complexContent>
             <xs:extension base="BasePolygonType">
                 <xs:attribute name="label" type="xs:string" use="required"/>
                 <xs:attribute name="color" type="HexColorType" use="optional"/>
                 <xs:attribute name="index" type="xs:integer" use="optional"/>
+                <xs:attribute name="order" type="xs:integer" use="required"/>
             </xs:extension>
         </xs:complexContent>
     </xs:complexType>
 
-    <!-- MultiPolygon type -->
+    <!-- MultiPolygon type without order for individual polygons -->
     <xs:complexType name="MultiPolygonType">
         <xs:sequence>
             <xs:element name="Polygon" type="BasePolygonType" maxOccurs="unbounded"/>
@@ -150,9 +151,10 @@
         <xs:attribute name="label" type="xs:string" use="required"/>
         <xs:attribute name="color" type="HexColorType" use="optional"/>
         <xs:attribute name="index" type="xs:integer" use="optional"/>
+        <xs:attribute name="order" type="xs:integer" use="required"/>
     </xs:complexType>
 
-    <!-- Box type -->
+    <!-- Box type with order -->
     <xs:complexType name="BoxType">
         <xs:attribute name="xMin" type="xs:double" use="required"/>
         <xs:attribute name="yMin" type="xs:double" use="required"/>
@@ -160,6 +162,7 @@
         <xs:attribute name="yMax" type="xs:double" use="required"/>
         <xs:attribute name="label" type="xs:string" use="required"/>
         <xs:attribute name="color" type="HexColorType" use="optional"/>
+        <xs:attribute name="order" type="xs:integer" use="required"/>
     </xs:complexType>
 
     <!-- Root element -->
