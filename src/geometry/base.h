@@ -20,37 +20,37 @@ using BoostPolygon = bg::model::polygon<BoostPoint>;
 using BoostRing = bg::model::ring<BoostPoint>;
 
 class BaseGeometry {
-public:
-    virtual ~BaseGeometry() = default;
-    std::unordered_map<std::string, py::object> parameters;
+  public:
+  virtual ~BaseGeometry() = default;
+  std::unordered_map<std::string, py::object> parameters;
 
-    virtual void setField(const std::string &name, py::object value) { parameters[name] = value; }
+  virtual void setField(const std::string &name, py::object value) { parameters[name] = value; }
 
-    std::optional<py::object> getField(const std::string &name) const {
-        if (auto it = parameters.find(name); it != parameters.end()) {
-            return it->second;
-        }
-        return std::nullopt;
+  std::optional<py::object> getField(const std::string &name) const {
+    if (auto it = parameters.find(name); it != parameters.end()) {
+      return it->second;
     }
+    return std::nullopt;
+  }
 
-    auto getFields() const {
-        std::vector<std::string> fieldNames;
-        fieldNames.reserve(parameters.size());
-        std::transform(parameters.begin(), parameters.end(), std::back_inserter(fieldNames),
-                       [](const auto &param) { return param.first; });
-        return fieldNames;
-    }
+  auto getFields() const {
+    std::vector<std::string> fieldNames;
+    fieldNames.reserve(parameters.size());
+    std::transform(parameters.begin(), parameters.end(), std::back_inserter(fieldNames),
+                   [](const auto &param) { return param.first; });
+    return fieldNames;
+  }
 
-    std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
-    virtual std::string toWkt() const = 0; // Force derived classes to provide the WKT
+  std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
+  virtual std::string toWkt() const = 0; // Force derived classes to provide the WKT
 
-protected:
-    template <typename GeometryType>
-    std::string convertToWkt(const GeometryType &geometry) const {
-        std::stringstream ss;
-        ss << boost::geometry::wkt(geometry);
-        return ss.str();
-    }
+  protected:
+  template <typename GeometryType>
+  std::string convertToWkt(const GeometryType &geometry) const {
+    std::stringstream ss;
+    ss << boost::geometry::wkt(geometry);
+    return ss.str();
+  }
 };
 
 #endif // DLUP_GEOMETRY_BASE_H

@@ -19,49 +19,49 @@ using BoostPolygon = bg::model::polygon<BoostPoint>;
 
 // Function to make a polygon valid
 BoostPolygon makeValid(const BoostPolygon &polygon) {
-    BoostPolygon validPolygon = polygon;
+  BoostPolygon validPolygon = polygon;
 
-    // Check if the polygon is valid
+  // Check if the polygon is valid
+  if (!bg::is_valid(validPolygon)) {
+    // Correct the polygon (removing self-intersections and duplicate points)
+    bg::correct(validPolygon);
+
+    // If still not valid, simplify it
     if (!bg::is_valid(validPolygon)) {
-        // Correct the polygon (removing self-intersections and duplicate points)
-        bg::correct(validPolygon);
-
-        // If still not valid, simplify it
-        if (!bg::is_valid(validPolygon)) {
-            BoostPolygon simplifiedPolygon;
-            // TODO: emit a warning
-            bg::simplify(validPolygon, simplifiedPolygon, 0.01); // TODO: Adjust tolerance
-            validPolygon = simplifiedPolygon;
-        }
+      BoostPolygon simplifiedPolygon;
+      // TODO: emit a warning
+      bg::simplify(validPolygon, simplifiedPolygon, 0.01); // TODO: Adjust tolerance
+      validPolygon = simplifiedPolygon;
     }
+  }
 
-    return validPolygon;
+  return validPolygon;
 }
 
-void applyAffineTransformation(BoostPolygon &polygon, const std::pair<double, double> &origin, double scaling) {
-    bg::strategy::transform::matrix_transformer<double, 2, 2> transform(scaling, 0, -origin.first, 0, scaling,
-                                                                        -origin.second, 0, 0, 1);
+void AffineTransform(BoostPolygon &polygon, const std::pair<double, double> &origin, double scaling) {
+  bg::strategy::transform::matrix_transformer<double, 2, 2> transform(scaling, 0, -origin.first, 0, scaling,
+                                                                      -origin.second, 0, 0, 1);
 
-    // TODO: This is a bit weird that we can't just immediately apply this to the polygon
-    // Apply the transformation to each point of the exterior ring
-    for (auto &point : bg::exterior_ring(polygon)) {
-        bg::transform(point, point, transform);
-    }
+  // TODO: This is a bit weird that we can't just immediately apply this to the polygon
+  // Apply the transformation to each point of the exterior ring
+  for (auto &point : bg::exterior_ring(polygon)) {
+    bg::transform(point, point, transform);
+  }
 
-    // Apply the transformation to each point of each interior ring
-    for (auto &ring : bg::interior_rings(polygon)) {
-        for (auto &point : ring) {
-            bg::transform(point, point, transform);
-        }
+  // Apply the transformation to each point of each interior ring
+  for (auto &ring : bg::interior_rings(polygon)) {
+    for (auto &point : ring) {
+      bg::transform(point, point, transform);
     }
+  }
 }
 
 // Function to apply an affine transformation to a point
 void applyAffineTransformation(BoostPoint &point, const std::pair<double, double> &origin, double scaling) {
-    double x = (bg::get<0>(point) - origin.first) * scaling;
-    double y = (bg::get<1>(point) - origin.second) * scaling;
-    bg::set<0>(point, x);
-    bg::set<1>(point, y);
+  double x = (bg::get<0>(point) - origin.first) * scaling;
+  double y = (bg::get<1>(point) - origin.second) * scaling;
+  bg::set<0>(point, x);
+  bg::set<1>(point, y);
 }
 
 } // namespace GeometryUtils
