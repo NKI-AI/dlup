@@ -9,7 +9,7 @@
 #include <boost/geometry/algorithms/transform.hpp>
 #include <boost/geometry/geometries/geometries.hpp>
 
-namespace GeometryUtils {
+namespace geometry_utils {
 
 namespace bg = boost::geometry;
 
@@ -18,24 +18,24 @@ using BoostPoint = bg::model::d2::point_xy<double>;
 using BoostPolygon = bg::model::polygon<BoostPoint>;
 
 // Function to make a polygon valid
-BoostPolygon makeValid(const BoostPolygon &polygon) {
-  BoostPolygon validPolygon = polygon;
+BoostPolygon MakeValid(const BoostPolygon &polygon) {
+  BoostPolygon valid_polygon = polygon;
 
   // Check if the polygon is valid
-  if (!bg::is_valid(validPolygon)) {
+  if (!bg::is_valid(valid_polygon)) {
     // Correct the polygon (removing self-intersections and duplicate points)
-    bg::correct(validPolygon);
+    bg::correct(valid_polygon);
 
     // If still not valid, simplify it
-    if (!bg::is_valid(validPolygon)) {
+    if (!bg::is_valid(valid_polygon)) {
       BoostPolygon simplifiedPolygon;
       // TODO: emit a warning
-      bg::simplify(validPolygon, simplifiedPolygon, 0.01); // TODO: Adjust tolerance
-      validPolygon = simplifiedPolygon;
+      bg::simplify(valid_polygon, simplifiedPolygon, 0.01); // TODO: Adjust tolerance
+      valid_polygon = simplifiedPolygon;
     }
   }
 
-  return validPolygon;
+  return valid_polygon;
 }
 
 void AffineTransform(BoostPolygon &polygon, const std::pair<double, double> &origin, double scaling) {

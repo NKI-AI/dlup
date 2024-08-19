@@ -120,7 +120,7 @@ std::pair<std::pair<double, double>, std::pair<double, double>> GeometryCollecti
 
   // Iterate over all points and compute their bounding boxes
   for (const auto &point : points_) {
-    BoostBox pointBox(*(point->point), *(point->point));
+    BoostBox pointBox(*(point->point_), *(point->point_));
 
     if (is_first_) {
       overall_bounding_box_ = pointBox;
@@ -176,7 +176,7 @@ void RTreeWrapper::rebuild() {
 
   const auto &points = geometryCollection->points_;
   for (size_t i = 0; i < points.size(); ++i) {
-    BoostBox box(*(points[i]->point), *(points[i]->point));
+    BoostBox box(*(points[i]->point_), *(points[i]->point_));
     insert(box, polygons.size() + i);
   }
 
@@ -207,7 +207,7 @@ py::list GeometryCollection::getPoints() {
 }
 
 void GeometryCollection::addPoint(const PointPtr &p) {
-  BoostBox box(*(p->point), *(p->point));
+  BoostBox box(*(p->point_), *(p->point_));
   points_.emplace_back(p);
   rtree_wrapper_.invalidate();
 }
@@ -245,10 +245,10 @@ void GeometryCollection::scale(double scaling) {
 
 void GeometryCollection::setOffset(std::pair<double, double> offset) {
   for (auto &point : points_) {
-    GeometryUtils::AffineTransform(*point->point, {-offset.first, -offset.second}, 1.0);
+    geometry_utils::AffineTransform(*point->point_, {-offset.first, -offset.second}, 1.0);
   }
   for (auto &polygon : polygons_) {
-    GeometryUtils::AffineTransform(*polygon->polygon, {-offset.first, -offset.second}, 1.0);
+    geometry_utils::AffineTransform(*polygon->polygon, {-offset.first, -offset.second}, 1.0);
   }
   rtree_wrapper_.invalidate();
 }
@@ -298,14 +298,14 @@ AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> 
     rtree_wrapper_.rebuild();
   }
 
-  BoostPoint topLeft(coordinates.first / scaling, coordinates.second / scaling);
-  BoostPoint bottomRight((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
-  BoostBox queryBox(topLeft, bottomRight);
+  BoostPoint top_left(coordinates.first / scaling, coordinates.second / scaling);
+  BoostPoint bottom_right((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
+  BoostBox query_box(top_left, bottom_right);
 
   BoostPolygon intersection_polygon;
-  bg::convert(queryBox, intersection_polygon);
+  bg::convert(query_box, intersection_polygon);
   std::vector<std::pair<BoostBox, size_t>> results;
-  rtree_wrapper_.query(bgi::intersects(queryBox), std::back_inserter(results));
+  rtree_wrapper_.query(bgi::intersects(query_box), std::back_inserter(results));
 
   std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
 
@@ -318,19 +318,17 @@ AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> 
       auto &polygon = polygons_[index];
       auto intersections = polygon->intersection(intersection_polygon);
       for (const auto &intersected_polygon : intersections) {
-        GeometryUtils::AffineTransform(*intersected_polygon->polygon, coordinates, scaling);
+        geometry_utils::AffineTransform(*intersected_polygon->polygon, coordinates, scaling);
         intersected_polygons.push_back(intersected_polygon);
       }
     } else {
       auto &point = points_[index - polygons_.size()];
       auto transformed_point = std::make_shared<Point>(*point);
-      GeometryUtils::AffineTransform(*transformed_point->point, coordinates, scaling);
+      geometry_utils::AffineTransform(*transformed_point->point_, coordinates, scaling);
       intersected_points.push_back(transformed_point);
     }
   }
-  auto returnValue = AnnotationRegion(std::move(intersected_polygons), std::move(intersected_points), std::move(size));
-
-  return returnValue;
+  return AnnotationRegion(std::move(intersected_polygons), std::move(intersected_points), std::move(size));
 }
 
 #endif // DLUP_GEOMETRY_COLLECTION_H

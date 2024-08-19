@@ -65,7 +65,7 @@ PYBIND11_MODULE(_geometry, m) {
       }))
       .def(py::init([](const Point &other) {
         // Explicitly copy parameters when copying the polygon
-        auto newPoint = std::make_shared<Point>(*other.point);
+        auto newPoint = std::make_shared<Point>(*other.point_);
         newPoint->parameters_ = other.parameters_; // Copy the parameters
         return newPoint;
       }))

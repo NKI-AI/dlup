@@ -5,16 +5,10 @@
 
 #include "utilities.h"
 #include <boost/geometry.hpp>
-#include <memory>
-#include <optional>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace bg = boost::geometry;
-namespace py = pybind11;
 
 using BoostPoint = bg::model::d2::point_xy<double>;
 using BoostPolygon = bg::model::polygon<BoostPoint>;
@@ -42,8 +36,8 @@ class Polygon : public BaseGeometry {
   }
 
   bool equals(const Polygon &other) const {
-    bool polyEqual = bg::equals(*polygon, *(other.polygon));
-    return parameters_ == other.parameters_ && polyEqual;
+    bool polygon_is_equal = bg::equals(*polygon, *(other.polygon));
+    return parameters_ == other.parameters_ && polygon_is_equal;
   }
 
   // TODO: Box is probably sufficient.
@@ -62,11 +56,11 @@ class Polygon : public BaseGeometry {
   double getArea() const {
     // Shapely reorients the polygon in memory if it is not oriented correctly, but keeps the coordinates
     // So we need to make a copy here to avoid modifying the original polygon
-    if (!isCorrected) {
+    if (!is_corrected_) {
       // Make a copy of the current polygon
-      BoostPolygon newPolygon = *polygon;
-      bg::correct(newPolygon); // Correct the copied polygon
-      return bg::area(newPolygon);
+      BoostPolygon new_polygon = *polygon;
+      bg::correct(new_polygon); // Correct the copied polygon
+      return bg::area(new_polygon);
     }
 
     return bg::area(*polygon);
@@ -79,10 +73,10 @@ class Polygon : public BaseGeometry {
   void simplifyPolygon(double tolerance);
 
   private:
-  mutable bool isCorrected = false; // mutable allows modification in const methods
+  mutable bool is_corrected_ = false; // mutable allows modification in const methods
 };
 
-void Polygon::scale(double scaling) { GeometryUtils::AffineTransform(*polygon, {0.0, 0.0}, scaling); }
+void Polygon::scale(double scaling) { geometry_utils::AffineTransform(*polygon, {0.0, 0.0}, scaling); }
 void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors) {
   bg::interior_rings(*polygon).clear();
   polygon->inners().resize(interiors.size());
@@ -102,13 +96,13 @@ void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, doubl
     }
   }
 
-  isCorrected = false; // Mark as not corrected. Correction reorients and closes
+  is_corrected_ = false; // Mark as not corrected. Correction reorients and closes
 }
 std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &otherPolygon) const {
   // correctIfNeeded();
   // Make the polygon valid if needed before performing the intersection
   // TODO: This simplifies the polygon!!
-  BoostPolygon validPolygon = GeometryUtils::makeValid(*polygon);
+  BoostPolygon validPolygon = geometry_utils::MakeValid(*polygon);
 
   std::vector<BoostPolygon> intersectionResult;
   bg::intersection(validPolygon, otherPolygon, intersectionResult);
@@ -129,9 +123,9 @@ std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &
 }
 void Polygon::simplifyPolygon(double tolerance) { bg::simplify(*polygon, *polygon, tolerance); }
 void Polygon::correctIfNeeded() const {
-  if (!isCorrected) {
+  if (!is_corrected_) {
     bg::correct(*polygon); // Dereference the shared pointer to apply the correction
-    isCorrected = true;
+    is_corrected_ = true;
   }
 }
 
@@ -171,7 +165,7 @@ void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordina
     bg::append(*polygon, BoostPoint(coordinates.front().first, coordinates.front().second));
   }
 
-  isCorrected = false; // Mark as not corrected. Correction reorients and closes
+  is_corrected_ = false; // Mark as not corrected. Correction reorients and closes
 }
 
 #endif // DLUP_GEOMETRY_POLYGON_H
