@@ -521,7 +521,7 @@ class SlideAnnotations:
 
         if dlup_annotations.geometries.polygon:
             for curr_polygon in dlup_annotations.geometries.polygon:
-                if not curr_polygon.order:
+                if curr_polygon.order is None:
                     raise ValueError("Polygon does not have an order.")
                 if not curr_polygon.exterior:
                     raise ValueError("Polygon does not have an exterior.")

@@ -38,7 +38,6 @@ index_map = {
 annotations = SlideAnnotations.from_darwin_json(d_fn, z_indices=Z_INDICES, sorting="Z_INDEX")
 scaling = 0.02
 
-
 bbox = annotations.bounding_box_at_scaling(scaling)
 annotations.reindex_polygons(index_map)
 region = annotations.read_region((0, 0), scaling, bbox[1])
@@ -47,11 +46,12 @@ mask = LUT[region.to_mask()]
 PIL.Image.fromarray(mask).save("mask.png")
 
 
-annotations._layers.add_point(Point(0, 0, label="test", color=(255, 0, 0)))
-annotations._layers.add_point(Point(1, 1, label="test1", color=(255, 255, 0)))
-
 with open("test.xml", "w") as f:
     f.write(annotations.as_dlup_xml())
+
+import json
+with open("test.geojson", "w") as f:
+    f.write(json.dumps(annotations.as_geojson(), indent=2))
 
 annotations2 = SlideAnnotations.from_dlup_xml("test.xml")
 region2 = annotations2.read_region((0, 0), scaling, bbox[1])
