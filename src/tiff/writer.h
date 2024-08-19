@@ -2,13 +2,30 @@
 #define DLUP_TIFF_WRITER_H
 #pragma once
 
+#include "../constants.h"
+#include "../image.h"
+#include "exceptions.h"
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
+#include <memory>
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <random>
+#include <stdexcept>
+#include <string>
+#include <tiffio.h>
+#include <vector>
+
 #ifdef HAVE_ZSTD
 #include <zstd.h>
 #endif
 
 namespace fs = std::filesystem;
 namespace py = pybind11;
-
 
 enum class CompressionType { NONE, JPEG, LZW, DEFLATE, ZSTD };
 
@@ -427,6 +444,5 @@ void LibtiffTiffWriter::writePyramid() {
         flush();
     }
 }
-
 
 #endif

@@ -1,5 +1,7 @@
 #include "constants.h"
 #include "image.h"
+#include "tiff/exceptions.h"
+#include "tiff/writer.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -14,9 +16,6 @@
 #include <string>
 #include <tiffio.h>
 #include <vector>
-#include "tiff/exceptions.h"
-#include "tiff/writer.h"
-
 
 PYBIND11_MODULE(_libtiff_tiff_writer, m) {
     py::class_<LibtiffTiffWriter>(m, "LibtiffTiffWriter")

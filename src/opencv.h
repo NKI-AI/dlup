@@ -1,6 +1,7 @@
 #ifndef DLUP_OPENCV_H
 #define DLUP_OPENCV_H
 
+#include "geometry/polygon.h"
 #include <memory>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>

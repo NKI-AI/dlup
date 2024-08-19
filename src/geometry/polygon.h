@@ -3,7 +3,6 @@
 #define DLUP_GEOMETRY_POLYGON_H
 #pragma once
 
-
 #include "utilities.h"
 #include <boost/geometry.hpp>
 #include <memory>
@@ -159,8 +158,6 @@ std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() cons
     }
     return result;
 }
-
-
 
 void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordinates) {
     bg::exterior_ring(*polygon).clear();

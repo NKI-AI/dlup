@@ -2,8 +2,8 @@
 #define DLUP_GEOMETRY_POINT_H
 #pragma once
 
-#include "utilities.h"
 #include "polygon.h"
+#include "utilities.h"
 #include <boost/geometry.hpp>
 #include <memory>
 #include <optional>
@@ -61,6 +61,5 @@ public:
 
     void scale(double scaling) { setCoordinates(getX() * scaling, getY() * scaling); }
 };
-
 
 #endif // DLUP_GEOMETRY_POINT_H
