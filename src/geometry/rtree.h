@@ -20,33 +20,33 @@ class RTreeBase {
 
   virtual ~RTreeBase() = default;
 
-  virtual void Rebuild() = 0; // Pure virtual function for rebuilding the R-tree
+  virtual void rebuild() = 0; // Pure virtual function for rebuilding the R-tree
 
   void insert(const BoostBox &box, size_t index) {
-    rtree.insert(std::make_pair(box, index));
-    rTreeInvalidated = false;
+    rtree_.insert(std::make_pair(box, index));
+    rtree_invalidated_ = false;
   }
 
   template <typename QueryType, typename OutputIterator>
   void query(const QueryType &query, OutputIterator out) {
-    if (rTreeInvalidated) {
-      Rebuild();
+    if (rtree_invalidated_) {
+      rebuild();
     }
-    rtree.query(query, out);
+    rtree_.query(query, out);
   }
 
-  void Invalidate() { rTreeInvalidated = true; }
+  void invalidate() { rtree_invalidated_ = true; }
 
   void clear() {
-    rtree.clear();
-    rTreeInvalidated = true;
+    rtree_.clear();
+    rtree_invalidated_ = true;
   }
 
-  bool IsInvalidated() const { return rTreeInvalidated; }
+  bool isInvalidated() const { return rtree_invalidated_; }
 
   protected:
-  RTreeType rtree;
-  bool rTreeInvalidated = true;
+  RTreeType rtree_;
+  bool rtree_invalidated_ = true;
 };
 
 #endif // DLUP_GEOMETRY_RTREE_H

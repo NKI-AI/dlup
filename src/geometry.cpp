@@ -30,7 +30,7 @@ PYBIND11_MODULE(_geometry, m) {
       .def(py::init([](const Polygon &other) {
         // Explicitly copy parameters when copying the polygon
         auto newPolygon = std::make_shared<Polygon>(*other.polygon);
-        newPolygon->parameters = other.parameters; // Copy the parameters
+        newPolygon->parameters_ = other.parameters_; // Copy the parameters
         return newPolygon;
       }))
       .def("set_exterior", &Polygon::setExterior)
@@ -44,7 +44,7 @@ PYBIND11_MODULE(_geometry, m) {
            [](Polygon &self) {
              return py::make_iterator(self.getInteriorAsIterator().begin(), self.getInteriorAsIterator().end());
            })
-      .def("scale", &Polygon::Scale, py::arg("scaling"))
+      .def("scale", &Polygon::scale, py::arg("scaling"))
       .def("get_interiors", &Polygon::getInteriors)
       .def("correct_orientation", &Polygon::correctIfNeeded)
       .def("simplify", &Polygon::simplifyPolygon)
@@ -66,51 +66,50 @@ PYBIND11_MODULE(_geometry, m) {
       .def(py::init([](const Point &other) {
         // Explicitly copy parameters when copying the polygon
         auto newPoint = std::make_shared<Point>(*other.point);
-        newPoint->parameters = other.parameters; // Copy the parameters
+        newPoint->parameters_ = other.parameters_; // Copy the parameters
         return newPoint;
       }))
-      .def("set_coordinates", &Point::setCoordinates)
-      .def("get_coordinates", &Point::getCoordinates)
-      .def_property_readonly("x", &Point::getX)
-      .def_property_readonly("y", &Point::getY)
-      .def("distance_to", &Point::distanceTo)
-      .def("equals", &Point::equals)
-      .def("within", &Point::within)
-      .def("centroid", &Point::centroid)
-      .def("scale", &Point::Scale, py::arg("scaling"))
-      .def_property_readonly("wkt", &Point::toWkt);
+      .def_property_readonly("coordinates", &Point::getCoordinates,
+                             "Get the coordinates of the point as an (x, y) tuple")
+      .def_property_readonly("x", &Point::getX, "Get the X coordinate")
+      .def_property_readonly("y", &Point::getY, "Get the Y coordinate")
+      .def("distance_to", &Point::distanceTo, py::arg("other"), "Calculate the distance to another point")
+      .def("equals", &Point::equals, py::arg("other"), "Check if the point is equal to another point")
+      .def("within", &Point::within, py::arg("polygon"), "Check if the point is within a polygon")
+      .def("scale", &Point::scale, py::arg("scaling"), "Scale the in-place point by a factor")
+      .def_property_readonly("wkt", &Point::toWkt, "Get the WKT representation of the point");
 
   m.def("set_polygon_factory", &AnnotationRegion::setPolygonFactory);
   m.def("set_point_factory", &AnnotationRegion::setPointFactory);
 
   py::class_<GeometryCollection, std::shared_ptr<GeometryCollection>>(m, "GeometryCollection")
       .def(py::init<>())
-      .def("add_polygon", &GeometryCollection::AddPolygon)
-      .def("add_point", &GeometryCollection::AddPoint)
+      .def("add_polygon", &GeometryCollection::addPolygon)
+      .def("add_point", &GeometryCollection::addPoint)
 
       // Overload remove_polygon to handle both object and index
-      .def("remove_polygon", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryCollection::RemovePolygon),
+      .def("remove_polygon", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryCollection::removePolygon),
            "Remove a polygon by passing the Polygon object")
-      .def("remove_polygon", py::overload_cast<size_t>(&GeometryCollection::RemovePolygon),
+      .def("remove_polygon", py::overload_cast<size_t>(&GeometryCollection::removePolygon),
            "Remove a polygon by its index")
-      .def("reindex_polygons", &GeometryCollection::ReindexPolygons)
-      .def("sort_polygons", &GeometryCollection::SortPolygons, "Sort polygons by a custom key function")
-      .def("simplify_polygons", &GeometryCollection::SimplifyPolygons)
-      .def("size", &GeometryCollection::Size)
+      .def("reindex_polygons", &GeometryCollection::reindexPolygons)
+      .def("sort_polygons", &GeometryCollection::sortPolygons, "Sort polygons by a custom key function")
+      .def("simplify_polygons", &GeometryCollection::simplifyPolygons)
+      .def("size", &GeometryCollection::size)
 
       // Overload remove_point to handle both object and index
-      .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryCollection::RemovePoint),
+      .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryCollection::removePoint),
            "Remove a point by passing the Point object")
-      .def("remove_point", py::overload_cast<size_t>(&GeometryCollection::RemovePoint), "Remove a point by its index")
-      .def("read_region", &GeometryCollection::ReadRegion)
+      .def("remove_point", py::overload_cast<size_t>(&GeometryCollection::removePoint), "Remove a point by its index")
+      .def("read_region", &GeometryCollection::readRegion)
       .def("rebuild_rtree", &GeometryCollection::rebuildRTree, "Rebuild the R-tree index manually")
-      .def("scale", &GeometryCollection::Scale, "Scale all geometries by a factor")
-      .def("set_offset", &GeometryCollection::SetOffset, "Set an offset for all geometries")
+      .def("scale", &GeometryCollection::scale, "Scale all geometries by a factor")
+      .def("set_offset", &GeometryCollection::setOffset, "Set an offset for all geometries")
       .def_property_readonly("rtree_invalidated", &GeometryCollection::isRTreeInvalidated)
       .def_property_readonly("pointer_id", &GeometryCollection::getPointerId)
-      .def_property_readonly("bounding_box", &GeometryCollection::ComputeBoundingBox)
-      .def_property_readonly("polygons", &GeometryCollection::GetPolygons)
-      .def_property_readonly("points", &GeometryCollection::GetPoints);
+      .def_property_readonly("bounding_box", &GeometryCollection::computeBoundingBox)
+      .def_property_readonly("polygons", &GeometryCollection::getPolygons)
+      .def_property_readonly("points", &GeometryCollection::getPoints);
 
   py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "AnnotationRegion")
       .def_property_readonly("polygons", &AnnotationRegion::getPolygons)

@@ -31,35 +31,30 @@ class Point : public BaseGeometry {
   Point(double x, double y) : point(std::make_shared<BoostPoint>(x, y)) {}
 
   Point(const Point &other) : BaseGeometry(other), point(std::make_shared<BoostPoint>(*other.point)) {
-    parameters = other.parameters; // Copy parameters
+    parameters_ = other.parameters_; // Copy parameters
   }
 
   // Factory function for creating points from Python
   static std::shared_ptr<Point> create(double x, double y) { return std::make_shared<Point>(x, y); }
-
+  std::pair<double, double> getCoordinates() const { return std::make_pair(bg::get<0>(*point), bg::get<1>(*point)); }
   std::string toWkt() const override { return convertToWkt(*point); }
 
-  void setCoordinates(double x, double y) {
-    bg::set<0>(*point, x);
-    bg::set<1>(*point, y);
-  }
-  std::pair<double, double> getCoordinates() const { return std::make_pair(bg::get<0>(*point), bg::get<1>(*point)); }
   inline double getX() const { return bg::get<0>(*point); }
   inline double getY() const { return bg::get<1>(*point); }
   double distanceTo(const Point &other) const { return bg::distance(*point, *(other.point)); }
   bool equals(const Point &other) const {
     bool pointEqual = bg::equals(*point, *(other.point));
-    return parameters == other.parameters && pointEqual;
+    return parameters_ == other.parameters_ && pointEqual;
   }
   bool within(const Polygon &polygon) const { return bg::within(*point, *(polygon.polygon)); }
 
-  std::shared_ptr<Point> centroid(const Polygon &polygon) const {
-    BoostPoint centroid;
-    bg::centroid(*(polygon.polygon), centroid);
-    return std::make_shared<Point>(centroid);
-  }
+  void scale(double scaling) { setCoordinates(getX() * scaling, getY() * scaling); }
 
-  void Scale(double scaling) { setCoordinates(getX() * scaling, getY() * scaling); }
+  private:
+  void setCoordinates(double x, double y) {
+    bg::set<0>(*point, x);
+    bg::set<1>(*point, y);
+  }
 };
 
 #endif // DLUP_GEOMETRY_POINT_H

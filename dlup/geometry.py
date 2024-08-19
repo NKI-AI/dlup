@@ -328,15 +328,7 @@ class Point(_dg.Point, _BaseGeometry):
                 "for more information."
             )
 
-        return ShapelyPoint(self.get_coordinates())
-
-    @property
-    def x(self) -> float:
-        return self.get_coordinates()[0]
-
-    @property
-    def y(self) -> float:
-        return self.get_coordinates()[1]
+        return ShapelyPoint(self.x, self.y)
 
     def __copy__(self) -> "Point":
         # Create a new instance of DlupPolygon with the same geometry
@@ -360,7 +352,7 @@ class Point(_dg.Point, _BaseGeometry):
     def __getstate__(self) -> dict[str, dict[str, Any]]:
         state = {
             "_fields": {field: self.get_field(field) for field in self.fields},
-            "_object": {"coordinates": self.get_coordinates()},
+            "_object": {"coordinates": (self.x, self.y)},
         }
         return state
 

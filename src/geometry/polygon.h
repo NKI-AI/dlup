@@ -43,7 +43,7 @@ class Polygon : public BaseGeometry {
 
   bool equals(const Polygon &other) const {
     bool polyEqual = bg::equals(*polygon, *(other.polygon));
-    return parameters == other.parameters && polyEqual;
+    return parameters_ == other.parameters_ && polyEqual;
   }
 
   // TODO: Box is probably sufficient.
@@ -75,14 +75,14 @@ class Polygon : public BaseGeometry {
   void setExterior(const std::vector<std::pair<double, double>> &coordinates);
   void setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors);
   void correctIfNeeded() const;
-  void Scale(double scaling);
+  void scale(double scaling);
   void simplifyPolygon(double tolerance);
 
   private:
   mutable bool isCorrected = false; // mutable allows modification in const methods
 };
 
-void Polygon::Scale(double scaling) { GeometryUtils::AffineTransform(*polygon, {0.0, 0.0}, scaling); }
+void Polygon::scale(double scaling) { GeometryUtils::AffineTransform(*polygon, {0.0, 0.0}, scaling); }
 void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors) {
   bg::interior_rings(*polygon).clear();
   polygon->inners().resize(interiors.size());
@@ -118,7 +118,7 @@ std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &
     auto intersectedPolygon = std::make_shared<Polygon>(intersectedBoostPolygon);
     // Copy the parameters from this polygon to the new one
 
-    for (const auto &param : parameters) {
+    for (const auto &param : parameters_) {
       intersectedPolygon->setField(param.first, param.second);
     }
 

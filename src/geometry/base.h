@@ -2,7 +2,6 @@
 #define DLUP_GEOMETRY_BASE_H
 #pragma once
 
-#include "utilities.h"
 #include <boost/geometry.hpp>
 #include <memory>
 #include <optional>
@@ -22,23 +21,23 @@ using BoostRing = bg::model::ring<BoostPoint>;
 class BaseGeometry {
   public:
   virtual ~BaseGeometry() = default;
-  std::unordered_map<std::string, py::object> parameters;
+  std::unordered_map<std::string, py::object> parameters_;
 
-  virtual void setField(const std::string &name, py::object value) { parameters[name] = value; }
+  virtual void setField(const std::string &name, py::object value) { parameters_[name] = value; }
 
   std::optional<py::object> getField(const std::string &name) const {
-    if (auto it = parameters.find(name); it != parameters.end()) {
+    if (auto it = parameters_.find(name); it != parameters_.end()) {
       return it->second;
     }
     return std::nullopt;
   }
 
   auto getFields() const {
-    std::vector<std::string> fieldNames;
-    fieldNames.reserve(parameters.size());
-    std::transform(parameters.begin(), parameters.end(), std::back_inserter(fieldNames),
+    std::vector<std::string> field_names_;
+    field_names_.reserve(parameters_.size());
+    std::transform(parameters_.begin(), parameters_.end(), std::back_inserter(field_names_),
                    [](const auto &param) { return param.first; });
-    return fieldNames;
+    return field_names_;
   }
 
   std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
