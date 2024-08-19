@@ -43,6 +43,7 @@ dependencies = [
     "shapely>=2.0.4",
     "packaging>=24.0",
     "pybind11>=2.8.0",
+    "xsdata>=24.7",
 ]
 
 [project.optional-dependencies]
