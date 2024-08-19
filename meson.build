@@ -68,7 +68,8 @@ _background = py.extension_module('_background',
                                   install : true,
                                   subdir : '',
                                   link_args : link_args,
-                                  cpp_args : cpp_args)
+                                  c_args : cpp_args + ['-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION']
+)
 
 # Define the base dependencies and compiler arguments
 
