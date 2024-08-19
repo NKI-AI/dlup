@@ -3,6 +3,7 @@
 #pragma once
 
 #include <exception>
+#include <stdexcept>
 #include <string>
 
 class TiffException : public std::runtime_error {

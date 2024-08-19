@@ -64,6 +64,6 @@ void AffineTransform(BoostPoint &point, const std::pair<double, double> &origin,
   bg::set<1>(point, y);
 }
 
-} // namespace GeometryUtils
+} // namespace geometry_utils
 
 #endif // DLUP_GEOMETRY_UTILITIES_H
