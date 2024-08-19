@@ -526,6 +526,23 @@ class SlideAnnotations:
         """
         return self._layers.bounding_box
 
+    def bounding_box_at_scaling(self, scaling: float) -> tuple[tuple[float, float], tuple[float, float]]:
+        """Get the bounding box of the annotations at a specific scaling factor.
+
+        Parameters
+        ----------
+        scaling : float
+            The scaling factor to apply to the annotations.
+
+        Returns
+        -------
+        tuple[tuple[float, float], tuple[float, float]]
+            The bounding box of the annotations at the specific scaling factor.
+
+        """
+        bbox = self.bounding_box
+        return ((bbox[0][0] * scaling, bbox[0][1] * scaling), (bbox[1][0] * scaling, bbox[1][1] * scaling))
+
     def simplify(self, tolerance: float) -> None:
         """Simplify the polygons in the annotation (i.e. reduce points). Other annotations will remain unchanged.
         All points in the resulting polygons object will be in the tolerance distance of the original polygon.
