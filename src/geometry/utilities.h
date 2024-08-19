@@ -57,7 +57,7 @@ void AffineTransform(BoostPolygon &polygon, const std::pair<double, double> &ori
 }
 
 // Function to apply an affine transformation to a point
-void applyAffineTransformation(BoostPoint &point, const std::pair<double, double> &origin, double scaling) {
+void AffineTransform(BoostPoint &point, const std::pair<double, double> &origin, double scaling) {
   double x = (bg::get<0>(point) - origin.first) * scaling;
   double y = (bg::get<1>(point) - origin.second) * scaling;
   bg::set<0>(point, x);

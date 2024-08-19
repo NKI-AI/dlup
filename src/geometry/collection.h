@@ -47,7 +47,7 @@ class RTreeWrapper : public RTreeBase {
   public:
   explicit RTreeWrapper(GeometryCollection *geometryCollection) : geometryCollection(geometryCollection) {}
 
-  void rebuild() override;
+  void Rebuild() override;
 
   private:
   GeometryCollection *geometryCollection; // Pointer to GeometryCollection
@@ -79,7 +79,7 @@ class GeometryCollection {
 
   void Scale(double scaling);
   void SetOffset(std::pair<double, double> offset);
-  void rebuildRTree() { rtree_wrapper.rebuild(); }
+  void rebuildRTree() { rtree_wrapper.Rebuild(); }
   void SimplifyPolygons(double tolerance) {
     for (auto &polygon : polygons) {
       polygon->simplifyPolygon(tolerance);
@@ -90,7 +90,7 @@ class GeometryCollection {
 
   std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
 
-  bool isRTreeInvalidated() const { return rtree_wrapper.isInvalidated(); }
+  bool isRTreeInvalidated() const { return rtree_wrapper.IsInvalidated(); }
 
   AnnotationRegion ReadRegion(const std::pair<double, double> &coordinates, double scaling,
                               const std::pair<double, double> &size);
@@ -165,7 +165,7 @@ void GeometryCollection::ReindexPolygons(const std::map<std::string, int> &index
   }
 }
 
-void RTreeWrapper::rebuild() {
+void RTreeWrapper::Rebuild() {
   clear(); // Clear the existing R-tree
 
   // Rebuild the tree using polygons and points from GeometryCollection
@@ -186,11 +186,10 @@ void RTreeWrapper::rebuild() {
 }
 
 void GeometryCollection::AddPolygon(const PolygonPtr &p) {
-  // Print the parameters of the polygon being added
   BoostBox box;
   bg::envelope(*(p->polygon), box);
   polygons.emplace_back(p);
-  rtree_wrapper.invalidate();
+  rtree_wrapper.Invalidate();
 }
 
 py::list GeometryCollection::GetPolygons() {
@@ -212,7 +211,7 @@ py::list GeometryCollection::GetPoints() {
 void GeometryCollection::AddPoint(const PointPtr &p) {
   BoostBox box(*(p->point), *(p->point));
   points.emplace_back(p);
-  rtree_wrapper.invalidate();
+  rtree_wrapper.Invalidate();
 }
 
 void GeometryCollection::SortPolygons(const py::function &key_func, bool reverse) {
@@ -233,7 +232,7 @@ void GeometryCollection::SortPolygons(const py::function &key_func, bool reverse
       throw std::invalid_argument("Unsupported key type for sorting.");
     }
   });
-  rtree_wrapper.invalidate();
+  rtree_wrapper.Invalidate();
 }
 
 void GeometryCollection::Scale(double scaling) {
@@ -243,24 +242,24 @@ void GeometryCollection::Scale(double scaling) {
   for (auto &polygon : polygons) {
     polygon->Scale(scaling);
   }
-  rtree_wrapper.invalidate();
+  rtree_wrapper.Invalidate();
 }
 
 void GeometryCollection::SetOffset(std::pair<double, double> offset) {
   for (auto &point : points) {
-    GeometryUtils::applyAffineTransformation(*point->point, {-offset.first, -offset.second}, 1.0);
+    GeometryUtils::AffineTransform(*point->point, {-offset.first, -offset.second}, 1.0);
   }
   for (auto &polygon : polygons) {
     GeometryUtils::AffineTransform(*polygon->polygon, {-offset.first, -offset.second}, 1.0);
   }
-  rtree_wrapper.invalidate();
+  rtree_wrapper.Invalidate();
 }
 
 void GeometryCollection::RemovePolygon(const PolygonPtr &p) {
   auto it = std::find(polygons.begin(), polygons.end(), p);
   if (it != polygons.end()) {
     polygons.erase(it);
-    rtree_wrapper.invalidate();
+    rtree_wrapper.Invalidate();
   } else {
     throw GeometryNotFoundError("Polygon not found");
   }
@@ -272,14 +271,14 @@ void GeometryCollection::RemovePolygon(size_t index) {
   }
 
   polygons.erase(polygons.begin() + index);
-  rtree_wrapper.invalidate();
+  rtree_wrapper.Invalidate();
 }
 
 void GeometryCollection::RemovePoint(const PointPtr &p) {
   auto it = std::find(points.begin(), points.end(), p);
   if (it != points.end()) {
     points.erase(it);
-    rtree_wrapper.invalidate();
+    rtree_wrapper.Invalidate();
   } else {
     throw GeometryNotFoundError("Point not found");
   }
@@ -291,52 +290,47 @@ void GeometryCollection::RemovePoint(size_t index) {
   }
 
   points.erase(points.begin() + index);
-  rtree_wrapper.invalidate();
+  rtree_wrapper.Invalidate();
 }
 
 AnnotationRegion GeometryCollection::ReadRegion(const std::pair<double, double> &coordinates, double scaling,
                                                 const std::pair<double, double> &size) {
 
-  if (rtree_wrapper.isInvalidated()) {
-    rtree_wrapper.rebuild();
+  if (rtree_wrapper.IsInvalidated()) {
+    rtree_wrapper.Rebuild();
   }
 
   BoostPoint topLeft(coordinates.first / scaling, coordinates.second / scaling);
   BoostPoint bottomRight((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
   BoostBox queryBox(topLeft, bottomRight);
 
-  BoostPolygon intersectionPolygon;
-  bg::convert(queryBox, intersectionPolygon);
+  BoostPolygon intersection_polygon;
+  bg::convert(queryBox, intersection_polygon);
   std::vector<std::pair<BoostBox, size_t>> results;
   rtree_wrapper.query(bgi::intersects(queryBox), std::back_inserter(results));
 
   std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
 
-  // const size_t estimatedSize = 10000; //  Estimated size
-
-  std::vector<std::shared_ptr<Polygon>> intersectedPolygons;
-  std::vector<std::shared_ptr<Point>> intersectedPoints;
-
-  // intersectedPolygons.reserve(estimatedSize);
-  // intersectedPoints.reserve(estimatedSize);
+  std::vector<std::shared_ptr<Polygon>> intersected_polygons;
+  std::vector<std::shared_ptr<Point>> intersected_points;
 
   for (const auto &result : results) {
     size_t index = result.second;
     if (index < polygons.size()) {
       auto &polygon = polygons[index];
-      auto intersections = polygon->intersection(intersectionPolygon);
-      for (const auto &intersectedPolygon : intersections) {
-        GeometryUtils::AffineTransform(*intersectedPolygon->polygon, coordinates, scaling);
-        intersectedPolygons.push_back(intersectedPolygon);
+      auto intersections = polygon->intersection(intersection_polygon);
+      for (const auto &intersected_polygon : intersections) {
+        GeometryUtils::AffineTransform(*intersected_polygon->polygon, coordinates, scaling);
+        intersected_polygons.push_back(intersected_polygon);
       }
     } else {
       auto &point = points[index - polygons.size()];
-      auto transformedPoint = std::make_shared<Point>(*point);
-      GeometryUtils::applyAffineTransformation(*transformedPoint->point, coordinates, scaling);
-      intersectedPoints.push_back(transformedPoint);
+      auto transformed_point = std::make_shared<Point>(*point);
+      GeometryUtils::AffineTransform(*transformed_point->point, coordinates, scaling);
+      intersected_points.push_back(transformed_point);
     }
   }
-  auto returnValue = AnnotationRegion(std::move(intersectedPolygons), std::move(intersectedPoints), std::move(size));
+  auto returnValue = AnnotationRegion(std::move(intersected_polygons), std::move(intersected_points), std::move(size));
 
   return returnValue;
 }

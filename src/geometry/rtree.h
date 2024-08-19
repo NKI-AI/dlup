@@ -20,7 +20,7 @@ class RTreeBase {
 
   virtual ~RTreeBase() = default;
 
-  virtual void rebuild() = 0; // Pure virtual function for rebuilding the R-tree
+  virtual void Rebuild() = 0; // Pure virtual function for rebuilding the R-tree
 
   void insert(const BoostBox &box, size_t index) {
     rtree.insert(std::make_pair(box, index));
@@ -30,19 +30,19 @@ class RTreeBase {
   template <typename QueryType, typename OutputIterator>
   void query(const QueryType &query, OutputIterator out) {
     if (rTreeInvalidated) {
-      rebuild();
+      Rebuild();
     }
     rtree.query(query, out);
   }
 
-  void invalidate() { rTreeInvalidated = true; }
+  void Invalidate() { rTreeInvalidated = true; }
 
   void clear() {
     rtree.clear();
     rTreeInvalidated = true;
   }
 
-  bool isInvalidated() const { return rTreeInvalidated; }
+  bool IsInvalidated() const { return rTreeInvalidated; }
 
   protected:
   RTreeType rtree;
