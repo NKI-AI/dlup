@@ -1,0 +1,63 @@
+<DlupAnnotations version="1.0">
+    <Metadata>
+        <ImageID>IMG_12345</ImageID>
+        <Description>Sample annotations with polygons, multipolygons, points, and boxes.</Description>
+        <Version>1.0</Version>
+        <Authors>
+            <Author>Jane Doe</Author>
+            <Author>John Smith</Author>
+        </Authors>
+        <DateCreated>2024-08-19</DateCreated>
+        <Software>dlup v0.8.0</Software>
+    </Metadata>
+
+    <Tags>
+        <Tag label="test" color="#FF5733">
+            <Attribute color="#336699">Attribute 1</Attribute>
+            <Attribute>Attribute 2</Attribute>
+            <Text>This is the single text field for this tag.</Text>
+        </Tag>
+    </Tags>
+    
+    <Geometries>
+        <!-- Polygon, MultiPolygon and Box can appear in any arbitrary order-->
+        <Polygon label="Polygon1" color="#FF5733">
+            <Exterior>
+                <Point x="0.0" y="0.0"/>
+                <Point x="4.0" y="0.0"/>
+                <Point x="4.0" y="4.0"/>
+                <Point x="0.0" y="4.0"/>
+                <Point x="0.0" y="0.0"/>
+            </Exterior>
+        </Polygon>
+
+        <Box xMin="5.0" yMin="5.0" xMax="10.0" yMax="10.0" label="Box1" color="#33FF57"/>
+
+        <MultiPolygon label="MultiPolygon1" color="#3357FF">
+            <Polygon>
+                <Exterior>
+                    <Point x="10.0" y="10.0"/>
+                    <Point x="14.0" y="10.0"/>
+                    <Point x="14.0" y="14.0"/>
+                    <Point x="10.0" y="14.0"/>
+                    <Point x="10.0" y="10.0"/>
+                </Exterior>
+            </Polygon>
+            <Polygon>
+                <Exterior>
+                    <Point x="20.0" y="20.0"/>
+                    <Point x="24.0" y="20.0"/>
+                    <Point x="24.0" y="24.0"/>
+                    <Point x="20.0" y="24.0"/>
+                    <Point x="20.0" y="20.0"/>
+                </Exterior>
+            </Polygon>
+        </MultiPolygon>
+
+        <!-- All Points are at the bottom -->
+        <Point x="1.0" y="2.0" label="Point1" color="#FF5733"/>
+        <Point x="3.0" y="4.0" label="Point2" color="#33FF57"/>
+
+
+    </Geometries>
+</DlupAnnotations>

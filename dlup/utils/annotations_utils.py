@@ -14,6 +14,32 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     return r, g, b
 
 
+def rgb_to_hex(r: int, g: int, b: int) -> str:
+    """
+    Convert RGB color to HEX.
+
+    Parameters
+    ----------
+    r : int
+        Red value (0-255)
+    g : int
+        Green value (0-255)
+    b : int
+        Blue value (0-255)
+
+    Returns
+    -------
+    str
+        HEX color code
+    """
+    # Ensure the RGB values are within the correct range
+    if not (0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255):
+        raise ValueError("RGB values must be in the range 0-255.")
+
+    # Convert RGB to HEX
+    return "#{:02X}{:02X}{:02X}".format(r, g, b)
+
+
 def get_geojson_color(properties: dict[str, str | list[int]]) -> Optional[tuple[int, int, int]]:
     """Parse the properties dictionary of a GeoJSON object to get the color.
 

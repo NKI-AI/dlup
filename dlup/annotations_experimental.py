@@ -13,18 +13,28 @@ import os
 import pathlib
 import warnings
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Iterable, NamedTuple, Optional, Type, TypedDict, TypeVar
 
 import numpy as np
 import numpy.typing as npt
+from xsdata.formats.dataclass.serializers import XmlSerializer
+from xsdata.formats.dataclass.serializers.config import SerializerConfig
+from xsdata.models.datatype import XmlDate
 
+from dlup import __version__
 from dlup._exceptions import AnnotationError
 from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import GenericNumber, PathLike
 from dlup.geometry import GeometryCollection, Point, Polygon
-from dlup.utils.annotations_utils import get_geojson_color, hex_to_rgb
+from dlup.utils.annotations_utils import get_geojson_color, hex_to_rgb, rgb_to_hex
+from dlup.utils.geometry_xml import create_xml_geometries
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
+from dlup.utils.schemas.generated import DlupAnnotations as XMLDlupAnnotations
+from dlup.utils.schemas.generated import Metadata as XMLMetadata
+from dlup.utils.schemas.generated import Tag as XMLTag
+from dlup.utils.schemas.generated import Tags as XMLTags
 
 _TSlideAnnotations = TypeVar("_TSlideAnnotations", bound="SlideAnnotations")
 
@@ -513,6 +523,64 @@ class SlideAnnotations:
             data["features"].append(json_dict)
 
         return data
+
+    def as_dlup_xml(
+        self,
+        image_id: Optional[str] = None,
+        description: Optional[str] = None,
+        version: Optional[str] = None,
+        authors: Optional[list[str]] = None,
+        pretty_print: bool = True,
+    ) -> str:
+        """
+        Output the annotations as DLUP XML.
+        This format supports the complete serialization of a SlideAnnotations object.
+
+        Parameters
+        ----------
+        image_id : str, optional
+            The image ID corresponding to this annotation.
+        description : str, optional
+            Description of the annotations.
+        version : str, optional
+            Version of the annotations.
+        authors : list[str], optional
+            Authors of the annotations.
+        pretty_print : bool, optional
+            Whether to pretty print the XML output.
+
+        Returns
+        -------
+        str
+            The output as a DLUP XML string.
+        """
+
+        metadata = XMLMetadata(
+            image_id=image_id if image_id is not None else "",
+            description=description if description is not None else "",
+            version=version if version is not None else "",
+            authors=XMLMetadata.Authors(authors) if authors is not None else None,
+            date_created=XmlDate.from_string(datetime.now().strftime("%Y-%m-%d")),
+            software=f"dlup {__version__}",
+        )
+        xml_tags: list[XMLTag] = []
+        if self.tags:
+            for tag in self.tags:
+                xml_tag = XMLTag(attribute=[], label=tag.label, color=rgb_to_hex(*tag.color) if tag.color else None)
+                xml_tags.append(xml_tag)
+
+        tags = XMLTags(tag=xml_tags) if xml_tags else None
+
+        geometries = create_xml_geometries(self._layers)
+
+        extra_annotation_params: dict[str, XMLTags] = {}
+        if tags:
+            extra_annotation_params["tags"] = tags
+
+        dlup_annotations = XMLDlupAnnotations(metadata=metadata, geometries=geometries, **extra_annotation_params)
+        config = SerializerConfig(pretty_print=pretty_print)
+        serializer = XmlSerializer(config=config)
+        return serializer.render(dlup_annotations)
 
     @property
     def bounding_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
