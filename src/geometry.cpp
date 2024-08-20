@@ -49,10 +49,13 @@ PYBIND11_MODULE(_geometry, m) {
       .def("correct_orientation", &Polygon::correctIfNeeded)
       .def("simplify", &Polygon::simplifyPolygon)
       .def("contains", &Polygon::contains, py::arg("other"),
-           "Check if the polygon fully contains another polygon. Does not check if the fields are equals")
+           "Check if the polygon fully contains another polygon. Does not check if the fields are equal")
+      .def("make_valid", &Polygon::makeValid,
+           "Make the polygon valid by removing self-intersections and duplicate points")
       .def("equals", &Polygon::equals, py::arg("other"),
            "Check if the polygon is equal to another polygon. Checks if the fields are equal.")
       .def_property_readonly("wkt", &Polygon::toWkt)
+      .def_property_readonly("is_valid", &Polygon::isValid)
       .def_property_readonly("area", &Polygon::getArea);
 
   py::class_<Point, BaseGeometry, std::shared_ptr<Point>>(m, "Point")

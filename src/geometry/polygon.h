@@ -49,6 +49,9 @@ class Polygon : public BaseGeometry {
   std::vector<std::vector<std::pair<double, double>>> getInteriors() const;
 
   bool contains(const Polygon &other) const { return bg::within(*(other.polygon), *polygon); }
+  bool isValid() const { return bg::is_valid(*polygon); }
+
+  void makeValid() { *polygon = geometry_utils::MakeValid(*polygon); }
 
   ExteriorRing getExteriorAsIterator() { return bg::exterior_ring(*polygon); }
   InteriorRings getInteriorAsIterator() { return polygon->inners(); }

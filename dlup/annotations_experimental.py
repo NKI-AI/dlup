@@ -31,7 +31,7 @@ from dlup._types import GenericNumber, PathLike
 from dlup.geometry import GeometryCollection, Point, Polygon
 from dlup.utils.annotations_utils import get_geojson_color, hex_to_rgb, rgb_to_hex
 from dlup.utils.geometry_xml import create_xml_geometries
-from dlup.utils.imports import DARWIN_SDK_AVAILABLE
+from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 from dlup.utils.schemas.generated import DlupAnnotations as XMLDlupAnnotations
 from dlup.utils.schemas.generated import Metadata as XMLMetadata
 from dlup.utils.schemas.generated import Tag as XMLTag
@@ -228,7 +228,13 @@ def geojson_to_dlup(
     raise AnnotationError(f"Unsupported geom_type {geom_type}")
 
 
+class TagAttribute(NamedTuple):
+    label: str
+    color: Optional[tuple[int, int, int]]
+
+
 class SlideTag(NamedTuple):
+    attributes: Optional[list[TagAttribute]]
     label: str
     color: Optional[tuple[int, int, int]]
 
@@ -241,11 +247,12 @@ class SlideAnnotations:
         layers: GeometryCollection,
         tags: Optional[tuple[SlideTag, ...]] = None,
         sorting: Optional[AnnotationSorting | str] = None,
+        **kwargs: Any,
     ) -> None:
         self._layers = layers
         self._tags = tags
         self._sorting = sorting
-        self._offset_to_slide_bounds = False
+        self._offset_to_slide_bounds: bool = bool(kwargs.get("offset_to_slide_bounds", False))
 
     @property
     def sorting(self) -> Optional[AnnotationSorting | str]:
@@ -262,6 +269,10 @@ class SlideAnnotations:
     @property
     def num_points(self) -> int:
         return len(self._layers.points)
+
+    @property
+    def requires_offset_to_slide_bounds(self) -> bool:
+        return self._offset_to_slide_bounds
 
     @classmethod
     def from_geojson(
@@ -439,7 +450,19 @@ class SlideAnnotations:
             annotation_color = v7_metadata[(name, annotation_type)].color if v7_metadata else None
 
             if annotation_type == "tag":
-                tags.append(SlideTag(label=name, color=annotation_color if annotation_color else None))
+                attributes = []
+                if curr_annotation.subs:
+                    for subannotation in curr_annotation.subs:
+                        if subannotation.annotation_type == "attributes":
+                            attributes.append(TagAttribute(label=subannotation.data, color=None))
+
+                tags.append(
+                    SlideTag(
+                        attributes=attributes if attributes is not [] else None,
+                        label=name,
+                        color=annotation_color if annotation_color else None,
+                    )
+                )
                 continue
 
             z_index = None if annotation_type == "keypoint" or z_indices is None else z_indices[name]
@@ -511,7 +534,7 @@ class SlideAnnotations:
             for tag in dlup_annotations.tags.tag:
                 if not tag.label:
                     raise ValueError("Tag does not have a label.")
-                curr_tag = SlideTag(label=tag.label, color=hex_to_rgb(tag.color) if tag.color else None)
+                curr_tag = SlideTag(attributes=[], label=tag.label, color=hex_to_rgb(tag.color) if tag.color else None)
                 tags.append(curr_tag)
 
         collection = GeometryCollection()
@@ -564,6 +587,67 @@ class SlideAnnotations:
             raise NotImplementedError("Multipoints are not supported.")
 
         return cls(layers=collection, tags=tuple(tags))
+
+    @classmethod
+    def from_halo_xml(
+        cls: Type[_TSlideAnnotations],
+        halo_xml: PathLike,
+        scaling: float | None = None,
+        sorting: AnnotationSorting | str = AnnotationSorting.NONE,
+    ) -> _TSlideAnnotations:
+        """
+        Read annotations as a Halo [1] XML file.
+        This function requires `pyhaloxml` [2] to be installed.
+
+        Parameters
+        ----------
+        halo_xml : PathLike
+            Path to the Halo XML file.
+        scaling : float, optional
+            The scaling to apply to the annotations.
+        sorting: AnnotationSorting
+            The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information. By default
+            the annotations are not sorted as HALO supports hierarchical annotations.
+
+        References
+        ----------
+        .. [1] https://indicalab.com/halo/
+        .. [2] https://github.com/rharkes/pyhaloxml
+
+        Returns
+        -------
+        SlideAnnotations
+        """
+        if not PYHALOXML_AVAILABLE:
+            raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
+        import pyhaloxml.shapely
+
+        collection = GeometryCollection()
+        with pyhaloxml.HaloXMLFile(halo_xml) as hx:
+            hx.matchnegative()
+            for layer in hx.layers:
+                _color = layer.linecolor.rgb
+                color = (_color[0], _color[1], _color[2])
+                for region in layer.regions:
+                    if region.type == pyhaloxml.RegionType.Rectangle:
+                        warnings.warn(
+                            f"Rectangle annotations are not supported. Annotation {layer.name} will be skipped",
+                            UserWarning,
+                        )
+                        continue
+                    elif region.type in [pyhaloxml.RegionType.Ellipse, pyhaloxml.RegionType.Polygon]:
+                        polygon = Polygon(
+                            region.getvertices(), [x.getvertices() for x in region.holes], label=layer.name, color=color
+                        )
+                        collection.add_polygon(polygon)
+                    elif region.type == pyhaloxml.RegionType.Pin:
+                        point = Point(*region.getvertices(), label=layer.name, color=color)
+                        collection.add_point(point)
+                    else:
+                        raise NotImplementedError(f"Regiontype {region.type} is not implemented in dlup")
+
+        SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
+        return cls(collection, tags=None, sorting=sorting, offset_to_slide_bounds=True)
 
     @staticmethod
     def _in_place_sort_and_scale(
@@ -646,7 +730,16 @@ class SlideAnnotations:
         xml_tags: list[XMLTag] = []
         if self.tags:
             for tag in self.tags:
-                xml_tag = XMLTag(attribute=[], label=tag.label, color=rgb_to_hex(*tag.color) if tag.color else None)
+                if tag.attributes:
+                    attrs = [
+                        XMLTag.Attribute(value=_.label, color=rgb_to_hex(*_.color) if _.color else None)
+                        for _ in tag.attributes
+                    ]
+                xml_tag = XMLTag(
+                    attribute=attrs if tag.attributes else [],
+                    label=tag.label,
+                    color=rgb_to_hex(*tag.color) if tag.color else None,
+                )
                 xml_tags.append(xml_tag)
 
         tags = XMLTags(tag=xml_tags) if xml_tags else None
@@ -972,6 +1065,26 @@ class SlideAnnotations:
         None
         """
         self._layers.reindex_polygons(index_map)
+
+    def relabel_polygons(self, relabel_map: dict[str, str]) -> None:
+        """
+        Relabel the polygons in the annotations. This operation will be performed in-place.
+
+        Parameters
+        ----------
+        relabel_map : dict[str, str]
+            A dictionary that maps the label to the new label.
+
+        Returns
+        -------
+        None
+        """
+        # TODO: Implement in C++
+        for polygon in self._layers.polygons:
+            if not polygon.label:
+                continue
+            if polygon.label in relabel_map:
+                polygon.label = relabel_map[polygon.label]
 
     def filter_polygons(self, label: str) -> None:
         """Filter polygons in-place.
