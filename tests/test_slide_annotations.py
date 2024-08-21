@@ -99,7 +99,7 @@ DLUP_XML_EXAMPLE = b"""<DlupAnnotations version="1.0">
                     <Point x="3.5" y="0.5"/>
                     <Point x="3.5" y="3.5"/>
                     <Point x="0.5" y="3.5"/>
-                    <Point x="0.5" y="0.5"/>              
+                    <Point x="0.5" y="0.5"/>
                 </Interior>
             </Interiors>
         </Polygon>

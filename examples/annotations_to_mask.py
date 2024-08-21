@@ -2,7 +2,9 @@
 """This code provides an example of how to convert annotations to a mask."""
 import json
 from pathlib import Path
+
 import PIL.Image
+
 from dlup.annotations_experimental import SlideAnnotations
 
 fn = Path("/Users/j.teuwen/Downloads/TCGA-E9-A1R4-01Z-00-DX1.B04D5A22-8CE5-49FD-8510-14444F46894D.geojson")

@@ -419,7 +419,7 @@ class GeometryCollection(_dg.GeometryCollection):
         for point in points:
             self.add_point(point)
 
-    def __copy__(self):
+    def __copy__(self) -> "GeometryCollection":
         collection = GeometryCollection()
         for polygon in self.polygons:
             collection.add_polygon(polygon.__copy__())
