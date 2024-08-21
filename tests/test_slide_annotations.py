@@ -3,6 +3,7 @@
 """Test the annotation facilities."""
 import copy
 import json
+import os
 import pathlib
 import pickle
 import tempfile
@@ -39,6 +40,71 @@ ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
     </AnnotationGroups>
 </ASAP_Annotations>"""
 
+# <MultiPolygon label="MultiPolygon1" color="#3357FF" order="1">
+#     <Polygon>
+#         <Exterior>
+#             <Point x="10.0" y="10.0"/>
+#             <Point x="14.0" y="10.0"/>
+#             <Point x="14.0" y="14.0"/>
+#             <Point x="10.0" y="14.0"/>
+#             <Point x="10.0" y="10.0"/>
+#         </Exterior>
+#     </Polygon>
+#     <Polygon>
+#         <Exterior>
+#             <Point x="20.0" y="20.0"/>
+#             <Point x="24.0" y="20.0"/>
+#             <Point x="24.0" y="24.0"/>
+#             <Point x="20.0" y="24.0"/>
+#             <Point x="20.0" y="20.0"/>
+#         </Exterior>
+#     </Polygon>
+# </MultiPolygon>
+
+
+DLUP_XML_EXAMPLE = b"""<DlupAnnotations version="1.0">
+    <Metadata>
+        <ImageID>IMG_12345</ImageID>
+        <Description>Sample annotations with polygons, multipolygons, points, and boxes.</Description>
+        <Version>1.0</Version>
+        <Authors>
+            <Author>Jane Doe</Author>
+            <Author>John Smith</Author>
+        </Authors>
+        <DateCreated>2024-08-19</DateCreated>
+        <Software>dlup v0.8.0</Software>
+    </Metadata>
+
+    <Tags>
+        <Tag label="test" color="#FF5733">
+            <Attribute color="#336699">Attribute 1</Attribute>
+            <Attribute>Attribute 2</Attribute>
+            <Text>This is the single text field for this tag.</Text>
+        </Tag>
+    </Tags>
+
+    <Geometries>
+        <!-- Polygon, MultiPolygon and Box can appear in any arbitrary order-->
+        <Polygon label="Polygon1" color="#FF5733" order="0>
+            <Exterior>
+                <Point x="0.0" y="0.0"/>
+                <Point x="4.0" y="0.0"/>
+                <Point x="4.0" y="4.0"/>
+                <Point x="0.0" y="4.0"/>
+                <Point x="0.0" y="0.0"/>
+            </Exterior>
+        </Polygon>
+
+        <Box xMin="5.0" yMin="5.0" xMax="10.0" yMax="10.0" label="Box1" color="#33FF57" order="1" />
+
+        <!-- All Points are at the bottom -->
+        <Point x="1.0" y="2.0" label="Point1" color="#FF5733"/>
+        <Point x="3.0" y="4.0" label="Point2" color="#33FF57"/>
+
+    </Geometries>
+</DlupAnnotations>
+"""
+
 
 class TestAnnotations:
     with tempfile.NamedTemporaryFile(suffix=".xml") as asap_file:
@@ -47,12 +113,17 @@ class TestAnnotations:
         asap_annotations = SlideAnnotations.from_asap_xml(pathlib.Path(asap_file.name))
         asap_annotations.rebuild_rtree()
 
+    with tempfile.NamedTemporaryFile(suffix=".xml") as dlup_file:
+        dlup_file.write(DLUP_XML_EXAMPLE)
+        dlup_file.flush()
+        dlup_annotations = SlideAnnotations.from_dlup_xml(pathlib.Path(dlup_file.name))
+
     with tempfile.NamedTemporaryFile(suffix=".json") as geojson_out:
         asap_geojson = asap_annotations.as_geojson()
         geojson_out.write(json.dumps(asap_geojson).encode("utf-8"))
         geojson_out.flush()
 
-        geojson_annotations = SlideAnnotations.from_geojson([pathlib.Path(geojson_out.name)])
+        geojson_annotations = SlideAnnotations.from_geojson(pathlib.Path(geojson_out.name))
 
     _v7_annotations = None
     _v7_raster_annotations = None
@@ -74,12 +145,12 @@ class TestAnnotations:
             with pytest.raises(NotImplementedError):
                 SlideAnnotations.from_darwin_json(pathlib.Path(__file__).parent / "files/raster.json")
 
-    def test_conversion_geojson(self):
+    def test_conversion_geojson_v7(self):
         # We need to read the asap annotations and compare them to the geojson annotations
         with tempfile.NamedTemporaryFile(suffix=".json") as geojson_out:
             geojson_out.write(json.dumps(self.v7_annotations.as_geojson()).encode("utf-8"))
             geojson_out.flush()
-            annotations = SlideAnnotations.from_geojson([pathlib.Path(geojson_out.name)], sorting="NONE")
+            annotations = SlideAnnotations.from_geojson(pathlib.Path(geojson_out.name), sorting="NONE")
 
         assert self.v7_annotations.num_points == annotations.num_points
         assert self.v7_annotations.num_polygons == annotations.num_polygons
@@ -103,8 +174,20 @@ class TestAnnotations:
             assert elem0.wkt == elem1.wkt
             assert elem0.label == elem1.label
 
+    def test_reexpert_dlup_xml(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml") as dlup_file:
+            with open(dlup_file.name, "w") as f:
+                f.write(self.dlup_annotations.as_dlup_xml())
+
+            annotations = SlideAnnotations.from_dlup_xml(dlup_file.name)
+            assert self.dlup_annotations._layers == annotations._layers
+            assert self.dlup_annotations.tags == annotations.tags
+            assert self.dlup_annotations.sorting == annotations.sorting
+            assert self.dlup_annotations.offset_function == annotations.offset_function
+            assert self.dlup_annotations == annotations
+
     def test_reading_qupath05_geojson_export(self):
-        annotations = SlideAnnotations.from_geojson([pathlib.Path("tests/files/qupath05.geojson")])
+        annotations = SlideAnnotations.from_geojson(pathlib.Path("tests/files/qupath05.geojson"))
         assert len(annotations.available_classes) == 2
 
     def test_asap_to_geojson(self):
@@ -167,6 +250,30 @@ class TestAnnotations:
         assert annotations.tags == self.asap_annotations.tags
         assert annotations._layers == self.asap_annotations._layers
 
+    def test_reindex_polygons(self):
+        ann = self.dlup_annotations.copy()
+        ann.reindex_polygons({"Polygon1": 7})
+        for polygon in ann._layers.polygons:
+            assert polygon.index == 7
+
+    def test_relabel_polygons(self):
+        ann = self.dlup_annotations.copy()
+        ann.relabel_polygons({"Polygon1": "Polygon2"})
+        for polygon in ann._layers.polygons:
+            assert polygon.label == "Polygon2"
+
+    @pytest.mark.parametrize("scaling", [0.5, 0.3, 1.0])
+    def test_bounding_box(self, scaling):
+        assert self.v7_annotations.bounding_box == (
+            (15291.49, 18094.48),
+            (5122.9400000000005, 4597.509999999998),
+        )
+
+        assert self.v7_annotations.bounding_box_at_scaling(scaling) == (
+            (15291.49 * scaling, 18094.48 * scaling),
+            (5122.9400000000005 * scaling, 4597.509999999998 * scaling),
+        )
+
     def test_read_darwin_v7(self):
         if not DARWIN_SDK_AVAILABLE:
             return None
@@ -183,6 +290,7 @@ class TestAnnotations:
             (15291.49, 18094.48),
             (5122.9400000000005, 4597.509999999998),
         )
+
         region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
 
         expected_output_polygon = [
@@ -202,10 +310,13 @@ class TestAnnotations:
             (585.8433000000018, "tumor (cell)"),
         ]
         for x, y in zip(region.polygons, expected_output_polygon):
-            if x.area <= 1:
-                assert np.allclose(x.area, y[0], atol=1e-3)
+            if os.environ.get("GITHUB_ACTIONS", False):
+                if x.area <= 1:
+                    assert np.allclose(x.area, y[0], atol=1e-3)
+                else:
+                    assert np.allclose(x.area, y[0])
             else:
-                assert np.allclose(x.area, y[0])
+                assert [(_.area, _.label) for _ in region.polygons] == expected_output_polygon
             assert x.label == y[1]
         assert len(region.points) == 3
 

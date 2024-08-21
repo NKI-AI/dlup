@@ -2,9 +2,15 @@ from typing import Optional, cast
 
 
 def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
-    if "#" not in hex_color:
+    if not hex_color.startswith("#"):
         if hex_color == "black":
             return 0, 0, 0
+        else:
+            raise ValueError(f"Invalid HEX color code {hex_color}")
+
+    if len(hex_color) not in [7, 4]:
+        raise ValueError(f"Invalid HEX color code {hex_color}")
+
     hex_color = hex_color.lstrip("#")
 
     # Convert the string from hex to an integer and extract each color component

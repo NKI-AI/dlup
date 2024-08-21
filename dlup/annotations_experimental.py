@@ -252,7 +252,7 @@ class SlideAnnotations:
         self._layers = layers
         self._tags = tags
         self._sorting = sorting
-        self._offset_to_slide_bounds: bool = bool(kwargs.get("offset_to_slide_bounds", False))
+        self._offset_function: bool = bool(kwargs.get("offset_function", False))
 
     @property
     def sorting(self) -> Optional[AnnotationSorting | str]:
@@ -271,13 +271,36 @@ class SlideAnnotations:
         return len(self._layers.points)
 
     @property
-    def requires_offset_to_slide_bounds(self) -> bool:
-        return self._offset_to_slide_bounds
+    def offset_function(self) -> Any:
+        """
+        In some cases a function needs to be applied to the coordinates which cannot be handled in this class as
+        it might require additional information. This function will be applied to the coordinates of all annotations. This is useful
+        from a file format which requires this, for instance HaloXML.
+
+        Example
+        -------
+        For HaloXML this is `offset = slide.slide_bounds[0] - slide.slide_bounds[0] % 256`.
+        >>> slide = Slide.from_file_path("image.svs")
+        >>> ann = SlideAnnotations.from_halo_xml("annotations.xml")
+        >>> assert ann.offset_function == lambda slide: slide.slide_bounds[0] - slide.slide_bounds[0] % 256
+        >>> ann.set_offset(annotation.offset_function(slide))
+
+        Returns
+        -------
+        Callable
+
+        """
+        return self._offset_function
+
+    @property
+    def layers(self) -> GeometryCollection:
+        """Get the layers of the annotations. This is a GeometryCollection object which contains all the polygons and points"""
+        return self._layers
 
     @classmethod
     def from_geojson(
         cls: Type[_TSlideAnnotations],
-        geojsons: PathLike | Iterable[PathLike],
+        geojsons: PathLike,
         scaling: float | None = None,
         sorting: AnnotationSorting | str = AnnotationSorting.NONE,
     ) -> _TSlideAnnotations:
@@ -286,8 +309,8 @@ class SlideAnnotations:
 
         Parameters
         ----------
-        geojsons : Iterable, or PathLike
-            List of geojsons representing objects. The properties object must have the name which is the label of this
+        geojsons : PathLike
+            GeoJSON file. In the properties key there must be a name which is the label of this
             object.
         scaling : float, optional
             Scaling factor. Sometimes required when GeoJSON annotations are stored in a different resolution than the
@@ -300,41 +323,33 @@ class SlideAnnotations:
         -------
         SlideAnnotations
         """
-        if isinstance(geojsons, str):
-            _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
-
-        _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
-        geometries: list[Polygon | Point] = []
-        for path in _geojsons:
-            path = pathlib.Path(path)
-            if not path.exists():
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
-
-            with open(path, "r", encoding="utf-8") as annotation_file:
-                geojson_dict = json.load(annotation_file)
-                features = geojson_dict["features"]
-                for x in features:
-                    properties = x["properties"]
-                    if "classification" in properties:
-                        _label = properties["classification"]["name"]
-                        _color = get_geojson_color(properties["classification"])
-                    elif properties.get("objectType", None) == "annotation":
-                        _label = properties["name"]
-                        _color = get_geojson_color(properties)
-                    else:
-                        raise ValueError("Could not find label in the GeoJSON properties.")
-
-                    _geometry = geojson_to_dlup(x["geometry"], label=_label, color=_color)
-                    geometries += _geometry
-
         collection = GeometryCollection()
-        for layer in geometries:
-            if isinstance(layer, Polygon):
-                collection.add_polygon(layer)
-            elif isinstance(layer, Point):
-                collection.add_point(layer)
-            else:
-                raise ValueError(f"Unsupported layer type {type(layer)}")
+        path = pathlib.Path(geojsons)
+        if not path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
+
+        with open(path, "r", encoding="utf-8") as annotation_file:
+            geojson_dict = json.load(annotation_file)
+            features = geojson_dict["features"]
+            for x in features:
+                properties = x["properties"]
+                if "classification" in properties:
+                    _label = properties["classification"]["name"]
+                    _color = get_geojson_color(properties["classification"])
+                elif properties.get("objectType", None) == "annotation":
+                    _label = properties["name"]
+                    _color = get_geojson_color(properties)
+                else:
+                    raise ValueError("Could not find label in the GeoJSON properties.")
+
+                _geometries = geojson_to_dlup(x["geometry"], label=_label, color=_color)
+                for geometry in _geometries:
+                    if isinstance(geometry, Polygon):
+                        collection.add_polygon(geometry)
+                    elif isinstance(geometry, Point):
+                        collection.add_point(geometry)
+                    else:
+                        raise ValueError(f"Unsupported geometry type {geometry}")
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
         return cls(layers=collection)
@@ -371,7 +386,6 @@ class SlideAnnotations:
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
         collection: GeometryCollection = GeometryCollection()
-        opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
                 if child.tag != "Annotation":
@@ -385,12 +399,10 @@ class SlideAnnotations:
                 if annotation_type == "pointset":
                     for point in coordinates:
                         collection.add_point(Point(point, label=label, color=color))
-                        opened_annotations += 1
 
                 elif annotation_type == "polygon":
                     polygon = Polygon(coordinates, [], label=label, color=color)
                     collection.add_polygon(polygon)
-                    opened_annotations += 1
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
         return cls(layers=collection)
@@ -439,6 +451,7 @@ class SlideAnnotations:
         v7_metadata = get_v7_metadata(darwin_json_fn.parent)
 
         tags = []
+        polygons: list[tuple[Polygon, int]] = []
 
         collection = GeometryCollection()
         for curr_annotation in darwin_an.annotations:
@@ -458,14 +471,14 @@ class SlideAnnotations:
 
                 tags.append(
                     SlideTag(
-                        attributes=attributes if attributes is not [] else None,
+                        attributes=attributes if attributes != [] else None,
                         label=name,
                         color=annotation_color if annotation_color else None,
                     )
                 )
                 continue
 
-            z_index = None if annotation_type == "keypoint" or z_indices is None else z_indices[name]
+            z_index = 0 if annotation_type == "keypoint" or z_indices is None else z_indices[name]
             curr_data = curr_annotation.data
 
             if annotation_type == "keypoint":
@@ -480,15 +493,11 @@ class SlideAnnotations:
                     curr_polygon = Polygon(
                         [(_["x"], _["y"]) for _ in curr_data["path"]], [], label=name, color=annotation_color
                     )
-                    if z_index is not None:
-                        curr_polygon.set_field("z_index", z_index)
-                    collection.add_polygon(curr_polygon)
+                    polygons.append((curr_polygon, z_index))
 
                 elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
                     for curr_polygon in _parse_darwin_complex_polygon(curr_data, label=name, color=annotation_color):
-                        if z_index is not None:
-                            curr_polygon.set_field("z_index", z_index)
-                        collection.add_polygon(curr_polygon)
+                        polygons.append((curr_polygon, z_index))
                 else:
                     raise ValueError(f"Got unexpected data keys: {curr_data.keys()}")
             elif annotation_type == "bounding_box":
@@ -499,12 +508,13 @@ class SlideAnnotations:
                 curr_polygon = Polygon(
                     [(x, y), (x + w, y), (x + w, y + h), (x, y + h)], [], label=name, color=annotation_color
                 )
-                if z_index is not None:
-                    curr_polygon.set_field("z_index", z_index)
-                collection.add_polygon(curr_polygon)
+                polygons.append((curr_polygon, z_index))
 
             else:
                 raise ValueError(f"Annotation type {annotation_type} is not supported.")
+
+        for polygon, _ in sorted(polygons, key=lambda x: x[1]):
+            collection.add_polygon(polygon)
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
         return cls(layers=collection, tags=tuple(tags), sorting=sorting)
@@ -647,7 +657,9 @@ class SlideAnnotations:
                         raise NotImplementedError(f"Regiontype {region.type} is not implemented in dlup")
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
-        return cls(collection, tags=None, sorting=sorting, offset_to_slide_bounds=True)
+        def offset_function(slide):
+            return slide.slide_bounds[0] - slide.slide_bounds[0] % 256
+        return cls(collection, tags=None, sorting=sorting, offset_function=offset_function)
 
     @staticmethod
     def _in_place_sort_and_scale(
@@ -865,10 +877,10 @@ class SlideAnnotations:
         if isinstance(other, SlideAnnotations):
             if not self.sorting == other.sorting:
                 raise TypeError("Cannot add annotations with different sorting.")
-            if self._offset_to_slide_bounds != other._offset_to_slide_bounds:
+            if self.offset_function != other.offset_function:
                 raise TypeError(
                     "Cannot add annotations with different requirements for offsetting to slide bounds "
-                    "(`_offset_to_slide_bounds`)."
+                    "(`offset_function`)."
                 )
 
             tags: tuple[SlideTag, ...] = ()
@@ -927,10 +939,9 @@ class SlideAnnotations:
                     self._layers.add_point(copy.deepcopy(item))
 
         elif isinstance(other, SlideAnnotations):
-            if self.sorting != other.sorting or self.offset_to_slide_bounds != other.offset_to_slide_bounds:
+            if self.sorting != other.sorting or self.offset_function != other.offset_function:
                 raise ValueError(
-                    f"Both sorting and offset_to_slide_bounds must be the same to "
-                    f"add {self.__class__.__name__}s together."
+                    f"Both sorting and offset_function must be the same to " f"add {self.__class__.__name__}s together."
                 )
 
             if self._tags is None:
@@ -972,6 +983,21 @@ class SlideAnnotations:
 
     def __rsub__(self, other: Any) -> "SlideAnnotations":
         return NotImplemented
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, SlideAnnotations):
+            return False
+
+        if self._tags != other._tags:
+            return False
+
+        if self._layers != other._layers:
+            return False
+
+        if self._sorting != other._sorting:
+            return False
+
+        return True
 
     def read_region(
         self,
@@ -1023,19 +1049,6 @@ class SlideAnnotations:
         None
         """
         self._layers.set_offset(offset)
-
-    @property
-    def offset_to_slide_bounds(self) -> bool:
-        """
-        If True, the annotations need to be offset to the slide bounds. This is useful when the annotations are read
-        from a file format which requires this, for instance HaloXML. When set, yo uwill need to call `set_offset()` to
-        apply the offset to the annotations.
-
-        Returns
-        -------
-        bool
-        """
-        return self._offset_to_slide_bounds
 
     def rebuild_rtree(self) -> None:
         """

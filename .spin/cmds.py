@@ -27,9 +27,26 @@ def test(verbose, tests):
     cmd = ["pytest"]
     if verbose:
         cmd.append("-v")
+    if coverage:
+        cmd.extend(["--cov=dlup --cov=tests --cov-report=html --cov-report=term"])
     if tests:
         cmd.extend(tests)
     subprocess.run(cmd, check=True)
+
+
+@cli.command()
+@click.option("-v", "--verbose", is_flag=True, help="Verbose output")
+@click.argument("tests", nargs=-1)
+def coverage(verbose, tests):
+    """🧪 Run tests and generate coverage report"""
+    cmd = ["pytest", "--cov=dlup", "--cov=tests", "--cov-report=html", "--cov-report=term"]
+    if verbose:
+        cmd.append("-v")
+    if tests:
+        cmd.extend(tests)
+    subprocess.run(cmd, check=True)
+    coverage_path = Path.cwd() / "htmlcov" / "index.html"
+    webbrowser.open(f"file://{coverage_path.resolve()}")
 
 
 @cli.command()
@@ -131,17 +148,6 @@ def clean():
         path = Path(file)
         if path.exists():
             path.unlink()
-
-
-@cli.command()
-def coverage():
-    """🧪 Run tests and generate coverage report"""
-    subprocess.run(["coverage", "run", "--source", "dlup", "-m", "pytest"], check=True)
-    subprocess.run(["coverage", "report", "-m"], check=True)
-    subprocess.run(["coverage", "html"], check=True)
-    coverage_path = Path.cwd() / "htmlcov" / "index.html"
-    webbrowser.open(f"file://{coverage_path.resolve()}")
-
 
 @cli.command()
 def release():

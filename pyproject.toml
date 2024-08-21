@@ -76,6 +76,7 @@ package = 'dlup'
 "Build" = [
   ".spin/cmds.py:build",
   ".spin/cmds.py:test",
+  ".spin/cmds.py:coverage",
   ".spin/cmds.py:mypy",
   ".spin/cmds.py:lint",
 ]

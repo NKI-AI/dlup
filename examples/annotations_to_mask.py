@@ -1,18 +1,14 @@
 # Copyright (c) dlup contributors
 """This code provides an example of how to convert annotations to a mask."""
-
+import json
 from pathlib import Path
-
 import PIL.Image
-
 from dlup.annotations_experimental import SlideAnnotations
-from dlup.geometry import Point
 
 fn = Path("/Users/j.teuwen/Downloads/TCGA-E9-A1R4-01Z-00-DX1.B04D5A22-8CE5-49FD-8510-14444F46894D.geojson")
 d_fn = Path(
     "/Users/j.teuwen/Downloads/v7_artifacts_v3.1/TCGA-E9-A1R4-01Z-00-DX1.B04D5A22-8CE5-49FD-8510-14444F46894D.json"
 )
-
 
 Z_INDICES = {
     "tissue (area)": 0,
@@ -49,7 +45,7 @@ PIL.Image.fromarray(mask).save("mask.png")
 with open("test.xml", "w") as f:
     f.write(annotations.as_dlup_xml())
 
-import json
+
 with open("test.geojson", "w") as f:
     f.write(json.dumps(annotations.as_geojson(), indent=2))
 
