@@ -1,7 +1,8 @@
 # Copyright (c) dlup contributors
 import pytest
 
-from dlup.utils.annotations_utils import rgb_to_hex, hex_to_rgb
+from dlup.utils.annotations_utils import hex_to_rgb, rgb_to_hex
+
 
 @pytest.mark.parametrize("rgb", [(0, 0, 0), (255, 10, 255), (255, 127, 0), (0, 28, 0), (0, 0, 255)])
 def test_rgb_to_hex_to_rgb(rgb):
@@ -9,8 +10,10 @@ def test_rgb_to_hex_to_rgb(rgb):
     rgb2 = hex_to_rgb(hex_repr)
     assert rgb == rgb2
 
+
 def test_fixed_colors():
     assert hex_to_rgb("black") == (0, 0, 0)
+
 
 def test_exceptions():
     with pytest.raises(ValueError):

@@ -11,7 +11,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from dlup.annotations_experimental import SlideAnnotations, geojson_to_dlup
+from dlup.annotations_experimental import GeometryCollection, SlideAnnotations, geojson_to_dlup, get_v7_metadata
 from dlup.geometry import Point as Point
 from dlup.geometry import Polygon as Polygon
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
@@ -93,6 +93,15 @@ DLUP_XML_EXAMPLE = b"""<DlupAnnotations version="1.0">
                 <Point x="0.0" y="4.0"/>
                 <Point x="0.0" y="0.0"/>
             </Exterior>
+            <Interiors>
+                <Interior>
+                    <Point x="0.5" y="0.5"/>
+                    <Point x="3.5" y="0.5"/>
+                    <Point x="3.5" y="3.5"/>
+                    <Point x="0.5" y="3.5"/>
+                    <Point x="0.5" y="0.5"/>              
+                </Interior>
+            </Interiors>
         </Polygon>
 
         <Box xMin="5.0" yMin="5.0" xMax="10.0" yMax="10.0" label="Box1" color="#33FF57" order="1" />
@@ -104,6 +113,14 @@ DLUP_XML_EXAMPLE = b"""<DlupAnnotations version="1.0">
     </Geometries>
 </DlupAnnotations>
 """
+
+
+polygons = [
+    Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], []),
+    Polygon([(2, 2), (2, 5), (5, 5), (5, 2)], []),
+    Polygon([(4, 2), (4, 7), (7, 7), (7, 4)], []),
+    Polygon([(6, 6), (6, 9), (9, 9), (9, 6)], []),
+]
 
 
 class TestAnnotations:
@@ -155,8 +172,8 @@ class TestAnnotations:
         assert self.v7_annotations.num_points == annotations.num_points
         assert self.v7_annotations.num_polygons == annotations.num_polygons
 
-        assert self.v7_annotations._layers.polygons == annotations._layers.polygons
-        assert self.v7_annotations._layers.points == annotations._layers.points
+        assert self.v7_annotations.layers.polygons == annotations.layers.polygons
+        assert self.v7_annotations.layers.points == annotations.layers.points
 
         self.v7_annotations.rebuild_rtree()
         annotations.rebuild_rtree()
@@ -189,6 +206,12 @@ class TestAnnotations:
     def test_reading_qupath05_geojson_export(self):
         annotations = SlideAnnotations.from_geojson(pathlib.Path("tests/files/qupath05.geojson"))
         assert len(annotations.available_classes) == 2
+
+    @pytest.mark.parametrize("class_method", ["from_geojson", "from_halo_xml", "from_dlup_xml", "from_asap_xml"])
+    def test_missing_file_constructor(self, class_method):
+        constructor = getattr(SlideAnnotations, class_method)
+        with pytest.raises(FileNotFoundError):
+            constructor("doesnotexist.xml.json")
 
     def test_asap_to_geojson(self):
         # TODO: Make sure that the annotations hit the border of the region.
@@ -435,3 +458,40 @@ class TestAnnotations:
             annotations += "invalid type"
         with pytest.raises(TypeError):
             _ = "invalid type" + annotations
+
+    def test_v7_metadata(self, monkeypatch):
+        with pytest.raises(ValueError):
+            get_v7_metadata(pathlib.Path("../tests"))
+
+        monkeypatch.setattr("dlup.annotations_experimental.DARWIN_SDK_AVAILABLE", False)
+        with pytest.raises(ImportError):
+            get_v7_metadata(pathlib.Path("."))
+
+    @pytest.mark.parametrize("sorting_type", ["NONE", "REVERSE", "AREA", "Z_INDEX", "NON_EXISTENT"])
+    def test_sorting(self, sorting_type):
+        collection = GeometryCollection()
+        for polygon in polygons:
+            collection.add_polygon(polygon)
+
+        if sorting_type == "NONE":
+            curr_collection = collection.__copy__()
+            SlideAnnotations._in_place_sort_and_scale(curr_collection, scaling=1.0, sorting=sorting_type)
+            assert curr_collection == collection
+
+        if sorting_type == "REVERSE":
+            with pytest.raises(NotImplementedError):
+                curr_collection = collection.__copy__()
+                SlideAnnotations._in_place_sort_and_scale(curr_collection, scaling=1.0, sorting=sorting_type)
+            # Needs fixing
+            # assert curr_collection.polygons == collection.polygons[::-1]
+
+        if sorting_type == "Z_INDEX":
+            curr_collection = collection.__copy__()
+            for idx, polygon in enumerate(curr_collection.polygons):
+                polygon.set_field("z_index", len(curr_collection.polygons) - idx)
+            SlideAnnotations._in_place_sort_and_scale(curr_collection, scaling=1.0, sorting=sorting_type)
+            assert curr_collection.polygons == collection.polygons[::-1]
+
+        if sorting_type == "NON_EXISTENT":
+            with pytest.raises(KeyError):
+                SlideAnnotations._in_place_sort_and_scale(collection, scaling=1.0, sorting=sorting_type)

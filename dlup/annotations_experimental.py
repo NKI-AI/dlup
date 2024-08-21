@@ -73,11 +73,11 @@ class DarwinV7Metadata(NamedTuple):
 @functools.lru_cache(maxsize=None)
 def get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], DarwinV7Metadata]]:
     if not DARWIN_SDK_AVAILABLE:
-        raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
+        raise ImportError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
     import darwin.path_utils
 
     if not filename.is_dir():
-        raise RuntimeError("Provide the path to the root folder of the Darwin V7 annotations")
+        raise ValueError("Provide the path to the root folder of the Darwin V7 annotations")
 
     v7_metadata_fn = filename / ".v7" / "metadata.json"
     if not v7_metadata_fn.exists():
@@ -129,7 +129,6 @@ class AnnotationSorting(str, Enum):
 
         if self == AnnotationSorting.Z_INDEX:
             return lambda x: x.get_field("z_index"), False
-        raise ValueError(f"Unsupported sorting {self}")
 
 
 def _geometry_to_geojson(
@@ -383,6 +382,10 @@ class SlideAnnotations:
         -------
         SlideAnnotations
         """
+        path = pathlib.Path(asap_xml)
+        if not path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
+
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
         collection: GeometryCollection = GeometryCollection()
@@ -447,6 +450,9 @@ class SlideAnnotations:
         import darwin
 
         darwin_json_fn = pathlib.Path(darwin_json)
+        if not darwin_json_fn.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(darwin_json_fn))
+
         darwin_an = darwin.utils.parse_darwin_json(darwin_json_fn, None)
         v7_metadata = get_v7_metadata(darwin_json_fn.parent)
 
@@ -513,10 +519,15 @@ class SlideAnnotations:
             else:
                 raise ValueError(f"Annotation type {annotation_type} is not supported.")
 
-        for polygon, _ in sorted(polygons, key=lambda x: x[1]):
-            collection.add_polygon(polygon)
+        if sorting == "Z_INDEX":
+            for polygon, _ in sorted(polygons, key=lambda x: x[1]):
+                collection.add_polygon(polygon)
+        else:
+            _ = [collection.add_polygon(polygon) for polygon, _ in polygons]
 
-        SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
+        SlideAnnotations._in_place_sort_and_scale(
+            collection, scaling, sorting="NONE" if sorting == "Z_INDEX" else sorting
+        )
         return cls(layers=collection, tags=tuple(tags), sorting=sorting)
 
     @classmethod
@@ -533,6 +544,10 @@ class SlideAnnotations:
         -------
         SlideAnnotations
         """
+        path = pathlib.Path(dlup_xml)
+        if not path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
+
         parser = XmlParser()
         with open(dlup_xml, "rb") as f:
             dlup_annotations = parser.from_bytes(f.read(), XMLDlupAnnotations)
@@ -628,6 +643,10 @@ class SlideAnnotations:
         -------
         SlideAnnotations
         """
+        path = pathlib.Path(halo_xml)
+        if not path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
+
         if not PYHALOXML_AVAILABLE:
             raise RuntimeError("`pyhaloxml` is not available. Install using `python -m pip install pyhaloxml`.")
         import pyhaloxml.shapely
@@ -657,14 +676,19 @@ class SlideAnnotations:
                         raise NotImplementedError(f"Regiontype {region.type} is not implemented in dlup")
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
+
         def offset_function(slide):
             return slide.slide_bounds[0] - slide.slide_bounds[0] % 256
+
         return cls(collection, tags=None, sorting=sorting, offset_function=offset_function)
 
     @staticmethod
     def _in_place_sort_and_scale(
         collection: GeometryCollection, scaling: Optional[float], sorting: Optional[AnnotationSorting | str]
     ) -> None:
+        if sorting == "REVERSE":
+            raise NotImplementedError("This doesn't work for now.")
+
         if scaling != 1.0 and scaling is not None:
             collection.scale(scaling)
         if sorting == AnnotationSorting.NONE or sorting is None:
@@ -815,7 +839,6 @@ class SlideAnnotations:
             return item in self.available_classes
         if isinstance(item, Point):
             return item in self._layers.points
-
         if isinstance(item, Polygon):
             return item in self._layers.polygons
 

@@ -371,6 +371,7 @@ def _point_factory(point: _dg.Point) -> Point:
 _dg.set_point_factory(_point_factory)
 
 
+# TODO: Allow to construct geometry collection from a list of polygons, bypassing the python loop
 class GeometryCollection(_dg.GeometryCollection):
     def __init__(self) -> None:
         super().__init__()
@@ -417,6 +418,15 @@ class GeometryCollection(_dg.GeometryCollection):
 
         for point in points:
             self.add_point(point)
+
+    def __copy__(self):
+        collection = GeometryCollection()
+        for polygon in self.polygons:
+            collection.add_polygon(polygon.__copy__())
+        for point in self.points:
+            collection.add_point(point.__copy__())
+        collection.rebuild_rtree()
+        return collection
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, type(self)):
