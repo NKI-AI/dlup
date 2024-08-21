@@ -13,6 +13,7 @@ import os
 import pathlib
 import warnings
 import xml.etree.ElementTree as ET
+from dataclasses import asdict
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Iterable, NamedTuple, Optional, Type, TypedDict, TypeVar
@@ -24,7 +25,7 @@ from xsdata.formats.dataclass.serializers import XmlSerializer
 from xsdata.formats.dataclass.serializers.config import SerializerConfig
 from xsdata.models.datatype import XmlDate
 
-from dlup import __version__
+from dlup import SlideImage, __version__
 from dlup._exceptions import AnnotationError
 from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import GenericNumber, PathLike
@@ -119,7 +120,7 @@ class AnnotationSorting(str, Enum):
     Z_INDEX = "Z_INDEX"
     NONE = "NONE"
 
-    def to_sorting_params(self) -> tuple[Callable[[Polygon], Optional[int | float | str]], bool]:
+    def to_sorting_params(self) -> Any:
         """Get the sorting parameters for the annotation sorting."""
         if self == AnnotationSorting.REVERSE:
             return lambda x: None, True
@@ -252,6 +253,7 @@ class SlideAnnotations:
         self._tags = tags
         self._sorting = sorting
         self._offset_function: bool = bool(kwargs.get("offset_function", False))
+        self._metadata: Optional[dict[str, list[str] | str | int | float | bool]] = kwargs.get("metadata", None)
 
     @property
     def sorting(self) -> Optional[AnnotationSorting | str]:
@@ -270,11 +272,15 @@ class SlideAnnotations:
         return len(self._layers.points)
 
     @property
+    def metadata(self) -> Optional[dict[str, list[str] | str | int | float | bool]]:
+        return self._metadata
+
+    @property
     def offset_function(self) -> Any:
         """
         In some cases a function needs to be applied to the coordinates which cannot be handled in this class as
-        it might require additional information. This function will be applied to the coordinates of all annotations. This is useful
-        from a file format which requires this, for instance HaloXML.
+        it might require additional information. This function will be applied to the coordinates of all annotations.
+        This is useful from a file format which requires this, for instance HaloXML.
 
         Example
         -------
@@ -293,7 +299,9 @@ class SlideAnnotations:
 
     @property
     def layers(self) -> GeometryCollection:
-        """Get the layers of the annotations. This is a GeometryCollection object which contains all the polygons and points"""
+        """Get the layers of the annotations.
+        This is a GeometryCollection object which contains all the polygons and points
+        """
         return self._layers
 
     @classmethod
@@ -523,7 +531,8 @@ class SlideAnnotations:
             for polygon, _ in sorted(polygons, key=lambda x: x[1]):
                 collection.add_polygon(polygon)
         else:
-            _ = [collection.add_polygon(polygon) for polygon, _ in polygons]
+            for polygon, _ in polygons:
+                collection.add_polygon(polygon)
 
         SlideAnnotations._in_place_sort_and_scale(
             collection, scaling, sorting="NONE" if sorting == "Z_INDEX" else sorting
@@ -552,8 +561,7 @@ class SlideAnnotations:
         with open(dlup_xml, "rb") as f:
             dlup_annotations = parser.from_bytes(f.read(), XMLDlupAnnotations)
 
-        # We don't use this for now
-        # metadata = dlup_annotations.metadata
+        metadata = None if not dlup_annotations.metadata else asdict(dlup_annotations.metadata)
         tags: list[SlideTag] = []
         if dlup_annotations.tags:
             for tag in dlup_annotations.tags.tag:
@@ -611,7 +619,7 @@ class SlideAnnotations:
         if dlup_annotations.geometries.multi_point:
             raise NotImplementedError("Multipoints are not supported.")
 
-        return cls(layers=collection, tags=tuple(tags))
+        return cls(layers=collection, tags=tuple(tags), metadata=metadata)
 
     @classmethod
     def from_halo_xml(
@@ -677,8 +685,11 @@ class SlideAnnotations:
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
 
-        def offset_function(slide):
-            return slide.slide_bounds[0] - slide.slide_bounds[0] % 256
+        def offset_function(slide: "SlideImage") -> tuple[int, int]:
+            return (
+                slide.slide_bounds[0][0] - slide.slide_bounds[0][0] % 256,
+                slide.slide_bounds[0][1] - slide.slide_bounds[0][1] % 256,
+            )
 
         return cls(collection, tags=None, sorting=sorting, offset_function=offset_function)
 

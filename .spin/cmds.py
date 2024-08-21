@@ -149,6 +149,7 @@ def clean():
         if path.exists():
             path.unlink()
 
+
 @cli.command()
 def release():
     """📦 Package and upload a release"""
