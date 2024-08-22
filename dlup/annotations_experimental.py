@@ -918,8 +918,14 @@ class SlideAnnotations:
                 )
 
             tags: tuple[SlideTag, ...] = ()
+            if self.tags is None and other.tags is not None:
+                tags = other.tags
+
+            if other.tags is None and self.tags is not None:
+                tags = self.tags
+
             if self.tags is not None and other.tags is not None:
-                tags = self.tags + other.tags
+                tags = tuple(set(self.tags + other.tags))
 
             # Let's add the annotations
             collection = GeometryCollection()
