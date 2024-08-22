@@ -145,6 +145,8 @@ class TestAnnotations:
     _v7_annotations = None
     _v7_raster_annotations = None
 
+    _halo_annotations = None
+
     additional_point = Point(*(1, 2), label="example", color=(255, 0, 0))
     additional_polygon = Polygon([(0, 0), (4, 0), (4, 4), (0, 4)], label="example", color=(255, 0, 0))
     additional_polygon.set_field("z_index", 1)
@@ -155,6 +157,15 @@ class TestAnnotations:
             assert pathlib.Path(pathlib.Path(__file__).parent / "files/103S.json").exists()
             self._v7_annotations = SlideAnnotations.from_darwin_json(pathlib.Path(__file__).parent / "files/103S.json")
         return self._v7_annotations
+
+    @property
+    def halo_annotations(self):
+        if self._halo_annotations is None:
+            assert pathlib.Path(pathlib.Path(__file__).parent / "files/halo_holes.annotations").exists()
+            self._halo_annotations = SlideAnnotations.from_halo_xml(
+                pathlib.Path(__file__).parent / "files/halo_holes.annotations"
+            )
+        return self._halo_annotations
 
     def test_raster_annotations(self):
         if self._v7_raster_annotations is None:
@@ -191,6 +202,33 @@ class TestAnnotations:
             assert elem0.wkt == elem1.wkt
             assert elem0.label == elem1.label
 
+    def test_conversion_halo_geojson(self):
+        # We read the halo annotations and compare them to the geojson annotations
+        with tempfile.NamedTemporaryFile(suffix=".json") as geojson_out:
+            geojson_out.write(json.dumps(self.halo_annotations.as_geojson()).encode("utf-8"))
+            geojson_out.flush()
+            geojson_annotations = SlideAnnotations.from_geojson(pathlib.Path(geojson_out.name), sorting="NONE")
+            geojson_annotations.offset_function = self.halo_annotations.offset_function
+
+        assert self.halo_annotations.num_points == geojson_annotations.num_points
+        assert self.halo_annotations.num_polygons == geojson_annotations.num_polygons
+        assert self.halo_annotations.layers.polygons == geojson_annotations.layers.polygons
+        assert self.halo_annotations.layers.points == geojson_annotations.layers.points
+        assert self.halo_annotations.__eq__(geojson_annotations)
+
+    def test_halo_annotations(self):
+        offset, _ = self.halo_annotations.bounding_box
+        halo_annotations = self.halo_annotations.copy()
+        assert offset == (-29349.0, 50000.55808864343)
+        halo_annotations.set_offset((29349.0, -50000.55808864343))
+        assert halo_annotations.bounding_box[0] == (0, 0)
+        for polygon in halo_annotations.layers.polygons:
+            polygon.index = 1
+        halo_mask = halo_annotations.read_region((0, 0), 0.01, (522, 374)).to_mask()
+        output_color_mask = halo_annotations.color_lut[halo_mask]
+        assert halo_mask.sum() == 87709
+        assert output_color_mask.sum() == 51485183
+        
     def test_reexpert_dlup_xml(self):
         with tempfile.NamedTemporaryFile(suffix=".xml") as dlup_file:
             with open(dlup_file.name, "w") as f:

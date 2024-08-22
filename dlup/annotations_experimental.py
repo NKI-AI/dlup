@@ -297,6 +297,10 @@ class SlideAnnotations:
         """
         return self._offset_function
 
+    @offset_function.setter
+    def offset_function(self, func: Any) -> None:
+        self._offset_function = func
+
     @property
     def layers(self) -> GeometryCollection:
         """Get the layers of the annotations.
@@ -1028,13 +1032,19 @@ class SlideAnnotations:
         if not isinstance(other, SlideAnnotations):
             return False
 
+        our_sorting = self._sorting if self._sorting != AnnotationSorting.NONE else None
+        other_sorting = other._sorting if other._sorting != AnnotationSorting.NONE else None
+
+        if our_sorting != other_sorting:
+            return False
+
         if self._tags != other._tags:
             return False
 
         if self._layers != other._layers:
             return False
 
-        if self._sorting != other._sorting:
+        if self._offset_function != other._offset_function:
             return False
 
         return True

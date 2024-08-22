@@ -45,3 +45,15 @@ or the following plain bibliography:
 ```
 Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2024). DLUP: Deep Learning Utilities for Pathology (Version 0.7.0) [Computer software]. https://github.com/NKI-AI/dlup
 ```
+
+## Contributors
+In alphabetic order:
+
+## Contributors
+In alphabetic order:
+
+## Contributors
+In alphabetic order:
+
+| [<img src="https://github.com/AjeyPaiK.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Ajey Pai Karkala</b></sub>](https://github.com/AjeyPaiK) | [<img src="https://github.com/EricMarcus-ai.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Eric Marcus</b></sub>](https://github.com/EricMarcus-ai) | [<img src="https://github.com/jonasteuwen.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Jonas Teuwen</b></sub>](https://github.com/jonasteuwen) | [<img src="https://github.com/lromor.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Leonardo Romor</b></sub>](https://github.com/lromor) | [<img src="https://github.com/rharkes.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Rolf Harkes</b></sub>](https://github.com/rharkes) | [<img src="https://github.com/YoniSchirris.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Yoni Schirris</b></sub>](https://github.com/YoniSchirris) |
+| :---: | :---: | :---: | :---: | :---: | :---: |
