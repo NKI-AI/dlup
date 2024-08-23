@@ -214,12 +214,14 @@ class TestAnnotations:
         assert self.halo_annotations.num_polygons == geojson_annotations.num_polygons
         assert self.halo_annotations.layers.polygons == geojson_annotations.layers.polygons
         assert self.halo_annotations.layers.points == geojson_annotations.layers.points
-        assert self.halo_annotations.__eq__(geojson_annotations)
+        # This won't work because we have no boxes in GeoJSON
+        assert self.halo_annotations.layers.boxes != geojson_annotations.layers.boxes
+        # assert self.halo_annotations.__eq__(geojson_annotations)
 
     def test_halo_annotations(self):
-        offset, _ = self.halo_annotations.bounding_box
         halo_annotations = self.halo_annotations.copy()
-        assert offset == (-29349.0, 50000.55808864343)
+        offset, _ = halo_annotations.bounding_box
+        assert halo_annotations.bounding_box[0] == (-29349.0, 50000.55808864343)
         halo_annotations.set_offset((29349.0, -50000.55808864343))
         assert halo_annotations.bounding_box[0] == (0, 0)
         for polygon in halo_annotations.layers.polygons:
@@ -228,7 +230,7 @@ class TestAnnotations:
         output_color_mask = halo_annotations.color_lut[halo_mask]
         assert halo_mask.sum() == 87709
         assert output_color_mask.sum() == 51485183
-        
+
     def test_reexpert_dlup_xml(self):
         with tempfile.NamedTemporaryFile(suffix=".xml") as dlup_file:
             with open(dlup_file.name, "w") as f:
@@ -533,3 +535,11 @@ class TestAnnotations:
         if sorting_type == "NON_EXISTENT":
             with pytest.raises(KeyError):
                 SlideAnnotations._in_place_sort_and_scale(collection, scaling=1.0, sorting=sorting_type)
+
+    def test_halo_annotations_with_pins(self):
+        assert pathlib.Path(pathlib.Path(__file__).parent / "files/test_different_types_halo.annotations").exists()
+        annotations = SlideAnnotations.from_halo_xml(
+            pathlib.Path(__file__).parent / "files/test_different_types_halo.annotations"
+        )
+        assert len(annotations.layers.polygons) == 5  # 2 ellipses, 3 polygons
+        assert len(annotations.layers.points) == 1

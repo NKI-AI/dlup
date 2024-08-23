@@ -20,53 +20,53 @@ class Polygon : public BaseGeometry {
   using InteriorRings = std::vector<BoostRing> &;
 
   ~Polygon() override = default;
-  std::shared_ptr<BoostPolygon> polygon;
+  std::shared_ptr<BoostPolygon> polygon_;
 
-  Polygon() : polygon(std::make_shared<BoostPolygon>()) {}
-  Polygon(const BoostPolygon &p) : polygon(std::make_shared<BoostPolygon>(p)) {}
+  Polygon() : polygon_(std::make_shared<BoostPolygon>()) {}
+  Polygon(const BoostPolygon &p) : polygon_(std::make_shared<BoostPolygon>(p)) {}
   // This doesn't work, but is probably
   // Polygon(BoostPolygon &&p) : polygon(std::make_shared<BoostPolygon>(std::move(p))) {}
-  Polygon(std::shared_ptr<BoostPolygon> p) : polygon(p) {}
+  Polygon(std::shared_ptr<BoostPolygon> p) : polygon_(p) {}
 
   Polygon(const std::vector<std::pair<double, double>> &exterior,
           const std::vector<std::vector<std::pair<double, double>>> &interiors = {})
-      : polygon(std::make_shared<BoostPolygon>()) {
+      : polygon_(std::make_shared<BoostPolygon>()) {
     setExterior(std::move(exterior));
     setInteriors(std::move(interiors));
   }
 
   bool equals(const Polygon &other) const {
-    bool polygon_is_equal = bg::equals(*polygon, *(other.polygon));
+    bool polygon_is_equal = bg::equals(*polygon_, *(other.polygon_));
     return parameters_ == other.parameters_ && polygon_is_equal;
   }
 
   // TODO: Box is probably sufficient.
   std::vector<std::shared_ptr<Polygon>> intersection(const BoostPolygon &otherPolygon) const;
 
-  std::string toWkt() const override { return convertToWkt(*polygon); }
+  std::string toWkt() const override { return convertToWkt(*polygon_); }
 
   std::vector<std::pair<double, double>> getExterior() const;
   std::vector<std::vector<std::pair<double, double>>> getInteriors() const;
 
-  bool contains(const Polygon &other) const { return bg::within(*(other.polygon), *polygon); }
-  bool isValid() const { return bg::is_valid(*polygon); }
+  bool contains(const Polygon &other) const { return bg::within(*(other.polygon_), *polygon_); }
+  bool isValid() const { return bg::is_valid(*polygon_); }
 
-  void makeValid() { *polygon = geometry_utils::MakeValid(*polygon); }
+  void makeValid() { *polygon_ = utilities::MakeValid(*polygon_); }
 
-  ExteriorRing getExteriorAsIterator() { return bg::exterior_ring(*polygon); }
-  InteriorRings getInteriorAsIterator() { return polygon->inners(); }
+  ExteriorRing getExteriorAsIterator() { return bg::exterior_ring(*polygon_); }
+  InteriorRings getInteriorAsIterator() { return polygon_->inners(); }
 
   double getArea() const {
     // Shapely reorients the polygon in memory if it is not oriented correctly, but keeps the coordinates
     // So we need to make a copy here to avoid modifying the original polygon
     if (!is_corrected_) {
       // Make a copy of the current polygon
-      BoostPolygon new_polygon = *polygon;
+      BoostPolygon new_polygon = *polygon_;
       bg::correct(new_polygon); // Correct the copied polygon
       return bg::area(new_polygon);
     }
 
-    return bg::area(*polygon);
+    return bg::area(*polygon_);
   }
 
   void setExterior(const std::vector<std::pair<double, double>> &coordinates);
@@ -79,14 +79,14 @@ class Polygon : public BaseGeometry {
   mutable bool is_corrected_ = false; // mutable allows modification in const methods
 };
 
-void Polygon::scale(double scaling) { geometry_utils::AffineTransform(*polygon, {0.0, 0.0}, scaling); }
+void Polygon::scale(double scaling) { utilities::AffineTransform(*polygon_, {0.0, 0.0}, scaling); }
 void Polygon::setInteriors(const std::vector<std::vector<std::pair<double, double>>> &interiors) {
-  bg::interior_rings(*polygon).clear();
-  polygon->inners().resize(interiors.size());
+  bg::interior_rings(*polygon_).clear();
+  polygon_->inners().resize(interiors.size());
 
   for (size_t i = 0; i < interiors.size(); ++i) {
     const auto &interior_coords = interiors[i];
-    auto &inner = polygon->inners()[i];
+    auto &inner = polygon_->inners()[i];
     inner.clear();
 
     for (const auto &coord : interior_coords) {
@@ -105,7 +105,7 @@ std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &
   // correctIfNeeded();
   // Make the polygon valid if needed before performing the intersection
   // TODO: This simplifies the polygon!!
-  BoostPolygon validPolygon = geometry_utils::MakeValid(*polygon);
+  BoostPolygon validPolygon = utilities::MakeValid(*polygon_);
 
   std::vector<BoostPolygon> intersectionResult;
   bg::intersection(validPolygon, otherPolygon, intersectionResult);
@@ -124,18 +124,18 @@ std::vector<std::shared_ptr<Polygon>> Polygon::intersection(const BoostPolygon &
 
   return result;
 }
-void Polygon::simplifyPolygon(double tolerance) { bg::simplify(*polygon, *polygon, tolerance); }
+void Polygon::simplifyPolygon(double tolerance) { bg::simplify(*polygon_, *polygon_, tolerance); }
 void Polygon::correctIfNeeded() const {
   if (!is_corrected_) {
-    bg::correct(*polygon); // Dereference the shared pointer to apply the correction
+    bg::correct(*polygon_); // Dereference the shared pointer to apply the correction
     is_corrected_ = true;
   }
 }
 
 std::vector<std::pair<double, double>> Polygon::getExterior() const {
   std::vector<std::pair<double, double>> result;
-  result.reserve(bg::exterior_ring(*polygon).size());
-  for (const auto &point : bg::exterior_ring(*polygon)) {
+  result.reserve(bg::exterior_ring(*polygon_).size());
+  for (const auto &point : bg::exterior_ring(*polygon_)) {
     result.emplace_back(bg::get<0>(point), bg::get<1>(point));
   }
   return result;
@@ -144,8 +144,8 @@ std::vector<std::pair<double, double>> Polygon::getExterior() const {
 std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() const {
   // correctIfNeeded();
   std::vector<std::vector<std::pair<double, double>>> result;
-  result.reserve(polygon->inners().size());
-  for (const auto &inner : polygon->inners()) {
+  result.reserve(polygon_->inners().size());
+  for (const auto &inner : polygon_->inners()) {
     std::vector<std::pair<double, double>> inner_result;
     for (const auto &point : inner) {
       inner_result.emplace_back(bg::get<0>(point), bg::get<1>(point));
@@ -156,16 +156,16 @@ std::vector<std::vector<std::pair<double, double>>> Polygon::getInteriors() cons
 }
 
 void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordinates) {
-  bg::exterior_ring(*polygon).clear();
-  bg::exterior_ring(*polygon).reserve(coordinates.size());
+  bg::exterior_ring(*polygon_).clear();
+  bg::exterior_ring(*polygon_).reserve(coordinates.size());
   for (const auto &coord : coordinates) {
-    bg::append(*polygon, BoostPoint(coord.first, coord.second));
+    bg::append(*polygon_, BoostPoint(coord.first, coord.second));
   }
 
   // Close the ring if it's not already closed
   // Shapely does this, so we want to keep compatibility.
   if (coordinates.front() != coordinates.back()) {
-    bg::append(*polygon, BoostPoint(coordinates.front().first, coordinates.front().second));
+    bg::append(*polygon_, BoostPoint(coordinates.front().first, coordinates.front().second));
   }
 
   is_corrected_ = false; // Mark as not corrected. Correction reorients and closes

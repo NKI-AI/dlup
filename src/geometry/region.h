@@ -2,6 +2,7 @@
 #define DLUP_GEOMETRY_REGION_H
 #pragma once
 
+#include <mutex>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -23,21 +24,27 @@ class FactoryGuard {
 
 class AnnotationRegion {
   public:
-  AnnotationRegion(std::vector<std::shared_ptr<Polygon>> polygons, std::vector<std::shared_ptr<Point>> points,
-                   std::tuple<int, int> mask_size)
-      : polygons_(std::move(polygons)), points_(std::move(points)), mask_size_(std::move(mask_size)) {}
+  AnnotationRegion(std::vector<std::shared_ptr<Polygon>> polygons, std::vector<std::shared_ptr<Box>> boxes,
+                   std::vector<std::shared_ptr<Point>> points, std::tuple<int, int> mask_size)
+      : polygons_(std::move(polygons)), boxes_(std::move(boxes)), points_(std::move(points)),
+        mask_size_(std::move(mask_size)) {}
 
   static void setPolygonFactory(py::function factory) { polygonFactory() = std::move(factory); }
+  static void setBoxFactory(py::function factory) { boxFactory() = std::move(factory); }
   static void setPointFactory(py::function factory) { pointFactory() = std::move(factory); }
 
   static FactoryGuard createPolygonFactoryGuard(py::function factory) {
     return FactoryGuard(polygonFactory(), factory);
   }
-
   static FactoryGuard createPointFactoryGuard(py::function factory) { return FactoryGuard(pointFactory(), factory); }
+  static FactoryGuard createBoxFactoryGuard(py::function factory) { return FactoryGuard(boxFactory(), factory); }
 
   static py::object callFactoryFunction(const std::shared_ptr<Polygon> &polygon) {
     return invokeFactoryFunction(polygonFactory(), polygon);
+  }
+
+  static py::object callFactoryFunction(const std::shared_ptr<Box> &box) {
+    return invokeFactoryFunction(boxFactory(), box);
   }
 
   static py::object callFactoryFunction(const std::shared_ptr<Point> &point) {
@@ -46,6 +53,7 @@ class AnnotationRegion {
 
   py::list getPolygons() const;
   py::list getPoints() const;
+  py::list getBoxes() const;
 
   py::array_t<int> toMask(int default_value = 0) const {
     cv::Size region_size(std::get<0>(mask_size_), std::get<1>(mask_size_));
@@ -56,9 +64,15 @@ class AnnotationRegion {
   private:
   std::vector<std::shared_ptr<Polygon>> polygons_;
   std::vector<std::shared_ptr<Point>> points_;
+  std::vector<std::shared_ptr<Box>> boxes_;
   std::tuple<int, int> mask_size_;
 
   static py::function &polygonFactory() {
+    static py::function instance;
+    return instance;
+  }
+
+  static py::function &boxFactory() {
     static py::function instance;
     return instance;
   }
@@ -102,6 +116,14 @@ py::list AnnotationRegion::getPoints() const {
     py_points.append(callFactoryFunction(point));
   }
   return py_points;
+}
+
+py::list AnnotationRegion::getBoxes() const {
+  py::list py_boxes;
+  for (const auto &box : boxes_) {
+    py_boxes.append(callFactoryFunction(box));
+  }
+  return py_boxes;
 }
 
 #endif // DLUP_GEOMETRY_REGION_H

@@ -29,7 +29,7 @@ from dlup import SlideImage, __version__
 from dlup._exceptions import AnnotationError
 from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import GenericNumber, PathLike
-from dlup.geometry import GeometryCollection, Point, Polygon
+from dlup.geometry import Box, GeometryCollection, Point, Polygon
 from dlup.utils.annotations_utils import get_geojson_color, hex_to_rgb, rgb_to_hex
 from dlup.utils.geometry_xml import create_xml_geometries
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
@@ -672,18 +672,36 @@ class SlideAnnotations:
                 for region in layer.regions:
                     if region.type == pyhaloxml.RegionType.Rectangle:
                         warnings.warn(
-                            f"Rectangle annotations are not supported. Annotation {layer.name} will be skipped",
+                            f"Rectangle annotations are not supported. Annotation {layer.name} will be added "
+                            "to the container (and used for the bounding box), but is currently not returned "
+                            "in the read_region function. In case this is important for you, "
+                            "please open an issue at https://github.com/NKI-AI/dlup/issues.",
                             UserWarning,
                         )
+                        # The data is a CCW polygon, so the first and one to last coordinates are the coordinates
+                        vertices = region.getvertices()
+                        min_x = min(v[0] for v in vertices)
+                        max_x = max(v[0] for v in vertices)
+                        min_y = min(v[1] for v in vertices)
+                        max_y = max(v[1] for v in vertices)
+                        curr_box = Box((min_x, min_y), (max_x - min_x, max_y - min_y))
+                        collection.add_box(curr_box)
                         continue
+
                     elif region.type in [pyhaloxml.RegionType.Ellipse, pyhaloxml.RegionType.Polygon]:
                         polygon = Polygon(
                             region.getvertices(), [x.getvertices() for x in region.holes], label=layer.name, color=color
                         )
                         collection.add_polygon(polygon)
                     elif region.type == pyhaloxml.RegionType.Pin:
-                        point = Point(*region.getvertices(), label=layer.name, color=color)
+                        point = Point(*(region.getvertices()[0]), label=layer.name, color=color)
                         collection.add_point(point)
+                    elif region.type == pyhaloxml.RegionType.Ruler:
+                        warnings.warn(
+                            f"Ruler annotations are not supported. Annotation {layer.name} will be skipped",
+                            UserWarning,
+                        )
+                        continue
                     else:
                         raise NotImplementedError(f"Regiontype {region.type} is not implemented in dlup")
 
@@ -730,6 +748,9 @@ class SlideAnnotations:
         data: GeoJsonDict = {"type": "FeatureCollection", "metadata": None, "features": [], "id": None}
         if self.tags:
             data["metadata"] = {"tags": [_.label for _ in self.tags]}
+
+        if self._layers.boxes:
+            warnings.warn("Bounding boxes are not supported in GeoJSON and will be skipped.", UserWarning)
 
         all_layers = self._layers.polygons + self._layers.points
         for idx, curr_annotation in enumerate(all_layers):

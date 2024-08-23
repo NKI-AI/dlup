@@ -3,6 +3,7 @@
 #include <pybind11/stl.h>
 
 #include "geometry/base.h"
+#include "geometry/box.h"
 #include "geometry/collection.h"
 #include "geometry/exceptions.h"
 #include "geometry/point.h"
@@ -29,7 +30,7 @@ PYBIND11_MODULE(_geometry, m) {
       }))
       .def(py::init([](const Polygon &other) {
         // Explicitly copy parameters when copying the polygon
-        auto newPolygon = std::make_shared<Polygon>(*other.polygon);
+        auto newPolygon = std::make_shared<Polygon>(*other.polygon_);
         newPolygon->parameters_ = other.parameters_; // Copy the parameters
         return newPolygon;
       }))
@@ -58,6 +59,25 @@ PYBIND11_MODULE(_geometry, m) {
       .def_property_readonly("is_valid", &Polygon::isValid)
       .def_property_readonly("area", &Polygon::getArea);
 
+  py::class_<Box, BaseGeometry, std::shared_ptr<Box>>(m, "Box")
+      .def(py::init<>())
+      .def(py::init<const BoostBox &>())
+      .def(py::init<const std::array<double, 2> &, const std::array<double, 2> &>())
+      .def(py::init([](const std::shared_ptr<Box> &p) {
+        // Share the same C++ object, not creating a new one
+        return p;
+      }))
+      .def(py::init([](const Box &other) {
+        // Explicitly copy parameters when copying the Box
+        auto newBox = std::make_shared<Box>(*other.box_);
+        newBox->parameters_ = other.parameters_; // Copy the parameters
+        return newBox;
+      }))
+      .def_property_readonly("coordinates", &Box::getCoordinates,
+                             "Get the top-left coordinates of the box as an (x, y) tuple")
+      .def_property_readonly("size", &Box::getSize, "Get the size of the box as an (h, w) tuple")
+      .def_property_readonly("wkt", &Box::toWkt, "Get the WKT representation of the box");
+
   py::class_<Point, BaseGeometry, std::shared_ptr<Point>>(m, "Point")
       .def(py::init<>())
       .def(py::init<const BoostPoint &>())
@@ -83,12 +103,14 @@ PYBIND11_MODULE(_geometry, m) {
       .def_property_readonly("wkt", &Point::toWkt, "Get the WKT representation of the point");
 
   m.def("set_polygon_factory", &AnnotationRegion::setPolygonFactory);
+  m.def("set_box_factory", &AnnotationRegion::setBoxFactory);
   m.def("set_point_factory", &AnnotationRegion::setPointFactory);
 
   py::class_<GeometryCollection, std::shared_ptr<GeometryCollection>>(m, "GeometryCollection")
       .def(py::init<>())
       .def("add_polygon", &GeometryCollection::addPolygon)
       .def("add_point", &GeometryCollection::addPoint)
+      .def("add_box", &GeometryCollection::addBox)
 
       // Overload remove_polygon to handle both object and index
       .def("remove_polygon", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryCollection::removePolygon),
@@ -112,10 +134,12 @@ PYBIND11_MODULE(_geometry, m) {
       .def_property_readonly("pointer_id", &GeometryCollection::getPointerId)
       .def_property_readonly("bounding_box", &GeometryCollection::computeBoundingBox)
       .def_property_readonly("polygons", &GeometryCollection::getPolygons)
+      .def_property_readonly("boxes", &GeometryCollection::getBoxes)
       .def_property_readonly("points", &GeometryCollection::getPoints);
 
   py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "AnnotationRegion")
       .def_property_readonly("polygons", &AnnotationRegion::getPolygons)
+      .def_property_readonly("boxes", &AnnotationRegion::getBoxes)
       .def_property_readonly("points", &AnnotationRegion::getPoints)
       .def("to_mask", &AnnotationRegion::toMask, py::arg("default_value") = 0);
 

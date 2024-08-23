@@ -91,63 +91,6 @@ class BasePolygonType:
 
 
 @dataclass
-class BoxType:
-    x_min: Optional[float] = field(
-        default=None,
-        metadata={
-            "name": "xMin",
-            "type": "Attribute",
-            "required": True,
-        },
-    )
-    y_min: Optional[float] = field(
-        default=None,
-        metadata={
-            "name": "yMin",
-            "type": "Attribute",
-            "required": True,
-        },
-    )
-    x_max: Optional[float] = field(
-        default=None,
-        metadata={
-            "name": "xMax",
-            "type": "Attribute",
-            "required": True,
-        },
-    )
-    y_max: Optional[float] = field(
-        default=None,
-        metadata={
-            "name": "yMax",
-            "type": "Attribute",
-            "required": True,
-        },
-    )
-    label: Optional[str] = field(
-        default=None,
-        metadata={
-            "type": "Attribute",
-            "required": True,
-        },
-    )
-    color: Optional[str] = field(
-        default=None,
-        metadata={
-            "type": "Attribute",
-            "pattern": r"#[0-9a-fA-F]{6}",
-        },
-    )
-    order: Optional[int] = field(
-        default=None,
-        metadata={
-            "type": "Attribute",
-            "required": True,
-        },
-    )
-
-
-@dataclass
 class Metadata:
     image_id: Optional[str] = field(
         default=None,
@@ -209,52 +152,39 @@ class Metadata:
 
 
 @dataclass
-class MultiPointType:
-    point: List["MultiPointType.Point"] = field(
-        default_factory=list,
-        metadata={
-            "name": "Point",
-            "type": "Element",
-            "min_occurs": 1,
-        },
-    )
-    label: Optional[str] = field(
+class RectangleType:
+    x_min: Optional[float] = field(
         default=None,
         metadata={
+            "name": "xMin",
             "type": "Attribute",
             "required": True,
         },
     )
-    color: Optional[str] = field(
+    y_min: Optional[float] = field(
         default=None,
         metadata={
+            "name": "yMin",
             "type": "Attribute",
-            "pattern": r"#[0-9a-fA-F]{6}",
+            "required": True,
         },
     )
-    index: Optional[int] = field(
+    x_max: Optional[float] = field(
         default=None,
         metadata={
+            "name": "xMax",
             "type": "Attribute",
+            "required": True,
         },
     )
-
-    @dataclass
-    class Point:
-        x: Optional[float] = field(
-            default=None,
-            metadata={
-                "type": "Attribute",
-                "required": True,
-            },
-        )
-        y: Optional[float] = field(
-            default=None,
-            metadata={
-                "type": "Attribute",
-                "required": True,
-            },
-        )
+    y_max: Optional[float] = field(
+        default=None,
+        metadata={
+            "name": "yMax",
+            "type": "Attribute",
+            "required": True,
+        },
+    )
 
 
 @dataclass
@@ -303,6 +233,54 @@ class Tag:
                 "pattern": r"#[0-9a-fA-F]{6}",
             },
         )
+
+
+@dataclass
+class BoundingBoxType(RectangleType):
+    label: Optional[str] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+        },
+    )
+    color: Optional[str] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "pattern": r"#[0-9a-fA-F]{6}",
+        },
+    )
+    index: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+        },
+    )
+
+
+@dataclass
+class BoxType(RectangleType):
+    label: Optional[str] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
+    color: Optional[str] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "pattern": r"#[0-9a-fA-F]{6}",
+        },
+    )
+    order: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
 
 
 @dataclass
@@ -410,10 +388,10 @@ class Geometries:
             "type": "Element",
         },
     )
-    multi_point: List[MultiPointType] = field(
-        default_factory=list,
+    bounding_box: Optional[BoundingBoxType] = field(
+        default=None,
         metadata={
-            "name": "MultiPoint",
+            "name": "BoundingBox",
             "type": "Element",
         },
     )
@@ -421,6 +399,13 @@ class Geometries:
         default_factory=list,
         metadata={
             "name": "Point",
+            "type": "Element",
+        },
+    )
+    multi_point: List["Geometries.MultiPoint"] = field(
+        default_factory=list,
+        metadata={
+            "name": "MultiPoint",
             "type": "Element",
         },
     )
@@ -455,6 +440,54 @@ class Geometries:
                 "pattern": r"#[0-9a-fA-F]{6}",
             },
         )
+
+    @dataclass
+    class MultiPoint:
+        point: List["Geometries.MultiPoint.Point"] = field(
+            default_factory=list,
+            metadata={
+                "name": "Point",
+                "type": "Element",
+                "min_occurs": 1,
+            },
+        )
+        label: Optional[str] = field(
+            default=None,
+            metadata={
+                "type": "Attribute",
+                "required": True,
+            },
+        )
+        color: Optional[str] = field(
+            default=None,
+            metadata={
+                "type": "Attribute",
+                "pattern": r"#[0-9a-fA-F]{6}",
+            },
+        )
+        index: Optional[int] = field(
+            default=None,
+            metadata={
+                "type": "Attribute",
+            },
+        )
+
+        @dataclass
+        class Point:
+            x: Optional[float] = field(
+                default=None,
+                metadata={
+                    "type": "Attribute",
+                    "required": True,
+                },
+            )
+            y: Optional[float] = field(
+                default=None,
+                metadata={
+                    "type": "Attribute",
+                    "required": True,
+                },
+            )
 
 
 @dataclass

@@ -34,7 +34,7 @@ class Point : public BaseGeometry {
     bool pointEqual = bg::equals(*point_, *(other.point_));
     return parameters_ == other.parameters_ && pointEqual;
   }
-  bool within(const Polygon &polygon) const { return bg::within(*point_, *(polygon.polygon)); }
+  bool within(const Polygon &polygon) const { return bg::within(*point_, *(polygon.polygon_)); }
 
   void scale(double scaling) { setCoordinates(getX() * scaling, getY() * scaling); }
 

@@ -4,6 +4,7 @@
 
 #include <boost/geometry.hpp>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -43,13 +44,14 @@ class BaseGeometry {
   std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
   virtual std::string toWkt() const = 0; // Force derived classes to provide the WKT
 
-  protected:
   template <typename GeometryType>
   std::string convertToWkt(const GeometryType &geometry) const {
     std::stringstream ss;
     ss << boost::geometry::wkt(geometry);
     return ss.str();
   }
+
+  protected:
 };
 
 #endif // DLUP_GEOMETRY_BASE_H

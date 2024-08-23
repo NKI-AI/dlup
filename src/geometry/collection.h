@@ -11,6 +11,7 @@
 
 #include "../opencv.h"
 #include "base.h"
+#include "box.h"
 #include "collection.h"
 #include "exceptions.h"
 #include "point.h"
@@ -19,14 +20,13 @@
 #include "rtree.h"
 #include "utilities.h"
 #include <memory>
+#include <mutex>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-// #define DLUPDEBUG
 
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
@@ -59,16 +59,15 @@ class GeometryCollection {
   // Whatever any LLM says this has to be a shared pointer as we share it with the python interpreter
   using PolygonPtr = std::shared_ptr<Polygon>;
   using PointPtr = std::shared_ptr<Point>;
-
-  std::vector<PolygonPtr> polygons_;
-  std::vector<PointPtr> points_;
-  RTreeWrapper rtree_wrapper_;
+  using BoxPtr = std::shared_ptr<Box>;
 
   void addPolygon(const PolygonPtr &p);
   void addPoint(const PointPtr &p);
+  void addBox(const BoxPtr &p);
 
   py::list getPolygons();
   py::list getPoints();
+  py::list getBoxes();
   std::pair<std::pair<double, double>, std::pair<double, double>> computeBoundingBox() const;
   void sortPolygons(const py::function &keyFunc, bool reverse);
 
@@ -76,17 +75,20 @@ class GeometryCollection {
   void removePolygon(size_t index);
   void removePoint(const PointPtr &p);
   void removePoint(size_t index);
+  void removeBox(const BoxPtr &p);
+  void removeBox(size_t index);
 
   void scale(double scaling);
   void setOffset(std::pair<double, double> offset);
   void rebuildRTree() { rtree_wrapper_.rebuild(); }
   void simplifyPolygons(double tolerance) {
+    std::lock_guard<std::mutex> lock(collection_mutex_);
     for (auto &polygon : polygons_) {
       polygon->simplifyPolygon(tolerance);
     }
   }
 
-  int size() const { return polygons_.size() + points_.size(); }
+  int size() const { return polygons_.size() + points_.size() + boxes_.size(); }
 
   std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
 
@@ -97,18 +99,27 @@ class GeometryCollection {
 
   // TODO: Rethink the need for this function.
   void reindexPolygons(const std::map<std::string, int> &indexMap);
+
+  private:
+  friend class RTreeWrapper;
+  std::vector<PolygonPtr> polygons_;
+  std::vector<PointPtr> points_;
+  std::vector<BoxPtr> boxes_;
+  RTreeWrapper rtree_wrapper_;
+  mutable std::mutex collection_mutex_;
 };
 
 GeometryCollection::GeometryCollection() : rtree_wrapper_(this) {}
 
 std::pair<std::pair<double, double>, std::pair<double, double>> GeometryCollection::computeBoundingBox() const {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   BoostBox overall_bounding_box_;
   bool is_first_ = true;
 
   // Iterate over all polygons and compute their bounding boxes
   for (const auto &polygon : polygons_) {
     BoostBox polygon_box;
-    bg::envelope(*(polygon->polygon), polygon_box);
+    bg::envelope(*(polygon->polygon_), polygon_box);
 
     if (is_first_) {
       overall_bounding_box_ = polygon_box;
@@ -118,15 +129,25 @@ std::pair<std::pair<double, double>, std::pair<double, double>> GeometryCollecti
     }
   }
 
-  // Iterate over all points and compute their bounding boxes
-  for (const auto &point : points_) {
-    BoostBox pointBox(*(point->point_), *(point->point_));
-
+  // Iterate over all boxes and compute their bounding boxes
+  for (const auto &box : boxes_) {
     if (is_first_) {
-      overall_bounding_box_ = pointBox;
+      overall_bounding_box_ = *(box->box_);
       is_first_ = false;
     } else {
-      bg::expand(overall_bounding_box_, pointBox);
+      bg::expand(overall_bounding_box_, *(box->box_));
+    }
+  }
+
+  // Iterate over all points and compute their bounding boxes
+  for (const auto &point : points_) {
+    BoostBox point_box(*(point->point_), *(point->point_));
+
+    if (is_first_) {
+      overall_bounding_box_ = point_box;
+      is_first_ = false;
+    } else {
+      bg::expand(overall_bounding_box_, point_box);
     }
   }
 
@@ -146,6 +167,7 @@ std::pair<std::pair<double, double>, std::pair<double, double>> GeometryCollecti
 }
 
 void GeometryCollection::reindexPolygons(const std::map<std::string, int> &indexMap) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   for (auto &polygon : polygons_) {
     std::optional<py::object> label_opt = polygon->getField("label");
 
@@ -164,13 +186,14 @@ void GeometryCollection::reindexPolygons(const std::map<std::string, int> &index
 }
 
 void RTreeWrapper::rebuild() {
+  // Mutex is handled in the wrapper
   clear(); // Clear the existing R-tree
 
   // Rebuild the tree using polygons and points from GeometryCollection
   const auto &polygons = geometryCollection->polygons_;
   for (size_t i = 0; i < polygons.size(); ++i) {
     BoostBox box;
-    bg::envelope(*(polygons[i]->polygon), box);
+    bg::envelope(*(polygons[i]->polygon_), box);
     insert(box, i);
   }
 
@@ -184,13 +207,25 @@ void RTreeWrapper::rebuild() {
 }
 
 void GeometryCollection::addPolygon(const PolygonPtr &p) {
-  BoostBox box;
-  bg::envelope(*(p->polygon), box);
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   polygons_.emplace_back(p);
   rtree_wrapper_.invalidate();
 }
 
+void GeometryCollection::addPoint(const PointPtr &p) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  points_.emplace_back(p);
+  rtree_wrapper_.invalidate();
+}
+
+void GeometryCollection::addBox(const BoxPtr &p) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  boxes_.emplace_back(p);
+  rtree_wrapper_.invalidate();
+}
+
 py::list GeometryCollection::getPolygons() {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   py::list py_polygons;
   for (const auto &polygon : polygons_) {
     py_polygons.append(AnnotationRegion::callFactoryFunction(polygon));
@@ -199,6 +234,7 @@ py::list GeometryCollection::getPolygons() {
 }
 
 py::list GeometryCollection::getPoints() {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   py::list py_points;
   for (const auto &point : points_) {
     py_points.append(AnnotationRegion::callFactoryFunction(point));
@@ -206,13 +242,17 @@ py::list GeometryCollection::getPoints() {
   return py_points;
 }
 
-void GeometryCollection::addPoint(const PointPtr &p) {
-  BoostBox box(*(p->point_), *(p->point_));
-  points_.emplace_back(p);
-  rtree_wrapper_.invalidate();
+py::list GeometryCollection::getBoxes() {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  py::list py_boxes;
+  for (const auto &box : boxes_) {
+    py_boxes.append(AnnotationRegion::callFactoryFunction(box));
+  }
+  return py_boxes;
 }
 
 void GeometryCollection::sortPolygons(const py::function &key_func, bool reverse) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   std::sort(polygons_.begin(), polygons_.end(), [&key_func, reverse](const PolygonPtr &a, const PolygonPtr &b) {
     py::object key_a = key_func(a);
     py::object key_b = key_func(b);
@@ -234,26 +274,37 @@ void GeometryCollection::sortPolygons(const py::function &key_func, bool reverse
 }
 
 void GeometryCollection::scale(double scaling) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   for (auto &point : points_) {
     point->scale(scaling);
   }
   for (auto &polygon : polygons_) {
     polygon->scale(scaling);
   }
+
+  for (auto &box : boxes_) {
+    box->scale(scaling);
+  }
   rtree_wrapper_.invalidate();
 }
 
 void GeometryCollection::setOffset(std::pair<double, double> offset) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   for (auto &point : points_) {
-    geometry_utils::AffineTransform(*point->point_, {-offset.first, -offset.second}, 1.0);
+    utilities::AffineTransform(*point->point_, {-offset.first, -offset.second}, 1.0);
   }
   for (auto &polygon : polygons_) {
-    geometry_utils::AffineTransform(*polygon->polygon, {-offset.first, -offset.second}, 1.0);
+    utilities::AffineTransform(*polygon->polygon_, {-offset.first, -offset.second}, 1.0);
   }
+  for (auto &box : boxes_) {
+    utilities::AffineTransform(*box->box_, {-offset.first, -offset.second}, 1.0);
+  }
+
   rtree_wrapper_.invalidate();
 }
 
 void GeometryCollection::removePolygon(const PolygonPtr &p) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   auto it = std::find(polygons_.begin(), polygons_.end(), p);
   if (it != polygons_.end()) {
     polygons_.erase(it);
@@ -264,6 +315,7 @@ void GeometryCollection::removePolygon(const PolygonPtr &p) {
 }
 
 void GeometryCollection::removePolygon(size_t index) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   if (index >= polygons_.size()) {
     throw std::out_of_range("Polygon index out of range");
   }
@@ -273,6 +325,7 @@ void GeometryCollection::removePolygon(size_t index) {
 }
 
 void GeometryCollection::removePoint(const PointPtr &p) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   auto it = std::find(points_.begin(), points_.end(), p);
   if (it != points_.end()) {
     points_.erase(it);
@@ -283,6 +336,7 @@ void GeometryCollection::removePoint(const PointPtr &p) {
 }
 
 void GeometryCollection::removePoint(size_t index) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   if (index >= points_.size()) {
     throw std::out_of_range("Point index out of range");
   }
@@ -294,6 +348,7 @@ void GeometryCollection::removePoint(size_t index) {
 AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> &coordinates, double scaling,
                                                 const std::pair<double, double> &size) {
 
+  std::lock_guard<std::mutex> lock(collection_mutex_);
   if (rtree_wrapper_.isInvalidated()) {
     rtree_wrapper_.rebuild();
   }
@@ -318,17 +373,17 @@ AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> 
       auto &polygon = polygons_[index];
       auto intersections = polygon->intersection(intersection_polygon);
       for (const auto &intersected_polygon : intersections) {
-        geometry_utils::AffineTransform(*intersected_polygon->polygon, coordinates, scaling);
+        utilities::AffineTransform(*intersected_polygon->polygon_, coordinates, scaling);
         intersected_polygons.push_back(intersected_polygon);
       }
     } else {
       auto &point = points_[index - polygons_.size()];
       auto transformed_point = std::make_shared<Point>(*point);
-      geometry_utils::AffineTransform(*transformed_point->point_, coordinates, scaling);
+      utilities::AffineTransform(*transformed_point->point_, coordinates, scaling);
       intersected_points.push_back(transformed_point);
     }
   }
-  return AnnotationRegion(std::move(intersected_polygons), std::move(intersected_points), std::move(size));
+  return AnnotationRegion(std::move(intersected_polygons), {}, std::move(intersected_points), std::move(size));
 }
 
 #endif // DLUP_GEOMETRY_COLLECTION_H

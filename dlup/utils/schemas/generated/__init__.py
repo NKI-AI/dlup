@@ -1,11 +1,12 @@
 from dlup.utils.schemas.generated.dlup_schema_v1_0 import (
     BasePolygonType,
+    BoundingBoxType,
     BoxType,
     DlupAnnotations,
     Geometries,
     Metadata,
-    MultiPointType,
     MultiPolygonType,
+    RectangleType,
     StandalonePolygonType,
     Tag,
     Tags,
@@ -13,12 +14,13 @@ from dlup.utils.schemas.generated.dlup_schema_v1_0 import (
 
 __all__ = [
     "BasePolygonType",
+    "BoundingBoxType",
     "BoxType",
     "DlupAnnotations",
     "Geometries",
     "Metadata",
-    "MultiPointType",
     "MultiPolygonType",
+    "RectangleType",
     "StandalonePolygonType",
     "Tag",
     "Tags",

@@ -371,6 +371,34 @@ def _point_factory(point: _dg.Point) -> Point:
 _dg.set_point_factory(_point_factory)
 
 
+class Box(_dg.Box, _BaseGeometry):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        _BaseGeometry.__init__(self)
+        # Ensure no new Point is created; just wrap the existing one
+        if len(args) == 1 and len(kwargs) == 0 and isinstance(args[0], _dg.Box):
+            super().__init__(args[0])  # This should keep the original parameters intact
+        else:  # This needs to be way more elaborate
+            fields = {}
+            if "label" in kwargs:
+                fields["label"] = kwargs.pop("label")
+            if "index" in kwargs:
+                fields["index"] = kwargs.pop("index")
+            if "color" in kwargs:
+                fields["color"] = kwargs.pop("color")
+
+            super().__init__(*args, **kwargs)
+            for key, value in fields.items():
+                self.set_field(key, value)
+
+
+def _box_factory(box: _dg.Box) -> Box:
+    return Box(box)
+
+
+# Register the box factory
+_dg.set_box_factory(_box_factory)
+
+
 # TODO: Allow to construct geometry collection from a list of polygons, bypassing the python loop
 class GeometryCollection(_dg.GeometryCollection):
     def __init__(self) -> None:
@@ -435,6 +463,9 @@ class GeometryCollection(_dg.GeometryCollection):
         if len(self) != len(other):
             return False
 
+        if self.boxes != other.boxes:
+            return False
+
         if self.polygons != other.polygons:
             return False
 
@@ -445,4 +476,4 @@ class GeometryCollection(_dg.GeometryCollection):
 
     def __len__(self) -> int:
         # Also self.size()
-        return len(self.polygons) + len(self.points)
+        return len(self.polygons) + len(self.points) + len(self.boxes)

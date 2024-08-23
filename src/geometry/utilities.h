@@ -9,13 +9,14 @@
 #include <boost/geometry/algorithms/transform.hpp>
 #include <boost/geometry/geometries/geometries.hpp>
 
-namespace geometry_utils {
+namespace utilities {
 
 namespace bg = boost::geometry;
 
 // Aliases for common types
 using BoostPoint = bg::model::d2::point_xy<double>;
 using BoostPolygon = bg::model::polygon<BoostPoint>;
+using BoostBox = bg::model::box<BoostPoint>;
 
 // Function to make a polygon valid
 BoostPolygon MakeValid(const BoostPolygon &polygon) {
@@ -64,6 +65,14 @@ void AffineTransform(BoostPoint &point, const std::pair<double, double> &origin,
   bg::set<1>(point, y);
 }
 
-} // namespace geometry_utils
+void AffineTransform(BoostBox &box, const std::pair<double, double> &origin, double scaling) {
+  bg::strategy::transform::matrix_transformer<double, 2, 2> transform(scaling, 0, -origin.first, 0, scaling,
+                                                                      -origin.second, 0, 0, 1);
+
+  // Apply the transformation to the min corner
+  bg::transform(bg::return_envelope<BoostBox>(box), box, transform);
+}
+} // namespace utilities
+// namespace geometry_utils
 
 #endif // DLUP_GEOMETRY_UTILITIES_H

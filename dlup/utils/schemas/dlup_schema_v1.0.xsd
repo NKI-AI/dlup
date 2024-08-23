@@ -66,8 +66,8 @@
                     <xs:element name="Polygon" type="StandalonePolygonType"/>
                     <xs:element name="MultiPolygon" type="MultiPolygonType"/>
                     <xs:element name="Box" type="BoxType"/>
-                    <xs:element name="MultiPoint" type="MultiPointType"/>
                 </xs:choice>
+                <xs:element name="BoundingBox" type="BoundingBoxType" minOccurs="0" maxOccurs="1"/>
                 <xs:element name="Point" maxOccurs="unbounded" minOccurs="0">
                     <xs:complexType>
                         <xs:attribute name="x" type="xs:double" use="required"/>
@@ -76,24 +76,24 @@
                         <xs:attribute name="color" type="HexColorType" use="optional"/>
                     </xs:complexType>
                 </xs:element>
+                <xs:element name="MultiPoint" maxOccurs="unbounded" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Point" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:attribute name="x" type="xs:double" use="required"/>
+                                    <xs:attribute name="y" type="xs:double" use="required"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                        <xs:attribute name="label" type="xs:string" use="required"/>
+                        <xs:attribute name="color" type="HexColorType" use="optional"/>
+                        <xs:attribute name="index" type="xs:integer" use="optional"/>
+                    </xs:complexType>
+                </xs:element>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
-
-    <!-- MultiPoint type -->
-    <xs:complexType name="MultiPointType">
-        <xs:sequence>
-            <xs:element name="Point" maxOccurs="unbounded">
-                <xs:complexType>
-                    <xs:attribute name="x" type="xs:double" use="required"/>
-                    <xs:attribute name="y" type="xs:double" use="required"/>
-                </xs:complexType>
-            </xs:element>
-        </xs:sequence>
-        <xs:attribute name="label" type="xs:string" use="required"/>
-        <xs:attribute name="color" type="HexColorType" use="optional"/>
-        <xs:attribute name="index" type="xs:integer" use="optional"/>
-    </xs:complexType>
 
     <!-- Base Polygon type without label, color, or order -->
     <xs:complexType name="BasePolygonType">
@@ -154,16 +154,36 @@
         <xs:attribute name="order" type="xs:integer" use="required"/>
     </xs:complexType>
 
-    <!-- Box type with order -->
-    <xs:complexType name="BoxType">
+    <!-- Rectangle base type for Box and BoundingBox -->
+    <xs:complexType name="RectangleType">
         <xs:attribute name="xMin" type="xs:double" use="required"/>
         <xs:attribute name="yMin" type="xs:double" use="required"/>
         <xs:attribute name="xMax" type="xs:double" use="required"/>
         <xs:attribute name="yMax" type="xs:double" use="required"/>
-        <xs:attribute name="label" type="xs:string" use="required"/>
-        <xs:attribute name="color" type="HexColorType" use="optional"/>
-        <xs:attribute name="order" type="xs:integer" use="required"/>
     </xs:complexType>
+
+    <!-- Bounding Box type extending RectangleType -->
+    <xs:complexType name="BoundingBoxType">
+        <xs:complexContent>
+            <xs:extension base="RectangleType">
+                <xs:attribute name="label" type="xs:string" use="optional"/>
+                <xs:attribute name="color" type="HexColorType" use="optional"/>
+                <xs:attribute name="index" type="xs:integer" use="optional"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Box type extending RectangleType with order -->
+    <xs:complexType name="BoxType">
+        <xs:complexContent>
+            <xs:extension base="RectangleType">
+                <xs:attribute name="label" type="xs:string" use="required"/>
+                <xs:attribute name="color" type="HexColorType" use="optional"/>
+                <xs:attribute name="order" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
 
     <!-- Root element -->
     <xs:element name="DlupAnnotations">
