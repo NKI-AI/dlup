@@ -8,6 +8,11 @@
 #include <pybind11/stl.h>
 #include <vector>
 
+// Forward declarations
+class Polygon;
+class Box;
+class Point;
+
 class FactoryGuard {
   public:
   FactoryGuard(py::function &factory_ref, py::function new_factory)

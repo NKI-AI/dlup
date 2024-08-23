@@ -631,6 +631,7 @@ class SlideAnnotations:
         halo_xml: PathLike,
         scaling: float | None = None,
         sorting: AnnotationSorting | str = AnnotationSorting.NONE,
+        box_as_polygon: bool = False,
     ) -> _TSlideAnnotations:
         """
         Read annotations as a Halo [1] XML file.
@@ -645,6 +646,9 @@ class SlideAnnotations:
         sorting: AnnotationSorting
             The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information. By default
             the annotations are not sorted as HALO supports hierarchical annotations.
+        box_as_polygon : bool
+            If True, rectangles are converted to polygons, and added as such.
+            This is useful when the rectangles are actually implicitly bounding boxes.
 
         References
         ----------
@@ -671,13 +675,6 @@ class SlideAnnotations:
                 color = (_color[0], _color[1], _color[2])
                 for region in layer.regions:
                     if region.type == pyhaloxml.RegionType.Rectangle:
-                        warnings.warn(
-                            f"Rectangle annotations are not supported. Annotation {layer.name} will be added "
-                            "to the container (and used for the bounding box), but is currently not returned "
-                            "in the read_region function. In case this is important for you, "
-                            "please open an issue at https://github.com/NKI-AI/dlup/issues.",
-                            UserWarning,
-                        )
                         # The data is a CCW polygon, so the first and one to last coordinates are the coordinates
                         vertices = region.getvertices()
                         min_x = min(v[0] for v in vertices)
@@ -685,7 +682,13 @@ class SlideAnnotations:
                         min_y = min(v[1] for v in vertices)
                         max_y = max(v[1] for v in vertices)
                         curr_box = Box((min_x, min_y), (max_x - min_x, max_y - min_y))
-                        collection.add_box(curr_box)
+
+                        if box_as_polygon:
+                            # TODO: This return a _geometry.Polygon, not a geometry.Polygon
+                            polygon = curr_box.as_polygon()
+                            collection.add_polygon(polygon)
+                        else:
+                            collection.add_box(curr_box)
                         continue
 
                     elif region.type in [pyhaloxml.RegionType.Ellipse, pyhaloxml.RegionType.Polygon]:

@@ -73,6 +73,7 @@ PYBIND11_MODULE(_geometry, m) {
         newBox->parameters_ = other.parameters_; // Copy the parameters
         return newBox;
       }))
+      .def("as_polygon", &Box::asPolygon, "Convert the box to a polygon")
       .def_property_readonly("coordinates", &Box::getCoordinates,
                              "Get the top-left coordinates of the box as an (x, y) tuple")
       .def_property_readonly("size", &Box::getSize, "Get the size of the box as an (h, w) tuple")
@@ -102,6 +103,9 @@ PYBIND11_MODULE(_geometry, m) {
       .def("scale", &Point::scale, py::arg("scaling"), "Scale the in-place point by a factor")
       .def_property_readonly("wkt", &Point::toWkt, "Get the WKT representation of the point");
 
+  //   m.def("set_polygon_factory", &FactoryFunctions::setPolygonFactory);
+  //   m.def("set_box_factory", &FactoryFunctions::setBoxFactory);
+  //   m.def("set_point_factory", &FactoryFunctions::setPointFactory);
   m.def("set_polygon_factory", &AnnotationRegion::setPolygonFactory);
   m.def("set_box_factory", &AnnotationRegion::setBoxFactory);
   m.def("set_point_factory", &AnnotationRegion::setPointFactory);

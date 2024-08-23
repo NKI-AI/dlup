@@ -12,7 +12,6 @@
 #include "../opencv.h"
 #include "base.h"
 #include "box.h"
-#include "collection.h"
 #include "exceptions.h"
 #include "point.h"
 #include "polygon.h"

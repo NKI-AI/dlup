@@ -2,8 +2,11 @@
 #define DLUP_GEOMETRY_BOX_H
 #pragma once
 
+#include "exceptions.h"
+#include "polygon.h"
 #include "utilities.h"
 #include <boost/geometry.hpp>
+#include <opencv2/core.hpp>
 
 namespace bg = boost::geometry;
 
@@ -44,6 +47,23 @@ class Box : public BaseGeometry {
 
     return {x2 - x1, y2 - y1};
   }
+
+  std::shared_ptr<Polygon> asPolygon() const {
+    BoostPolygon poly;
+    bg::convert(*box_, poly);
+    // std::shared_ptr<Polygon> polygon = GeometryCollection::polygonFactory(poly);
+
+    std::shared_ptr<Polygon> polygon = std::make_shared<Polygon>(poly);
+
+    // Copy all parameters from the Box to the new Polygon
+    for (const auto &param : parameters_) {
+      polygon->setField(param.first, param.second);
+    }
+
+    return polygon;
+  }
+
+  std::vector<std::pair<double, double>> getExterior() const { return asPolygon()->getExterior(); }
 
   void scale(double scaling) { utilities::AffineTransform(*box_, {0.0, 0.0}, scaling); }
 
