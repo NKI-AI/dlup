@@ -10,10 +10,13 @@
 #include <unordered_map>
 #include <vector>
 
-cv::Mat generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> &annotations,
-                                    const std::tuple<int, int> &mask_size, int default_value) {
-  cv::Size region_size(std::get<0>(mask_size), std::get<1>(mask_size));
-  cv::Mat mask(region_size, CV_32S, cv::Scalar(default_value));
+std::vector<int> generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> &annotations,
+                                             const std::tuple<int, int> &mask_size, int default_value) {
+  int width = std::get<0>(mask_size);
+  int height = std::get<1>(mask_size);
+  std::vector<int> mask(width * height, default_value);
+
+  cv::Mat mask_view(height, width, CV_32S, mask.data());
 
   std::vector<cv::Point> exterior_cv_points;
   std::vector<std::vector<cv::Point>> interiors_cv_points;
@@ -39,31 +42,26 @@ cv::Mat generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> 
     const auto &interiors = annotation->getInteriors();
     interiors_cv_points.reserve(interiors.size());
     for (const auto &interior : interiors) {
-      std::vector<cv::Point> interior_cv;
-      interior_cv.reserve(interior.size());
+      interiors_cv_points.emplace_back(); // Create a new vector in place
+      interiors_cv_points.back().reserve(interior.size());
       for (const auto &[x, y] : interior) {
-        interior_cv.emplace_back(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
+        interiors_cv_points.back().emplace_back(static_cast<int>(std::round(x)), static_cast<int>(std::round(y)));
       }
-      interiors_cv_points.push_back(std::move(interior_cv));
     }
 
     if (!interiors_cv_points.empty()) {
       // Create a mask for holes
-      cv::Mat holes_mask = cv::Mat::zeros(region_size, CV_8U);
+      cv::Mat holes_mask = cv::Mat::zeros(height, width, CV_8U);
       cv::fillPoly(holes_mask, interiors_cv_points, cv::Scalar(1));
 
       // Apply exterior mask first, then restore original values in holes
-      cv::Mat original_values = mask.clone();
-      cv::fillPoly(mask, std::vector<std::vector<cv::Point>>{exterior_cv_points}, cv::Scalar(index_value));
-      original_values.copyTo(mask, holes_mask);
+      cv::Mat original_values = mask_view.clone();
+      cv::fillPoly(mask_view, std::vector<std::vector<cv::Point>>{exterior_cv_points}, cv::Scalar(index_value));
+      original_values.copyTo(mask_view, holes_mask);
     } else {
       // Directly fill the exterior mask if no interiors exist
-      cv::fillPoly(mask, std::vector<std::vector<cv::Point>>{exterior_cv_points}, cv::Scalar(index_value));
+      cv::fillPoly(mask_view, std::vector<std::vector<cv::Point>>{exterior_cv_points}, cv::Scalar(index_value));
     }
-  }
-
-  if (mask.type() != CV_32S) {
-    throw std::runtime_error("Mask must be of type CV_32S (int).");
   }
 
   return mask;
