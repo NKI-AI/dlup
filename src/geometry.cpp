@@ -6,11 +6,15 @@
 #include "geometry/box.h"
 #include "geometry/collection.h"
 #include "geometry/exceptions.h"
+#include "geometry/factory.h"
 #include "geometry/point.h"
 #include "geometry/polygon.h"
 #include "geometry/region.h"
-
 namespace py = pybind11;
+
+template class FactoryManager<Polygon>;
+template class FactoryManager<Box>;
+template class FactoryManager<Point>;
 
 PYBIND11_MODULE(_geometry, m) {
   py::class_<BaseGeometry, std::shared_ptr<BaseGeometry>>(m, "BaseGeometry")
@@ -103,12 +107,9 @@ PYBIND11_MODULE(_geometry, m) {
       .def("scale", &Point::scale, py::arg("scaling"), "Scale the in-place point by a factor")
       .def_property_readonly("wkt", &Point::toWkt, "Get the WKT representation of the point");
 
-  //   m.def("set_polygon_factory", &FactoryFunctions::setPolygonFactory);
-  //   m.def("set_box_factory", &FactoryFunctions::setBoxFactory);
-  //   m.def("set_point_factory", &FactoryFunctions::setPointFactory);
-  m.def("set_polygon_factory", &AnnotationRegion::setPolygonFactory);
-  m.def("set_box_factory", &AnnotationRegion::setBoxFactory);
-  m.def("set_point_factory", &AnnotationRegion::setPointFactory);
+  m.def("set_polygon_factory", &FactoryManager<Polygon>::setFactory, "Set the factory function for Polygons");
+  m.def("set_box_factory", &FactoryManager<Box>::setFactory, "Set the factory function for Boxes");
+  m.def("set_point_factory", &FactoryManager<Point>::setFactory, "Set the factory function for Points");
 
   py::class_<GeometryCollection, std::shared_ptr<GeometryCollection>>(m, "GeometryCollection")
       .def(py::init<>())

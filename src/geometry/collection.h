@@ -13,6 +13,7 @@
 #include "base.h"
 #include "box.h"
 #include "exceptions.h"
+#include "factory.h"
 #include "point.h"
 #include "polygon.h"
 #include "region.h"
@@ -227,7 +228,8 @@ py::list GeometryCollection::getPolygons() {
   std::lock_guard<std::mutex> lock(collection_mutex_);
   py::list py_polygons;
   for (const auto &polygon : polygons_) {
-    py_polygons.append(AnnotationRegion::callFactoryFunction(polygon));
+    py::object processed_polygon = FactoryManager<Polygon>::callFactoryFunction(polygon);
+    py_polygons.append(processed_polygon);
   }
   return py_polygons;
 }
@@ -236,7 +238,7 @@ py::list GeometryCollection::getPoints() {
   std::lock_guard<std::mutex> lock(collection_mutex_);
   py::list py_points;
   for (const auto &point : points_) {
-    py_points.append(AnnotationRegion::callFactoryFunction(point));
+    py_points.append(FactoryManager<Point>::callFactoryFunction(point));
   }
   return py_points;
 }
@@ -245,7 +247,7 @@ py::list GeometryCollection::getBoxes() {
   std::lock_guard<std::mutex> lock(collection_mutex_);
   py::list py_boxes;
   for (const auto &box : boxes_) {
-    py_boxes.append(AnnotationRegion::callFactoryFunction(box));
+    py_boxes.append(FactoryManager<Box>::callFactoryFunction(box));
   }
   return py_boxes;
 }
