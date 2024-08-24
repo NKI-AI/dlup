@@ -33,6 +33,13 @@ class FactoryManager {
 
   static FactoryGuard createFactoryGuard(py::function factory) { return FactoryGuard(factoryFunction(), factory); }
 
+  // New method to streamline setting factories and creating guards
+  template <typename U>
+  static void setAndCreateFactoryGuard(py::function factory) {
+    setFactory(factory);
+    createFactoryGuard(factory);
+  }
+
   private:
   static py::function &factoryFunction() {
     static py::function instance;
@@ -45,7 +52,6 @@ class FactoryManager {
     }
 
     try {
-      // Directly invoke the Python function and capture its return value
       py::object result = factoryFunction(object);
       if (!result.is_none()) {
         return result;

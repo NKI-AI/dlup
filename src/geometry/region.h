@@ -18,25 +18,14 @@ class AnnotationRegionBase {
   public:
   AnnotationRegionBase(std::vector<std::shared_ptr<T>> objects) : objects_(std::move(objects)) {}
 
-  // Factory function setter
-  static void setFactory(py::function factory) { FactoryManager<T>::setFactory(std::move(factory)); }
-
-  // FactoryGuard creator
-  static FactoryGuard createFactoryGuard(py::function factory) {
-    return FactoryManager<T>::createFactoryGuard(std::move(factory));
-  }
-
-  // Factory function caller
-  static py::object callFactoryFunction(const std::shared_ptr<T> &object) {
-    return FactoryManager<T>::callFactoryFunction(object);
-  }
-
   std::vector<std::shared_ptr<T>> getObjectVector() const { return objects_; }
 
-  py::list getObjects() const {
-    py::list py_objects;
+  // Apply factory function and return vector of Python objects
+  std::vector<py::object> getObjects() const {
+    std::vector<py::object> py_objects;
+    py_objects.reserve(objects_.size());
     for (const auto &object : objects_) {
-      py_objects.append(callFactoryFunction(object));
+      py_objects.push_back(FactoryManager<T>::callFactoryFunction(object));
     }
     return py_objects;
   }
@@ -52,24 +41,20 @@ class AnnotationRegion {
       : polygon_region_(std::move(polygons)), box_region_(std::move(boxes)), point_region_(std::move(points)),
         mask_size_(std::move(mask_size)) {}
 
-  // Templated factory function setters
-  template <typename T>
-  static void setFactory(py::function factory) { AnnotationRegionBase<T>::setFactory(std::move(factory)); }
-
-  template <typename T>
-  static FactoryGuard createFactoryGuard(py::function factory) {
-    return AnnotationRegionBase<T>::createFactoryGuard(std::move(factory));
-  }
-
   // Member functions to retrieve annotations
-  py::list getPolygons() const { return polygon_region_.getObjects(); }
-  py::list getPoints() const { return point_region_.getObjects(); }
-  py::list getBoxes() const { return box_region_.getObjects(); }
+  std::vector<py::object> getPolygons() const { return polygon_region_.getObjects(); }
+  std::vector<py::object> getPoints() const { return point_region_.getObjects(); }
+  std::vector<py::object> getBoxes() const { return box_region_.getObjects(); }
 
   py::array_t<int> toMask(int default_value = 0) const {
-    cv::Size region_size(std::get<0>(mask_size_), std::get<1>(mask_size_));
-    cv::Mat mask = generateMaskFromAnnotations(polygon_region_.getObjectVector(), region_size, default_value);
-    return maskToPyArray(mask);
+    cv::Mat mask = generateMaskFromAnnotations(polygon_region_.getObjectVector(), mask_size_, default_value);
+
+    // Create py::array_t<int> from cv::Mat
+    return py::array_t<int>({mask.rows, mask.cols},             // shape of the array
+                            {mask.step[0], mask.step[1]},       // strides
+                            reinterpret_cast<int *>(mask.data), // pointer to the data
+                            nullptr // No need to manage the memory manually, OpenCV will handle it
+    );
   }
 
   private:
