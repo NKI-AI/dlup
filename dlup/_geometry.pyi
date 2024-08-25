@@ -1,5 +1,8 @@
 from typing import Callable, overload
 
+import numpy as np
+from numpy.typing import NDArray
+
 from dlup._types import GenericNumber
 from dlup.geometry import Box as Box_
 from dlup.geometry import Point as Point_
@@ -42,6 +45,7 @@ class AnnotationRegion:
     def polygons(self) -> list[Polygon_]: ...
     @property
     def points(self) -> list[Point_]: ...
+    def as_mask(self) -> NDArray[np.int_]: ...
 
 class GeometryCollection:
     def add_polygon(self, polygon: Polygon) -> None: ...

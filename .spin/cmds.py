@@ -171,6 +171,12 @@ def dist():
 
 
 @cli.command()
+def precommit():
+    """🛠️  Run pre-commit hooks"""
+    subprocess.run(["pre-commit", "run", "--all-files"], check=True)
+
+
+@cli.command()
 def format():
     """🛠️ Run clang-format and black"""
     # Run clang-format
