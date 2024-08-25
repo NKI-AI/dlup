@@ -21,6 +21,7 @@ import functools
 import json
 import os
 import pathlib
+import warnings
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, replace
 from enum import Enum
@@ -477,6 +478,9 @@ class WsiAnnotations:
         self._sort_layers_in_place()
         self._available_classes: set[AnnotationClass] = {layer.annotation_class for layer in self._layers}
         self._str_tree = STRtree(self._layers)
+        warnings.warn(
+            "WsiAnnotations will be deprecated in the next release. Use SlideAnnotations instead.", DeprecationWarning
+        )
 
     @property
     def available_classes(self) -> set[AnnotationClass]:
@@ -961,6 +965,13 @@ class WsiAnnotations:
         The polygons can be converted to masks using `dlup.data.transforms.convert_annotations` or
         `dlup.data.transforms.ConvertAnnotationsToMask`.
         """
+
+        warnings.warn(
+            "WsiAnnotations.read_region() will be deprecated in the next release. "
+            "Use SlideAnnotations.read_region() instead, which has a different return type",
+            DeprecationWarning,
+        )
+
         box = list(location) + list(np.asarray(location) + np.asarray(size))
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)

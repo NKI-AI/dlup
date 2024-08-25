@@ -80,6 +80,7 @@ package = 'dlup'
   ".spin/cmds.py:mypy",
   ".spin/cmds.py:lint",
   ".spin/cmds.py:format",
+  ".spin/cmds.py:precommit",
 ]
 "Environments" = [
   "spin.cmds.meson.run",
