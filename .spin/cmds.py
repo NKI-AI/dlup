@@ -6,7 +6,6 @@ import click
 from spin.cmds import meson
 
 
-
 @click.group()
 def cli():
     """DLUP development commands"""
@@ -23,22 +22,22 @@ def build(ctx, meson_args, jobs=None, clean=False, verbose=False, quiet=False, *
     """🔧 Build the project"""
     build_dir = Path("build")
     build_dir.mkdir(exist_ok=True)
-    
+
     # Get the site-packages directory of the current Python environment
     site_packages = site.getsitepackages()[0]
-    
+
     meson_args = list(meson_args) + [
         f"--prefix={site_packages}",
         f"-Dpython.platlibdir={site_packages}",
-        f"-Dpython.purelibdir={site_packages}"
+        f"-Dpython.purelibdir={site_packages}",
     ]
-    
-    ctx.params['meson_args'] = meson_args
-    ctx.params['jobs'] = jobs
-    ctx.params['clean'] = clean
-    ctx.params['verbose'] = verbose
-    ctx.params['quiet'] = quiet
-    
+
+    ctx.params["meson_args"] = meson_args
+    ctx.params["jobs"] = jobs
+    ctx.params["clean"] = clean
+    ctx.params["verbose"] = verbose
+    ctx.params["quiet"] = quiet
+
     ctx.forward(meson.build)
 
 

@@ -684,7 +684,6 @@ class SlideAnnotations:
                         curr_box = Box((min_x, min_y), (max_x - min_x, max_y - min_y))
 
                         if box_as_polygon:
-                            # TODO: This return a _geometry.Polygon, not a geometry.Polygon
                             polygon = curr_box.as_polygon()
                             collection.add_polygon(polygon)
                         else:

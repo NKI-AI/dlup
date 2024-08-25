@@ -163,7 +163,8 @@ class TestAnnotations:
         if self._halo_annotations is None:
             assert pathlib.Path(pathlib.Path(__file__).parent / "files/halo_holes.annotations").exists()
             self._halo_annotations = SlideAnnotations.from_halo_xml(
-                pathlib.Path(__file__).parent / "files/halo_holes.annotations"
+                pathlib.Path(__file__).parent / "files/halo_holes.annotations",
+                box_as_polygon=False,
             )
         return self._halo_annotations
 

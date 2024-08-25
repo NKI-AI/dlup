@@ -37,21 +37,13 @@ class AnnotationRegionBase {
 class AnnotationRegion {
   public:
   AnnotationRegion(std::function<AnnotationRegion()> region_generator)
-      : region_generator_(region_generator), 
-        initialized_(false), 
-        polygon_region_({}), 
-        point_region_({}), 
+      : region_generator_(region_generator), initialized_(false), polygon_region_({}), point_region_({}),
         box_region_({}) {}
 
-  AnnotationRegion(std::vector<std::shared_ptr<Polygon>> polygons,
-                   std::vector<std::shared_ptr<Box>> boxes,
-                   std::vector<std::shared_ptr<Point>> points,
-                   std::tuple<int, int> mask_size)
-      : polygon_region_(std::move(polygons)), 
-        box_region_(std::move(boxes)), 
-        point_region_(std::move(points)), 
-        mask_size_(std::move(mask_size)), 
-        initialized_(true) {}
+  AnnotationRegion(std::vector<std::shared_ptr<Polygon>> polygons, std::vector<std::shared_ptr<Box>> boxes,
+                   std::vector<std::shared_ptr<Point>> points, std::tuple<int, int> mask_size)
+      : polygon_region_(std::move(polygons)), box_region_(std::move(boxes)), point_region_(std::move(points)),
+        mask_size_(std::move(mask_size)), initialized_(true) {}
 
   // Member functions to retrieve annotations
   std::vector<py::object> getPolygons() {
@@ -76,7 +68,8 @@ class AnnotationRegion {
     int width = std::get<0>(mask_size_);
     int height = std::get<1>(mask_size_);
 
-    return py::array_t<int>({height, width}, {width * sizeof(int), sizeof(int)}, mask.data(), py::capsule(mask.data(), [](void *) {}));
+    return py::array_t<int>({height, width}, {width * sizeof(int), sizeof(int)}, mask.data(),
+                            py::capsule(mask.data(), [](void *) {}));
   }
 
   private:
@@ -98,39 +91,5 @@ class AnnotationRegion {
   AnnotationRegionBase<Box> box_region_;
   std::tuple<int, int> mask_size_;
 };
-
-
-
-// class AnnotationRegion {
-//   public:
-//   AnnotationRegion(std::vector<std::shared_ptr<Polygon>> polygons, std::vector<std::shared_ptr<Box>> boxes,
-//                    std::vector<std::shared_ptr<Point>> points, std::tuple<int, int> mask_size)
-//       : polygon_region_(std::move(polygons)), box_region_(std::move(boxes)), point_region_(std::move(points)),
-//         mask_size_(std::move(mask_size)) {}
-
-//   // Member functions to retrieve annotations
-//   std::vector<py::object> getPolygons() const { return polygon_region_.getObjects(); }
-//   std::vector<py::object> getPoints() const { return point_region_.getObjects(); }
-//   std::vector<py::object> getBoxes() const { return box_region_.getObjects(); }
-
-//   py::array_t<int> toMask(int default_value = 0) const {
-//     std::vector<int> mask = generateMaskFromAnnotations(polygon_region_.getObjectVector(), mask_size_, default_value);
-
-//     int width = std::get<0>(mask_size_);
-//     int height = std::get<1>(mask_size_);
-
-//     // Create py::array_t<int> from std::vector<int>
-//     return py::array_t<int>({height, width},                          // shape of the array
-//                             {width * sizeof(int), sizeof(int)},       // strides
-//                             mask.data(),                              // pointer to the data
-//                             py::capsule(mask.data(), [](void *) {})); // capsule to manage memory
-//   }
-
-//   private:
-//   AnnotationRegionBase<Polygon> polygon_region_;
-//   AnnotationRegionBase<Point> point_region_;
-//   AnnotationRegionBase<Box> box_region_;
-//   std::tuple<int, int> mask_size_;
-// };
 
 #endif // DLUP_GEOMETRY_REGION_H

@@ -351,7 +351,10 @@ class TestGeometry:
             poly.set_field("label", f"label {idx}")
 
         assert collection.rtree_invalidated
-        collection.read_region((2, 2), scaling, (10, 10))
+        region = collection.read_region((2, 2), scaling, (10, 10))
+        # It's still invalid because of the lazy evaluation!
+        assert collection.rtree_invalidated
+        region.polygons  # Call to ensure that the polygons are obtained
         assert not collection.rtree_invalidated
 
         # TODO: Add more elaborate tests for regions
