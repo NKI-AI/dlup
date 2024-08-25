@@ -357,51 +357,102 @@ void GeometryCollection::removePoint(size_t index) {
 
 AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> &coordinates, double scaling,
                                                 const std::pair<double, double> &size) {
-
-  std::lock_guard<std::mutex> lock(collection_mutex_);
-  if (rtree_wrapper_.isInvalidated()) {
-    rtree_wrapper_.rebuild();
-  }
-
-  BoostPoint top_left(coordinates.first / scaling, coordinates.second / scaling);
-  BoostPoint bottom_right((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
-  BoostBox query_box(top_left, bottom_right);
-
-  BoostPolygon intersection_polygon;
-  bg::convert(query_box, intersection_polygon);
-  std::vector<std::pair<BoostBox, size_t>> results;
-  rtree_wrapper_.query(bgi::intersects(query_box), std::back_inserter(results));
-
-  std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
-
-  std::vector<std::shared_ptr<Polygon>> intersected_polygons;
-  std::vector<std::shared_ptr<Point>> current_points;
-  std::vector<std::shared_ptr<Box>> current_boxes;
-
-  for (const auto &result : results) {
-    size_t index = result.second;
-    if (index < polygons_.size()) {
-      auto &polygon = polygons_[index];
-      auto intersections = polygon->intersection(intersection_polygon);
-      for (const auto &intersected_polygon : intersections) {
-        utilities::AffineTransform(*intersected_polygon->polygon_, coordinates, scaling);
-        intersected_polygons.push_back(intersected_polygon);
-      }
-    } else if (index < polygons_.size() + boxes_.size()) {
-      auto &box = boxes_[index - polygons_.size()];
-      auto transformed_box = std::make_shared<Box>(*box);
-      utilities::AffineTransform(*transformed_box->box_, coordinates, scaling);
-      current_boxes.push_back(transformed_box);
-    } else {
-      auto &point = points_[index - polygons_.size() - boxes_.size()];
-      auto transformed_point = std::make_shared<Point>(*point);
-      utilities::AffineTransform(*transformed_point->point_, coordinates, scaling);
-      current_points.push_back(transformed_point);
+  return AnnotationRegion([=, this]() {
+    std::lock_guard<std::mutex> lock(collection_mutex_);
+    if (rtree_wrapper_.isInvalidated()) {
+      rtree_wrapper_.rebuild();
     }
-  }
 
-  return AnnotationRegion(std::move(intersected_polygons), std::move(current_boxes), std::move(current_points),
-                          std::move(size));
+    BoostPoint top_left(coordinates.first / scaling, coordinates.second / scaling);
+    BoostPoint bottom_right((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
+    BoostBox query_box(top_left, bottom_right);
+
+    BoostPolygon intersection_polygon;
+    bg::convert(query_box, intersection_polygon);
+    std::vector<std::pair<BoostBox, size_t>> results;
+    rtree_wrapper_.query(bgi::intersects(query_box), std::back_inserter(results));
+
+    std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
+
+    std::vector<std::shared_ptr<Polygon>> intersected_polygons;
+    std::vector<std::shared_ptr<Point>> current_points;
+    std::vector<std::shared_ptr<Box>> current_boxes;
+
+    for (const auto &result : results) {
+      size_t index = result.second;
+      if (index < polygons_.size()) {
+        auto &polygon = polygons_[index];
+        auto intersections = polygon->intersection(intersection_polygon);
+        for (const auto &intersected_polygon : intersections) {
+          utilities::AffineTransform(*intersected_polygon->polygon_, coordinates, scaling);
+          intersected_polygons.push_back(intersected_polygon);
+        }
+      } else if (index < polygons_.size() + boxes_.size()) {
+        auto &box = boxes_[index - polygons_.size()];
+        auto transformed_box = std::make_shared<Box>(*box);
+        utilities::AffineTransform(*transformed_box->box_, coordinates, scaling);
+        current_boxes.push_back(transformed_box);
+      } else {
+        auto &point = points_[index - polygons_.size() - boxes_.size()];
+        auto transformed_point = std::make_shared<Point>(*point);
+        utilities::AffineTransform(*transformed_point->point_, coordinates, scaling);
+        current_points.push_back(transformed_point);
+      }
+    }
+
+    return AnnotationRegion(std::move(intersected_polygons), std::move(current_boxes), std::move(current_points),
+                            std::make_tuple(size.first, size.second));
+  });
 }
+
+
+// AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> &coordinates, double scaling,
+//                                                 const std::pair<double, double> &size) {
+
+//   std::lock_guard<std::mutex> lock(collection_mutex_);
+//   if (rtree_wrapper_.isInvalidated()) {
+//     rtree_wrapper_.rebuild();
+//   }
+
+//   BoostPoint top_left(coordinates.first / scaling, coordinates.second / scaling);
+//   BoostPoint bottom_right((coordinates.first + size.first) / scaling, (coordinates.second + size.second) / scaling);
+//   BoostBox query_box(top_left, bottom_right);
+
+//   BoostPolygon intersection_polygon;
+//   bg::convert(query_box, intersection_polygon);
+//   std::vector<std::pair<BoostBox, size_t>> results;
+//   rtree_wrapper_.query(bgi::intersects(query_box), std::back_inserter(results));
+
+//   std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
+
+//   std::vector<std::shared_ptr<Polygon>> intersected_polygons;
+//   std::vector<std::shared_ptr<Point>> current_points;
+//   std::vector<std::shared_ptr<Box>> current_boxes;
+
+//   for (const auto &result : results) {
+//     size_t index = result.second;
+//     if (index < polygons_.size()) {
+//       auto &polygon = polygons_[index];
+//       auto intersections = polygon->intersection(intersection_polygon);
+//       for (const auto &intersected_polygon : intersections) {
+//         utilities::AffineTransform(*intersected_polygon->polygon_, coordinates, scaling);
+//         intersected_polygons.push_back(intersected_polygon);
+//       }
+//     } else if (index < polygons_.size() + boxes_.size()) {
+//       auto &box = boxes_[index - polygons_.size()];
+//       auto transformed_box = std::make_shared<Box>(*box);
+//       utilities::AffineTransform(*transformed_box->box_, coordinates, scaling);
+//       current_boxes.push_back(transformed_box);
+//     } else {
+//       auto &point = points_[index - polygons_.size() - boxes_.size()];
+//       auto transformed_point = std::make_shared<Point>(*point);
+//       utilities::AffineTransform(*transformed_point->point_, coordinates, scaling);
+//       current_points.push_back(transformed_point);
+//     }
+//   }
+
+//   return AnnotationRegion(std::move(intersected_polygons), std::move(current_boxes), std::move(current_points),
+//                           std::move(size));
+// }
 
 #endif // DLUP_GEOMETRY_COLLECTION_H
