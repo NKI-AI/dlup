@@ -170,5 +170,19 @@ def dist():
     subprocess.run(["ls", "-l", "dist"], check=True)
 
 
+@cli.command()
+def format():
+    """🛠️ Run clang-format and black"""
+    # Run clang-format
+    subprocess.run(
+        "find src -name '*.cpp' -o -name '*.h' -o -name '*.hpp' | xargs clang-format -i",
+        shell=True,
+        check=True,
+    )
+
+    # Run black
+    subprocess.run(["black", "."], check=True)
+
+
 if __name__ == "__main__":
     cli()

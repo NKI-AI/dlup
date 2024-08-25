@@ -12,7 +12,16 @@ from shapely.geometry import Point as ShapelyPoint
 from shapely.geometry import Polygon as ShapelyPolygon
 
 import dlup._geometry as dg
-from dlup.geometry import GeometryCollection, Point, Polygon, _BaseGeometry, _point_factory, _polygon_factory
+from dlup.geometry import (
+    Box,
+    GeometryCollection,
+    Point,
+    Polygon,
+    _BaseGeometry,
+    _box_factory,
+    _point_factory,
+    _polygon_factory,
+)
 
 polygons = [
     Polygon(dg.Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])),
@@ -54,6 +63,23 @@ class TestGeometry:
         c_polygon = dg.Polygon([(0, 0), (0, 3), (3, 3), (3, 0)], [])
         polygon = _polygon_factory(c_polygon)
         assert polygon == Polygon([(0, 0), (0, 3), (3, 3), (3, 0)])
+
+    def test_box_factory(self):
+        c_box = dg.Box((1, 1), (2, 2))
+        box = _box_factory(c_box)
+        assert box == Box((1, 1), (2, 2))
+
+    def test_box_area(self):
+        box = Box((1, 1), (2, 2))
+        box.area == 4
+        box.as_polygon().area == box.area
+
+    def box_to_polygon(self):
+        box = Box((1, 1), (2, 2))
+        polygon = box.as_polygon()
+        assert isinstance(box, Box)
+        assert isinstance(polygon, Polygon)
+        assert polygon == Polygon([(1, 1), (1, 2), (2, 2), (2, 1)])
 
     @pytest.mark.parametrize(
         "exterior,interiors,expected_area",

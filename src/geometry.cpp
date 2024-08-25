@@ -77,10 +77,13 @@ PYBIND11_MODULE(_geometry, m) {
         newBox->parameters_ = other.parameters_; // Copy the parameters
         return newBox;
       }))
-      .def("as_polygon", &Box::asPolygon, "Convert the box to a polygon")
+      .def("as_polygon", &Box::asPolygonPyObject, "Convert the box to a polygon")
+      .def("scale", &Box::scale, py::arg("scaling"), "Scale the box in-place by a factor")
+
       .def_property_readonly("coordinates", &Box::getCoordinates,
                              "Get the top-left coordinates of the box as an (x, y) tuple")
       .def_property_readonly("size", &Box::getSize, "Get the size of the box as an (h, w) tuple")
+      .def_property_readonly("area", &Box::getArea)
       .def_property_readonly("wkt", &Box::toWkt, "Get the WKT representation of the box");
 
   py::class_<Point, BaseGeometry, std::shared_ptr<Point>>(m, "Point")
@@ -104,7 +107,7 @@ PYBIND11_MODULE(_geometry, m) {
       .def("distance_to", &Point::distanceTo, py::arg("other"), "Calculate the distance to another point")
       .def("equals", &Point::equals, py::arg("other"), "Check if the point is equal to another point")
       .def("within", &Point::within, py::arg("polygon"), "Check if the point is within a polygon")
-      .def("scale", &Point::scale, py::arg("scaling"), "Scale the in-place point by a factor")
+      .def("scale", &Point::scale, py::arg("scaling"), "Scale the point in-place point by a factor")
       .def_property_readonly("wkt", &Point::toWkt, "Get the WKT representation of the point");
 
   m.def("set_polygon_factory", &FactoryManager<Polygon>::setFactory, "Set the factory function for Polygons");

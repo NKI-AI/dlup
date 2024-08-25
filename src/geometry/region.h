@@ -46,17 +46,6 @@ class AnnotationRegion {
   std::vector<py::object> getPoints() const { return point_region_.getObjects(); }
   std::vector<py::object> getBoxes() const { return box_region_.getObjects(); }
 
-  // py::array_t<int> toMask(int default_value = 0) const {
-  //   cv::Mat mask = generateMaskFromAnnotations(polygon_region_.getObjectVector(), mask_size_, default_value);
-
-  //   // Create py::array_t<int> from cv::Mat
-  //   return py::array_t<int>({mask.rows, mask.cols},             // shape of the array
-  //                           {mask.step[0], mask.step[1]},       // strides
-  //                           reinterpret_cast<int *>(mask.data), // pointer to the data
-  //                           nullptr // No need to manage the memory manually, OpenCV will handle it
-  //   );
-  // }
-
   py::array_t<int> toMask(int default_value = 0) const {
     std::vector<int> mask = generateMaskFromAnnotations(polygon_region_.getObjectVector(), mask_size_, default_value);
 

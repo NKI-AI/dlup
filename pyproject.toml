@@ -79,6 +79,7 @@ package = 'dlup'
   ".spin/cmds.py:coverage",
   ".spin/cmds.py:mypy",
   ".spin/cmds.py:lint",
+  ".spin/cmds.py:format",
 ]
 "Environments" = [
   "spin.cmds.meson.run",

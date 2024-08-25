@@ -755,7 +755,7 @@ class SlideAnnotations:
         if self._layers.boxes:
             warnings.warn("Bounding boxes are not supported in GeoJSON and will be skipped.", UserWarning)
 
-        all_layers = self._layers.polygons + self._layers.points
+        all_layers = self.layers.polygons + self.layers.points
         for idx, curr_annotation in enumerate(all_layers):
             json_dict = _geometry_to_geojson(curr_annotation, label=curr_annotation.label, color=curr_annotation.color)
             json_dict["id"] = str(idx)

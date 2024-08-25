@@ -3,6 +3,7 @@
 #pragma once
 
 #include "exceptions.h"
+#include "factory.h"
 #include "polygon.h"
 #include "utilities.h"
 #include <boost/geometry.hpp>
@@ -35,11 +36,11 @@ class Box : public BaseGeometry {
     bg::set<bg::max_corner, 1>(*box_, coordinates[1] + size[1]);
   }
 
-  inline const std::array<double, 2> getCoordinates() {
+  inline std::array<double, 2> getCoordinates() const {
     return {bg::get<bg::min_corner, 0>(*box_), bg::get<bg::min_corner, 1>(*box_)};
   }
 
-  inline const std::array<double, 2> getSize() {
+  inline std::array<double, 2> getSize() const {
     auto x1 = bg::get<bg::min_corner, 0>(*box_);
     auto y1 = bg::get<bg::min_corner, 1>(*box_);
     auto x2 = bg::get<bg::max_corner, 0>(*box_);
@@ -48,14 +49,14 @@ class Box : public BaseGeometry {
     return {x2 - x1, y2 - y1};
   }
 
+  inline double getArea() const {
+    std::array<double, 2> size = getSize();
+    return size[0] * size[1];
+  }
   std::shared_ptr<Polygon> asPolygon() const {
     BoostPolygon poly;
     bg::convert(*box_, poly);
-    // std::shared_ptr<Polygon> polygon = GeometryCollection::polygonFactory(poly);
-
     std::shared_ptr<Polygon> polygon = std::make_shared<Polygon>(poly);
-
-    // Copy all parameters from the Box to the new Polygon
     for (const auto &param : parameters_) {
       polygon->setField(param.first, param.second);
     }
@@ -64,6 +65,8 @@ class Box : public BaseGeometry {
   }
 
   std::vector<std::pair<double, double>> getExterior() const { return asPolygon()->getExterior(); }
+
+  inline py::object asPolygonPyObject() const { return FactoryManager<Polygon>::callFactoryFunction(asPolygon()); }
 
   void scale(double scaling) { utilities::AffineTransform(*box_, {0.0, 0.0}, scaling); }
 
