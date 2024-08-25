@@ -1,8 +1,10 @@
 import subprocess
 import webbrowser
 from pathlib import Path
-
+import site
 import click
+from spin.cmds import meson
+
 
 
 @click.group()
@@ -12,11 +14,32 @@ def cli():
 
 
 @cli.command()
-def build():
+@click.option("-j", "--jobs", help="Number of parallel tasks to launch", type=int)
+@click.option("--clean", is_flag=True, help="Clean build directory before build")
+@click.option("-v", "--verbose", is_flag=True, help="Print all build output, even installation")
+@click.argument("meson_args", nargs=-1)
+@click.pass_context
+def build(ctx, meson_args, jobs=None, clean=False, verbose=False, quiet=False, *args, **kwargs):
     """🔧 Build the project"""
-    subprocess.run(["meson", "setup", "builddir", "--prefix", str(Path.cwd())], check=True)
-    subprocess.run(["meson", "compile", "-C", "builddir"], check=True)
-    subprocess.run(["meson", "install", "-C", "builddir"], check=True)
+    build_dir = Path("build")
+    build_dir.mkdir(exist_ok=True)
+    
+    # Get the site-packages directory of the current Python environment
+    site_packages = site.getsitepackages()[0]
+    
+    meson_args = list(meson_args) + [
+        f"--prefix={site_packages}",
+        f"-Dpython.platlibdir={site_packages}",
+        f"-Dpython.purelibdir={site_packages}"
+    ]
+    
+    ctx.params['meson_args'] = meson_args
+    ctx.params['jobs'] = jobs
+    ctx.params['clean'] = clean
+    ctx.params['verbose'] = verbose
+    ctx.params['quiet'] = quiet
+    
+    ctx.forward(meson.build)
 
 
 @cli.command()
