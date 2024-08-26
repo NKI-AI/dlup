@@ -85,7 +85,7 @@ DLUP_XML_EXAMPLE = b"""<DlupAnnotations version="1.0">
 
     <Geometries>
         <!-- Polygon, MultiPolygon and Box can appear in any arbitrary order-->
-        <Polygon label="Polygon1" color="#FF5733" order="0>
+        <Polygon label="Polygon1" color="#FF5733" order="0">
             <Exterior>
                 <Point x="0.0" y="0.0"/>
                 <Point x="4.0" y="0.0"/>
@@ -228,6 +228,7 @@ class TestAnnotations:
         for polygon in halo_annotations.layers.polygons:
             polygon.index = 1
         halo_mask = halo_annotations.read_region((0, 0), 0.01, (522, 374)).to_mask()
+        print(halo_mask.min(), halo_mask.max(), "halo_mask")
         output_color_mask = halo_annotations.color_lut[halo_mask]
         assert halo_mask.sum() == 87709
         assert output_color_mask.sum() == 51485183

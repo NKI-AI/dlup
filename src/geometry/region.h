@@ -63,13 +63,12 @@ class AnnotationRegion {
 
   py::array_t<int> toMask(int default_value = 0) {
     ensureInitialized();
-    std::vector<int> mask = generateMaskFromAnnotations(polygon_region_.getObjectVector(), mask_size_, default_value);
+    auto mask = generateMaskFromAnnotations(polygon_region_.getObjectVector(), mask_size_, default_value);
 
     int width = std::get<0>(mask_size_);
     int height = std::get<1>(mask_size_);
 
-    return py::array_t<int>({height, width}, {width * sizeof(int), sizeof(int)}, mask.data(),
-                            py::capsule(mask.data(), [](void *) {}));
+    return py::array_t<int>({height, width}, mask->data());
   }
 
   private:

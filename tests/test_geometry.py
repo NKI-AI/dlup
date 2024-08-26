@@ -526,3 +526,13 @@ class TestGeometry:
         assert polygon0 == Polygon(
             [(0, 0), (0, 6), (6, 6), (6, 0), (0, 0)], [], color=(1, 1, 1), index=1, label="label 0"
         )
+
+    def test_mask(self):
+        collection = GeometryCollection()
+        polygon = Box((1, 1), (4, 4)).as_polygon()
+        polygon.index = 2
+        collection.add_polygon(polygon)
+
+        region = collection.read_region((0, 0), 1.0, (5, 5))
+        mask = region.to_mask()
+        assert mask.sum() == 16 * 2
