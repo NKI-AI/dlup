@@ -137,3 +137,10 @@ max-line-length = 120
 
 [tool.pytest.ini_options]
 addopts = "--ignore=libvips"
+
+[tool.coverage.run]
+branch = true
+parallel = false  # To see if there are threading issues
+
+[tool.coverage.html]
+directory = "htmlcov"
