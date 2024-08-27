@@ -249,6 +249,20 @@ class SlideAnnotations:
         sorting: Optional[AnnotationSorting | str] = None,
         **kwargs: Any,
     ) -> None:
+        """
+        Parameters
+        ----------
+        layers : GeometryCollection
+            Geometry collection containing the polygons, boxes and points
+        tags: Optional[tuple[SlideTag, ...]]
+            A tuple of image-level tags such as staining quality
+        sorting: AnnotationSorting
+            Sorting method, see `AnnotationSorting`. This value is typically passed to the constructor
+            because of operations layer on (such as `__add__`). Typically the classmethod already sorts the data
+        **kwargs: Any
+            Additional keyword arguments. In this class they are used for additional metadata or offset functions.
+            Currently only HaloXML requires offsets. See `.from_halo_xml` for an example
+        """
         self._layers = layers
         self._tags = tags
         self._sorting = sorting
@@ -265,14 +279,19 @@ class SlideAnnotations:
 
     @property
     def num_polygons(self) -> int:
-        return len(self._layers.polygons)
+        return len(self.layers.polygons)
 
     @property
     def num_points(self) -> int:
-        return len(self._layers.points)
+        return len(self.layers.points)
+
+    @property
+    def num_boxes(self) -> int:
+        return len(self.layers.boxes)
 
     @property
     def metadata(self) -> Optional[dict[str, list[str] | str | int | float | bool]]:
+        """Additional metadata for the annotations"""
         return self._metadata
 
     @property
@@ -303,7 +322,8 @@ class SlideAnnotations:
 
     @property
     def layers(self) -> GeometryCollection:
-        """Get the layers of the annotations.
+        """
+        Get the layers of the annotations.
         This is a GeometryCollection object which contains all the polygons and points
         """
         return self._layers
@@ -1078,6 +1098,47 @@ class SlideAnnotations:
         scaling: float,
         size: tuple[GenericNumber, GenericNumber],
     ) -> AnnotationRegion:
+        """Reads the region of the annotations. Function signature is the same as `dlup.SlideImage`
+        so they can be used in conjunction.
+
+        The process is as follows:
+
+        1.  All the annotations which overlap with the requested region of interest are filtered
+        2.  The polygons in the GeometryContainer in `.layers` are cropped.
+            The boxes and points are only filtered, so it's possible the boxes have negative (x, y) values
+        3.  The annotation is rescaled and shifted to the origin to match the local patch coordinate system.
+
+        The final returned data is a `dlup.geometry.AnnotationRegion`.
+
+        Parameters
+        ----------
+        location: tuple[GenericNumber, GenericNumber]
+            Top-left coordinates of the region in the requested scaling
+        size : tuple[GenericNumber, GenericNumber]
+            Output size of the region
+        scaling : float
+            Scaling to apply compared to the base level
+
+        Returns
+        -------
+        AnnotationRegion
+
+        Examples
+        --------
+        1. To read geojson annotations and convert them into masks:
+
+        >>> from pathlib import Path
+        >>> from dlup import SlideImage
+        >>> import numpy as np
+        >>> wsi = SlideImage.from_file_path(Path("path/to/image.svs"))
+        >>> wsi = wsi.get_scaled_view(scaling=0.5)
+        >>> wsi = wsi.read_region(location=(0,0), size=wsi.size)
+        >>> annotations = SlideAnnotations.from_geojson("path/to/geojson.json")
+        >>> region = annotations.read_region((0,0), 0.01, wsi.size)
+        >>> mask = region.to_mask()
+        >>> color_mask = annotations.color_lut[mask]
+        >>> polygons = region.polygons  # This is a list of `dlup.geometry.Polygon` objects
+        """
         region = self._layers.read_region(coordinates, scaling, size)
         return region
 

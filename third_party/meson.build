@@ -61,4 +61,3 @@ incdir_pybind11 = incdir_pybind11
 base_deps = base_deps
 boost_dep = boost_dep
 opencv_dep = opencv_dep
-
