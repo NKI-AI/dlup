@@ -1,7 +1,8 @@
+import site
 import subprocess
 import webbrowser
 from pathlib import Path
-import site
+
 import click
 from spin.cmds import meson
 

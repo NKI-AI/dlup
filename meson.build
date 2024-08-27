@@ -16,7 +16,10 @@ link_args = ['-flto']
 # Unity build option
 unity_build = true
 
-# Include subdirectories for building
+
 subdir('third_party')
 subdir('src')
 subdir('dlup')
+
+# Include subdirectories for building
+install_subdir('dlup', install_dir : py.get_install_dir())
