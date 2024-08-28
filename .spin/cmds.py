@@ -2,7 +2,7 @@ import site
 import subprocess
 import webbrowser
 from pathlib import Path
-
+import os
 import click
 from spin.cmds import meson
 
@@ -24,13 +24,13 @@ def build(ctx, meson_args, jobs=None, clean=False, verbose=False, quiet=False, *
     build_dir = Path("build")
     build_dir.mkdir(exist_ok=True)
 
-    # Get the site-packages directory of the current Python environment
-    site_packages = site.getsitepackages()[0]
+    # Use the current working directory + /dlup instead of site-packages
+    local_install_dir = os.path.join(os.getcwd(), "dlup")
 
     meson_args = list(meson_args) + [
-        f"--prefix={site_packages}",
-        f"-Dpython.platlibdir={site_packages}",
-        f"-Dpython.purelibdir={site_packages}",
+        f"--prefix={local_install_dir}",
+        f"-Dpython.platlibdir={local_install_dir}",
+        f"-Dpython.purelibdir={local_install_dir}",
     ]
 
     ctx.params["meson_args"] = meson_args
