@@ -12,6 +12,10 @@ repos:
     rev: 24.2.0
     hooks:
     -   id: black
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.5
+    hooks:
+    -   id: ruff
 -   repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     # Ignore the configuration files
@@ -45,7 +49,21 @@ repos:
       types: [python]
       args:
         [
+          "dlup",
           "-rn", # Only display messages
           "-sn", # Don't display the score
           "--errors-only"  # Only show the errors
         ]
+-   repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.16.2
+    hooks:
+    -   id: cython-lint
+    -   id: double-quote-cython-strings
+-   repo: local
+    hooks:
+    -   id: clang-format
+        name: clang-format
+        entry: clang-format
+        language: system
+        files: \.(cpp|h)$
+        args: ['-i']

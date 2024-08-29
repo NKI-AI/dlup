@@ -1,0 +1,82 @@
+{
+  "classes": [
+    {
+      "name": "lymphocyte (cell)",
+      "type": "keypoint",
+      "description": null,
+      "color": "rgba(0,236,123,1.0)",
+      "sub_types": [
+        "inference"
+      ],
+      "properties": []
+    },
+    {
+      "name": "tumor (cell)",
+      "type": "bounding_box",
+      "description": null,
+      "color": "rgba(255,46,0,1.0)",
+      "sub_types": [
+        "inference"
+      ],
+      "properties": []
+    },
+    {
+      "name": "tumor (cell)",
+      "type": "keypoint",
+      "description": null,
+      "color": "rgba(255,92,0,1.0)",
+      "sub_types": [
+        "inference"
+      ],
+      "properties": []
+    },
+    {
+      "name": "lymphocyte (cell)",
+      "type": "bounding_box",
+      "description": null,
+      "color": "rgba(0,236,123,1.0)",
+      "sub_types": [
+        "inference"
+      ],
+      "properties": []
+    },
+    {
+      "name": "tumor (area)",
+      "type": "polygon",
+      "description": null,
+      "color": "rgba(255,46,0,1.0)",
+      "sub_types": [
+        "inference"
+      ],
+      "properties": []
+    },
+    {
+      "name": "stroma (area)",
+      "type": "polygon",
+      "description": null,
+      "color": "rgba(0,236,123,1.0)",
+      "sub_types": [
+        "inference"
+      ],
+      "properties": []
+    },
+    {
+      "name": "ROI (segmentation)",
+      "type": "bounding_box",
+      "description": null,
+      "color": "rgba(143,0,255,1.0)",
+      "sub_types": [
+        "inference"
+      ],
+      "properties": []
+    },
+    {
+      "name": "__raster_layer__",
+      "type": "raster_layer",
+      "description": "System class for all team's annotations with raster_layer type",
+      "color": null,
+      "sub_types": [],
+      "properties": []
+    }
+  ]
+}

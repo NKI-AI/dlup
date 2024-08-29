@@ -11,11 +11,6 @@ Creating a Miniconda or virtual environment is recommended. The dlup installatio
 install all other required packages.
 
 .. warning::
-    Our `fork of OpenSlide`_ needs to be installed as it provides fixes for some image types, and
-    reduces the memory requirements to open a large collection of files.
-    Similarly, the fork of `openslide-python`_ is required.
-
-.. warning::
     `Pixman`_ version 0.40 or higher is required for dlup to work correctly.
     See `this GitHub issue`_ for details. This version is automatically compiled in
     the `dlup Dockerfile`_.
@@ -75,9 +70,7 @@ submodules directory :code:`third_party/dlup`.
 
 
 .. _Singularity: https://sylabs.io/singularity/
-.. _OpenSlide: https://openslide.org
 .. _fork of OpenSlide: https://github.com/NKI-AI/OpenSlide
-.. _openslide-python: https://github.com/NKI-AI/openslide-python
 .. _Github repo: https://github.com/NKI-AI/dlup
 .. _this GitHub issue: https://github.com/NKI-AI/dlup/issues/20
 .. _dlup Dockerfile: https://github.com/NKI-AI/dlup/blob/main/docker/Dockerfile

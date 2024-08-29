@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import Any
 
+from dlup._types import PathLike
 from dlup.backends.common import AbstractSlideBackend
-from dlup.types import PathLike
 
 
 class RemoteSlideBackend(AbstractSlideBackend):

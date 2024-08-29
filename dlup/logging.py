@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright (c) dlup contributors
 from __future__ import annotations
 
@@ -7,7 +6,7 @@ import logging
 import pathlib
 import sys
 
-from dlup.types import PathLike
+from dlup._types import PathLike
 
 
 def setup_logging(

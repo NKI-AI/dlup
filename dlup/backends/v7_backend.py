@@ -10,7 +10,7 @@ from typing import Any
 import PIL.Image
 
 import dlup.utils.imports
-from dlup.types import PathLike
+from dlup._types import PathLike
 
 if dlup.utils.imports.BOTO3_AVAILABLE:
     import boto3

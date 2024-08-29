@@ -11,8 +11,8 @@ from typing import Any, Union
 
 from PIL import Image
 
+from dlup._types import PathLike
 from dlup.backends.common import AbstractSlideBackend
-from dlup.types import PathLike
 
 METADATA_CACHE = 128
 RELEVANT_VIPS_PROPERTIES = {
@@ -92,11 +92,7 @@ def dict_to_snake_case(dictionary: dict[str, Any]) -> dict[str, Any]:
 
         # Convert key to snake_case (i.e. no dashes/spaces, lowercase and underscore before capital letters)
         if isinstance(k, str):
-            k = (
-                re.sub("([a-z0-9])([A-Z])", r"\1_\2", re.sub("(.)([A-Z][a-z]+)", r"\1_\2", k))
-                .lower()
-                .replace("-", "_")
-            )
+            k = re.sub("([a-z0-9])([A-Z])", r"\1_\2", re.sub("(.)([A-Z][a-z]+)", r"\1_\2", k)).lower().replace("-", "_")
         return_dict[k] = v
     return return_dict
 
@@ -287,7 +283,7 @@ class DeepZoomSlide(AbstractSlideBackend):
         level_dz = self._level_count - level - 1
         tile_files = self.retrieve_deepzoom_tiles(level_dz, indices)
 
-        _region = Image.new(self.mode, size, (255,) * len(self.mode))
+        _region = Image.new(self.mode, size, (255,) * len(self.mode))  # type: ignore
         for (col, row), tile_file in zip(indices, tile_files):
             _region_tile = Image.open(tile_file)
             start_x = col * tile_w - x

@@ -4,6 +4,7 @@ Classes to write image and mask files
 """
 from __future__ import annotations
 
+import abc
 import pathlib
 import shutil
 import tempfile
@@ -14,52 +15,44 @@ import numpy as np
 import numpy.typing as npt
 import PIL.Image
 import PIL.ImageColor
-from pyvips.enums import Kernel
 from tifffile import tifffile
 
 import dlup
-from dlup._image import Resampling
+from dlup._libtiff_tiff_writer import LibtiffTiffWriter
+from dlup._types import PathLike
 from dlup.tiling import Grid, GridOrder, TilingMode
-from dlup.types import PathLike
-from dlup.utils.pyvips_utils import numpy_to_vips, vips_to_numpy
 from dlup.utils.tifffile_utils import get_tile
 
 
 class TiffCompression(str, Enum):
-    NONE = "none"  # No compression
-    CCITTFAX4 = "ccittfax4"  # Fax4 compression
-    JPEG = "jpeg"  # Jpeg compression
-    DEFLATE = "deflate"  # zip compression
-    PACKBITS = "packbits"  # packbits compression
-    LZW = "lzw"  # LZW compression, not implemented in tifffile
-    WEBP = "webp"  # WEBP compression
-    ZSTD = "zstd"  # ZSTD compression
-    JP2K = "jp2k"  # JP2K compression
-    JP2K_LOSSY = "jp2k_lossy"
-    PNG = "png"
+    """Compression types for tiff files."""
+
+    NONE = "NONE"  # No compression
+    CCITTFAX4 = "CCITTFAX4"  # Fax4 compression
+    JPEG = "JPEG"  # Jpeg compression
+    DEFLATE = "DEFLATE"  # zip compression
+    PACKBITS = "PACKBITS"  # packbits compression
+    LZW = "LZW"  # LZW compression, not implemented in tifffile
+    WEBP = "WEBP"  # WEBP compression
+    ZSTD = "ZSTD"  # ZSTD compression
+    JP2K = "JP2K"  # JP2K compression
+    JP2K_LOSSY = "JP2K_LOSSY"
+    PNG = "PNG"
 
 
 # Mapping to map TiffCompression to their respective values in tifffile.
 TIFFFILE_COMPRESSION = {
-    "none": None,
-    "ccittfax4": "CCITT_T4",
-    "jpeg": "jpeg",
-    "deflate": "deflate",
-    "packbits": "packbits",
-    "lzw": "lzw",
-    "webp": "webp",
-    "zstd": "zstd",
-    "jp2k": "jpeg2000",
-    "jp2k_lossy": "jpeg_2000_lossy",
-    "png": "png",
-}
-
-# Mapping to map TiffCompression to their respective values in VIPS.
-INTERPOLATOR_TO_VIPS: dict[int, Kernel] = {
-    0: Kernel.NEAREST,
-    2: Kernel.LINEAR,
-    3: Kernel.CUBIC,
-    1: Kernel.LANCZOS3,
+    "NONE": None,
+    "CCITTFAX4": "CCITT_T4",
+    "JPEG": "jpeg",
+    "DEFLATE": "deflate",
+    "PACKBITS": "packbits",
+    "LZW": "lzw",
+    "WEBP": "webp",
+    "ZSTD": "zstd",
+    "JP2K": "jpeg2000",
+    "JP2K_LOSSY": "jpeg_2000_lossy",
+    "PNG": "png",
 }
 
 
@@ -95,8 +88,113 @@ def _color_dict_to_color_lut(color_map: dict[int, str]) -> npt.NDArray[np.uint16
     return color_lut
 
 
-class ImageWriter:
+class ImageWriter(abc.ABC):
     """Base writer class"""
+
+    def __init__(
+        self,
+        filename: PathLike,
+        size: tuple[int, int] | tuple[int, int, int],
+        mpp: float | tuple[float, float],
+        tile_size: tuple[int, int] = (512, 512),
+        pyramid: bool = False,
+        colormap: dict[int, str] | None = None,
+        compression: TiffCompression | None = TiffCompression.JPEG,
+        is_mask: bool = False,
+        quality: int | None = 100,
+        metadata: dict[str, str] | None = None,
+    ):
+
+        if compression is None:
+            compression = TiffCompression.NONE
+
+        self._filename = filename
+        self._tile_size = tile_size
+        self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])
+        self._mpp: tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
+        self._pyramid = pyramid
+        self._colormap = _color_dict_to_color_lut(colormap) if colormap is not None else None
+        self._compression = compression
+        self._is_mask = is_mask
+        self._quality = quality
+        self._metadata = metadata
+
+    def from_pil(self, pil_image: PIL.Image.Image) -> None:
+        """
+        Create tiff image from a PIL image
+
+        Parameters
+        ----------
+        pil_image : PIL.Image
+        """
+        if not np.all(np.asarray(pil_image.size)[::-1] >= self._tile_size):
+            raise RuntimeError(
+                f"PIL Image must be larger than set tile size. Got {pil_image.size} and {self._tile_size}."
+            )
+        iterator = _tiles_iterator_from_pil_image(pil_image, self._tile_size, order="F")
+        self.from_tiles_iterator(iterator)
+
+    @abc.abstractmethod
+    def from_tiles_iterator(self, iterator: Iterator[npt.NDArray[np.int_]]) -> None:
+        """"""
+
+
+class LibtiffImageWriter(ImageWriter):
+    """Image writer that writes tile-by-tile to tiff using LibtiffWriter."""
+
+    def __init__(
+        self,
+        filename: PathLike,
+        size: tuple[int, int] | tuple[int, int, int],
+        mpp: float | tuple[float, float],
+        tile_size: tuple[int, int] = (512, 512),
+        pyramid: bool = False,
+        colormap: dict[int, str] | None = None,
+        compression: TiffCompression | None = TiffCompression.JPEG,
+        is_mask: bool = False,
+        quality: int | None = 100,
+        metadata: dict[str, str] | None = None,
+    ):
+        super().__init__(
+            filename,
+            size,
+            mpp,
+            tile_size,
+            pyramid,
+            colormap,
+            compression,
+            is_mask,
+            quality,
+            metadata,
+        )
+
+        compression_value: str
+        if isinstance(self._compression, TiffCompression):
+            compression_value = self._compression.value
+        else:
+            compression_value = self._compression
+
+        self._writer = LibtiffTiffWriter(
+            self._filename,
+            self._size,
+            self._mpp,
+            self._tile_size,
+            compression_value,
+            self._quality if self._quality is not None else 100,
+        )
+
+    def from_tiles_iterator(self, iterator: Iterator[npt.NDArray[np.int_]]) -> None:
+        tiles_per_row = (self._size[1] + self._tile_size[1] - 1) // self._tile_size[1]
+
+        for idx, tile in enumerate(iterator):
+            row = (idx // tiles_per_row) * self._tile_size[0]
+            col = (idx % tiles_per_row) * self._tile_size[1]
+            self._writer.write_tile(tile, row, col)
+
+        if self._pyramid:
+            self._writer.write_pyramid()
+
+        self._writer.finalize()
 
 
 class TifffileImageWriter(ImageWriter):
@@ -111,8 +209,7 @@ class TifffileImageWriter(ImageWriter):
         pyramid: bool = False,
         colormap: dict[int, str] | None = None,
         compression: TiffCompression | None = TiffCompression.JPEG,
-        interpolator: Resampling | None = Resampling.LANCZOS,
-        anti_aliasing: bool = False,
+        is_mask: bool = False,
         quality: int | None = 100,
         metadata: dict[str, str] | None = None,
     ):
@@ -136,59 +233,25 @@ class TifffileImageWriter(ImageWriter):
             Colormap to use for the image. This is only used when the image is a mask.
         compression : TiffCompression
             Compressor to use.
-        interpolator : Resampling, optional
-            Interpolator to use when downsampling. For masks you should select nearest, as the interpolation
-            could otherwise lead to unexpected results (i.e. add values which are actually not there!). By
-            default the Lanczos interpolator is used.
-        anti_aliasing : bool, optional
-            Whether to use anti-aliasing when downsampling. By default this is set to False.
+        is_mask : bool
+            If true a 2x2 maximal filter will be used for the downsampling, otherwise a 2x2 average filter will be used.
         quality : int
             Quality in case a lossy compressor is used.
         metadata : dict[str, str]
             Metadata to write to the tiff file.
         """
-        self._filename = pathlib.Path(filename)
-        self._tile_size = tile_size
-
-        self._size = (*size[::-1], 1) if len(size) == 2 else (size[1], size[0], size[2])
-        self._mpp: tuple[float, float] = (mpp, mpp) if isinstance(mpp, (int, float)) else mpp
-
-        if compression is None:
-            compression = TiffCompression.NONE
-
-        if interpolator is None:
-            interpolator = Resampling.LANCZOS
-
-        if interpolator.value not in INTERPOLATOR_TO_VIPS:
-            raise ValueError(f"Invalid interpolator: {interpolator.name}")
-
-        if anti_aliasing and interpolator == Resampling.NEAREST:
-            raise ValueError("Anti-aliasing cannot be used with nearest neighbor interpolation.")
-        elif anti_aliasing:
-            raise NotImplementedError("Anti-aliasing is not yet implemented.")
-
-        self._anti_aliasing = anti_aliasing
-        self._compression = compression
-        self._interpolator = interpolator
-        self._pyramid = pyramid
-        self._quality = quality
-        self._metadata = metadata
-        self._colormap = _color_dict_to_color_lut(colormap) if colormap is not None else None
-
-    def from_pil(self, pil_image: PIL.Image.Image) -> None:
-        """
-        Create tiff image from a PIL image
-
-        Parameters
-        ----------
-        pil_image : PIL.Image
-        """
-        if not np.all(np.asarray(pil_image.size)[::-1] >= self._tile_size):
-            raise RuntimeError(
-                f"PIL Image must be larger than set tile size. Got {pil_image.size} and {self._tile_size}."
-            )
-        iterator = _tiles_iterator_from_pil_image(pil_image, self._tile_size)
-        self.from_tiles_iterator(iterator)
+        super().__init__(
+            filename,
+            size,
+            mpp,
+            tile_size,
+            pyramid,
+            colormap,
+            compression,
+            is_mask,
+            quality,
+            metadata,
+        )
 
     def from_tiles_iterator(self, iterator: Iterator[npt.NDArray[np.int_]]) -> None:
         """
@@ -205,13 +268,11 @@ class TifffileImageWriter(ImageWriter):
         filename = pathlib.Path(self._filename)
 
         native_size = self._size[:-1]
-        software = f"dlup {dlup.__version__} with tifffile.py backend"
+        software = f"dlup {dlup.__version__} (tifffile.py {tifffile.__version__})"
         n_subresolutions = 0
         if self._pyramid:
             n_subresolutions = int(np.ceil(np.log2(np.asarray(native_size) / np.asarray(self._tile_size))).min())
-        shapes = [
-            np.floor(np.asarray(native_size) / 2**n).astype(int).tolist() for n in range(0, n_subresolutions + 1)
-        ]
+        shapes = [np.floor(np.asarray(native_size) / 2**n).astype(int).tolist() for n in range(0, n_subresolutions + 1)]
 
         # TODO: add to metadata "axes": "TCYXS", and "SignificantBits": 10,
         metadata = {
@@ -251,9 +312,7 @@ class TifffileImageWriter(ImageWriter):
                     page,  # type: ignore
                     self._tile_size,
                     shapes[level],
-                    scale=2,
-                    is_rgb=is_rgb,
-                    interpolator=self._interpolator,
+                    is_mask=self._is_mask,
                 )
                 self._write_page(
                     tiff_writer,
@@ -290,7 +349,8 @@ class TifffileImageWriter(ImageWriter):
             tile_iterator,  # noqa
             shape=(*shapes[level], self._size[-1]) if is_rgb else (*shapes[level], 1),
             dtype="uint8",
-            resolution=(*native_resolution / 2**level, "CENTIMETER"),
+            resolution=(native_resolution[0] / 2**level, native_resolution[1] / 2**level),
+            resolutionunit="CENTIMETER",
             photometric=colorspace,
             compression=compression if not self._quality else (compression, self._quality),  # type: ignore
             tile=self._tile_size,
@@ -300,7 +360,7 @@ class TifffileImageWriter(ImageWriter):
 
 
 def _tiles_iterator_from_pil_image(
-    pil_image: PIL.Image.Image, tile_size: tuple[int, int]
+    pil_image: PIL.Image.Image, tile_size: tuple[int, int], order: str | GridOrder = "F"
 ) -> Generator[npt.NDArray[np.int_], None, None]:
     """
     Given a PIL image return a tile-iterator.
@@ -309,6 +369,7 @@ def _tiles_iterator_from_pil_image(
     ----------
     pil_image : PIL.Image
     tile_size : tuple
+    order : GridOrder or str
 
     Yields
     ------
@@ -321,7 +382,7 @@ def _tiles_iterator_from_pil_image(
         tile_size=tile_size,
         tile_overlap=(0, 0),
         mode=TilingMode.overflow,
-        order=GridOrder.F,
+        order=order,
     )
     for tile_coordinates in grid:
         arr = np.asarray(pil_image)
@@ -336,9 +397,7 @@ def _tile_iterator_from_page(
     page: tifffile.TiffPage,
     tile_size: tuple[int, int],
     region_size: tuple[int, int],
-    scale: int,
-    is_rgb: bool = True,
-    interpolator: Resampling = Resampling.NEAREST,
+    is_mask: bool = False,
 ) -> Generator[npt.NDArray[np.int_], None, None]:
     """
     Create an iterator from a tiff page. Useful when writing a pyramidal tiff where the previous page is read to write
@@ -349,38 +408,29 @@ def _tile_iterator_from_page(
     page : tifffile.TiffPage
     tile_size : tuple
     region_size : tuple
-    scale : int
-        Scale between the two pages
-    is_rgb : bool
-        Whether color image or mask
-    interpolator : Resampling
-        Interpolation method, see `TiffImageWriter` for more details.
+    is_mask : bool
+        Whether the image is a mask (important for the downsampling)
 
     Yields
     ------
     np.ndarray
         Tile outputted in row-major format
     """
-    resized_tile_size = tuple(map(lambda x: x * scale, tile_size))
+    resized_tile_size = tuple(map(lambda x: x * 2, tile_size))
     grid = Grid.from_tiling(
         (0, 0),
         size=region_size,
         tile_size=resized_tile_size,
         tile_overlap=(0, 0),
         mode=TilingMode.overflow,
+        order="F",
     )
     for coordinates in grid:
         # The tile size must be cropped to image bounds
         region_end = coordinates + resized_tile_size
         size = np.clip(region_end, 0, region_size) - coordinates
 
-        # For mypy
-        _coordinates = coordinates[::-1]
-        _size = size[::-1]
+        vips_tile = get_tile(page, (coordinates[1], coordinates[0]), (size[1], size[0]))
 
-        tile = get_tile(page, (_coordinates[0], _coordinates[1]), (_size[0], _size[1]))[0]
-        vips_tile = numpy_to_vips(tile).resize(1 / scale, kernel=INTERPOLATOR_TO_VIPS[interpolator.value])
-        output = vips_to_numpy(vips_tile)
-        if not is_rgb:
-            output = output[..., 0]
+        output = vips_tile.reduce(2, 2, kernel="nearest" if is_mask else "linear").numpy()
         yield output

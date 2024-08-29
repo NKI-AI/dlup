@@ -9,14 +9,9 @@ from io import BytesIO
 from typing import Any, Optional
 
 import dlup.utils.imports
+from dlup._types import PathLike
+from dlup.backends.deepzoom_backend import DeepZoomSlide, TileResponseTypes, dict_to_snake_case, parse_xml_to_dict
 from dlup.backends.remote_backends import RemoteSlideBackend
-from dlup.experimental_backends.deepzoom_backend import (
-    DeepZoomSlide,
-    TileResponseTypes,
-    dict_to_snake_case,
-    parse_xml_to_dict,
-)
-from dlup.types import PathLike
 
 if dlup.utils.imports.AIOHTTP_AVAILABLE:
     import asyncio

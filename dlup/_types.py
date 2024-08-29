@@ -1,4 +1,5 @@
 # Copyright (c) dlup contributors
+"""Defines the types using in dlup."""
 from __future__ import annotations
 
 import pathlib

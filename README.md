@@ -11,7 +11,8 @@ Whole Slide Images.
 
 
 ## Features
-- Read whole-slide images at any arbitrary resolution by seamlessly interpolating between the pyramidal levels, supporting different backends, such as [OpenSlide](https://openslide.org/), [pyvips](https://libvips.github.io/libvips/), [SlideScore](https://slidescore.com) and remote images in [V7 Darwin](https://darwin.v7labs.com).
+- Read whole-slide images at any arbitrary resolution by seamlessly interpolating between the pyramidal levels.
+- Supports multiple backends, including [OpenSlide](https://openslide.org/), [VIPS](https://libvips.github.io/libvips/) and remote images in [SlideScore](https://slidescore.com), with the possibility to add custom backends.
 - Dataset classes to handle whole-slide images in a tile-by-tile manner compatible with pytorch
 - Annotation classes which can load GeoJSON, [V7 Darwin](https://www.v7labs.com/), [HALO](https://indicalab.com/halo/) and [ASAP](https://computationalpathologygroup.github.io/ASAP/) formats and read parts of it (e.g. a tile)
 - Transforms to handle annotations per tile, resulting, together with the dataset classes a dataset consisting of tiles of whole-slide images with corresponding masks as targets, readily useable with a pytorch dataloader
@@ -31,16 +32,16 @@ If you use DLUP in your research, please use the following BiBTeX entry:
 ```
 @software{dlup,
   author = {Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus, E.},
-  month = {12},
+  month = {8},
   title = {{DLUP: Deep Learning Utilities for Pathology}},
   url = {https://github.com/NKI-AI/dlup},
-  version = {0.3.36},
-  year = {2023}
+  version = {0.7.0},
+  year = {2024}
 }
 ```
 
 or the following plain bibliography:
 
 ```
-Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2023). DLUP: Deep Learning Utilities for Pathology (Version 0.3.36) [Computer software]. https://github.com/NKI-AI/dlup
+Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2024). DLUP: Deep Learning Utilities for Pathology (Version 0.7.0) [Computer software]. https://github.com/NKI-AI/dlup
 ```
