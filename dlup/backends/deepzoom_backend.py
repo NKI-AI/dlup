@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 import functools
+import io
 import itertools
 import math
 import re
 import xml.etree.ElementTree as ET
-from io import BytesIO
 from pathlib import Path
 from typing import Any, Union
 
-from PIL import Image
+import pyvips
 
 from dlup._types import PathLike
 from dlup.backends.common import AbstractSlideBackend
+
+# TODO: Fix cmyk case in read_region so we can remove PIL and numpy
+# import PIL
+# import numpy as np
+
 
 METADATA_CACHE = 128
 RELEVANT_VIPS_PROPERTIES = {
@@ -27,10 +32,10 @@ RELEVANT_VIPS_PROPERTIES = {
     "vips-loader": str,
 }
 
-TileResponseTypes = Union[str, BytesIO]
+TileResponseTypes = Union[str, io.BytesIO]
 
 
-def parse_xml_to_dict(file_path: PathLike | BytesIO, _to_snake_case: bool = True) -> dict[str, Any]:
+def parse_xml_to_dict(file_path: PathLike | io.BytesIO, _to_snake_case: bool = True) -> dict[str, Any]:
     """Parse XML file with name space. vips-properties.xml files will extract every property name-value pair in
     `properties`.
 
@@ -210,7 +215,15 @@ class DeepZoomSlide(AbstractSlideBackend):
     @functools.lru_cache(maxsize=METADATA_CACHE)
     def _fetch_mode(self) -> str:
         """Returns the mode of the deepzoom tile at level 0. This is an image of size 1x1 that should exist."""
-        return str(Image.open(self.retrieve_deepzoom_tiles(0, [(0, 0)])[0]).mode)
+        _tile_path = self.retrieve_deepzoom_tiles(0, [(0, 0)])[0]
+        if isinstance(_tile_path, (Path, str)):
+            _region: pyvips.Image = pyvips.Image.new_from_file(_tile_path)
+        elif isinstance(_tile_path, io.BytesIO):
+            _region = pyvips.Image.new_from_buffer(_tile_path.getvalue(), "")
+        else:
+            raise TypeError(f"Cannot open deepzoom tile of type {type(_tile_path)} using pyvips.")
+        mode: str = _region.interpretation
+        return mode
 
     @property
     def slide_bounds(self) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -238,7 +251,7 @@ class DeepZoomSlide(AbstractSlideBackend):
         level : int
             Deep zoom level for tiles
         indices : list[tuple[int, int]]
-            List of (col, row) tuples for column and row at specified deepzoom level
+            List of (row, col) tuples for column and row at specified deepzoom level
 
         Returns
         -------
@@ -247,9 +260,9 @@ class DeepZoomSlide(AbstractSlideBackend):
         """
         tile_files_root = self.tile_files
         file_format = self.dz_properties["image"]["format"]
-        return [f"{tile_files_root}/{level}/{col}_{row}.{file_format}" for col, row in indices]
+        return [f"{tile_files_root}/{level}/{col}_{row}.{file_format}" for row, col in indices]
 
-    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[int, int]) -> Image.Image:
+    def read_region(self, coordinates: tuple[Any, ...], level: int, size: tuple[int, int]) -> pyvips.Image:
         """Read region by stitching DeepZoom tiles together.
 
         Parameters
@@ -279,13 +292,17 @@ class DeepZoomSlide(AbstractSlideBackend):
         start_col = x // tile_w
         end_col = min(math.ceil((x + w) / tile_w), level_end_col)
 
-        indices = list(itertools.product(range(start_col, end_col), range(start_row, end_row)))
+        indices = list(itertools.product(range(start_row, end_row), range(start_col, end_col)))
         level_dz = self._level_count - level - 1
         tile_files = self.retrieve_deepzoom_tiles(level_dz, indices)
+        _region_tiles = []
+        for (row, col), tile_file in zip(indices, tile_files):
+            _region_tile: pyvips.Image = (
+                pyvips.Image.new_from_buffer(tile_file.getvalue(), "")
+                if isinstance(tile_file, io.BytesIO)
+                else pyvips.Image.new_from_file(tile_file)
+            )
 
-        _region = Image.new(self.mode, size, (255,) * len(self.mode))  # type: ignore
-        for (col, row), tile_file in zip(indices, tile_files):
-            _region_tile = Image.open(tile_file)
             start_x = col * tile_w - x
             start_y = row * tile_h - y
 
@@ -303,17 +320,28 @@ class DeepZoomSlide(AbstractSlideBackend):
             if col > 0:
                 crop_start_x += self._overlap
                 crop_end_x += self._overlap
-            if col == level_end_col:
+            if col == level_end_col - 1:
                 crop_end_x -= self._overlap
 
             if row > 0:
                 crop_start_y += self._overlap
                 crop_end_y += self._overlap
-            if row == level_end_row:
+            if row == level_end_row - 1:
                 crop_end_y -= self._overlap
 
-            _cropped_region_tile = _region_tile.crop((crop_start_x, crop_start_y, crop_end_x, crop_end_y))
-            _region.paste(_cropped_region_tile, (img_start_x, img_start_y))
+            _cropped_region_tile = _region_tile.crop(
+                crop_start_x, crop_start_y, crop_end_x - crop_start_x, crop_end_y - crop_start_y
+            )
+            _region_tiles.append(_cropped_region_tile)
+
+        _region = pyvips.Image.arrayjoin(_region_tiles, across=end_col - start_col)
+        # Convert to RGB if mode is cmyk
+        if self.mode == "cmyk":
+            # FIXME: This looks off when using pyvips but not when using PIL
+            _region = _region.colourspace("srgb")  # _region = _region.icc_transform("srgb") <- Both look off
+            # _region = pyvips.Image.new_from_array(
+            #     np.asarray(PIL.Image.fromarray(_region.numpy(), mode="CMYK").convert("RGB")), interpretation="srgb"
+            # )  # <- This looks good
         return _region
 
     def close(self) -> None:

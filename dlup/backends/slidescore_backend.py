@@ -206,7 +206,7 @@ class SlideScoreSlide(RemoteSlideBackend, DeepZoomSlide):
         level : int
             Deep zoom level for tiles
         indices : list[tuple[int, int]]
-            List of (col, row) tuples for column and row at specified deepzoom level
+            List of (row, col) tuples for row and column at specified deepzoom level
 
         Returns
         -------
