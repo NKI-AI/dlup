@@ -1,12 +1,12 @@
 project('dlup', 'cpp', 'cython',
  version : '0.7.0',
- default_options : ['buildtype=release', 'warning_level=3', 'cpp_std=c++17'])
+ default_options : ['buildtype=release', 'warning_level=3', 'cpp_std=c++20'])
 
 ninja = find_program('ninja', required : true)
 
 # Import Python module
 py_mod = import('python')
-py = py_mod.find_installation(pure: false)
+py = py_mod.find_installation()
 py_dep = py.dependency()
 
 # Base compiler and linker arguments
