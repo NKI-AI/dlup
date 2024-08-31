@@ -193,11 +193,15 @@ class TestAnnotations:
         v7_region = self.v7_annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
         geojson_region = annotations.read_region((15300, 19000), 1.0, (2500.0, 2500.0))
 
-        assert len(v7_region.polygons) == len(geojson_region.polygons)
+        assert len(v7_region.polygons.get_geometries()) == len(geojson_region.polygons.get_geometries())
 
-        for elem0, elem1 in zip(v7_region.polygons, geojson_region.polygons):
+        for elem0, elem1 in zip(v7_region.polygons.get_geometries(), geojson_region.polygons.get_geometries()):
             assert elem0.wkt == elem1.wkt
             assert elem0.label == elem1.label
+            elem0.index = 1
+            elem1.index = 1
+
+        assert np.allclose(v7_region.polygons.to_mask(), geojson_region.polygons.to_mask())
 
         for elem0, elem1 in zip(v7_region.points, geojson_region.points):
             assert elem0.wkt == elem1.wkt
@@ -227,7 +231,7 @@ class TestAnnotations:
         assert halo_annotations.bounding_box[0] == (0, 0)
         for polygon in halo_annotations.layers.polygons:
             polygon.index = 1
-        halo_mask = halo_annotations.read_region((0, 0), 0.01, (522, 374)).to_mask()
+        halo_mask = halo_annotations.read_region((0, 0), 0.01, (522, 374)).polygons.to_mask()
         output_color_mask = halo_annotations.color_lut[halo_mask]
         # assert halo_mask.sum() == 87709
         # assert output_color_mask.sum() == 51485183
@@ -285,7 +289,7 @@ class TestAnnotations:
         coordinates, size, area = region
         region = self.asap_annotations.read_region(coordinates, 1.0, size)
 
-        polygons = region.polygons
+        polygons = region.polygons.get_geometries()
 
         if area and area > 0:
             assert len(polygons) == 1
@@ -294,7 +298,7 @@ class TestAnnotations:
             assert isinstance(polygons[0], Polygon)
 
         if not area:
-            assert region.polygons == []
+            assert region.polygons.get_geometries() == []
             assert region.points == []
 
     def test_copy(self):
@@ -373,14 +377,14 @@ class TestAnnotations:
             (10985.104649999948, "tumor (area)"),
             (585.8433000000018, "tumor (cell)"),
         ]
-        for x, y in zip(region.polygons, expected_output_polygon):
+        for x, y in zip(region.polygons.get_geometries(), expected_output_polygon):
             if os.environ.get("GITHUB_ACTIONS", False):
                 if x.area <= 1:
                     assert np.allclose(x.area, y[0], atol=1e-3)
                 else:
                     assert np.allclose(x.area, y[0])
             else:
-                assert [(_.area, _.label) for _ in region.polygons] == expected_output_polygon
+                assert [(_.area, _.label) for _ in region.polygons.get_geometries()] == expected_output_polygon
             assert x.label == y[1]
         assert len(region.points) == 3
 

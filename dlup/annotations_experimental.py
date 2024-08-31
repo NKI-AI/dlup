@@ -788,7 +788,7 @@ class SlideAnnotations:
         description: Optional[str] = None,
         version: Optional[str] = None,
         authors: Optional[list[str]] = None,
-        pretty_print: bool = True,
+        indent: Optional[int] = 2,
     ) -> str:
         """
         Output the annotations as DLUP XML.
@@ -804,8 +804,8 @@ class SlideAnnotations:
             Version of the annotations.
         authors : list[str], optional
             Authors of the annotations.
-        pretty_print : bool, optional
-            Whether to pretty print the XML output.
+        indent : int, optional
+            Indent for pretty printing.
 
         Returns
         -------
@@ -845,7 +845,7 @@ class SlideAnnotations:
             extra_annotation_params["tags"] = tags
 
         dlup_annotations = XMLDlupAnnotations(metadata=metadata, geometries=geometries, **extra_annotation_params)
-        config = SerializerConfig(pretty_print=pretty_print)
+        config = SerializerConfig(indent=indent)
         serializer = XmlSerializer(config=config)
         return serializer.render(dlup_annotations)
 
@@ -896,9 +896,9 @@ class SlideAnnotations:
         if isinstance(item, str):
             return item in self.available_classes
         if isinstance(item, Point):
-            return item in self._layers.points
+            return item in self.layers.points
         if isinstance(item, Polygon):
-            return item in self._layers.polygons
+            return item in self.layers.polygons
 
         return False
 
@@ -916,10 +916,10 @@ class SlideAnnotations:
 
         """
         available_classes = set()
-        for polygon in self._layers.polygons:
+        for polygon in self.layers.polygons:
             if polygon.label is not None:
                 available_classes.add(polygon.label)
-        for point in self._layers.points:
+        for point in self.layers.points:
             if point.label is not None:
                 available_classes.add(point.label)
 
@@ -927,10 +927,10 @@ class SlideAnnotations:
 
     def __iter__(self) -> Iterable[Polygon | Point]:
         # First returns all the polygons then all points
-        for polygon in self._layers.polygons:
+        for polygon in self.layers.polygons:
             yield polygon
 
-        for point in self._layers.points:
+        for point in self.layers.points:
             yield point
 
     def __add__(self, other: Any) -> "SlideAnnotations":
@@ -976,14 +976,14 @@ class SlideAnnotations:
 
             # Let's add the annotations
             collection = GeometryCollection()
-            for polygon in self._layers.polygons:
+            for polygon in self.layers.polygons:
                 collection.add_polygon(copy.deepcopy(polygon))
-            for point in self._layers.points:
+            for point in self.layers.points:
                 collection.add_point(copy.deepcopy(point))
 
-            for polygon in other._layers.polygons:
+            for polygon in other.layers.polygons:
                 collection.add_polygon(copy.deepcopy(polygon))
-            for point in other._layers.points:
+            for point in other.layers.points:
                 collection.add_point(copy.deepcopy(point))
 
             SlideAnnotations._in_place_sort_and_scale(collection, None, self.sorting)
@@ -1037,9 +1037,9 @@ class SlideAnnotations:
                 assert self
                 self._tags += other._tags
 
-            for polygon in other._layers.polygons:
+            for polygon in other.layers.polygons:
                 self._layers.add_polygon(copy.deepcopy(polygon))
-            for point in other._layers.points:
+            for point in other.layers.points:
                 self._layers.add_point(copy.deepcopy(point))
         else:
             return NotImplemented
@@ -1137,7 +1137,7 @@ class SlideAnnotations:
         >>> region = annotations.read_region((0,0), 0.01, wsi.size)
         >>> mask = region.to_mask()
         >>> color_mask = annotations.color_lut[mask]
-        >>> polygons = region.polygons  # This is a list of `dlup.geometry.Polygon` objects
+        >>> polygons = region.polygons.get_geometries()  # This is a list of `dlup.geometry.Polygon` objects
         """
         region = self._layers.read_region(coordinates, scaling, size)
         return region

@@ -502,9 +502,9 @@ class TestGeometry:
         regions = collection.read_region((2, 2), 1.0, (5, 5))
 
         assert len(regions.points) == 2
-        assert len(regions.polygons) == 1
+        assert len(regions.polygons.get_geometries()) == 1
         assert regions.points == [Point(2, 2, index=1), Point(4, 4)]
-        assert regions.polygons == [Polygon([(0, 0), (0, 5), (5, 5), (5, 0)], [])]
+        assert regions.polygons.get_geometries() == [Polygon([(0, 0), (0, 5), (5, 5), (5, 0)], [])]
 
     def test_geometry_scaling(self):
         collection = GeometryCollection()
@@ -534,5 +534,5 @@ class TestGeometry:
         collection.add_polygon(polygon)
 
         region = collection.read_region((0, 0), 1.0, (5, 5))
-        mask = region.to_mask()
+        mask = region.polygons.to_mask()
         assert mask.sum() == 16 * 2

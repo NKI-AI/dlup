@@ -145,11 +145,15 @@ PYBIND11_MODULE(_geometry, m) {
       .def_property_readonly("boxes", &GeometryCollection::getBoxes)
       .def_property_readonly("points", &GeometryCollection::getPoints);
 
+  py::class_<PolygonCollection, std::shared_ptr<PolygonCollection>>(m, "PolygonCollection")
+      .def("get_geometries", &PolygonCollection::getGeometries)
+      .def("to_mask", &PolygonCollection::toMask, py::arg("default_value") = 0);
+
   py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "AnnotationRegion")
       .def_property_readonly("polygons", &AnnotationRegion::getPolygons)
       .def_property_readonly("boxes", &AnnotationRegion::getBoxes)
-      .def_property_readonly("points", &AnnotationRegion::getPoints)
-      .def("to_mask", &AnnotationRegion::toMask, py::arg("default_value") = 0);
+      .def_property_readonly("points", &AnnotationRegion::getPoints);
+
 
   py::register_exception<GeometryError>(m, "GeometryError");
   py::register_exception<GeometryIntersectionError>(m, "GeometryIntersectionError");
