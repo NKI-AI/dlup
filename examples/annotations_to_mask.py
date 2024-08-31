@@ -2,7 +2,9 @@
 """This code provides an example of how to convert annotations to a mask."""
 import json
 from pathlib import Path
+
 import PIL.Image
+
 from dlup.annotations_experimental import SlideAnnotations
 
 d_fn = Path("TCGA-E9-A1R4-01Z-00-DX1.B04D5A22-8CE5-49FD-8510-14444F46894D.json")
@@ -36,10 +38,18 @@ annotations.reindex_polygons(index_map)
 region = annotations.read_region((0, 0), scaling, bbox[1])
 LUT = annotations.color_lut
 print(region.polygons)
+
+print("Getting geometries")
+
+for polygon in region.polygons.get_geometries():
+    print(polygon)
+
 mask = LUT[region.polygons.to_mask()]
 PIL.Image.fromarray(mask).save("mask.png")
 
-for polygon in region.polygons.as_geometries():
+print("Getting geometries")
+
+for polygon in region.polygons.get_geometries():
     print(polygon)
 
 with open("test.xml", "w") as f:

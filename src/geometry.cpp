@@ -154,7 +154,6 @@ PYBIND11_MODULE(_geometry, m) {
       .def_property_readonly("boxes", &AnnotationRegion::getBoxes)
       .def_property_readonly("points", &AnnotationRegion::getPoints);
 
-
   py::register_exception<GeometryError>(m, "GeometryError");
   py::register_exception<GeometryIntersectionError>(m, "GeometryIntersectionError");
   py::register_exception<GeometryTransformationError>(m, "GeometryTransformationError");

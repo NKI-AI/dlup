@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 std::shared_ptr<std::vector<int>> generateMaskFromAnnotations(const std::vector<std::shared_ptr<Polygon>> &annotations,
                                                               const std::tuple<int, int> &mask_size,
                                                               int default_value) {

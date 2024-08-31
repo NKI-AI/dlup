@@ -845,7 +845,7 @@ class SlideAnnotations:
             extra_annotation_params["tags"] = tags
 
         dlup_annotations = XMLDlupAnnotations(metadata=metadata, geometries=geometries, **extra_annotation_params)
-        config = SerializerConfig(indent=indent)
+        config = SerializerConfig(pretty_print=True)
         serializer = XmlSerializer(config=config)
         return serializer.render(dlup_annotations)
 
