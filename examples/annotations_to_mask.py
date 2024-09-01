@@ -2,7 +2,7 @@
 """This code provides an example of how to convert annotations to a mask."""
 import json
 from pathlib import Path
-
+import numpy as np
 import PIL.Image
 
 from dlup.annotations_experimental import SlideAnnotations
@@ -41,16 +41,31 @@ print(region.polygons)
 
 print("Getting geometries")
 
-for polygon in region.polygons.get_geometries():
-    print(polygon)
+# for polygon in region.polygons.get_geometries():
+#     print(polygon)
+polys = region.polygons.get_geometries()
+curr_mask = region.polygons.to_mask()
+print(curr_mask)
+print(np.asarray(curr_mask).shape)
 
-mask = LUT[region.polygons.to_mask()]
+import time
+start_time = time.time()
+# Let's grab the polygons
+
+mask = LUT[region.polygons.to_mask().numpy()]
+
+print(f"Time lazy: {time.time() - start_time}")
+
+start_time = time.time()
+mask = LUT[region.polygons.to_mask_no_lazy()]
+print(f"Time eager: {time.time() - start_time}")
+
 PIL.Image.fromarray(mask).save("mask.png")
 
 print("Getting geometries")
 
-for polygon in region.polygons.get_geometries():
-    print(polygon)
+# for polygon in region.polygons.get_geometries():
+#     print(polygon)
 
 with open("test.xml", "w") as f:
     f.write(annotations.as_dlup_xml())
@@ -63,5 +78,5 @@ annotations2 = SlideAnnotations.from_dlup_xml("test.xml")
 region2 = annotations2.read_region((0, 0), scaling, bbox[1])
 LUT = annotations2.color_lut
 
-mask = LUT[region.polygons.to_mask()]
+mask = LUT[region.polygons.to_mask().numpy()]
 PIL.Image.fromarray(mask).save("mask2.png")
