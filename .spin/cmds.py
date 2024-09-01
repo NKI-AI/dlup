@@ -1,5 +1,4 @@
 import os
-import site
 import subprocess
 import webbrowser
 from pathlib import Path

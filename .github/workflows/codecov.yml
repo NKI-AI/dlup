@@ -58,7 +58,7 @@ jobs:
         python -m pip install .
     - name: Run coverage
       run: |
-        coverage run -m pytest || true 
+        coverage run -m pytest || true
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v4
       with:

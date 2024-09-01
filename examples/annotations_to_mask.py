@@ -2,6 +2,7 @@
 """This code provides an example of how to convert annotations to a mask."""
 import json
 from pathlib import Path
+
 import numpy as np
 import PIL.Image
 
@@ -48,17 +49,8 @@ curr_mask = region.polygons.to_mask()
 print(curr_mask)
 print(np.asarray(curr_mask).shape)
 
-import time
-start_time = time.time()
-# Let's grab the polygons
-
 mask = LUT[region.polygons.to_mask().numpy()]
 
-print(f"Time lazy: {time.time() - start_time}")
-
-start_time = time.time()
-mask = LUT[region.polygons.to_mask_no_lazy()]
-print(f"Time eager: {time.time() - start_time}")
 
 PIL.Image.fromarray(mask).save("mask.png")
 

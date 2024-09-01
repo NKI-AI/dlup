@@ -4,10 +4,10 @@
 
 #include "geometry/base.h"
 #include "geometry/box.h"
-#include "geometry/lazy_array.h"
 #include "geometry/collection.h"
 #include "geometry/exceptions.h"
 #include "geometry/factory.h"
+#include "geometry/lazy_array.h"
 #include "geometry/point.h"
 #include "geometry/polygon.h"
 #include "geometry/region.h"
@@ -150,9 +150,7 @@ PYBIND11_MODULE(_geometry, m) {
 
   py::class_<PolygonCollection, std::shared_ptr<PolygonCollection>>(m, "PolygonCollection")
       .def("get_geometries", &PolygonCollection::getGeometries)
-      .def("to_mask", &PolygonCollection::toMask, py::arg("default_value") = 0)
-      .def("to_mask_no_lazy", &PolygonCollection::toMaskNonLazy, py::arg("default_value") = 0);
-
+      .def("to_mask", &PolygonCollection::toMask, py::arg("default_value") = 0);
 
   py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "AnnotationRegion")
       .def_property_readonly("polygons", &AnnotationRegion::getPolygons)

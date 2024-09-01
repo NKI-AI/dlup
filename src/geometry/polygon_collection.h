@@ -28,36 +28,26 @@ class PolygonCollection {
     return py_objects;
   }
 
-  py::array_t<int> toMaskNonLazy(int default_value = 0) const {
-    auto mask = generateMaskFromAnnotations(polygons_, mask_size_, default_value);
-        std::cout << "Outside lambda - Number of polygons: " << polygons_.size() << std::endl;
-
-    int width = std::get<0>(mask_size_);
-    int height = std::get<1>(mask_size_);
-
-    return py::array_t<int>({height, width}, mask->data());
-}
-
-LazyArray<int> toMask(int default_value = 0) const {
+  LazyArray<int> toMask(int default_value = 0) const {
     // Capture polygons_ and mask_size_ by value
     auto polygons_copy = polygons_;
     auto mask_size_copy = mask_size_;
 
-    return LazyArray<int>([polygons_copy, mask_size_copy, default_value]() {
-        auto mask = generateMaskFromAnnotations(polygons_copy, mask_size_copy, default_value);
-        int width = std::get<0>(mask_size_copy);
-        int height = std::get<1>(mask_size_copy);
-        return py::array_t<int>({height, width}, mask->data());
-    });
-}
+    // Provide the shape as the second argument to the LazyArray constructor
+    return LazyArray<int>(
+        [polygons_copy, mask_size_copy, default_value]() {
+          auto mask = generateMaskFromAnnotations(polygons_copy, mask_size_copy, default_value);
+          int width = std::get<0>(mask_size_copy);
+          int height = std::get<1>(mask_size_copy);
+          return py::array_t<int>({height, width}, mask->data());
+        },
+        {std::get<1>(mask_size_copy), std::get<0>(mask_size_copy)} // Provide the shape explicitly
+    );
+  }
 
-
-
-
-
-private:
-std::vector<std::shared_ptr<Polygon>> polygons_;
-std::tuple<int, int> mask_size_;
+  private:
+  std::vector<std::shared_ptr<Polygon>> polygons_;
+  std::tuple<int, int> mask_size_;
 };
 
 #endif // DLUP_POLYGON_COLLECTION_H
