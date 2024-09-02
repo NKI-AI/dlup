@@ -233,8 +233,8 @@ class TestAnnotations:
             polygon.index = 1
         halo_mask = halo_annotations.read_region((0, 0), 0.01, (522, 374)).polygons.to_mask()
         output_color_mask = halo_annotations.color_lut[halo_mask]
-        # assert halo_mask.sum() == 87709
-        # assert output_color_mask.sum() == 51485183
+        assert halo_mask.sum() == 87709
+        assert output_color_mask.sum() == 51485183
 
     def test_reexpert_dlup_xml(self):
         with tempfile.NamedTemporaryFile(suffix=".xml") as dlup_file:
