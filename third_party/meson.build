@@ -1,7 +1,11 @@
 ### third_party/meson.build ###
 
 py_mod = import('python')
-py = py_mod.find_installation()
+if host_machine.system() == 'darwin'
+    py = py_mod.find_installation(pure: false)
+else
+    py = py_mod.find_installation()
+endif
 py_dep = py.dependency()
 
 python_path = run_command(py, ['-c', 'import sys; print(sys.executable)'], check: true).stdout().strip()

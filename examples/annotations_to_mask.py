@@ -38,37 +38,71 @@ bbox = annotations.bounding_box_at_scaling(scaling)
 annotations.reindex_polygons(index_map)
 region = annotations.read_region((0, 0), scaling, bbox[1])
 LUT = annotations.color_lut
-print(region.polygons)
+import time
 
-print("Getting geometries")
+start_time = time.time()
+curr_mask = region.polygons_eager.to_mask()
+print(f"Time to compute mask eagerly: {time.time() - start_time}")
+
+
+print(region, "region")
+print(region.polygons, "region.polygons")  # This should be lazy
 
 # for polygon in region.polygons.get_geometries():
 #     print(polygon)
-polys = region.polygons.get_geometries()
-curr_mask = region.polygons.to_mask()
+polys = region.polygons.get_geometries()  # This should start computing
+
+import time
+
+start_time = time.time()
+curr_mask = region.polygons.to_mask().numpy()
+print(f"Time to compute mask lazily: {time.time() - start_time}")
+
+
 print(curr_mask)
 print(np.asarray(curr_mask).shape)
 
-mask = LUT[region.polygons.to_mask().numpy()]
+mask_itself = region.polygons.to_mask().numpy()
 
+mask = LUT[mask_itself]
 
 PIL.Image.fromarray(mask).save("mask.png")
+from dlup.geometry import Box, GeometryCollection
 
-print("Getting geometries")
+collection = GeometryCollection()
+polygon = Box((1, 1), (4, 4)).as_polygon()
+polygon.index = 2
+collection.add_polygon(polygon)
 
-# for polygon in region.polygons.get_geometries():
-#     print(polygon)
+region = collection.read_region((0, 0), 1.0, (5, 5))
 
-with open("test.xml", "w") as f:
-    f.write(annotations.as_dlup_xml())
+print("Python: Getting geometries")
+# region.polygons.get_geometries()
+print("Python: got geometries")
+print("Python: Computing mask")
+mask = np.asarray(region.polygons.to_mask())
+print("Python: Got mask")
+# print(mask)
+# assert mask.sum() == 16 * 2
+print("Python: Done")
+mask = np.asarray(region.polygons.to_mask())
 
 
-with open("test.geojson", "w") as f:
-    f.write(json.dumps(annotations.as_geojson(), indent=2))
+# print("Getting geometries")
 
-annotations2 = SlideAnnotations.from_dlup_xml("test.xml")
-region2 = annotations2.read_region((0, 0), scaling, bbox[1])
-LUT = annotations2.color_lut
+# # for polygon in region.polygons.get_geometries():
+# #     print(polygon)
 
-mask = LUT[region.polygons.to_mask().numpy()]
-PIL.Image.fromarray(mask).save("mask2.png")
+# with open("test.xml", "w") as f:
+#     f.write(annotations.as_dlup_xml())
+
+
+# with open("test.geojson", "w") as f:
+#     f.write(json.dumps(annotations.as_geojson(), indent=2))
+
+# annotations2 = SlideAnnotations.from_dlup_xml("test.xml")
+# region2 = annotations2.read_region((0, 0), scaling, bbox[1])
+# LUT = annotations2.color_lut
+
+# mask = LUT[region.polygons.to_mask().numpy()]
+# PIL.Image.fromarray(mask).save("mask2.png")

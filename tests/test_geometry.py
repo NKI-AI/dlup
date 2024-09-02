@@ -534,5 +534,5 @@ class TestGeometry:
         collection.add_polygon(polygon)
 
         region = collection.read_region((0, 0), 1.0, (5, 5))
-        mask = region.polygons.to_mask()
+        mask = region.polygons.to_mask().numpy()
         assert mask.sum() == 16 * 2
