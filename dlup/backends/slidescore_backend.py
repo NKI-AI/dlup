@@ -8,12 +8,13 @@ import re
 from io import BytesIO
 from typing import Any, Optional
 
-import dlup.utils.imports
 from dlup._types import PathLike
-from dlup.backends.deepzoom_backend import DeepZoomSlide, TileResponseTypes, dict_to_snake_case, parse_xml_to_dict
+from dlup.backends.deepzoom_backend import DeepZoomSlide, TileResponseTypes
 from dlup.backends.remote_backends import RemoteSlideBackend
+from dlup.utils.backends import dict_to_snake_case, parse_xml_to_dict
+from dlup.utils.imports import AIOHTTP_AVAILABLE
 
-if dlup.utils.imports.AIOHTTP_AVAILABLE:
+if AIOHTTP_AVAILABLE:
     import asyncio
 
     import aiohttp
@@ -41,6 +42,9 @@ class SlideScoreSlide(RemoteSlideBackend, DeepZoomSlide):
     def __init__(self, filename: PathLike):
         if isinstance(filename, pathlib.Path):
             raise ValueError("Filename should be SlideScore URL for SlideScoreSlide.")
+
+        if not AIOHTTP_AVAILABLE:
+            raise RuntimeError("`aiohtpp` is not available. Install dlup with `slidescore_remote` dependencies.")
 
         # Parse URL with regex
         parsed_url = re.search(r"(https?://[^/?]+)(?=.*\bstudyId=(\d+))(?=.*\bimageId=(\d+)).*$", filename)
@@ -174,7 +178,7 @@ class SlideScoreSlide(RemoteSlideBackend, DeepZoomSlide):
         connector = aiohttp.TCPConnector(limit=self._max_async_request)
         async with aiohttp.ClientSession(cookies=self.cookies, headers=self.headers, connector=connector) as session:
             tasks = [self.fetch_request(session=session, url=url, data=data) for url, data in zip(urls, data_dicts)]
-            return await asyncio.gather(*tasks)
+            return await asyncio.gather(*tasks)  # pylint: disable=possibly-used-before-assignment
 
     def run_fetch_requests(
         self,

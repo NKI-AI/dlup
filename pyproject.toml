@@ -61,12 +61,6 @@ dev = [
     "darwin-py>=0.8.62",
 ]
 darwin = ["darwin-py>=0.8.59"]
-s3_remote = [
-    "boto3",
-    "botocore",
-    "boto3-stubs",
-    "botocore-stubs",
-]
 slidescore_remote = ["asyncio", "aiohttp"]
 
 [project.urls]
