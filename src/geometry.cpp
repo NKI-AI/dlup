@@ -154,6 +154,7 @@ PYBIND11_MODULE(_geometry, m) {
 
   py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "AnnotationRegion")
       .def_property_readonly("polygons", &AnnotationRegion::getPolygons)
+      .def_property_readonly("polygons_eager", &AnnotationRegion::getPolygonsEager)
       .def_property_readonly("boxes", &AnnotationRegion::getBoxes)
       .def_property_readonly("points", &AnnotationRegion::getPoints);
 

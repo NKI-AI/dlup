@@ -37,17 +37,32 @@ class AnnotationRegionBase {
 class AnnotationRegion {
   public:
   AnnotationRegion(std::function<AnnotationRegion()> region_generator)
-      : region_generator_(region_generator), initialized_(false), polygon_collection_({}, {0, 0}), point_region_({}),
-        box_region_({}) {}
+      : region_generator_(region_generator), initialized_(false),
+        polygon_collection_(
+            std::make_shared<PolygonCollection>(std::vector<std::shared_ptr<Polygon>>(), std::tuple<int, int>{0, 0})),
+        point_region_({}), box_region_({}) {}
 
   AnnotationRegion(std::vector<std::shared_ptr<Polygon>> polygons, std::vector<std::shared_ptr<Box>> boxes,
                    std::vector<std::shared_ptr<Point>> points, std::tuple<int, int> mask_size)
-      : polygon_collection_(std::move(polygons), std::move(mask_size)), box_region_(std::move(boxes)),
-        point_region_(std::move(points)), initialized_(true) {}
+      : polygon_collection_(std::make_shared<PolygonCollection>(std::move(polygons), std::move(mask_size))),
+        point_region_(std::move(points)), box_region_(std::move(boxes)), initialized_(true) {}
 
-  PolygonCollection getPolygons() {
+  std::shared_ptr<PolygonCollection> getPolygonsEager() {
     ensureInitialized();
     return polygon_collection_;
+  }
+
+  std::shared_ptr<PolygonCollection> getPolygons() {
+    ensureInitialized();
+    if (!lazy_polygon_collection_) {
+      lazy_polygon_collection_ = std::make_shared<PolygonCollection>(
+          [this]() -> std::vector<std::shared_ptr<Polygon>> {
+            this->ensureInitialized();
+            return polygon_collection_->getPolygonsVector(); // Ensure polygons are initialized
+          },
+          polygon_collection_->getMaskSize());
+    }
+    return lazy_polygon_collection_;
   }
 
   std::vector<py::object> getPoints() {
@@ -73,9 +88,10 @@ class AnnotationRegion {
 
   std::function<AnnotationRegion()> region_generator_;
   bool initialized_;
-  PolygonCollection polygon_collection_;
+  std::shared_ptr<PolygonCollection> polygon_collection_;
   AnnotationRegionBase<Point> point_region_;
   AnnotationRegionBase<Box> box_region_;
+  mutable std::shared_ptr<PolygonCollection> lazy_polygon_collection_;
 };
 
 #endif // DLUP_GEOMETRY_REGION_H
