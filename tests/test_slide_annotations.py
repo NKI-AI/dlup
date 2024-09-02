@@ -225,15 +225,17 @@ class TestAnnotations:
 
     def test_halo_annotations(self):
         halo_annotations = self.halo_annotations.copy()
-        offset, _ = halo_annotations.bounding_box
-        assert halo_annotations.bounding_box[0] == (-29349.0, 50000.55808864343)
+        bounding_box = halo_annotations.bounding_box
+        assert bounding_box[0] == (-29349.0, 50000.55808864343)
         halo_annotations.set_offset((29349.0, -50000.55808864343))
         assert halo_annotations.bounding_box[0] == (0, 0)
+
         for polygon in halo_annotations.layers.polygons:
             polygon.index = 1
-        halo_mask = halo_annotations.read_region((0, 0), 0.01, (522, 374)).polygons.to_mask()
-        output_color_mask = halo_annotations.color_lut[halo_mask]
-        assert halo_mask.sum() == 87709
+
+        new_bbox = halo_annotations.bounding_box_at_scaling(0.01)
+        region = halo_annotations.read_region(new_bbox[0], 0.01, new_bbox[1])
+        output_color_mask = halo_annotations.color_lut[region.polygons.to_mask().numpy()]
         assert output_color_mask.sum() == 51485183
 
     def test_reexpert_dlup_xml(self):

@@ -4,14 +4,8 @@ project('dlup', 'cpp', 'cython',
 
 ninja = find_program('ninja', required : true)
 
-# Import Python module
-
 py_mod = import('python')
-if host_machine.system() == 'darwin'
-    py = py_mod.find_installation(pure: false)
-else
-    py = py_mod.find_installation()
-endif
+py = py_mod.find_installation(pure: false)
 py_dep = py.dependency()
 
 # Base compiler and linker arguments
