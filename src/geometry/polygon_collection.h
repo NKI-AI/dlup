@@ -69,4 +69,10 @@ class PolygonCollection {
   std::function<std::vector<std::shared_ptr<Polygon>>()> initializer_;
 };
 
+void declare_pybind_polygon_collection(py::module &m) {
+  py::class_<PolygonCollection, std::shared_ptr<PolygonCollection>>(m, "PolygonCollection")
+      .def("get_geometries", &PolygonCollection::getGeometries)
+      .def("to_mask", &PolygonCollection::toMask, py::arg("default_value") = 0);
+};
+
 #endif // DLUP_POLYGON_COLLECTION_H

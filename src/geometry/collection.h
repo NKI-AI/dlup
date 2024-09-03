@@ -62,10 +62,12 @@ class GeometryCollection {
   using BoxPtr = std::shared_ptr<Box>;
 
   void addPolygon(const PolygonPtr &p);
+  void addRoi(const PolygonPtr &p);
   void addPoint(const PointPtr &p);
   void addBox(const BoxPtr &p);
 
   py::list getPolygons();
+  py::list getRois();
   py::list getPoints();
   py::list getBoxes();
   std::pair<std::pair<double, double>, std::pair<double, double>> computeBoundingBox() const;
@@ -73,6 +75,8 @@ class GeometryCollection {
 
   void removePolygon(const PolygonPtr &p);
   void removePolygon(size_t index);
+  void removeRoi(const PolygonPtr &p);
+  void removeRoi(size_t index);
   void removePoint(const PointPtr &p);
   void removePoint(size_t index);
   void removeBox(const BoxPtr &p);
@@ -88,7 +92,7 @@ class GeometryCollection {
     }
   }
 
-  int size() const { return polygons_.size() + points_.size() + boxes_.size(); }
+  int size() const { return polygons_.size() + rois_.size() + points_.size() + boxes_.size(); }
 
   std::uintptr_t getPointerId() const { return reinterpret_cast<std::uintptr_t>(this); }
 
@@ -103,6 +107,7 @@ class GeometryCollection {
   private:
   friend class RTreeWrapper;
   std::vector<PolygonPtr> polygons_;
+  std::vector<PolygonPtr> rois_;
   std::vector<PointPtr> points_;
   std::vector<BoxPtr> boxes_;
   RTreeWrapper rtree_wrapper_;
@@ -126,6 +131,19 @@ std::pair<std::pair<double, double>, std::pair<double, double>> GeometryCollecti
       is_first_ = false;
     } else {
       bg::expand(overall_bounding_box_, polygon_box);
+    }
+  }
+
+  // Iterate over the ROIs and compute their bounding boxes
+  for (const auto &roi : rois_) {
+    BoostBox roi_box;
+    bg::envelope(*(roi->polygon_), roi_box);
+
+    if (is_first_) {
+      overall_bounding_box_ = roi_box;
+      is_first_ = false;
+    } else {
+      bg::expand(overall_bounding_box_, roi_box);
     }
   }
 
@@ -199,17 +217,25 @@ void RTreeWrapper::rebuild() {
     insert(box, i);
   }
 
+  // Next insert ROIs
+  const auto &rois = geometryCollection->rois_;
+  for (size_t i = 0; i < rois.size(); ++i) {
+    BoostBox box;
+    bg::envelope(*(rois[i]->polygon_), box);
+    insert(box, polygons.size() + i);
+  }
+
   // Next insert boxes
   const auto &boxes = geometryCollection->boxes_;
   for (size_t i = 0; i < boxes.size(); ++i) {
-    insert(*(boxes[i]->box_), polygons.size() + i);
+    insert(*(boxes[i]->box_), polygons.size() + rois.size() + i);
   }
 
   // Finally, insert points
   const auto &points = geometryCollection->points_;
   for (size_t i = 0; i < points.size(); ++i) {
     BoostBox box(*(points[i]->point_), *(points[i]->point_));
-    insert(box, polygons.size() + boxes.size() + i);
+    insert(box, polygons.size() + rois.size() + boxes.size() + i);
   }
 
   rtree_invalidated_ = false;
@@ -218,6 +244,12 @@ void RTreeWrapper::rebuild() {
 void GeometryCollection::addPolygon(const PolygonPtr &p) {
   std::lock_guard<std::mutex> lock(collection_mutex_);
   polygons_.emplace_back(p);
+  rtree_wrapper_.invalidate();
+}
+
+void GeometryCollection::addRoi(const PolygonPtr &p) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  rois_.emplace_back(p);
   rtree_wrapper_.invalidate();
 }
 
@@ -241,6 +273,16 @@ py::list GeometryCollection::getPolygons() {
     py_polygons.append(processed_polygon);
   }
   return py_polygons;
+}
+
+py::list GeometryCollection::getRois() {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  py::list py_rois;
+  for (const auto &roi : rois_) {
+    py::object processed_roi = FactoryManager<Polygon>::callFactoryFunction(roi);
+    py_rois.append(processed_roi);
+  }
+  return py_rois;
 }
 
 py::list GeometryCollection::getPoints() {
@@ -292,6 +334,10 @@ void GeometryCollection::scale(double scaling) {
     polygon->scale(scaling);
   }
 
+  for (auto &roi : rois_) {
+    roi->scale(scaling);
+  }
+
   for (auto &box : boxes_) {
     box->scale(scaling);
   }
@@ -305,6 +351,9 @@ void GeometryCollection::setOffset(std::pair<double, double> offset) {
   }
   for (auto &polygon : polygons_) {
     utilities::AffineTransform(*polygon->polygon_, {-offset.first, -offset.second}, 1.0);
+  }
+  for (auto &roi : rois_) {
+    utilities::AffineTransform(*roi->polygon_, {-offset.first, -offset.second}, 1.0);
   }
   for (auto &box : boxes_) {
     utilities::AffineTransform(*box->box_, {-offset.first, -offset.second}, 1.0);
@@ -331,6 +380,27 @@ void GeometryCollection::removePolygon(size_t index) {
   }
 
   polygons_.erase(polygons_.begin() + index);
+  rtree_wrapper_.invalidate();
+}
+
+void GeometryCollection::removeRoi(const PolygonPtr &p) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  auto it = std::find(rois_.begin(), rois_.end(), p);
+  if (it != rois_.end()) {
+    rois_.erase(it);
+    rtree_wrapper_.invalidate();
+  } else {
+    throw GeometryNotFoundError("ROI not found");
+  }
+}
+
+void GeometryCollection::removeRoi(size_t index) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  if (index >= rois_.size()) {
+    throw std::out_of_range("ROI index out of range");
+  }
+
+  rois_.erase(rois_.begin() + index);
   rtree_wrapper_.invalidate();
 }
 
@@ -375,6 +445,7 @@ AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> 
     std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
 
     std::vector<std::shared_ptr<Polygon>> intersected_polygons;
+    std::vector<std::shared_ptr<Polygon>> intersected_rois;
     std::vector<std::shared_ptr<Point>> current_points;
     std::vector<std::shared_ptr<Box>> current_boxes;
 
@@ -388,21 +459,66 @@ AnnotationRegion GeometryCollection::readRegion(const std::pair<double, double> 
           intersected_polygons.push_back(intersected_polygon);
         }
       } else if (index < polygons_.size() + boxes_.size()) {
-        auto &box = boxes_[index - polygons_.size()];
+        auto &roi = rois_[index - polygons_.size()];
+        auto intersection = roi->intersection(intersection_polygon);
+        for (const auto &intersected_roi : intersection) {
+          utilities::AffineTransform(*intersected_roi->polygon_, coordinates, scaling);
+          intersected_rois.push_back(intersected_roi);
+        }
+      } else if (index < polygons_.size() + rois_.size() + boxes_.size()) {
+        auto &box = boxes_[index - polygons_.size() - rois_.size()];
         auto transformed_box = std::make_shared<Box>(*box);
         utilities::AffineTransform(*transformed_box->box_, coordinates, scaling);
         current_boxes.push_back(transformed_box);
       } else {
-        auto &point = points_[index - polygons_.size() - boxes_.size()];
+        auto &point = points_[index - polygons_.size() - rois_.size() - boxes_.size()];
         auto transformed_point = std::make_shared<Point>(*point);
         utilities::AffineTransform(*transformed_point->point_, coordinates, scaling);
         current_points.push_back(transformed_point);
       }
     }
 
-    return AnnotationRegion(std::move(intersected_polygons), std::move(current_boxes), std::move(current_points),
-                            std::make_tuple(size.first, size.second));
+    return AnnotationRegion(std::move(intersected_polygons), std::move(intersected_rois), std::move(current_boxes),
+                            std::move(current_points), std::make_tuple(size.first, size.second));
   });
+}
+
+void declare_pybind_collection(py::module &m) {
+  py::class_<GeometryCollection, std::shared_ptr<GeometryCollection>>(m, "GeometryCollection")
+      .def(py::init<>())
+      .def("add_polygon", &GeometryCollection::addPolygon)
+      .def("add_roi", &GeometryCollection::addRoi)
+      .def("add_point", &GeometryCollection::addPoint)
+      .def("add_box", &GeometryCollection::addBox)
+
+      // Overload remove_polygon to handle both object and index
+      .def("remove_polygon", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryCollection::removePolygon),
+           "Remove a polygon by passing the Polygon object")
+      .def("remove_polygon", py::overload_cast<size_t>(&GeometryCollection::removePolygon),
+           "Remove a polygon by its index")
+      .def("remove_roi", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryCollection::removeRoi),
+           "Remove an ROI by passing the ROI object")
+      .def("remove_roi", py::overload_cast<size_t>(&GeometryCollection::removeRoi), "Remove an ROI by its index")
+      .def("reindex_polygons", &GeometryCollection::reindexPolygons)
+      .def("sort_polygons", &GeometryCollection::sortPolygons, "Sort polygons by a custom key function")
+      .def("simplify_polygons", &GeometryCollection::simplifyPolygons)
+      .def("size", &GeometryCollection::size)
+
+      // Overload remove_point to handle both object and index
+      .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryCollection::removePoint),
+           "Remove a point by passing the Point object")
+      .def("remove_point", py::overload_cast<size_t>(&GeometryCollection::removePoint), "Remove a point by its index")
+      .def("read_region", &GeometryCollection::readRegion)
+      .def("rebuild_rtree", &GeometryCollection::rebuildRTree, "Rebuild the R-tree index manually")
+      .def("scale", &GeometryCollection::scale, "Scale all geometries by a factor")
+      .def("set_offset", &GeometryCollection::setOffset, "Set an offset for all geometries")
+      .def_property_readonly("rtree_invalidated", &GeometryCollection::isRTreeInvalidated)
+      .def_property_readonly("pointer_id", &GeometryCollection::getPointerId)
+      .def_property_readonly("bounding_box", &GeometryCollection::computeBoundingBox)
+      .def_property_readonly("polygons", &GeometryCollection::getPolygons)
+      .def_property_readonly("rois", &GeometryCollection::getRois)
+      .def_property_readonly("boxes", &GeometryCollection::getBoxes)
+      .def_property_readonly("points", &GeometryCollection::getPoints);
 }
 
 #endif // DLUP_GEOMETRY_COLLECTION_H

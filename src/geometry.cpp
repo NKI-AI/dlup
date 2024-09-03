@@ -115,48 +115,10 @@ PYBIND11_MODULE(_geometry, m) {
   m.def("set_box_factory", &FactoryManager<Box>::setFactory, "Set the factory function for Boxes");
   m.def("set_point_factory", &FactoryManager<Point>::setFactory, "Set the factory function for Points");
 
-  py::class_<GeometryCollection, std::shared_ptr<GeometryCollection>>(m, "GeometryCollection")
-      .def(py::init<>())
-      .def("add_polygon", &GeometryCollection::addPolygon)
-      .def("add_point", &GeometryCollection::addPoint)
-      .def("add_box", &GeometryCollection::addBox)
-
-      // Overload remove_polygon to handle both object and index
-      .def("remove_polygon", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryCollection::removePolygon),
-           "Remove a polygon by passing the Polygon object")
-      .def("remove_polygon", py::overload_cast<size_t>(&GeometryCollection::removePolygon),
-           "Remove a polygon by its index")
-      .def("reindex_polygons", &GeometryCollection::reindexPolygons)
-      .def("sort_polygons", &GeometryCollection::sortPolygons, "Sort polygons by a custom key function")
-      .def("simplify_polygons", &GeometryCollection::simplifyPolygons)
-      .def("size", &GeometryCollection::size)
-
-      // Overload remove_point to handle both object and index
-      .def("remove_point", py::overload_cast<const std::shared_ptr<Point> &>(&GeometryCollection::removePoint),
-           "Remove a point by passing the Point object")
-      .def("remove_point", py::overload_cast<size_t>(&GeometryCollection::removePoint), "Remove a point by its index")
-      .def("read_region", &GeometryCollection::readRegion)
-      .def("rebuild_rtree", &GeometryCollection::rebuildRTree, "Rebuild the R-tree index manually")
-      .def("scale", &GeometryCollection::scale, "Scale all geometries by a factor")
-      .def("set_offset", &GeometryCollection::setOffset, "Set an offset for all geometries")
-      .def_property_readonly("rtree_invalidated", &GeometryCollection::isRTreeInvalidated)
-      .def_property_readonly("pointer_id", &GeometryCollection::getPointerId)
-      .def_property_readonly("bounding_box", &GeometryCollection::computeBoundingBox)
-      .def_property_readonly("polygons", &GeometryCollection::getPolygons)
-      .def_property_readonly("boxes", &GeometryCollection::getBoxes)
-      .def_property_readonly("points", &GeometryCollection::getPoints);
-
+  declare_pybind_collection(m);
   declare_lazy_array<int>(m, "LazyArrayInt");
-
-  py::class_<PolygonCollection, std::shared_ptr<PolygonCollection>>(m, "PolygonCollection")
-      .def("get_geometries", &PolygonCollection::getGeometries)
-      .def("to_mask", &PolygonCollection::toMask, py::arg("default_value") = 0);
-
-  py::class_<AnnotationRegion, std::shared_ptr<AnnotationRegion>>(m, "AnnotationRegion")
-      .def_property_readonly("polygons", &AnnotationRegion::getPolygons)
-      .def_property_readonly("polygons_eager", &AnnotationRegion::getPolygonsEager)
-      .def_property_readonly("boxes", &AnnotationRegion::getBoxes)
-      .def_property_readonly("points", &AnnotationRegion::getPoints);
+  declare_pybind_polygon_collection(m);
+  declare_pybind_region(m);
 
   py::register_exception<GeometryError>(m, "GeometryError");
   py::register_exception<GeometryIntersectionError>(m, "GeometryIntersectionError");
