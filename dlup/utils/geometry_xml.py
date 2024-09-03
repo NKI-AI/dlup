@@ -3,7 +3,7 @@
 
 from dlup.geometry import GeometryCollection, Point, Polygon
 from dlup.utils.annotations_utils import rgb_to_hex
-from dlup.utils.schemas.generated import BasePolygonType, Geometries, StandalonePolygonType
+from dlup.utils.schemas.generated import BasePolygonType, Geometries, RegionsOfInterest, StandalonePolygonType
 
 
 def create_xml_polygon(polygon: Polygon, order: int) -> StandalonePolygonType:
@@ -66,3 +66,9 @@ def create_xml_geometries(collection: GeometryCollection) -> Geometries:
     points = [create_xml_point(point) for point in collection.points]
 
     return Geometries(polygon=polygons, multi_polygon=[], point=points)
+
+
+def create_xml_rois(collection: GeometryCollection) -> RegionsOfInterest:
+    raise NotImplementedError("This function is not implemented yet.")
+    # polygons = [create_xml_polygon(polygon, order=idx) for idx, polygon in enumerate(collection.rois)]
+    # return RegionsOfInterest(polygon=polygons, multi_polygon=[])

@@ -31,7 +31,7 @@ from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import GenericNumber, PathLike
 from dlup.geometry import Box, GeometryCollection, Point, Polygon
 from dlup.utils.annotations_utils import get_geojson_color, hex_to_rgb, rgb_to_hex
-from dlup.utils.geometry_xml import create_xml_geometries
+from dlup.utils.geometry_xml import create_xml_geometries, create_xml_rois
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 from dlup.utils.schemas.generated import DlupAnnotations as XMLDlupAnnotations
 from dlup.utils.schemas.generated import Metadata as XMLMetadata
@@ -600,31 +600,17 @@ class SlideAnnotations:
             return cls(layers=collection, tags=tuple(tags))
 
         if dlup_annotations.geometries.polygon:
-            for curr_polygon in dlup_annotations.geometries.polygon:
-                if curr_polygon.order is None:
-                    raise ValueError("Polygon does not have an order.")
-                if not curr_polygon.exterior:
-                    raise ValueError("Polygon does not have an exterior.")
-                exterior = [(point.x, point.y) for point in curr_polygon.exterior.point]
-                if curr_polygon.interiors:
-                    interiors = [
-                        [(point.x, point.y) for point in interior.point] for interior in curr_polygon.interiors.interior
-                    ]
-                else:
-                    interiors = []
-
-                polygon = Polygon(
-                    exterior,
-                    interiors,
-                    label=curr_polygon.label,
-                    index=curr_polygon.index,
-                    color=hex_to_rgb(curr_polygon.color) if curr_polygon.color else None,
-                )
-                polygons.append((polygon, curr_polygon.order))
+            polygons += parse_dlup_xml_polygon(dlup_annotations.geometries.polygon)
 
         # Complain if there are multipolygons
         if dlup_annotations.geometries.multi_polygon:
-            raise NotImplementedError("Multipolygons are not supported.")
+            for curr_polygons in dlup_annotations.geometries.multi_polygon:
+                polygons += parse_dlup_xml_polygon(
+                    curr_polygons.polygon,
+                    order=curr_polygons.order,
+                    label=curr_polygons.label,
+                    index=curr_polygons.index,
+                )
 
         # Now we sort the polygons on order
         for polygon, _ in sorted(polygons, key=lambda x: x[1]):
@@ -642,6 +628,18 @@ class SlideAnnotations:
         # Complain if there are multipoints
         if dlup_annotations.geometries.multi_point:
             raise NotImplementedError("Multipoints are not supported.")
+
+        rois: list[tuple[Polygon, int]] = []
+        # Regions of interest
+        if dlup_annotations.regions_of_interest:
+            for region_of_interest in dlup_annotations.regions_of_interest.multi_polygon:
+                raise NotImplementedError("MultiPolygon regions of interest are not supported.")
+
+            if dlup_annotations.regions_of_interest.polygon:
+                rois += parse_dlup_xml_polygon(dlup_annotations.regions_of_interest.polygon)
+
+            if dlup_annotations.regions_of_interest.box:
+                raise NotImplementedError("Box regions of interest are not supported.")
 
         return cls(layers=collection, tags=tuple(tags), metadata=metadata)
 
@@ -839,12 +837,15 @@ class SlideAnnotations:
         tags = XMLTags(tag=xml_tags) if xml_tags else None
 
         geometries = create_xml_geometries(self._layers)
+        rois = create_xml_rois(self._layers)
 
         extra_annotation_params: dict[str, XMLTags] = {}
         if tags:
             extra_annotation_params["tags"] = tags
 
-        dlup_annotations = XMLDlupAnnotations(metadata=metadata, geometries=geometries, **extra_annotation_params)
+        dlup_annotations = XMLDlupAnnotations(
+            metadata=metadata, geometries=geometries, regions_of_interest=rois, **extra_annotation_params
+        )
         config = SerializerConfig(pretty_print=True)
         serializer = XmlSerializer(config=config)
         return serializer.render(dlup_annotations)
@@ -1417,3 +1418,45 @@ def _parse_darwin_complex_polygon(
             polygon.label = label
             polygon.color = color
             yield polygon
+
+
+def parse_dlup_xml_polygon(
+    polygons: list[Any], order: Optional[int] = None, label: Optional[str] = None, index: Optional[int] = None
+) -> list[tuple[Polygon, int]]:
+    output = []
+    print(type(polygons[0]))
+    for curr_polygon in polygons:
+        if not order and curr_polygon.order is None:
+            raise ValueError("Polygon does not have an order.")
+        order = order if order else curr_polygon.order
+
+        if not curr_polygon.exterior:
+            raise ValueError("Polygon does not have an exterior.")
+        exterior = [(point.x, point.y) for point in curr_polygon.exterior.point]
+        if curr_polygon.interiors:
+            interiors = [
+                [(point.x, point.y) for point in interior.point] for interior in curr_polygon.interiors.interior
+            ]
+        else:
+            interiors = []
+
+        label = label if label else curr_polygon.label
+        if hasattr(curr_polygon, "index"):
+            index = curr_polygon.index
+        else:
+            index = None
+
+        if hasattr(curr_polygon, "color"):
+            color = hex_to_rgb(curr_polygon.color)
+        else:
+            color = None
+
+        polygon = Polygon(
+            exterior,
+            interiors,
+            label=label,
+            index=index,
+            color=color,
+        )
+        output.append((polygon, order))
+    return output

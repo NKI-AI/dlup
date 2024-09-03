@@ -95,6 +95,19 @@
         </xs:complexType>
     </xs:element>
 
+    <!-- RegionsOfInterest element -->
+    <xs:element name="RegionsOfInterest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice maxOccurs="unbounded">
+                    <xs:element name="Polygon" type="RegionPolygonType"/>
+                    <xs:element name="MultiPolygon" type="RegionMultiPolygonType"/>
+                    <xs:element name="Box" type="RegionBoxType"/>
+                </xs:choice>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
     <!-- Base Polygon type without label, color, or order -->
     <xs:complexType name="BasePolygonType">
         <xs:sequence>
@@ -143,6 +156,17 @@
         </xs:complexContent>
     </xs:complexType>
 
+    <!-- Region Polygon type extending the base type with label and order but without color -->
+    <xs:complexType name="RegionPolygonType">
+        <xs:complexContent>
+            <xs:extension base="BasePolygonType">
+                <xs:attribute name="label" type="xs:string" use="required"/>
+                <xs:attribute name="index" type="xs:integer" use="optional"/>
+                <xs:attribute name="order" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
     <!-- MultiPolygon type without order for individual polygons -->
     <xs:complexType name="MultiPolygonType">
         <xs:sequence>
@@ -150,6 +174,16 @@
         </xs:sequence>
         <xs:attribute name="label" type="xs:string" use="required"/>
         <xs:attribute name="color" type="HexColorType" use="optional"/>
+        <xs:attribute name="index" type="xs:integer" use="optional"/>
+        <xs:attribute name="order" type="xs:integer" use="required"/>
+    </xs:complexType>
+
+    <!-- Region MultiPolygon type extending the base type without color -->
+    <xs:complexType name="RegionMultiPolygonType">
+        <xs:sequence>
+            <xs:element name="Polygon" type="BasePolygonType" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="label" type="xs:string" use="required"/>
         <xs:attribute name="index" type="xs:integer" use="optional"/>
         <xs:attribute name="order" type="xs:integer" use="required"/>
     </xs:complexType>
@@ -173,17 +207,26 @@
         </xs:complexContent>
     </xs:complexType>
 
-    <!-- Box type extending RectangleType with order -->
+    <!-- Box type extending RectangleType without order -->
     <xs:complexType name="BoxType">
         <xs:complexContent>
             <xs:extension base="RectangleType">
                 <xs:attribute name="label" type="xs:string" use="required"/>
                 <xs:attribute name="color" type="HexColorType" use="optional"/>
-                <xs:attribute name="order" type="xs:integer" use="required"/>
             </xs:extension>
         </xs:complexContent>
     </xs:complexType>
 
+    <!-- Region Box type extending RectangleType with order but without color -->
+    <xs:complexType name="RegionBoxType">
+        <xs:complexContent>
+            <xs:extension base="RectangleType">
+                <xs:attribute name="label" type="xs:string" use="required"/>
+                <xs:attribute name="index" type="xs:integer" use="optional"/>
+                <xs:attribute name="order" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
 
     <!-- Root element -->
     <xs:element name="DlupAnnotations">
@@ -192,8 +235,10 @@
                 <xs:element ref="Metadata"/>
                 <xs:element ref="Tags" minOccurs="0" maxOccurs="1"/>
                 <xs:element ref="Geometries"/>
+                <xs:element ref="RegionsOfInterest" minOccurs="0" maxOccurs="1"/>
             </xs:sequence>
             <xs:attribute name="version" type="xs:string" fixed="1.0"/>
         </xs:complexType>
     </xs:element>
+
 </xs:schema>

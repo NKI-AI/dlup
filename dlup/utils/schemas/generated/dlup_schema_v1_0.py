@@ -274,13 +274,6 @@ class BoxType(RectangleType):
             "pattern": r"#[0-9a-fA-F]{6}",
         },
     )
-    order: Optional[int] = field(
-        default=None,
-        metadata={
-            "type": "Attribute",
-            "required": True,
-        },
-    )
 
 
 @dataclass
@@ -305,6 +298,86 @@ class MultiPolygonType:
         metadata={
             "type": "Attribute",
             "pattern": r"#[0-9a-fA-F]{6}",
+        },
+    )
+    index: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+        },
+    )
+    order: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
+
+
+@dataclass
+class RegionBoxType(RectangleType):
+    label: Optional[str] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
+    index: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+        },
+    )
+    order: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
+
+
+@dataclass
+class RegionMultiPolygonType:
+    polygon: List[BasePolygonType] = field(
+        default_factory=list,
+        metadata={
+            "name": "Polygon",
+            "type": "Element",
+            "min_occurs": 1,
+        },
+    )
+    label: Optional[str] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
+    index: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+        },
+    )
+    order: Optional[int] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
+        },
+    )
+
+
+@dataclass
+class RegionPolygonType(BasePolygonType):
+    label: Optional[str] = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "required": True,
         },
     )
     index: Optional[int] = field(
@@ -491,6 +564,31 @@ class Geometries:
 
 
 @dataclass
+class RegionsOfInterest:
+    polygon: List[RegionPolygonType] = field(
+        default_factory=list,
+        metadata={
+            "name": "Polygon",
+            "type": "Element",
+        },
+    )
+    multi_polygon: List[RegionMultiPolygonType] = field(
+        default_factory=list,
+        metadata={
+            "name": "MultiPolygon",
+            "type": "Element",
+        },
+    )
+    box: List[RegionBoxType] = field(
+        default_factory=list,
+        metadata={
+            "name": "Box",
+            "type": "Element",
+        },
+    )
+
+
+@dataclass
 class DlupAnnotations:
     metadata: Optional[Metadata] = field(
         default=None,
@@ -513,6 +611,13 @@ class DlupAnnotations:
             "name": "Geometries",
             "type": "Element",
             "required": True,
+        },
+    )
+    regions_of_interest: Optional[RegionsOfInterest] = field(
+        default=None,
+        metadata={
+            "name": "RegionsOfInterest",
+            "type": "Element",
         },
     )
     version: str = field(
