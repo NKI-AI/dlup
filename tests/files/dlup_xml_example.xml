@@ -30,16 +30,16 @@
             <Exterior>
                 <Point x="4" y="4"/>
                 <Point x="6" y="4"/>
-                <Point x="6" y="6"/>
-                <Point x="4" y="6"/>
+                <Point x="6" y="2"/>
+                <Point x="4" y="7"/>
                 <Point x="4" y="4"/>
             </Exterior>
             <Interiors>
                 <Interior>
-                    <Point x="5" y="5"/>
+                    <Point x="4" y="5"/>
                     <Point x="5.5" y="5"/>
                     <Point x="5.5" y="5.5"/>
-                    <Point x="5" y="5.5"/>
+                    <Point x="5" y="4.5"/>
                     <Point x="5" y="5"/>
                 </Interior>
             </Interiors>
@@ -53,7 +53,7 @@
             <Exterior>
                 <Point x="11" y="11"/>
                 <Point x="12" y="11"/>
-                <Point x="12" y="12"/>
+                <Point x="12" y="13"/>
                 <Point x="11" y="12"/>
                 <Point x="11" y="11"/>
             </Exterior>

@@ -31,7 +31,12 @@ from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import GenericNumber, PathLike
 from dlup.geometry import Box, GeometryCollection, Point, Polygon
 from dlup.utils.annotations_utils import get_geojson_color, hex_to_rgb, rgb_to_hex
-from dlup.utils.geometry_xml import create_xml_geometries, create_xml_rois
+from dlup.utils.geometry_xml import (
+    create_xml_geometries,
+    create_xml_rois,
+    parse_dlup_xml_polygon,
+    parse_dlup_xml_roi_box,
+)
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 from dlup.utils.schemas.generated import DlupAnnotations as XMLDlupAnnotations
 from dlup.utils.schemas.generated import Metadata as XMLMetadata
@@ -334,6 +339,7 @@ class SlideAnnotations:
         geojsons: PathLike,
         scaling: float | None = None,
         sorting: AnnotationSorting | str = AnnotationSorting.NONE,
+        roi_names: Optional[list[str]] = None,
     ) -> _TSlideAnnotations:
         """
         Read annotations from a GeoJSON file.
@@ -346,14 +352,18 @@ class SlideAnnotations:
         scaling : float, optional
             Scaling factor. Sometimes required when GeoJSON annotations are stored in a different resolution than the
             original image.
-        sorting: AnnotationSorting
+        sorting : AnnotationSorting
             The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
             By default, the annotations are sorted by area.
+        roi_names : list[str], optional
+            List of names that should be considered as regions of interest. If set, these will be added as ROIs rather
+            than polygons.
 
         Returns
         -------
         SlideAnnotations
         """
+        roi_names = [] if roi_names is None else roi_names
         collection = GeometryCollection()
         path = pathlib.Path(geojsons)
         if not path.exists():
@@ -376,7 +386,10 @@ class SlideAnnotations:
                 _geometries = geojson_to_dlup(x["geometry"], label=_label, color=_color)
                 for geometry in _geometries:
                     if isinstance(geometry, Polygon):
-                        collection.add_polygon(geometry)
+                        if geometry.label in roi_names:
+                            collection.add_roi(geometry)
+                        else:
+                            collection.add_polygon(geometry)
                     elif isinstance(geometry, Point):
                         collection.add_point(geometry)
                     else:
@@ -391,6 +404,7 @@ class SlideAnnotations:
         asap_xml: PathLike,
         scaling: float | None = None,
         sorting: AnnotationSorting | str = AnnotationSorting.AREA,
+        roi_names: Optional[list[str]] = None,
     ) -> _TSlideAnnotations:
         """
         Read annotations as an ASAP [1] XML file. ASAP is a tool for viewing and annotating whole slide images.
@@ -405,6 +419,9 @@ class SlideAnnotations:
         sorting: AnnotationSorting
             The sorting to apply to the annotations. Check the `AnnotationSorting` enum for more information.
             By default, the annotations are sorted by area.
+        roi_names : list[str], optional
+            List of names that should be considered as regions of interest. If set, these will be added as ROIs rather
+            than polygons.
 
         References
         ----------
@@ -415,6 +432,7 @@ class SlideAnnotations:
         SlideAnnotations
         """
         path = pathlib.Path(asap_xml)
+        roi_names = [] if roi_names is None else roi_names
         if not path.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
 
@@ -436,8 +454,10 @@ class SlideAnnotations:
                         collection.add_point(Point(point, label=label, color=color))
 
                 elif annotation_type == "polygon":
-                    polygon = Polygon(coordinates, [], label=label, color=color)
-                    collection.add_polygon(polygon)
+                    if label in roi_names:
+                        collection.add_roi(Polygon(coordinates, [], label=label, color=color))
+                    else:
+                        collection.add_polygon(Polygon(coordinates, [], label=label, color=color))
 
         SlideAnnotations._in_place_sort_and_scale(collection, scaling, sorting)
         return cls(layers=collection)
@@ -449,6 +469,7 @@ class SlideAnnotations:
         scaling: float | None = None,
         sorting: AnnotationSorting | str = AnnotationSorting.NONE,
         z_indices: Optional[dict[str, int]] = None,
+        roi_names: Optional[list[str]] = None,
     ) -> _TSlideAnnotations:
         """
         Read annotations as a V7 Darwin [1] JSON file. If available will read the `.v7/metadata.json` file to extract
@@ -467,6 +488,9 @@ class SlideAnnotations:
             than the original image.
         z_indices: dict[str, int], optional
             If set, these z_indices will be used rather than the default order.
+        roi_names : list[str], optional
+            List of names that should be considered as regions of interest. If set, these will be added as ROIs rather
+            than polygons.
 
         References
         ----------
@@ -480,6 +504,8 @@ class SlideAnnotations:
         if not DARWIN_SDK_AVAILABLE:
             raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
         import darwin
+
+        roi_names = [] if roi_names is None else roi_names
 
         darwin_json_fn = pathlib.Path(darwin_json)
         if not darwin_json_fn.exists():
@@ -553,10 +579,16 @@ class SlideAnnotations:
 
         if sorting == "Z_INDEX":
             for polygon, _ in sorted(polygons, key=lambda x: x[1]):
-                collection.add_polygon(polygon)
+                if polygon.label in roi_names:
+                    collection.add_roi(polygon)
+                else:
+                    collection.add_polygon(polygon)
         else:
             for polygon, _ in polygons:
-                collection.add_polygon(polygon)
+                if polygon.label in roi_names:
+                    collection.add_roi(polygon)
+                else:
+                    collection.add_polygon(polygon)
 
         SlideAnnotations._in_place_sort_and_scale(
             collection, scaling, sorting="NONE" if sorting == "Z_INDEX" else sorting
@@ -629,17 +661,38 @@ class SlideAnnotations:
         if dlup_annotations.geometries.multi_point:
             raise NotImplementedError("Multipoints are not supported.")
 
+        for curr_box in dlup_annotations.geometries.box:
+            # mypy struggles
+            assert isinstance(curr_box.x_min, float)
+            assert isinstance(curr_box.y_min, float)
+            assert isinstance(curr_box.x_max, float)
+            assert isinstance(curr_box.y_max, float)
+            box = Box(
+                (curr_box.x_min, curr_box.y_min),
+                (curr_box.x_max - curr_box.x_min, curr_box.y_max - curr_box.y_min),
+                label=curr_box.label,
+                color=hex_to_rgb(curr_box.color) if curr_box.color else None,
+            )
+            collection.add_box(box)
+
         rois: list[tuple[Polygon, int]] = []
-        # Regions of interest
         if dlup_annotations.regions_of_interest:
             for region_of_interest in dlup_annotations.regions_of_interest.multi_polygon:
-                raise NotImplementedError("MultiPolygon regions of interest are not supported.")
+                raise NotImplementedError(
+                    "MultiPolygon regions of interest are not yet supported. "
+                    "If you have a use case for this, "
+                    "please open an issue at https://github.com/NKI-AI/dlup/issues."
+                )
 
             if dlup_annotations.regions_of_interest.polygon:
                 rois += parse_dlup_xml_polygon(dlup_annotations.regions_of_interest.polygon)
 
             if dlup_annotations.regions_of_interest.box:
-                raise NotImplementedError("Box regions of interest are not supported.")
+                for _curr_box in dlup_annotations.regions_of_interest.box:
+                    box, curr_order = parse_dlup_xml_roi_box(_curr_box)
+                    rois.append((box.as_polygon(), curr_order))
+            for roi, _ in sorted(rois, key=lambda x: x[1]):
+                collection.add_roi(roi)
 
         return cls(layers=collection, tags=tuple(tags), metadata=metadata)
 
@@ -650,6 +703,7 @@ class SlideAnnotations:
         scaling: float | None = None,
         sorting: AnnotationSorting | str = AnnotationSorting.NONE,
         box_as_polygon: bool = False,
+        roi_names: Optional[list[str]] = None,
     ) -> _TSlideAnnotations:
         """
         Read annotations as a Halo [1] XML file.
@@ -667,6 +721,9 @@ class SlideAnnotations:
         box_as_polygon : bool
             If True, rectangles are converted to polygons, and added as such.
             This is useful when the rectangles are actually implicitly bounding boxes.
+        roi_names : list[str], optional
+            List of names that should be considered as regions of interest. If set, these will be added as ROIs rather
+            than polygons.
 
         References
         ----------
@@ -678,6 +735,8 @@ class SlideAnnotations:
         SlideAnnotations
         """
         path = pathlib.Path(halo_xml)
+        roi_names = [] if roi_names is None else roi_names
+
         if not path.exists():
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
 
@@ -703,7 +762,10 @@ class SlideAnnotations:
 
                         if box_as_polygon:
                             polygon = curr_box.as_polygon()
-                            collection.add_polygon(polygon)
+                            if polygon.label in roi_names:
+                                collection.add_roi(polygon)
+                            else:
+                                collection.add_polygon(polygon)
                         else:
                             collection.add_box(curr_box)
                         continue
@@ -712,7 +774,10 @@ class SlideAnnotations:
                         polygon = Polygon(
                             region.getvertices(), [x.getvertices() for x in region.holes], label=layer.name, color=color
                         )
-                        collection.add_polygon(polygon)
+                        if polygon.label in roi_names:
+                            collection.add_roi(polygon)
+                        else:
+                            collection.add_polygon(polygon)
                     elif region.type == pyhaloxml.RegionType.Pin:
                         point = Point(*(region.getvertices()[0]), label=layer.name, color=color)
                         collection.add_point(point)
@@ -1418,45 +1483,3 @@ def _parse_darwin_complex_polygon(
             polygon.label = label
             polygon.color = color
             yield polygon
-
-
-def parse_dlup_xml_polygon(
-    polygons: list[Any], order: Optional[int] = None, label: Optional[str] = None, index: Optional[int] = None
-) -> list[tuple[Polygon, int]]:
-    output = []
-    print(type(polygons[0]))
-    for curr_polygon in polygons:
-        if not order and curr_polygon.order is None:
-            raise ValueError("Polygon does not have an order.")
-        order = order if order else curr_polygon.order
-
-        if not curr_polygon.exterior:
-            raise ValueError("Polygon does not have an exterior.")
-        exterior = [(point.x, point.y) for point in curr_polygon.exterior.point]
-        if curr_polygon.interiors:
-            interiors = [
-                [(point.x, point.y) for point in interior.point] for interior in curr_polygon.interiors.interior
-            ]
-        else:
-            interiors = []
-
-        label = label if label else curr_polygon.label
-        if hasattr(curr_polygon, "index"):
-            index = curr_polygon.index
-        else:
-            index = None
-
-        if hasattr(curr_polygon, "color"):
-            color = hex_to_rgb(curr_polygon.color)
-        else:
-            color = None
-
-        polygon = Polygon(
-            exterior,
-            interiors,
-            label=label,
-            index=index,
-            color=color,
-        )
-        output.append((polygon, order))
-    return output
