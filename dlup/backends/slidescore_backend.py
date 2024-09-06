@@ -22,6 +22,7 @@ if AIOHTTP_AVAILABLE:
 
 METADATA_CACHE = 128
 DEFAULT_ASYNC_REQUESTS = 6  # This is the number of requests to make asynchronously
+API_TOKEN_OS_VARIABLE_NAME = "SLIDESCORE_API_TOKEN"
 
 
 def open_slide(filename: PathLike) -> "SlideScoreSlide":
@@ -44,7 +45,7 @@ class SlideScoreSlide(RemoteSlideBackend, DeepZoomSlide):
             raise ValueError("Filename should be SlideScore URL for SlideScoreSlide.")
 
         if not AIOHTTP_AVAILABLE:
-            raise RuntimeError("`aiohtpp` is not available. Install dlup with `slidescore_remote` dependencies.")
+            raise RuntimeError("`aiohttp` is not available. Install dlup with `slidescore_remote` dependencies.")
 
         # Parse URL with regex
         parsed_url = re.search(r"(https?://[^/?]+)(?=.*\bstudyId=(\d+))(?=.*\bimageId=(\d+)).*$", filename)
@@ -107,7 +108,7 @@ class SlideScoreSlide(RemoteSlideBackend, DeepZoomSlide):
         RuntimeError
             If serverside studyID is not the same as slide study_id
         """
-        api_token = os.getenv("SLIDESCORE_API_TOKEN")
+        api_token = os.getenv(API_TOKEN_OS_VARIABLE_NAME)
         if api_token is None:
             raise RuntimeError("SlideScore API token not found. Please set SLIDESCORE_API_TOKEN in os environment")
         self.headers = {"Accept": "application/json", "Authorization": f"Bearer {api_token}"}
@@ -230,7 +231,7 @@ class SlideScoreSlide(RemoteSlideBackend, DeepZoomSlide):
         return
 
 
-def export_api_key(file_path: PathLike, os_variable_name: str = "SLIDESCORE_API_TOKEN") -> None:
+def export_api_key(file_path: PathLike, os_variable_name: str = API_TOKEN_OS_VARIABLE_NAME) -> None:
     """Reads SlideScore API key from path and exports it into operating system environment.
 
     Parameters

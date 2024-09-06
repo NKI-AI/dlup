@@ -7,15 +7,14 @@ import math
 from pathlib import Path
 from typing import Any, Union
 
+# TODO: Fix cmyk case in read_region so we can remove PIL and numpy
+# import PIL
+import numpy as np
 import pyvips
 
 from dlup._types import PathLike
 from dlup.backends.common import AbstractSlideBackend
 from dlup.utils.backends import dict_to_snake_case, parse_xml_to_dict
-
-# TODO: Fix cmyk case in read_region so we can remove PIL and numpy
-# import PIL
-# import numpy as np
 
 METADATA_CACHE = 128
 RELEVANT_VIPS_PROPERTIES = {
@@ -27,7 +26,9 @@ RELEVANT_VIPS_PROPERTIES = {
     "openslide.bounds-width": int,
     "openslide.bounds-x": int,
     "openslide.bounds-y": int,
+    "openslide.quickhash-1": str,
     "vips-loader": str,
+    "bands": int,
 }
 
 TileResponseTypes = Union[str, io.BytesIO]
@@ -100,16 +101,18 @@ class DeepZoomSlide(AbstractSlideBackend):
         if not vips_properties_file.exists():
             return {}
         # Don't convert to snake case for now to keep original vips-property names
-        vips_properties_dict = parse_xml_to_dict(vips_properties_file, _to_snake_case=False)
-        properties = {
-            relevant_key.split("openslide.")[-1]: cast_fn(vips_properties_dict["properties"][relevant_key])
+        vips_properties = parse_xml_to_dict(vips_properties_file, _to_snake_case=False)["image"]["properties"]
+        relevant_properties = {
+            relevant_key.split("openslide.")[-1]: cast_fn(vips_properties[relevant_key])
             for relevant_key, cast_fn in RELEVANT_VIPS_PROPERTIES.items()
-            if relevant_key in vips_properties_dict["properties"]
+            if relevant_key in vips_properties
         }
-        if properties.get("vips-loader") is None or properties.get("vips-loader") != "openslideload":
-            raise NotImplementedError(f"Properties not implemented for vips-loader {properties.get('vips-loader')}.")
+        if relevant_properties.get("vips-loader", "") != "openslideload":
+            raise NotImplementedError(
+                f"Properties not implemented for vips-loader {relevant_properties.get('vips-loader')}."
+            )
         # Convert to snake case naming convention in the end
-        return dict_to_snake_case(properties)
+        return dict_to_snake_case(relevant_properties)
 
     @property
     def dz_properties(self) -> dict[str, Any]:
@@ -218,6 +221,7 @@ class DeepZoomSlide(AbstractSlideBackend):
 
         x, y = (coordinates[0] // level_downsample, coordinates[1] // level_downsample)
         w, h = size
+        _overlap = self._overlap
 
         # Calculate the range of rows and columns for tiles covering the specified region
         start_row = y // tile_h
@@ -228,7 +232,12 @@ class DeepZoomSlide(AbstractSlideBackend):
         indices = list(itertools.product(range(start_row, end_row), range(start_col, end_col)))
         level_dz = self._level_count - level - 1
         tile_files = self.retrieve_deepzoom_tiles(level_dz, indices)
-        _region_tiles = []
+
+        # The number of bands can be in the vips-properties.xml, but otherwise we can interpret from image mode
+        num_bands = self.properties.get("bands", 3 if self.mode != "cmyk" else 4)
+        # We create an image from an array with zeros so we can give the correct interpretation. Arrayjoin would be
+        # faster, but does not work for unregular grids of images.
+        _region = pyvips.Image.new_from_array(np.zeros((h, w, num_bands), dtype=np.uint8), interpretation=self.mode)
         for (row, col), tile_file in zip(indices, tile_files):
             _region_tile: pyvips.Image = (
                 pyvips.Image.new_from_buffer(tile_file.getvalue(), "")
@@ -251,30 +260,28 @@ class DeepZoomSlide(AbstractSlideBackend):
 
             # All but edge tiles have overlap pixels outside of tile
             if col > 0:
-                crop_start_x += self._overlap
-                crop_end_x += self._overlap
+                crop_start_x += _overlap
+                crop_end_x += _overlap
             if col == level_end_col - 1:
-                crop_end_x -= self._overlap
+                crop_end_x -= _overlap
 
             if row > 0:
-                crop_start_y += self._overlap
-                crop_end_y += self._overlap
+                crop_start_y += _overlap
+                crop_end_y += _overlap
             if row == level_end_row - 1:
-                crop_end_y -= self._overlap
-
+                crop_end_y -= _overlap
             _cropped_region_tile = _region_tile.crop(
                 crop_start_x, crop_start_y, crop_end_x - crop_start_x, crop_end_y - crop_start_y
             )
-            _region_tiles.append(_cropped_region_tile)
+            _region = _region.insert(_cropped_region_tile, img_start_x, img_start_y)
 
-        _region = pyvips.Image.arrayjoin(_region_tiles, across=end_col - start_col)
-        # Convert to RGB if mode is cmyk
-        if self.mode == "cmyk":
-            # FIXME: This looks off when using pyvips but not when using PIL
-            _region = _region.colourspace("srgb")  # _region = _region.icc_transform("srgb") <- Both look off
-            # _region = pyvips.Image.new_from_array(
-            #     np.asarray(PIL.Image.fromarray(_region.numpy(), mode="CMYK").convert("RGB")), interpretation="srgb"
-            # )  # <- This looks good
+        # # Should convert from cmyk to rgb or should a user do this afterwards theirself?
+        # if self.mode == "cmyk":
+        #     # FIXME: This looks off when using pyvips (colourspace and icc_transform) but not when using PIL
+        #     _region = _region.colourspace("srgb", source_space="cmyk")  # _region = _region.icc_transform("srgb")
+        #     # _region = pyvips.Image.new_from_array(
+        #     #     np.asarray(PIL.Image.fromarray(_region.numpy(), mode="CMYK").convert("RGB")), interpretation="srgb"
+        #     # )  # <- This looks good, but seems like a roundabout way
         return _region
 
     def close(self) -> None:

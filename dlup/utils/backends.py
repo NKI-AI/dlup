@@ -13,8 +13,8 @@ from dlup.utils.imports import AIOHTTP_AVAILABLE
 
 
 def parse_xml_to_dict(file_path: PathLike | io.BytesIO, _to_snake_case: bool = True) -> dict[str, Any]:
-    """Parse XML file with name space. vips-properties.xml files will extract every property name-value pair in
-    `properties`.
+    """Parse XML file (DeepZoom DZI or vips-properties.xml) into a dictionary. `vips-properties.xml` files will extract
+    every property name-value pair in `properties` key.
 
     Parameters
     ----------
@@ -29,23 +29,41 @@ def parse_xml_to_dict(file_path: PathLike | io.BytesIO, _to_snake_case: bool = T
         Parsed XML file as a dictionary. Name space will be replaced with an empty string.
     """
     root = ET.parse(file_path).getroot()
-    namespace = root.tag.split("}")[0] + "}" if len(root.tag.split("}")) > 1 else ""
+    namespace = "".join(root.tag.partition("}")[:2]) if "}" in root.tag else ""
     root_tag = root.tag.replace(namespace, "")
     parsed_dict: dict[str, dict[str, Any]] = {root_tag: dict(root.attrib)}
     for elem in root:
         tag = elem.tag.replace(namespace, "")
-        if tag == "properties":
-            properties = {}
-            for prop in elem.findall(f".//{namespace}property"):
-                name = prop.find(f"{namespace}name")
-                if name is None:
-                    continue
-                value = prop.find(f"{namespace}value")
-                properties[str(name.text)] = value.text if value is not None else value
-            parsed_dict["properties"] = properties
-        else:
-            parsed_dict[root_tag][tag] = dict(elem.attrib)
+        attributes = extract_vips_properties(elem, namespace=namespace) if tag == "properties" else dict(elem.attrib)
+        parsed_dict[root_tag][tag] = attributes
     return dict_to_snake_case(parsed_dict) if _to_snake_case else parsed_dict
+
+
+def extract_vips_properties(properties_elem: ET.Element, namespace: str) -> dict[str, Any]:
+    """
+    Extract 'properties' section from vips-properties.xml, with name-value pairs.
+
+    Parameters
+    ----------
+    properties_elem : xml.etree.ElementTree.Element
+        The 'properties' XML element.
+    namespace : str
+        The namespace for the XML document.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary of properties with name-value pairs.
+    """
+    properties = {}
+    for prop in properties_elem.findall(f".//{namespace}property"):
+        name_elem = prop.find(f"{namespace}name")
+        if name_elem is None:
+            continue
+        value_elem = prop.find(f"{namespace}value")
+        properties[str(name_elem.text)] = value_elem.text if value_elem is not None else None
+
+    return properties
 
 
 def dict_to_snake_case(dictionary: dict[str, Any]) -> dict[str, Any]:
