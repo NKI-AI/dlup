@@ -54,4 +54,12 @@ class BaseGeometry {
   protected:
 };
 
+inline void declare_base_geometry(py::module &m) {
+  py::class_<BaseGeometry, std::shared_ptr<BaseGeometry>>(m, "BaseGeometry")
+      .def("set_field", &BaseGeometry::setField)
+      .def("get_field", &BaseGeometry::getField)
+      .def_property_readonly("fields", &BaseGeometry::getFields)
+      .def_property_readonly("pointer_id", &BaseGeometry::getPointerId);
+}
+
 #endif // DLUP_GEOMETRY_BASE_H

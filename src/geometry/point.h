@@ -45,4 +45,30 @@ class Point : public BaseGeometry {
   }
 };
 
+inline void declare_point(py::module &m) {
+  py::class_<Point, BaseGeometry, std::shared_ptr<Point>>(m, "Point")
+      .def(py::init<>())
+      .def(py::init<const BoostPoint &>())
+      .def(py::init<double, double>())
+      .def(py::init([](const std::shared_ptr<Point> &p) {
+        // Share the same C++ object, not creating a new one
+        return p;
+      }))
+      .def(py::init([](const Point &other) {
+        // Explicitly copy parameters when copying the polygon
+        auto newPoint = std::make_shared<Point>(*other.point_);
+        newPoint->parameters_ = other.parameters_; // Copy the parameters
+        return newPoint;
+      }))
+      .def_property_readonly("coordinates", &Point::getCoordinates,
+                             "Get the coordinates of the point as an (x, y) tuple")
+      .def_property_readonly("x", &Point::getX, "Get the X coordinate")
+      .def_property_readonly("y", &Point::getY, "Get the Y coordinate")
+      .def("distance_to", &Point::distanceTo, py::arg("other"), "Calculate the distance to another point")
+      .def("equals", &Point::equals, py::arg("other"), "Check if the point is equal to another point")
+      .def("within", &Point::within, py::arg("polygon"), "Check if the point is within a polygon")
+      .def("scale", &Point::scale, py::arg("scaling"), "Scale the point in-place point by a factor")
+      .def_property_readonly("wkt", &Point::toWkt, "Get the WKT representation of the point");
+}
+
 #endif // DLUP_GEOMETRY_POINT_H

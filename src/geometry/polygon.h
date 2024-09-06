@@ -171,4 +171,46 @@ void Polygon::setExterior(const std::vector<std::pair<double, double>> &coordina
   is_corrected_ = false; // Mark as not corrected. Correction reorients and closes
 }
 
+inline void declare_polygon(py::module &m) {
+  py::class_<Polygon, BaseGeometry, std::shared_ptr<Polygon>>(m, "Polygon")
+      .def(py::init<>())
+      .def(py::init<const BoostPolygon &>())
+      .def(py::init<const std::vector<std::pair<double, double>> &,
+                    const std::vector<std::vector<std::pair<double, double>>> &>())
+      .def(py::init([](const std::shared_ptr<Polygon> &p) {
+        // Share the same C++ object, not creating a new one
+        return p;
+      }))
+      .def(py::init([](const Polygon &other) {
+        // Explicitly copy parameters when copying the polygon
+        auto newPolygon = std::make_shared<Polygon>(*other.polygon_);
+        newPolygon->parameters_ = other.parameters_; // Copy the parameters
+        return newPolygon;
+      }))
+      .def("set_exterior", &Polygon::setExterior)
+      .def("set_interiors", &Polygon::setInteriors)
+      .def("get_exterior", &Polygon::getExterior)
+      .def("get_exterior_iterator",
+           [](Polygon &self) {
+             return py::make_iterator(self.getExteriorAsIterator().begin(), self.getExteriorAsIterator().end());
+           })
+      .def("get_interiors_iterator",
+           [](Polygon &self) {
+             return py::make_iterator(self.getInteriorAsIterator().begin(), self.getInteriorAsIterator().end());
+           })
+      .def("scale", &Polygon::scale, py::arg("scaling"))
+      .def("get_interiors", &Polygon::getInteriors)
+      .def("correct_orientation", &Polygon::correctIfNeeded)
+      .def("simplify", &Polygon::simplifyPolygon)
+      .def("contains", &Polygon::contains, py::arg("other"),
+           "Check if the polygon fully contains another polygon. Does not check if the fields are equal")
+      .def("make_valid", &Polygon::makeValid,
+           "Make the polygon valid by removing self-intersections and duplicate points")
+      .def("equals", &Polygon::equals, py::arg("other"),
+           "Check if the polygon is equal to another polygon. Checks if the fields are equal.")
+      .def_property_readonly("wkt", &Polygon::toWkt)
+      .def_property_readonly("is_valid", &Polygon::isValid)
+      .def_property_readonly("area", &Polygon::getArea);
+}
+
 #endif // DLUP_GEOMETRY_POLYGON_H
