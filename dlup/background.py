@@ -15,7 +15,7 @@ from dlup import SlideImage
 # pylint: disable=import-error, no-name-in-module
 from dlup._background import _get_foreground_indices_numpy
 from dlup._exceptions import DlupError
-from dlup.annotations import WsiAnnotations
+from dlup.annotations import SlideAnnotations
 
 if TYPE_CHECKING:
     from dlup.data.dataset import MaskTypes
@@ -27,14 +27,14 @@ def compute_masked_indices(
     regions: collections.abc.Sequence[tuple[float, float, int, int, float]],
     threshold: float | None = 1.0,
 ) -> npt.NDArray[np.int64]:
-    """Filter the regions to foreground data. This can be either an `np.ndarray` or `SlideImage` or `WsiAnnotations`.
+    """Filter the regions to foreground data. This can be either an `np.ndarray` or `SlideImage` or `SlideAnnotations`.
     Using numpy arrays is the fastest way to filter the background.
 
     Parameters
     ----------
     slide_image : SlideImage
         Slide image to check
-    background_mask : np.ndarray or SlideImage or WsiAnnotations
+    background_mask : np.ndarray or SlideImage or SlideAnnotations
         Background mask to check against
     regions : collections.abc.Sequence[tuple[float, float, int, int, float]]
         Regions to check
@@ -66,10 +66,10 @@ def compute_masked_indices(
     elif isinstance(background_mask, SlideImage):
         slide_image_boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
         for idx, region in enumerate(regions):
-            slide_image_boolean_mask[idx] = _is_foreground_wsiannotations(background_mask, region, threshold)
+            slide_image_boolean_mask[idx] = _is_foreground_slideannotations(background_mask, region, threshold)
         masked_indices = np.argwhere(slide_image_boolean_mask).flatten()
 
-    elif isinstance(background_mask, WsiAnnotations):
+    elif isinstance(background_mask, SlideAnnotations):
         wsi_annotations_boolean_mask: npt.NDArray[np.bool_] = np.zeros(len(regions), dtype=bool)
         for idx, region in enumerate(regions):
             wsi_annotations_boolean_mask[idx] = _is_foreground_polygon(slide_image, background_mask, region, threshold)
@@ -83,7 +83,7 @@ def compute_masked_indices(
 
 def _is_foreground_polygon(
     slide_image: SlideImage,
-    background_mask: WsiAnnotations,
+    background_mask: SlideAnnotations,
     region: tuple[float, float, int, int, float],
     threshold: float = 1.0,
 ) -> bool:
@@ -92,7 +92,7 @@ def _is_foreground_polygon(
 
     scaling = slide_image.get_scaling(mpp)
 
-    polygon_region = background_mask.read_region((x, y), scaling, (w, h))
+    polygon_region = background_mask.read_region((x, y), scaling, (w, h)).polygons.get_geometries()
     total_area = sum(_.area for _ in polygon_region)
 
     if threshold == 1.0 and total_area == w * h:
@@ -104,7 +104,7 @@ def _is_foreground_polygon(
     return False
 
 
-def _is_foreground_wsiannotations(
+def _is_foreground_slideannotations(
     background_mask: SlideImage,
     region: tuple[float, float, int, int, float],
     threshold: float = 1.0,

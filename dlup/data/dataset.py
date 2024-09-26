@@ -32,21 +32,23 @@ import pyvips
 from numpy.typing import NDArray
 
 from dlup import BoundaryMode, SlideImage
+from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import PathLike, ROIType
-from dlup.annotations import DlupShapelyPoint, DlupShapelyPolygon, WsiAnnotations
+from dlup.annotations import SlideAnnotations
 from dlup.backends.common import AbstractSlideBackend
 from dlup.background import compute_masked_indices
+from dlup.geometry import Box, Point, Polygon
 from dlup.tiling import Grid, GridOrder, TilingMode
 from dlup.tools import ConcatSequences, MapSequence
 from dlup.utils.backends import ImageBackend
 
-MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "WsiAnnotations"]
+MaskTypes = Union["SlideImage", npt.NDArray[np.int_], "SlideAnnotations"]
 
-_AnnotationsTypes = DlupShapelyPoint | DlupShapelyPolygon
+_AnnotationsTypes = Point | Polygon | Box
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
-_BaseAnnotationTypes = Union[SlideImage, WsiAnnotations]
+_BaseAnnotationTypes = Union[SlideImage, SlideAnnotations]
 _AnnotationTypes = Union[list[tuple[str, _BaseAnnotationTypes]], _BaseAnnotationTypes]
 _LabelTypes = Union[str, bool, int, float]
 
@@ -62,7 +64,7 @@ class TileSample(TypedDict):
     path: PathLike
     region_index: int
     labels: dict[str, Any] | None
-    annotations: Optional[Iterable[_AnnotationsTypes]]
+    annotations: Optional[AnnotationRegion]
 
 
 PointType = tuple[float, float]
@@ -244,7 +246,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
             Sequence of rectangular regions as (x, y, h, w, mpp)
         crop : bool
             Whether to crop overflowing tiles.
-        mask : np.ndarray or SlideImage or WsiAnnotations
+        mask : np.ndarray or SlideImage or SlideAnnotations
             Binary mask used to filter each region together with a threshold.
         mask_threshold : float, optional
             Threshold to check against. The foreground percentage should be strictly larger than threshold.
@@ -253,7 +255,7 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
         output_tile_size: tuple[int, int], optional
             If this value is set, this value will be used as the tile size of the output tiles. If this value
             is different from the underlying grid, this tile will be extracted around the center of the region.
-        annotations : WsiAnnotations
+        annotations : SlideAnnotations
             Annotation classes.
         labels : list
             Image-level labels. Will be added to each individual tile.
@@ -356,8 +358,8 @@ class BaseWsiDataset(Dataset[Union[TileSample, Sequence[TileSample]]]):
 
         # TODO: This needs to move to TiledWsiDataset (v1.0)
         if self.annotations is not None:
-            if not isinstance(self.annotations, WsiAnnotations):
-                raise NotImplementedError("Only WsiAnnotations are supported at the moment.")
+            if not isinstance(self.annotations, SlideAnnotations):
+                raise NotImplementedError("Only SlideAnnotations are supported at the moment.")
             _requires_offset = getattr(self.annotations, "offset_to_slide_bounds", False)
             if _requires_offset:
                 _scaled_offset = slide_image.get_scaled_slide_bounds(scaling)[0]

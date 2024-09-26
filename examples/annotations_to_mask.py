@@ -1,10 +1,11 @@
 # Copyright (c) dlup contributors
+# pylint: disable=no-member
 """This code provides an example of how to convert annotations to a mask."""
 from pathlib import Path
 
 import PIL.Image
 
-from dlup.annotations_experimental import SlideAnnotations
+from dlup.annotations import SlideAnnotations
 
 
 def convert_annotations_to_mask() -> None:
