@@ -34,7 +34,7 @@ classifiers = [
 dependencies = [
     "numpy==1.26.4",
     "tifftools>=1.5.2",
-    "tifffile>=2024.7.2",
+    "tifffile>=2024.9.20",
     "pyvips>=2.2.3",
     "tqdm>=2.66.4",
     "pillow>=10.3.0",
