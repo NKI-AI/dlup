@@ -21,7 +21,6 @@ import functools
 import json
 import os
 import pathlib
-import warnings
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, replace
 from enum import Enum
@@ -43,7 +42,7 @@ from shapely.validation import make_valid
 
 from dlup._exceptions import AnnotationError
 from dlup._types import GenericNumber, PathLike
-from dlup.utils.annotations_utils import _get_geojson_z_index, get_geojson_color, hex_to_rgb
+from dlup.utils.annotations_utils import _get_geojson_color, _get_geojson_z_index, _hex_to_rgb
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE, PYHALOXML_AVAILABLE
 
 # TODO:
@@ -150,7 +149,7 @@ class DarwinV7Metadata(NamedTuple):
 
 
 @functools.lru_cache(maxsize=None)
-def get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], DarwinV7Metadata]]:
+def _get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], DarwinV7Metadata]]:
     if not DARWIN_SDK_AVAILABLE:
         raise RuntimeError("`darwin` is not available. Install using `python -m pip install darwin-py`.")
     import darwin.path_utils
@@ -181,13 +180,13 @@ def get_v7_metadata(filename: pathlib.Path) -> Optional[dict[tuple[str, str], Da
     return output
 
 
-def _is_rectangle(polygon: DlupShapelyPolygon | ShapelyPolygon) -> bool:
+def _is_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
     if not polygon.is_valid or len(polygon.exterior.coords) != 5 or len(polygon.interiors) != 0:
         return False
     return bool(np.isclose(polygon.area, polygon.minimum_rotated_rectangle.area))
 
 
-def _is_alligned_rectangle(polygon: DlupShapelyPolygon | ShapelyPolygon) -> bool:
+def _is_alligned_rectangle(polygon: Polygon | ShapelyPolygon) -> bool:
     if not _is_rectangle(polygon):
         return False
     min_rotated_rect = polygon.minimum_rotated_rectangle
@@ -196,9 +195,8 @@ def _is_alligned_rectangle(polygon: DlupShapelyPolygon | ShapelyPolygon) -> bool
 
 
 def transform(
-    geometry: DlupShapelyPoint | DlupShapelyPolygon,
-    transformation: Callable[[npt.NDArray[np.float_]], npt.NDArray[np.float_]],
-) -> DlupShapelyPoint | DlupShapelyPolygon:
+    geometry: Point | Polygon, transformation: Callable[[npt.NDArray[np.float_]], npt.NDArray[np.float_]]
+) -> Point | Polygon:
     """
     Transform a geometry. Function taken from Shapely 2.0.1 under the BSD 3-Clause "New" or "Revised" License.
     Parameters
@@ -231,8 +229,8 @@ def transform(
     returned_geometry = geometry_arr.item()
 
     if original_class.annotation_type != "POINT":
-        return DlupShapelyPolygon(returned_geometry, a_cls=original_class)
-    return DlupShapelyPoint(returned_geometry, a_cls=original_class)
+        return Polygon(returned_geometry, a_cls=original_class)
+    return Point(returned_geometry, a_cls=original_class)
 
 
 class GeoJsonDict(TypedDict):
@@ -305,21 +303,19 @@ class AnnotatedGeometry(geometry.base.BaseGeometry):  # type: ignore[misc]
         raise TypeError(f"unsupported operand type(s) for -=: {type(self)} and {type(other)}")
 
 
-class DlupShapelyPoint(ShapelyPoint, AnnotatedGeometry):  # type: ignore[misc]
+class Point(ShapelyPoint, AnnotatedGeometry):  # type: ignore[misc]
     __slots__ = ShapelyPoint.__slots__
 
-    def __new__(
-        cls, coord: ShapelyPoint | tuple[float, float], a_cls: Optional[AnnotationClass] = None
-    ) -> "DlupShapelyPoint":
+    def __new__(cls, coord: ShapelyPoint | tuple[float, float], a_cls: Optional[AnnotationClass] = None) -> "Point":
         point = super().__new__(cls, coord)
         point.__class__ = cls
-        return cast("DlupShapelyPoint", point)
+        return cast("Point", point)
 
     def __reduce__(self) -> tuple[type, tuple[tuple[float, float], Optional[AnnotationClass]]]:
         return (self.__class__, ((self.x, self.y), self.annotation_class))
 
 
-class DlupShapelyPolygon(ShapelyPolygon, AnnotatedGeometry):  # type: ignore[misc]
+class Polygon(ShapelyPolygon, AnnotatedGeometry):  # type: ignore[misc]
     __slots__ = ShapelyPolygon.__slots__
 
     def __new__(
@@ -327,15 +323,15 @@ class DlupShapelyPolygon(ShapelyPolygon, AnnotatedGeometry):  # type: ignore[mis
         shell: Union[tuple[float, float], ShapelyPolygon],
         holes: Optional[list[list[list[float]]] | list[npt.NDArray[np.float_]]] = None,
         a_cls: Optional[AnnotationClass] = None,
-    ) -> "DlupShapelyPolygon":
+    ) -> "Polygon":
         instance = super().__new__(cls, shell, holes)
         instance.__class__ = cls
-        return cast("DlupShapelyPolygon", instance)
+        return cast("Polygon", instance)
 
     def intersect_with_box(
         self,
         other: ShapelyPolygon,
-    ) -> Optional[list["DlupShapelyPolygon"]]:
+    ) -> Optional[list["Polygon"]]:
         result = make_valid(self).intersection(other)
         if self.area > 0 and result.area == 0:
             return None
@@ -347,9 +343,9 @@ class DlupShapelyPolygon(ShapelyPolygon, AnnotatedGeometry):  # type: ignore[mis
             annotation_class = self.annotation_class
 
         if isinstance(result, ShapelyPolygon):
-            return [DlupShapelyPolygon(result, a_cls=annotation_class)]
+            return [Polygon(result, a_cls=annotation_class)]
         elif isinstance(result, (ShapelyMultiPolygon, shapely.geometry.collection.GeometryCollection)):
-            return [DlupShapelyPolygon(geom, a_cls=annotation_class) for geom in result.geoms if geom.area > 0]
+            return [Polygon(geom, a_cls=annotation_class) for geom in result.geoms if geom.area > 0]
         else:
             raise NotImplementedError(f"{type(result)}")
 
@@ -372,7 +368,7 @@ def shape(
     label: str,
     color: Optional[tuple[int, int, int]] = None,
     z_index: Optional[int] = None,
-) -> list[DlupShapelyPolygon | DlupShapelyPoint]:
+) -> list[Polygon | Point]:
     geom_type = coordinates.get("type", "not_found").lower()
     if geom_type == "not_found":
         raise ValueError("No type found in coordinates.")
@@ -383,7 +379,7 @@ def shape(
         annotation_class = AnnotationClass(label=label, annotation_type=AnnotationType.POINT, color=color, z_index=None)
         _coordinates = coordinates["coordinates"]
         return [
-            DlupShapelyPoint(np.asarray(c), a_cls=annotation_class)
+            Point(np.asarray(c), a_cls=annotation_class)
             for c in (_coordinates if geom_type == "multipoint" else [_coordinates])
         ]
     elif geom_type in ["polygon", "multipolygon"]:
@@ -391,14 +387,12 @@ def shape(
         # TODO: Give every polygon in multipolygon their own annotation_class / annotation_type
         annotation_type = (
             AnnotationType.BOX
-            if geom_type == "polygon" and _is_rectangle(DlupShapelyPolygon(_coordinates[0]))
+            if geom_type == "polygon" and _is_rectangle(Polygon(_coordinates[0]))
             else AnnotationType.POLYGON
         )
         annotation_class = AnnotationClass(label=label, annotation_type=annotation_type, color=color, z_index=z_index)
         return [
-            DlupShapelyPolygon(
-                shell=np.asarray(c[0]), holes=[np.asarray(hole) for hole in c[1:]], a_cls=annotation_class
-            )
+            Polygon(shell=np.asarray(c[0]), holes=[np.asarray(hole) for hole in c[1:]], a_cls=annotation_class)
             for c in (_coordinates if geom_type == "multipolygon" else [_coordinates])
         ]
 
@@ -406,7 +400,7 @@ def shape(
 
 
 def _geometry_to_geojson(
-    geometry: DlupShapelyPolygon | DlupShapelyPoint, label: str, color: tuple[int, int, int] | None, z_index: int | None
+    geometry: Polygon | Point, label: str, color: tuple[int, int, int] | None, z_index: int | None
 ) -> dict[str, Any]:
     """Function to convert a geometry to a GeoJSON object.
 
@@ -450,7 +444,7 @@ class WsiAnnotations:
 
     def __init__(
         self,
-        layers: list[DlupShapelyPoint | DlupShapelyPolygon],
+        layers: list[Point | Polygon],
         tags: Optional[list[AnnotationClass]] = None,
         offset_to_slide_bounds: bool = False,
         sorting: AnnotationSorting | str = AnnotationSorting.NONE,
@@ -478,9 +472,6 @@ class WsiAnnotations:
         self._sort_layers_in_place()
         self._available_classes: set[AnnotationClass] = {layer.annotation_class for layer in self._layers}
         self._str_tree = STRtree(self._layers)
-        warnings.warn(
-            "WsiAnnotations will be deprecated in the next release. Use SlideAnnotations instead.", DeprecationWarning
-        )
 
     @property
     def available_classes(self) -> set[AnnotationClass]:
@@ -543,7 +534,7 @@ class WsiAnnotations:
             [
                 (
                     annotation.bounds
-                    if isinstance(annotation, DlupShapelyPolygon)
+                    if isinstance(annotation, Polygon)
                     else (annotation.x, annotation.y, annotation.x, annotation.y)
                 )
                 for annotation in self._layers
@@ -590,7 +581,7 @@ class WsiAnnotations:
             _geojsons: Iterable[Any] = [pathlib.Path(geojsons)]
 
         _geojsons = [geojsons] if not isinstance(geojsons, (tuple, list)) else geojsons
-        layers: list[DlupShapelyPolygon | DlupShapelyPoint] = []
+        layers: list[Polygon | Point] = []
         tags = None
         for path in _geojsons:
             path = pathlib.Path(path)
@@ -611,11 +602,11 @@ class WsiAnnotations:
                     properties = x["properties"]
                     if "classification" in properties:
                         _label = properties["classification"]["name"]
-                        _color = get_geojson_color(properties["classification"])
+                        _color = _get_geojson_color(properties["classification"])
                         _z_index = _get_geojson_z_index(properties["classification"])
                     elif properties.get("objectType", None) == "annotation":
                         _label = properties["name"]
-                        _color = get_geojson_color(properties)
+                        _color = _get_geojson_color(properties)
                         _z_index = _get_geojson_z_index(properties)
                     else:
                         raise ValueError("Could not find label in the GeoJSON properties.")
@@ -656,14 +647,14 @@ class WsiAnnotations:
         """
         tree = ET.parse(asap_xml)
         opened_annotation = tree.getroot()
-        layers: list[DlupShapelyPolygon | DlupShapelyPoint] = []
+        layers: list[Polygon | Point] = []
         opened_annotations = 0
         for parent in opened_annotation:
             for child in parent:
                 if child.tag != "Annotation":
                     continue
                 label = child.attrib.get("PartOfGroup").strip()  # type: ignore
-                color = hex_to_rgb(child.attrib.get("Color").strip())  # type: ignore
+                color = _hex_to_rgb(child.attrib.get("Color").strip())  # type: ignore
 
                 _type = child.attrib.get("Type").lower()  # type: ignore
                 annotation_type = AnnotationTypeToDLUPAnnotationType.from_string(_type)
@@ -692,9 +683,9 @@ class WsiAnnotations:
                 for coordinates in coordinates_list:
                     _cls = AnnotationClass(label=label, annotation_type=annotation_type, color=color)
                     if isinstance(coordinates, ShapelyPoint):
-                        layers.append(DlupShapelyPoint(coordinates, a_cls=_cls))
+                        layers.append(Point(coordinates, a_cls=_cls))
                     elif isinstance(coordinates, ShapelyPolygon):
-                        layers.append(DlupShapelyPolygon(coordinates, a_cls=_cls))
+                        layers.append(Polygon(coordinates, a_cls=_cls))
                     else:
                         raise NotImplementedError
 
@@ -744,13 +735,13 @@ class WsiAnnotations:
                     curr_geometry = pyhaloxml.shapely.region_to_shapely(region)
                     if region.type == pyhaloxml.RegionType.Rectangle:
                         _cls = AnnotationClass(label=layer.name, annotation_type=AnnotationType.BOX)
-                        output_layers.append(DlupShapelyPolygon(curr_geometry, a_cls=_cls))
+                        output_layers.append(Polygon(curr_geometry, a_cls=_cls))
                     if region.type in [pyhaloxml.RegionType.Ellipse, pyhaloxml.RegionType.Polygon]:
                         _cls = AnnotationClass(label=layer.name, annotation_type=AnnotationType.POLYGON)
-                        output_layers.append(DlupShapelyPolygon(curr_geometry, a_cls=_cls))
+                        output_layers.append(Polygon(curr_geometry, a_cls=_cls))
                     if region.type == pyhaloxml.RegionType.Pin:
                         _cls = AnnotationClass(label=layer.name, annotation_type=AnnotationType.POINT)
-                        output_layers.append(DlupShapelyPoint(curr_geometry, a_cls=_cls))
+                        output_layers.append(Point(curr_geometry, a_cls=_cls))
                     else:
                         raise NotImplementedError(f"Regiontype {region.type} is not implemented in DLUP")
 
@@ -793,7 +784,7 @@ class WsiAnnotations:
 
         darwin_json_fn = pathlib.Path(darwin_json)
         darwin_an = darwin.utils.parse_darwin_json(darwin_json_fn, None)
-        v7_metadata = get_v7_metadata(darwin_json_fn.parent)
+        v7_metadata = _get_v7_metadata(darwin_json_fn.parent)
 
         tags = []
         layers = []
@@ -819,26 +810,26 @@ class WsiAnnotations:
 
             _cls = AnnotationClass(label=name, annotation_type=annotation_type, color=annotation_color, z_index=z_index)
             if annotation_type == AnnotationType.POINT:
-                curr_point = DlupShapelyPoint((curr_data["x"], curr_data["y"]), a_cls=_cls)
+                curr_point = Point((curr_data["x"], curr_data["y"]), a_cls=_cls)
                 layers.append(curr_point)
                 continue
 
             elif annotation_type == AnnotationType.POLYGON:
                 if "path" in curr_data:  # This is a regular polygon
-                    curr_polygon = DlupShapelyPolygon([(_["x"], _["y"]) for _ in curr_data["path"]])
-                    layers.append(DlupShapelyPolygon(curr_polygon, a_cls=_cls))
+                    curr_polygon = Polygon([(_["x"], _["y"]) for _ in curr_data["path"]])
+                    layers.append(Polygon(curr_polygon, a_cls=_cls))
 
                 elif "paths" in curr_data:  # This is a complex polygon which needs to be parsed with the even-odd rule
                     curr_complex_polygon = _parse_darwin_complex_polygon(curr_data)
                     for polygon in curr_complex_polygon.geoms:
-                        layers.append(DlupShapelyPolygon(polygon, a_cls=_cls))
+                        layers.append(Polygon(polygon, a_cls=_cls))
                 else:
                     raise ValueError(f"Got unexpected data keys: {curr_data.keys()}")
 
             elif annotation_type == AnnotationType.BOX:
                 x, y, w, h = list(map(curr_data.get, ["x", "y", "w", "h"]))
                 curr_polygon = shapely.geometry.box(x, y, x + w, y + h)
-                layers.append(DlupShapelyPolygon(curr_polygon, a_cls=_cls))
+                layers.append(Polygon(curr_polygon, a_cls=_cls))
             else:
                 ValueError(f"Annotation type {annotation_type} is not supported.")
 
@@ -885,7 +876,7 @@ class WsiAnnotations:
                 curr_annotation,
                 label=curr_annotation.label,
                 color=curr_annotation.color,
-                z_index=curr_annotation.z_index if isinstance(curr_annotation, DlupShapelyPolygon) else None,
+                z_index=curr_annotation.z_index if isinstance(curr_annotation, Polygon) else None,
             )
             json_dict["id"] = str(idx)
             data["features"].append(json_dict)
@@ -914,14 +905,14 @@ class WsiAnnotations:
             if a_cls.annotation_type == AnnotationType.POINT:
                 continue
             layer.simplify(tolerance, preserve_topology=preserve_topology)
-            self._layers[idx] = DlupShapelyPolygon(self._layers[idx], a_cls=a_cls)
+            self._layers[idx] = Polygon(self._layers[idx], a_cls=a_cls)
 
     def read_region(
         self,
         location: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
         scaling: float,
         size: npt.NDArray[np.int_ | np.float_] | tuple[GenericNumber, GenericNumber],
-    ) -> list[DlupShapelyPolygon | DlupShapelyPoint]:
+    ) -> list[Polygon | Point]:
         """Reads the region of the annotations. API is the same as `dlup.SlideImage` so they can be used in conjunction.
 
         The process is as follows:
@@ -965,13 +956,6 @@ class WsiAnnotations:
         The polygons can be converted to masks using `dlup.data.transforms.convert_annotations` or
         `dlup.data.transforms.ConvertAnnotationsToMask`.
         """
-
-        warnings.warn(
-            "WsiAnnotations.read_region() will be deprecated in the next release. "
-            "Use SlideAnnotations.read_region() instead, which has a different return type",
-            DeprecationWarning,
-        )
-
         box = list(location) + list(np.asarray(location) + np.asarray(size))
         box = (np.asarray(box) / scaling).tolist()
         query_box = geometry.box(*box)
@@ -979,11 +963,9 @@ class WsiAnnotations:
         curr_indices = self._str_tree.query(query_box)
         # This is needed because the STRTree returns (seemingly) arbitrary order, and this would destroy the order
         curr_indices.sort()
-        filtered_annotations: list[DlupShapelyPoint | DlupShapelyPolygon] = self._str_tree.geometries.take(
-            curr_indices
-        ).tolist()
+        filtered_annotations: list[Point | Polygon] = self._str_tree.geometries.take(curr_indices).tolist()
 
-        cropped_annotations: list[DlupShapelyPoint | DlupShapelyPolygon] = []
+        cropped_annotations: list[Point | Polygon] = []
         for annotation in filtered_annotations:
             if annotation.annotation_type in (AnnotationType.BOX, AnnotationType.POLYGON):
                 _annotations = annotation.intersect_with_box(query_box)
@@ -995,7 +977,7 @@ class WsiAnnotations:
         def _affine_coords(coords: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
             return coords * scaling - np.asarray(location, dtype=np.float_)
 
-        output: list[DlupShapelyPolygon | DlupShapelyPoint] = []
+        output: list[Polygon | Point] = []
         for annotation in cropped_annotations:
             annotation = transform(annotation, _affine_coords)
             output.append(annotation)
@@ -1007,32 +989,29 @@ class WsiAnnotations:
             f"tags={[tag.label for tag in self.tags] if self.tags else None})"
         )
 
-    def __contains__(self, item: Union[str, AnnotationClass, DlupShapelyPoint, DlupShapelyPolygon]) -> bool:
+    def __contains__(self, item: Union[str, AnnotationClass, Point, Polygon]) -> bool:
         if isinstance(item, str):
             return item in [_.label for _ in self.available_classes]
-        elif isinstance(item, (DlupShapelyPoint, DlupShapelyPolygon)):
+        elif isinstance(item, (Point, Polygon)):
             return item in self._layers
         return item in self.available_classes
 
-    def __getitem__(self, idx: int) -> DlupShapelyPoint | DlupShapelyPolygon:
+    def __getitem__(self, idx: int) -> Point | Polygon:
         return self._layers[idx]
 
-    def __iter__(self) -> Iterable[DlupShapelyPoint | DlupShapelyPolygon]:
+    def __iter__(self) -> Iterable[Point | Polygon]:
         for layer in self._layers:
             yield layer
 
     def __len__(self) -> int:
         return len(self._layers)
 
-    def __add__(
-        self,
-        other: WsiAnnotations | DlupShapelyPoint | DlupShapelyPolygon | list[DlupShapelyPoint | DlupShapelyPolygon],
-    ) -> WsiAnnotations:
-        if isinstance(other, (DlupShapelyPoint, DlupShapelyPolygon)):
+    def __add__(self, other: WsiAnnotations | Point | Polygon | list[Point | Polygon]) -> WsiAnnotations:
+        if isinstance(other, (Point, Polygon)):
             other = [other]
 
         if isinstance(other, list):
-            if not all(isinstance(item, (DlupShapelyPoint, DlupShapelyPolygon)) for item in other):
+            if not all(isinstance(item, (Point, Polygon)) for item in other):
                 raise TypeError("can only add list purely containing Point and Polygon objects to WsiAnnotations")
             new_layers = self._layers + other
             new_tags = self.tags
@@ -1049,15 +1028,12 @@ class WsiAnnotations:
             layers=new_layers, tags=new_tags, offset_to_slide_bounds=self.offset_to_slide_bounds, sorting=self.sorting
         )
 
-    def __iadd__(
-        self,
-        other: WsiAnnotations | DlupShapelyPoint | DlupShapelyPolygon | list[DlupShapelyPoint | DlupShapelyPolygon],
-    ) -> WsiAnnotations:
-        if isinstance(other, (DlupShapelyPoint, DlupShapelyPolygon)):
+    def __iadd__(self, other: WsiAnnotations | Point | Polygon | list[Point | Polygon]) -> WsiAnnotations:
+        if isinstance(other, (Point, Polygon)):
             other = [other]
 
         if isinstance(other, list):
-            if not all(isinstance(item, (DlupShapelyPoint, DlupShapelyPolygon)) for item in other):
+            if not all(isinstance(item, (Point, Polygon)) for item in other):
                 raise TypeError("can only add list purely containing Point and Polygon objects to WsiAnnotations")
 
             self._layers += other
@@ -1083,15 +1059,12 @@ class WsiAnnotations:
         self._str_tree = STRtree(self._layers)
         return self
 
-    def __radd__(
-        self,
-        other: WsiAnnotations | DlupShapelyPoint | DlupShapelyPolygon | list[DlupShapelyPoint | DlupShapelyPolygon],
-    ) -> WsiAnnotations:
+    def __radd__(self, other: WsiAnnotations | Point | Polygon | list[Point | Polygon]) -> WsiAnnotations:
         # in-place addition (+=) of Point and Polygon will raise a TypeError
-        if not isinstance(other, (WsiAnnotations, DlupShapelyPoint, DlupShapelyPolygon, list)):
+        if not isinstance(other, (WsiAnnotations, Point, Polygon, list)):
             return NotImplemented
         if isinstance(other, list):
-            if not all(isinstance(item, (DlupShapelyPoint, DlupShapelyPolygon)) for item in other):
+            if not all(isinstance(item, (Point, Polygon)) for item in other):
                 raise TypeError("can only add list purely containing Point and Polygon objects to WsiAnnotations")
             raise TypeError(
                 "use the __add__ or __iadd__ operator instead of __radd__ when working with lists to avoid \
@@ -1099,10 +1072,10 @@ class WsiAnnotations:
             )
         return self + other
 
-    def __sub__(self, other: WsiAnnotations | DlupShapelyPoint | DlupShapelyPolygon) -> WsiAnnotations:
+    def __sub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
         return NotImplemented
 
-    def __isub__(self, other: WsiAnnotations | DlupShapelyPoint | DlupShapelyPolygon) -> WsiAnnotations:
+    def __isub__(self, other: WsiAnnotations | Point | Polygon) -> WsiAnnotations:
         return NotImplemented
 
     def __rsub__(self, other: WsiAnnotations) -> WsiAnnotations:

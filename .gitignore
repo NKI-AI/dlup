@@ -2,9 +2,8 @@
 _background.c
 _background.cpp
 _background.html
-_background.cpython-*.so
+_background.cpython-*-darwin.so
 _libtiff_tiff_writer.cpython-*.so
-_geometry.cython-*.so
 
 # Output files
 *.tif
