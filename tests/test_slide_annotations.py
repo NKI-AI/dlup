@@ -1,5 +1,5 @@
 # Copyright (c) dlup contributors
-
+# pylint: disable=no-member
 """Test the annotation facilities."""
 import copy
 import json
@@ -11,7 +11,9 @@ import tempfile
 import numpy as np
 import pytest
 
-from dlup.annotations_experimental import GeometryCollection, SlideAnnotations, geojson_to_dlup, get_v7_metadata
+from dlup.annotations import GeometryCollection, SlideAnnotations
+from dlup.annotations.importers.darwin_json import get_v7_metadata
+from dlup.annotations.importers.geojson import geojson_to_dlup
 from dlup.geometry import Point as Point
 from dlup.geometry import Polygon as Polygon
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
@@ -479,7 +481,7 @@ class TestAnnotations:
         assert initial_length + 2 == len(annotations)
         assert all(ann in new_annotations for ann in annotations)
 
-    def test_add_with_wsi_annotations(self):
+    def test_add_with_slide_annotations(self):
         annotations = self.geojson_annotations.copy()
         other_annotations = self.geojson_annotations.copy()
         initial_annotations_id = id(annotations)
@@ -510,7 +512,7 @@ class TestAnnotations:
         with pytest.raises(ValueError):
             get_v7_metadata(pathlib.Path("../tests"))
 
-        monkeypatch.setattr("dlup.annotations_experimental.DARWIN_SDK_AVAILABLE", False)
+        monkeypatch.setattr("dlup.annotations.importers.darwin_json.DARWIN_SDK_AVAILABLE", False)
         with pytest.raises(ImportError):
             get_v7_metadata(pathlib.Path("."))
 
