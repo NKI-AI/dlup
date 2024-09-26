@@ -5,7 +5,7 @@ import pytest
 from shapely.geometry import Polygon as ShapelyPolygon  # TODO: Our Polygon should support holes as well
 
 from dlup._exceptions import AnnotationError
-from dlup.annotations import Point, Polygon
+from dlup.annotations import DlupShapelyPoint, DlupShapelyPolygon
 from dlup.data.transforms import (
     AnnotationClass,
     AnnotationType,
@@ -16,7 +16,7 @@ from dlup.data.transforms import (
 
 
 def test_convert_annotations_points_only():
-    point = Point((5, 5), a_cls=AnnotationClass(label="point1", annotation_type=AnnotationType.POINT))
+    point = DlupShapelyPoint((5, 5), a_cls=AnnotationClass(label="point1", annotation_type=AnnotationType.POINT))
     points, mask, roi_mask = convert_annotations([point], (10, 10), {"point1": 1})
 
     assert mask.sum() == 0
@@ -34,7 +34,7 @@ def test_convert_annotations_default_value():
 
 
 def test_convert_annotations_polygons_only():
-    polygon = Polygon(
+    polygon = DlupShapelyPolygon(
         [(2, 2), (2, 8), (8, 8), (8, 2)],
         a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON),
     )
@@ -49,7 +49,7 @@ def test_convert_annotations_polygons_only():
 @pytest.mark.parametrize("top_add", [0.0, 0.1, 0.49, 0.51, 0.9])
 @pytest.mark.parametrize("bottom_add", [0.0, 0.1, 0.49, 0.51, 0.9])
 def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
-    polygon = Polygon(
+    polygon = DlupShapelyPolygon(
         [
             (2 + top_add, 2 + top_add),
             (2 + top_add, 8 + bottom_add),
@@ -77,7 +77,7 @@ def test_convert_annotations_polygons_with_floats(top_add, bottom_add):
 
 
 def test_convert_annotations_label_not_present():
-    polygon = Polygon(
+    polygon = DlupShapelyPolygon(
         [(1, 1), (1, 7), (7, 7), (7, 1)],
         a_cls=AnnotationClass(label="polygon", annotation_type=AnnotationType.POLYGON),
     )
@@ -86,7 +86,7 @@ def test_convert_annotations_label_not_present():
 
 
 def test_roi_exception():
-    box = Polygon(
+    box = DlupShapelyPolygon(
         [(1, 1), (1, 7), (7, 7), (7, 1)], a_cls=AnnotationClass(label="polygon", annotation_type=AnnotationType.BOX)
     )
 
@@ -98,15 +98,19 @@ def _create_complex_polygons():
     shell0 = [(1, 1), (1, 7), (7, 7), (7, 1)]
     holes0 = [[(2, 2), (2, 4), (4, 4), (4, 1)]]
     spolygon = ShapelyPolygon(shell0, holes=holes0)
-    polygon0 = Polygon(spolygon, a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON))
+    polygon0 = DlupShapelyPolygon(
+        spolygon, a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON)
+    )
 
     shell1 = [(4, 4), (4, 9), (9, 9), (9, 4)]
     holes1 = [[(5, 5), (5, 7), (7, 7), (7, 5)], [(7, 7), (5, 9), (5, 9), (9, 9)]]
     spolygon = ShapelyPolygon(shell1, holes=holes1)
-    polygon1 = Polygon(spolygon, a_cls=AnnotationClass(label="polygon2", annotation_type=AnnotationType.POLYGON))
+    polygon1 = DlupShapelyPolygon(
+        spolygon, a_cls=AnnotationClass(label="polygon2", annotation_type=AnnotationType.POLYGON)
+    )
 
     shell_roi = [(3, 3), (3, 6), (6, 6), (6, 3)]
-    roi = Polygon(shell_roi, a_cls=AnnotationClass(label="roi", annotation_type=AnnotationType.POLYGON))
+    roi = DlupShapelyPolygon(shell_roi, a_cls=AnnotationClass(label="roi", annotation_type=AnnotationType.POLYGON))
 
     target = np.asarray(
         [
@@ -140,7 +144,7 @@ def test_convert_annotations_multiple_polygons_and_holes():
 
 
 def test_convert_annotations_out_of_bounds():
-    polygon = Polygon(
+    polygon = DlupShapelyPolygon(
         [(2, 2), (2, 11), (11, 11), (11, 2)],
         a_cls=AnnotationClass(label="polygon1", annotation_type=AnnotationType.POLYGON),
     )
@@ -192,7 +196,7 @@ class TestRenameLabels:
         return RenameLabels(remap_labels={"old_name": "new_name", "some_point": "some_point2", "some_box": "some_box"})
 
     def test_no_remap(self, transformer0):
-        old_annotation = Polygon(
+        old_annotation = DlupShapelyPolygon(
             [(2, 2), (2, 8), (8, 8), (8, 2)],
             a_cls=AnnotationClass(label="unchanged_name", annotation_type=AnnotationType.POLYGON),
         )
@@ -201,24 +205,26 @@ class TestRenameLabels:
         assert transformed_sample["annotations"][0].label == "unchanged_name"
 
     def test_remap_polygon(self, transformer1):
-        old_annotation = Polygon(
+        old_annotation = DlupShapelyPolygon(
             [(2, 2), (2, 8), (8, 8), (8, 2)],
             a_cls=AnnotationClass(label="old_name", annotation_type=AnnotationType.POLYGON),
         )
 
-        random_box = Polygon(
+        random_box = DlupShapelyPolygon(
             [(2, 2), (2, 8), (8, 8), (8, 2)],
             a_cls=AnnotationClass(label="some_box", annotation_type=AnnotationType.BOX),
         )
 
-        random_point = Point((1, 1), a_cls=AnnotationClass(label="some_point", annotation_type=AnnotationType.POINT))
+        random_point = DlupShapelyPoint(
+            (1, 1), a_cls=AnnotationClass(label="some_point", annotation_type=AnnotationType.POINT)
+        )
 
         sample = {"annotations": [old_annotation, random_box, random_point]}
         transformed_sample = transformer1(sample)
         assert transformed_sample["annotations"][0].label == "new_name"
         assert transformed_sample["annotations"][1].label == "some_box"
         assert transformed_sample["annotations"][2].label == "some_point2"
-        assert isinstance(transformed_sample["annotations"][0], Polygon)
+        assert isinstance(transformed_sample["annotations"][0], DlupShapelyPolygon)
         assert transformed_sample["annotations"][0].annotation_type == AnnotationType.POLYGON
         assert transformed_sample["annotations"][1].annotation_type == AnnotationType.BOX
         assert transformed_sample["annotations"][2].annotation_type == AnnotationType.POINT

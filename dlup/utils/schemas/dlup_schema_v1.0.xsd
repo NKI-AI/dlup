@@ -1,0 +1,244 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+
+    <!-- Define a simple type for the hex color attribute -->
+    <xs:simpleType name="HexColorType">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="#[0-9a-fA-F]{6}"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Metadata element -->
+    <xs:element name="Metadata">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ImageID" type="xs:string"/>
+                <xs:element name="Description" type="xs:string" minOccurs="0"/>
+                <xs:element name="Version" type="xs:string"/>
+                <xs:element name="Authors" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Author" type="xs:string" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="DateCreated" type="xs:date"/>
+                <xs:element name="Software" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Tag element -->
+    <xs:element name="Tag">
+        <xs:complexType>
+            <xs:sequence>
+                <!-- Optional Attributes -->
+                <xs:element name="Attribute" maxOccurs="unbounded" minOccurs="0">
+                    <xs:complexType>
+                        <xs:simpleContent>
+                            <xs:extension base="xs:string">
+                                <xs:attribute name="color" type="HexColorType" use="optional"/>
+                            </xs:extension>
+                        </xs:simpleContent>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="Text" type="xs:string" minOccurs="0" maxOccurs="1"/>
+            </xs:sequence>
+
+            <xs:attribute name="label" type="xs:string" use="required"/>
+            <xs:attribute name="color" type="HexColorType" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Tags element to wrap multiple Tag elements -->
+    <xs:element name="Tags">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="Tag" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Geometries element -->
+    <xs:element name="Geometries">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice maxOccurs="unbounded">
+                    <xs:element name="Polygon" type="StandalonePolygonType"/>
+                    <xs:element name="MultiPolygon" type="MultiPolygonType"/>
+                    <xs:element name="Box" type="BoxType"/>
+                </xs:choice>
+                <xs:element name="BoundingBox" type="BoundingBoxType" minOccurs="0" maxOccurs="1"/>
+                <xs:element name="Point" maxOccurs="unbounded" minOccurs="0">
+                    <xs:complexType>
+                        <xs:attribute name="x" type="xs:double" use="required"/>
+                        <xs:attribute name="y" type="xs:double" use="required"/>
+                        <xs:attribute name="label" type="xs:string" use="required"/>
+                        <xs:attribute name="color" type="HexColorType" use="optional"/>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="MultiPoint" maxOccurs="unbounded" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Point" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:attribute name="x" type="xs:double" use="required"/>
+                                    <xs:attribute name="y" type="xs:double" use="required"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                        <xs:attribute name="label" type="xs:string" use="required"/>
+                        <xs:attribute name="color" type="HexColorType" use="optional"/>
+                        <xs:attribute name="index" type="xs:integer" use="optional"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- RegionsOfInterest element -->
+    <xs:element name="RegionsOfInterest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice maxOccurs="unbounded">
+                    <xs:element name="Polygon" type="RegionPolygonType"/>
+                    <xs:element name="MultiPolygon" type="RegionMultiPolygonType"/>
+                    <xs:element name="Box" type="RegionBoxType"/>
+                </xs:choice>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Base Polygon type without label, color, or order -->
+    <xs:complexType name="BasePolygonType">
+        <xs:sequence>
+            <xs:element name="Exterior">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="Point" maxOccurs="unbounded">
+                            <xs:complexType>
+                                <xs:attribute name="x" type="xs:double" use="required"/>
+                                <xs:attribute name="y" type="xs:double" use="required"/>
+                            </xs:complexType>
+                        </xs:element>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="Interiors" minOccurs="0">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="Interior" maxOccurs="unbounded">
+                            <xs:complexType>
+                                <xs:sequence>
+                                    <xs:element name="Point" maxOccurs="unbounded">
+                                        <xs:complexType>
+                                            <xs:attribute name="x" type="xs:double" use="required"/>
+                                            <xs:attribute name="y" type="xs:double" use="required"/>
+                                        </xs:complexType>
+                                    </xs:element>
+                                </xs:sequence>
+                            </xs:complexType>
+                        </xs:element>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Standalone Polygon type extending the base type with label, color, and order -->
+    <xs:complexType name="StandalonePolygonType">
+        <xs:complexContent>
+            <xs:extension base="BasePolygonType">
+                <xs:attribute name="label" type="xs:string" use="required"/>
+                <xs:attribute name="color" type="HexColorType" use="optional"/>
+                <xs:attribute name="index" type="xs:integer" use="optional"/>
+                <xs:attribute name="order" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Region Polygon type extending the base type with label and order but without color -->
+    <xs:complexType name="RegionPolygonType">
+        <xs:complexContent>
+            <xs:extension base="BasePolygonType">
+                <xs:attribute name="label" type="xs:string" use="required"/>
+                <xs:attribute name="index" type="xs:integer" use="optional"/>
+                <xs:attribute name="order" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- MultiPolygon type without order for individual polygons -->
+    <xs:complexType name="MultiPolygonType">
+        <xs:sequence>
+            <xs:element name="Polygon" type="BasePolygonType" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="label" type="xs:string" use="required"/>
+        <xs:attribute name="color" type="HexColorType" use="optional"/>
+        <xs:attribute name="index" type="xs:integer" use="optional"/>
+        <xs:attribute name="order" type="xs:integer" use="required"/>
+    </xs:complexType>
+
+    <!-- Region MultiPolygon type extending the base type without color -->
+    <xs:complexType name="RegionMultiPolygonType">
+        <xs:sequence>
+            <xs:element name="Polygon" type="BasePolygonType" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="label" type="xs:string" use="required"/>
+        <xs:attribute name="index" type="xs:integer" use="optional"/>
+        <xs:attribute name="order" type="xs:integer" use="required"/>
+    </xs:complexType>
+
+    <!-- Rectangle base type for Box and BoundingBox -->
+    <xs:complexType name="RectangleType">
+        <xs:attribute name="xMin" type="xs:double" use="required"/>
+        <xs:attribute name="yMin" type="xs:double" use="required"/>
+        <xs:attribute name="xMax" type="xs:double" use="required"/>
+        <xs:attribute name="yMax" type="xs:double" use="required"/>
+    </xs:complexType>
+
+    <!-- Bounding Box type extending RectangleType -->
+    <xs:complexType name="BoundingBoxType">
+        <xs:complexContent>
+            <xs:extension base="RectangleType">
+                <xs:attribute name="label" type="xs:string" use="optional"/>
+                <xs:attribute name="color" type="HexColorType" use="optional"/>
+                <xs:attribute name="index" type="xs:integer" use="optional"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Box type extending RectangleType without order -->
+    <xs:complexType name="BoxType">
+        <xs:complexContent>
+            <xs:extension base="RectangleType">
+                <xs:attribute name="label" type="xs:string" use="required"/>
+                <xs:attribute name="color" type="HexColorType" use="optional"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Region Box type extending RectangleType with order but without color -->
+    <xs:complexType name="RegionBoxType">
+        <xs:complexContent>
+            <xs:extension base="RectangleType">
+                <xs:attribute name="label" type="xs:string" use="required"/>
+                <xs:attribute name="index" type="xs:integer" use="optional"/>
+                <xs:attribute name="order" type="xs:integer" use="required"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Root element -->
+    <xs:element name="DlupAnnotations">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="Metadata"/>
+                <xs:element ref="Tags" minOccurs="0" maxOccurs="1"/>
+                <xs:element ref="Geometries"/>
+                <xs:element ref="RegionsOfInterest" minOccurs="0" maxOccurs="1"/>
+            </xs:sequence>
+            <xs:attribute name="version" type="xs:string" fixed="1.0"/>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

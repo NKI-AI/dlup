@@ -9,7 +9,14 @@ import tempfile
 import pytest
 import shapely.geometry
 
-from dlup.annotations import AnnotationClass, AnnotationType, Point, Polygon, WsiAnnotations, shape
+from dlup.annotations import (
+    AnnotationClass,
+    AnnotationType,
+    DlupShapelyPoint,
+    DlupShapelyPolygon,
+    WsiAnnotations,
+    shape,
+)
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
@@ -54,12 +61,12 @@ class TestAnnotations:
     _v7_raster_annotations = None
 
     additinoaL_point_a_cls = AnnotationClass(label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0))
-    additional_point = Point((1, 2), a_cls=additinoaL_point_a_cls)
+    additional_point = DlupShapelyPoint((1, 2), a_cls=additinoaL_point_a_cls)
 
     additional_polygon_a_cls = AnnotationClass(
         label="example", annotation_type=AnnotationType.POLYGON, color=(255, 0, 0), z_index=1
     )
-    additional_polygon = Polygon([(0, 0), (4, 0), (4, 4), (0, 4)], a_cls=additional_polygon_a_cls)
+    additional_polygon = DlupShapelyPolygon([(0, 0), (4, 0), (4, 4), (0, 4)], a_cls=additional_polygon_a_cls)
 
     @property
     def v7_annotations(self):
@@ -109,7 +116,7 @@ class TestAnnotations:
             shape1 = shape(elem1["geometry"], label="")
             assert len(set([_.label for _ in shape0])) == 1
             assert len(set([_.label for _ in shape1])) == 1
-            if isinstance(shape0[0], Polygon):
+            if isinstance(shape0[0], DlupShapelyPolygon):
                 complete_shape0 = shapely.geometry.MultiPolygon(shape0)
                 complete_shape1 = shapely.geometry.MultiPolygon(shape1)
             else:
@@ -126,7 +133,7 @@ class TestAnnotations:
             assert len(region) == 1
             assert region[0].area == area
             assert region[0].label == "healthy glands"
-            assert isinstance(region[0], Polygon)
+            assert isinstance(region[0], DlupShapelyPolygon)
 
         if not area:
             assert region == []
@@ -201,8 +208,8 @@ class TestAnnotations:
         exterior = [(0, 0), (4, 0), (4, 4), (0, 4)]
         hole1 = [(1, 1), (2, 1), (2, 2), (1, 2)]
         hole2 = [(3, 3), (3, 3.5), (3.5, 3.5), (3.5, 3)]
-        dlup_polygon_with_holes = Polygon(exterior, [hole1, hole2], a_cls=annotation_class)
-        dlup_solid_polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)], a_cls=annotation_class)
+        dlup_polygon_with_holes = DlupShapelyPolygon(exterior, [hole1, hole2], a_cls=annotation_class)
+        dlup_solid_polygon = DlupShapelyPolygon([(0, 0), (1, 0), (1, 1), (0, 1)], a_cls=annotation_class)
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_polygon_file:
             pickle.dump(dlup_solid_polygon, pickled_polygon_file)
             pickled_polygon_file.flush()
@@ -221,7 +228,7 @@ class TestAnnotations:
         annotation_class = AnnotationClass(
             label="example", annotation_type=AnnotationType.POINT, color=(255, 0, 0), z_index=None
         )
-        dlup_point = Point([(1, 2)], a_cls=annotation_class)
+        dlup_point = DlupShapelyPoint([(1, 2)], a_cls=annotation_class)
         with tempfile.NamedTemporaryFile(suffix=".pkl", mode="w+b") as pickled_point_file:
             pickle.dump(dlup_point, pickled_point_file)
             pickled_point_file.flush()

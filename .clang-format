@@ -1,4 +1,6 @@
 ---
+BasedOnStyle: Google
+IndentWidth: 2
 Language: Cpp
 ColumnLimit: 120
 AccessModifierOffset: -4
@@ -69,7 +71,6 @@ IncludeCategories:
 IncludeIsMainRegex: '(Test)?$'
 IndentCaseLabels: false
 IndentPPDirectives: None
-IndentWidth: 4
 IndentWrappedFunctionNames: false
 JavaScriptQuotes: Leave
 JavaScriptWrapImports: true

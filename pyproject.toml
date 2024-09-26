@@ -43,6 +43,7 @@ dependencies = [
     "shapely>=2.0.4",
     "packaging>=24.0",
     "pybind11>=2.8.0",
+    "xsdata>=24.7",
 ]
 
 [project.optional-dependencies]
@@ -75,8 +76,11 @@ package = 'dlup'
 "Build" = [
   ".spin/cmds.py:build",
   ".spin/cmds.py:test",
+  ".spin/cmds.py:coverage",
   ".spin/cmds.py:mypy",
   ".spin/cmds.py:lint",
+  ".spin/cmds.py:format",
+  ".spin/cmds.py:precommit",
 ]
 "Environments" = [
   "spin.cmds.meson.run",
@@ -112,6 +116,12 @@ exclude = '''
 profile = "black"
 line_length = 120
 
+[tool.pylint]
+disable = [
+    "possibly-used-before-assignment",
+    "import-error",
+]
+
 [tool.pylint.format]
 max-line-length = "120"
 
@@ -127,3 +137,10 @@ max-line-length = 120
 
 [tool.pytest.ini_options]
 addopts = "--ignore=libvips"
+
+[tool.coverage.run]
+branch = true
+parallel = false  # To see if there are threading issues
+
+[tool.coverage.html]
+directory = "htmlcov"
