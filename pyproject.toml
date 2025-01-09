@@ -61,7 +61,7 @@ dev = [
     "darwin-py>=0.8.62",
 ]
 darwin = ["darwin-py>=0.8.59"]
-slidescore_remote = ["asyncio", "aiohttp"]
+remote_backends = ["asyncio", "aiohttp"]
 
 [project.urls]
 Homepage = "https://github.com/NKI-AI/dlup"
