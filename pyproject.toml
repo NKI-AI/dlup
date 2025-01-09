@@ -59,6 +59,8 @@ dev = [
     "pydantic>=2.7.2",
     "types-Pillow>=10.2.0",
     "darwin-py>=0.8.62",
+    "aioresponses",
+    "pytest-asyncio",
 ]
 darwin = ["darwin-py>=0.8.59"]
 remote_backends = ["asyncio", "aiohttp"]

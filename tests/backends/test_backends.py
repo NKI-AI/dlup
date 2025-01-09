@@ -12,6 +12,8 @@ import psutil
 import pytest
 import pyvips
 
+from dlup.backends.deepzoom_backend import DeepZoomSlide
+from dlup.backends.deepzoom_backend import open_slide as open_slide_deepzoom
 from dlup.backends.openslide_backend import OpenSlideSlide
 from dlup.backends.openslide_backend import open_slide as open_slide_openslide
 from dlup.backends.tifffile_backend import TifffileSlide
@@ -24,6 +26,70 @@ def file_path(tmp_path):
     # tmp_path is a pytest fixture that provides a Path object to a temporary directory.
     # Here we are appending a file name to that path.
     return tmp_path / "test_image.tif"
+
+
+def write_image_to_dzi(tmp_path, test_image, mpp, size, pyramid):
+    # Write the DZI image files using VIPS
+    array = test_image.numpy()
+    image = pyvips.Image.new_from_array(array)
+    # Use png format for the DZI image files for lossless compression (important for read_region comparison)
+    image.dzsave(str(tmp_path), tile_size=256, overlap=1, suffix=".png", properties=True)
+
+    # We have to update our vips-properties ourselves
+    channels = array.shape[2] if array.ndim == 3 else 1
+    properties_folder = Path(tmp_path + "_files")
+    vips_properties_file = properties_folder / "vips-properties.xml"
+    vips_properties_content = f"""<?xml version="1.0"?>
+<image xmlns="http://www.vips.ecs.soton.ac.uk//dzsave" version="8.15.3">
+  <properties>
+    <property>
+      <name>openslide.vendor</name>
+      <value type="string">test_vendor</value>
+    </property>
+    <property>
+      <name>openslide.mpp-x</name>
+      <value type="gdouble">{mpp[0]}</value>
+    </property>
+    <property>
+      <name>openslide.mpp-y</name>
+      <value type="gdouble">{mpp[1]}</value>
+    </property>
+    <property>
+      <name>openslide.objective-power</name>
+      <value type="gint">{int(1 / mpp[0])}</value>
+    </property>
+    <property>
+      <name>openslide.bounds-height</name>
+      <value type="gint">{size[0]}</value>
+    </property>
+    <property>
+      <name>openslide.bounds-width</name>
+      <value type="gint">{size[1]}</value>
+    </property>
+    <property>
+      <name>openslide.bounds-x</name>
+      <value type="gint">0</value>
+    </property>
+    <property>
+      <name>openslide.bounds-y</name>
+      <value type="gint">0</value>
+    </property>
+    <property>
+      <name>openslide.quickhash-1</name>
+      <value type="string">dummy_hash</value>
+    </property>
+    <property>
+      <name>vips-loader</name>
+      <value type="string">openslideload</value>
+    </property>
+    <property>
+      <name>bands</name>
+      <value type="gint">{channels}</value>
+    </property>
+  </properties>
+</image>
+"""
+    vips_properties_file.write_text(vips_properties_content)
 
 
 def write_image_to_tiff(file_path, image, mpp, size, pyramid):
@@ -71,10 +137,12 @@ def get_open_file_handlers() -> list[Path]:
 def slides(file_path, test_image, mpp, size, pyramid):
     # Write the test image to a TIFF file
     write_image_to_tiff(str(file_path), test_image, mpp, size, pyramid)
+    write_image_to_dzi(str(file_path.with_suffix("")), test_image, mpp, size, pyramid)
     # Open the written TIFF file with both backends
     tiff_slide = open_slide_tifffile(str(file_path))
     openslide_slide = open_slide_openslide(str(file_path))
-    yield tiff_slide, openslide_slide
+    deepzoom_slide = open_slide_deepzoom(str(file_path.with_suffix(".dzi")))
+    yield tiff_slide, openslide_slide, deepzoom_slide
 
 
 @pytest.fixture
@@ -91,7 +159,9 @@ def mpp():
 
 
 class TestBackends:
-    def read_region_and_properties_asserts(self, tiff_slide, openslide_slide, mode, size, mpp, pyramid, test_image):
+    def read_region_and_properties_asserts(
+        self, tiff_slide, openslide_slide, deepzoom_slide, mode, size, mpp, pyramid, test_image
+    ):
         original_array = np.asarray(test_image)
         properties = tiff_slide.properties
         tile_size = (properties["tifffile.level[0].TileWidth"], properties["tifffile.level[0].TileLength"])
@@ -119,33 +189,42 @@ class TestBackends:
             openslide_region = PIL.Image.fromarray(
                 np.asarray(openslide_slide.read_region(location, 0, region_size))
             ).convert(mode)
+            deepzoom_region = PIL.Image.fromarray(np.asarray(deepzoom_slide.read_region(location, 0, region_size)))
+            assert deepzoom_region.mode == mode
 
             cropped_array = original_array[
                 location[1] : location[1] + region_size[1], location[0] : location[0] + region_size[0]
             ]
             tiff_array = np.asarray(tiff_region)
             openslide_array = np.asarray(openslide_region)
+            deepzoom_array = np.asarray(deepzoom_region)
 
             # Compare the tiff_region with the array itself.
             assert (tiff_array == cropped_array).all()
             # Compare the regions read by OpenSlide and Tifffile backends
             assert (tiff_array == openslide_array).all()
+            # Compare the regions read by DeepZoom and Tifffile backends
+            assert (tiff_array == deepzoom_array).all()
 
-    def property_asserts(self, tiff_slide, openslide_slide, size, mpp, pyramid):
+    def property_asserts(self, tiff_slide, openslide_slide, deepzoom_slide, size, mpp, pyramid):
         assert isinstance(tiff_slide, TifffileSlide)
         assert isinstance(openslide_slide, OpenSlideSlide)
+        assert isinstance(deepzoom_slide, DeepZoomSlide)
 
         assert tiff_slide.vendor is None
         assert tiff_slide.magnification is None
 
-        assert tiff_slide.dimensions == openslide_slide.dimensions
+        assert tiff_slide.dimensions == openslide_slide.dimensions == deepzoom_slide.dimensions
         assert np.allclose(mpp, tiff_slide.spacing)
+        assert np.allclose(mpp, deepzoom_slide.spacing)
+        # We don't compare against deepzoom because it does not have the same properties
         assert tiff_slide.spacing == openslide_slide.spacing
 
-        assert tiff_slide.slide_bounds == openslide_slide.slide_bounds
+        assert tiff_slide.slide_bounds == openslide_slide.slide_bounds == deepzoom_slide.slide_bounds
         # Tiff does not have slide bounds defined (or at least not in our implementation)
         assert tiff_slide.slide_bounds == ((0, 0), tiff_slide.dimensions)
 
+        # Deepzoom level count is based on the number of downsamples needed for the image
         assert tiff_slide.level_count == openslide_slide.level_count
         if not pyramid:
             assert tiff_slide.level_count == 1
@@ -158,6 +237,8 @@ class TestBackends:
             num_levels = int(np.ceil(np.log2(np.asarray(size[::-1]) / np.asarray(tile_size))).min()) + 1
             assert tiff_slide.level_count == num_levels
             assert openslide_slide.level_count == num_levels
+            deepzoom_num_levels = np.ceil(np.log2(max(np.asarray(size[::-1])))) + 1
+            assert deepzoom_slide.level_count == deepzoom_num_levels
 
         with pytest.raises(NotImplementedError):
             tiff_slide.set_cache(None)
@@ -173,11 +254,14 @@ class TestBackends:
         test_image = create_test_image(size, channels, color1, color2)
         assert isinstance(test_image, pyvips.Image)
 
-        tiff_slide, openslide_slide = slides  # Unpack the slides from the fixture
-        self.property_asserts(tiff_slide, openslide_slide, size, mpp, pyramid)
-        self.read_region_and_properties_asserts(tiff_slide, openslide_slide, mode, size, mpp, pyramid, test_image)
+        tiff_slide, openslide_slide, deepzoom_slide = slides  # Unpack the slides from the fixture
+        self.property_asserts(tiff_slide, openslide_slide, deepzoom_slide, size, mpp, pyramid)
+        self.read_region_and_properties_asserts(
+            tiff_slide, openslide_slide, deepzoom_slide, mode, size, mpp, pyramid, test_image
+        )
         # After the test function, close both slides and assert that the file handlers are properly closed.
         assert len(get_open_file_handlers()) == 1
         tiff_slide.close()
         openslide_slide.close()
+        deepzoom_slide.close()
         assert get_open_file_handlers() == []
