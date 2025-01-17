@@ -1,0 +1,63 @@
+<DlupAnnotations version="1.0">
+    <Metadata>
+        <ImageID>example_image_01</ImageID>
+        <Version>1.0</Version>
+        <DateCreated>2024-09-03</DateCreated>
+        <Software>ExampleSoftware</Software>
+    </Metadata>
+    <Geometries>
+        <MultiPolygon label="example_multi_polygon" order="1">
+            <Polygon>
+                <Exterior>
+                    <Point x="0" y="0"/>
+                    <Point x="1" y="0"/>
+                    <Point x="1" y="1"/>
+                    <Point x="0" y="1"/>
+                    <Point x="0" y="0"/>
+                </Exterior>
+            </Polygon>
+            <Polygon>
+                <Exterior>
+                    <Point x="2" y="2"/>
+                    <Point x="3" y="2"/>
+                    <Point x="3" y="3"/>
+                    <Point x="2" y="3"/>
+                    <Point x="2" y="2"/>
+                </Exterior>
+            </Polygon>
+        </MultiPolygon>
+        <Polygon label="example_polygon_with_interior" color="#FF5733" order="2">
+            <Exterior>
+                <Point x="4" y="4"/>
+                <Point x="6" y="4"/>
+                <Point x="6" y="2"/>
+                <Point x="4" y="7"/>
+                <Point x="4" y="4"/>
+            </Exterior>
+            <Interiors>
+                <Interior>
+                    <Point x="4" y="5"/>
+                    <Point x="5.5" y="5"/>
+                    <Point x="5.5" y="5.5"/>
+                    <Point x="5" y="4.5"/>
+                    <Point x="5" y="5"/>
+                </Interior>
+            </Interiors>
+        </Polygon>
+        <Box label="example_box" color="#00FF00" xMin="7" yMin="7" xMax="8" yMax="8"/>
+        <Point x="9" y="9" label="example_point_1"/>
+        <Point x="10" y="10" label="example_point_2"/>
+    </Geometries>
+    <RegionsOfInterest>
+        <Polygon label="roi_polygon" order="1">
+            <Exterior>
+                <Point x="11" y="11"/>
+                <Point x="12" y="11"/>
+                <Point x="12" y="13"/>
+                <Point x="11" y="12"/>
+                <Point x="11" y="11"/>
+            </Exterior>
+        </Polygon>
+        <Box label="roi_box" order="2" xMin="13" yMin="13" xMax="14" yMax="14"/>
+    </RegionsOfInterest>
+</DlupAnnotations>

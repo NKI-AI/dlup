@@ -1,4 +1,5 @@
 # Copyright (c) dlup contributors
+# mypy: disable-error-code="union-attr"
 from typing import Any
 
 import numpy as np
@@ -46,7 +47,6 @@ class TifffileSlide(AbstractSlideBackend):
         for idx, page in enumerate(self._image.pages):
             self._shapes.append((page.shape[1], page.shape[0]))
 
-            # TODO: The order of the x and y tag need to be verified
             x_res = page.tags["XResolution"].value
             x_res = x_res[0] / x_res[1]
             y_res = page.tags["YResolution"].value

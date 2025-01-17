@@ -1,8 +1,10 @@
+import os
 import subprocess
 import webbrowser
 from pathlib import Path
 
 import click
+from spin.cmds import meson
 
 
 @click.group()
@@ -12,11 +14,32 @@ def cli():
 
 
 @cli.command()
-def build():
+@click.option("-j", "--jobs", help="Number of parallel tasks to launch", type=int)
+@click.option("--clean", is_flag=True, help="Clean build directory before build")
+@click.option("-v", "--verbose", is_flag=True, help="Print all build output, even installation")
+@click.argument("meson_args", nargs=-1)
+@click.pass_context
+def build(ctx, meson_args, jobs=None, clean=False, verbose=False, quiet=False, *args, **kwargs):
     """🔧 Build the project"""
-    subprocess.run(["meson", "setup", "builddir", "--prefix", str(Path.cwd())], check=True)
-    subprocess.run(["meson", "compile", "-C", "builddir"], check=True)
-    subprocess.run(["meson", "install", "-C", "builddir"], check=True)
+    build_dir = Path("build")
+    build_dir.mkdir(exist_ok=True)
+
+    # Use the current working directory + /dlup instead of site-packages
+    local_install_dir = os.path.join(os.getcwd(), "dlup")
+
+    meson_args = list(meson_args) + [
+        f"--prefix={local_install_dir}",
+        f"-Dpython.platlibdir={local_install_dir}",
+        f"-Dpython.purelibdir={local_install_dir}",
+    ]
+
+    ctx.params["meson_args"] = meson_args
+    ctx.params["jobs"] = jobs
+    ctx.params["clean"] = clean
+    ctx.params["verbose"] = verbose
+    ctx.params["quiet"] = quiet
+
+    ctx.forward(meson.build)
 
 
 @cli.command()
@@ -27,9 +50,26 @@ def test(verbose, tests):
     cmd = ["pytest"]
     if verbose:
         cmd.append("-v")
+    if coverage:
+        cmd.extend(["--cov=dlup --cov=tests --cov-report=html --cov-report=term"])
     if tests:
         cmd.extend(tests)
     subprocess.run(cmd, check=True)
+
+
+@cli.command()
+@click.option("-v", "--verbose", is_flag=True, help="Verbose output")
+@click.argument("tests", nargs=-1)
+def coverage(verbose, tests):
+    """🧪 Run tests and generate coverage report"""
+    cmd = ["pytest", "--cov=dlup", "--cov=tests", "--cov-report=html", "--cov-report=term"]
+    if verbose:
+        cmd.append("-v")
+    if tests:
+        cmd.extend(tests)
+    subprocess.run(cmd, check=True)
+    coverage_path = Path.cwd() / "htmlcov" / "index.html"
+    webbrowser.open(f"file://{coverage_path.resolve()}")
 
 
 @cli.command()
@@ -134,16 +174,6 @@ def clean():
 
 
 @cli.command()
-def coverage():
-    """🧪 Run tests and generate coverage report"""
-    subprocess.run(["coverage", "run", "--source", "dlup", "-m", "pytest"], check=True)
-    subprocess.run(["coverage", "report", "-m"], check=True)
-    subprocess.run(["coverage", "html"], check=True)
-    coverage_path = Path.cwd() / "htmlcov" / "index.html"
-    webbrowser.open(f"file://{coverage_path.resolve()}")
-
-
-@cli.command()
 def release():
     """📦 Package and upload a release"""
     dist()
@@ -161,6 +191,26 @@ def dist():
     clean()
     subprocess.run(["python", "-m", "build"], check=True)
     subprocess.run(["ls", "-l", "dist"], check=True)
+
+
+@cli.command()
+def precommit():
+    """🛠️  Run pre-commit hooks"""
+    subprocess.run(["pre-commit", "run", "--all-files"], check=True)
+
+
+@cli.command()
+def format():
+    """🛠️ Run clang-format and black"""
+    # Run clang-format
+    subprocess.run(
+        "find src -name '*.cpp' -o -name '*.h' -o -name '*.hpp' | xargs clang-format -i",
+        shell=True,
+        check=True,
+    )
+
+    # Run black
+    subprocess.run(["black", "."], check=True)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y meson libgl1-mesa-glx libcairo2-dev libgdk-pixbuf2.0-dev libglib2.0-dev libjpeg-dev libpng-dev libtiff5-dev libxml2-dev libopenjp2-7-dev libsqlite3-dev zlib1g-dev libzstd-dev
-        sudo apt install -y libfftw3-dev libexpat1-dev libgsf-1-dev liborc-0.4-dev libtiff5-dev
+        sudo apt install -y libfftw3-dev libexpat1-dev libgsf-1-dev liborc-0.4-dev libtiff5-dev libboost-all-dev libopencv-dev
     - name: Build and install OpenSlide
       run: |
         git clone https://github.com/openslide/openslide.git

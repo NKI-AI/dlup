@@ -122,7 +122,7 @@ class RemoteSlideBackend(AbstractSlideBackend):
 
     async def _fetch_single(
         self,
-        session: aiohttp.ClientSession,  # pylint: disable=possibly-used-before-assignment
+        session: "aiohttp.ClientSession",
         url: str,
         data: Optional[dict[str, Any]],
     ) -> BytesIO:
