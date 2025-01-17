@@ -23,7 +23,7 @@ TIFF_PROPERTY_NAME_Y_RESOLUTION = "tiff.YResolution"
 
 def _load_image_vips(buffer: Array[c_uint32], size: tuple[int, int]) -> pyvips.Image:
     """Convert the raw buffer to a pyvips.Image."""
-    openslide_lowlevel._convert.argb2rgba(buffer)
+    openslide_lowlevel._convert.argb2rgba(buffer)  # type: ignore[attr-defined]
     mem_view = memoryview(buffer).cast("B")
     return pyvips.Image.new_from_memory(mem_view, size[0], size[1], 4, "uchar")
 
@@ -197,7 +197,7 @@ class OpenSlideSlide(AbstractSlideBackend):
     @property
     def level_count(self) -> int:
         """The number of levels in the image."""
-        return cast(int, openslide_lowlevel.get_level_count(self._owsi))
+        return openslide_lowlevel.get_level_count(self._owsi)
 
     @property
     def level_dimensions(self) -> tuple[tuple[int, int], ...]:
