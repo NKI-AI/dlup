@@ -383,6 +383,27 @@ void GeometryCollection::removePolygon(size_t index) {
   rtree_wrapper_.invalidate();
 }
 
+void GeometryCollection::removeBox(const BoxPtr &p) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  auto it = std::find(boxes_.begin(), boxes_.end(), p);
+  if (it != boxes_.end()) {
+    boxes_.erase(it);
+    rtree_wrapper_.invalidate();
+  } else {
+    throw GeometryNotFoundError("Box not found");
+  }
+}
+
+void GeometryCollection::removeBox(size_t index) {
+  std::lock_guard<std::mutex> lock(collection_mutex_);
+  if (index >= boxes_.size()) {
+    throw std::out_of_range("Box index out of range");
+  }
+
+  boxes_.erase(boxes_.begin() + index);
+  rtree_wrapper_.invalidate();
+}
+
 void GeometryCollection::removeRoi(const PolygonPtr &p) {
   std::lock_guard<std::mutex> lock(collection_mutex_);
   auto it = std::find(rois_.begin(), rois_.end(), p);
@@ -496,6 +517,9 @@ void declare_pybind_collection(py::module &m) {
            "Remove a polygon by passing the Polygon object")
       .def("remove_polygon", py::overload_cast<size_t>(&GeometryCollection::removePolygon),
            "Remove a polygon by its index")
+      .def("remove_box", py::overload_cast<const std::shared_ptr<Box> &>(&GeometryCollection::removeBox),
+           "Remove a box by passing the Box object")
+      .def("remove_box", py::overload_cast<size_t>(&GeometryCollection::removeBox), "Remove a box by its index")
       .def("remove_roi", py::overload_cast<const std::shared_ptr<Polygon> &>(&GeometryCollection::removeRoi),
            "Remove an ROI by passing the ROI object")
       .def("remove_roi", py::overload_cast<size_t>(&GeometryCollection::removeRoi), "Remove an ROI by its index")

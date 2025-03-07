@@ -16,7 +16,7 @@ import numpy.typing as npt
 from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import GenericNumber
 from dlup.annotations.tags import SlideTag
-from dlup.geometry import GeometryCollection, Point, Polygon
+from dlup.geometry import Box, GeometryCollection, Point, Polygon
 
 _TSlideAnnotations = TypeVar("_TSlideAnnotations", bound="SlideAnnotations")
 
@@ -96,6 +96,7 @@ class SlideAnnotations:
                 "asap_xml": ".importers.asap_xml",
                 "dlup_xml": ".importers.dlup_xml",
                 "darwin_json": ".importers.darwin_json",
+                "slidescore_tsv": ".importers.slidescore_tsv",
             }.get(name)
 
             if not module_name:
@@ -120,6 +121,7 @@ class SlideAnnotations:
             module_name = {
                 "geojson": ".exporters.geojson",
                 "dlup_xml": ".exporters.dlup_xml",
+                "slidescore_tsv": ".exporters.slidescore_tsv",
             }.get(name)
 
             if not module_name:
@@ -250,9 +252,11 @@ class SlideAnnotations:
         """
         self._layers.simplify(tolerance)
 
-    def __contains__(self, item: str | Point | Polygon) -> bool:
+    def __contains__(self, item: str | Box | Point | Polygon) -> bool:
         if isinstance(item, str):
             return item in self.available_classes
+        if isinstance(item, Box):
+            return item in self.layers.boxes
         if isinstance(item, Point):
             return item in self.layers.points
         if isinstance(item, Polygon):
@@ -280,13 +284,19 @@ class SlideAnnotations:
         for point in self.layers.points:
             if point.label is not None:
                 available_classes.add(point.label)
+        for box in self.layers.boxes:
+            if box.label is not None:
+                available_classes.add(box.label)
 
         return available_classes
 
-    def __iter__(self) -> Iterable[Polygon | Point]:
-        # First returns all the polygons then all points
+    def __iter__(self) -> Iterable[Polygon | Box | Point]:
+        # First returns all the polygons then all boxes then all points
         for polygon in self.layers.polygons:
             yield polygon
+
+        for box in self.layers.boxes:
+            yield box
 
         for point in self.layers.points:
             yield point
@@ -334,20 +344,24 @@ class SlideAnnotations:
 
             # Let's add the annotations
             collection = GeometryCollection()
-            for polygon in self.layers.polygons:
-                collection.add_polygon(copy.deepcopy(polygon))
+            for box in self.layers.boxes:
+                collection.add_box(copy.deepcopy(box))
             for point in self.layers.points:
                 collection.add_point(copy.deepcopy(point))
-
-            for polygon in other.layers.polygons:
+            for polygon in self.layers.polygons:
                 collection.add_polygon(copy.deepcopy(polygon))
+
+            for box in other.layers.boxes:
+                collection.add_box(copy.deepcopy(box))
             for point in other.layers.points:
                 collection.add_point(copy.deepcopy(point))
+            for polygon in other.layers.polygons:
+                collection.add_polygon(copy.deepcopy(polygon))
 
             SlideAnnotations._in_place_sort_and_scale(collection, None, self.sorting)
             return self.__class__(layers=collection, tags=tuple(tags) if tags else None, sorting=self.sorting)
 
-        if isinstance(other, (Point, Polygon)):
+        if isinstance(other, (Box, Point, Polygon)):
             other = [other]
 
         if isinstance(other, list):
@@ -362,17 +376,19 @@ class SlideAnnotations:
                     collection.add_polygon(item)
                 elif isinstance(item, Point):
                     collection.add_point(item)
+                elif isinstance(item, Box):
+                    collection.add_box(item)
             SlideAnnotations._in_place_sort_and_scale(collection, None, self.sorting)
             return self.__class__(layers=collection, tags=copy.copy(self._tags), sorting=self.sorting)
 
         raise ValueError(f"Unsupported type {type(other)}")
 
     def __iadd__(self, other: Any) -> "SlideAnnotations":
-        if isinstance(other, (Point, Polygon)):
+        if isinstance(other, (Box, Point, Polygon)):
             other = [other]
 
         if isinstance(other, list):
-            if not all(isinstance(item, (Point, Polygon)) for item in other):
+            if not all(isinstance(item, (Box, Point, Polygon)) for item in other):
                 raise TypeError(
                     f"can only add list purely containing Point and Polygon objects {self.__class__.__name__}"
                 )
@@ -382,6 +398,8 @@ class SlideAnnotations:
                     self._layers.add_polygon(copy.deepcopy(item))
                 elif isinstance(item, Point):
                     self._layers.add_point(copy.deepcopy(item))
+                elif isinstance(item, Box):
+                    self._layers.add_box(copy.deepcopy(item))
 
         elif isinstance(other, SlideAnnotations):
             if self.sorting != other.sorting or self.offset_function != other.offset_function:
@@ -399,6 +417,8 @@ class SlideAnnotations:
                 self._layers.add_polygon(copy.deepcopy(polygon))
             for point in other.layers.points:
                 self._layers.add_point(copy.deepcopy(point))
+            for box in other.layers.boxes:
+                self._layers.add_box(copy.deepcopy(box))
         else:
             return NotImplemented
         SlideAnnotations._in_place_sort_and_scale(self._layers, None, self.sorting)
@@ -407,10 +427,10 @@ class SlideAnnotations:
 
     def __radd__(self, other: Any) -> "SlideAnnotations":
         # in-place addition (+=) of Point and Polygon will raise a TypeError
-        if not isinstance(other, (SlideAnnotations, Point, Polygon, list)):
+        if not isinstance(other, (SlideAnnotations, Box, Point, Polygon, list)):
             raise TypeError(f"Unsupported type {type(other)}")
         if isinstance(other, list):
-            if not all(isinstance(item, (Polygon, Point)) for item in other):
+            if not all(isinstance(item, (Box, Polygon, Point)) for item in other):
                 raise TypeError(
                     f"can only add list purely containing Point and Polygon objects to {self.__class__.__name__}"
                 )
@@ -627,6 +647,24 @@ class SlideAnnotations:
             if point.label == label:
                 self._layers.remove_point(point)
 
+    def filter_boxes(self, label: str) -> None:
+        """Filter boxes in-place.
+
+        Note
+        ----
+        This will internally invalidate the R-tree. You could rebuild this manually using `.rebuild_rtree()`, or
+        have the function itself do this on-demand (typically when you invoke a `.read_region()`)
+
+        Parameters
+        ----------
+        label : str
+            The label to filter.
+
+        """
+        for box in self._layers.boxes:
+            if box.label == label:
+                self._layers.remove_box(box)
+
     def filter(self, label: str) -> None:
         """Filter annotations in-place.
 
@@ -643,6 +681,7 @@ class SlideAnnotations:
         """
         self.filter_polygons(label)
         self.filter_points(label)
+        self.filter_boxes(label)
 
     def sort_polygons(self, key: Callable[[Polygon], int | float | str], reverse: bool = False) -> None:
         """Sort the polygons in-place.
@@ -706,6 +745,8 @@ SlideAnnotations.register_importer(None, "halo_xml")
 SlideAnnotations.register_importer(None, "asap_xml")
 SlideAnnotations.register_importer(None, "dlup_xml")
 SlideAnnotations.register_importer(None, "darwin_json")
+SlideAnnotations.register_importer(None, "slidescore_tsv")
 
 SlideAnnotations.register_exporter(None, "geojson")
 SlideAnnotations.register_exporter(None, "dlup_xml")
+SlideAnnotations.register_exporter(None, "slidescore_tsv")

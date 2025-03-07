@@ -390,6 +390,39 @@ class Box(_dg.Box, _BaseGeometry):
             for key, value in fields.items():
                 self.set_field(key, value)
 
+    def __copy__(self) -> "Box":
+        # Create a new instance of Box with the same geometry
+        new_copy = Box(self.coordinates, self.size)
+
+        for field in self.fields:
+            new_copy.set_field(field, self.get_field(field))
+
+        return new_copy
+
+    def __deepcopy__(self, memo: Any) -> "Box":
+        # Create a deepcopy of the geometry
+        new_copy = Box(copy.deepcopy(self.coordinates), copy.deepcopy(self.size))
+
+        # Deepcopy the fields
+        for field in self.fields:
+            new_copy.set_field(field, copy.deepcopy(self.get_field(field), memo))
+
+        return new_copy
+
+    def __getstate__(self) -> dict[str, dict[str, Any]]:
+        state = {
+            "_fields": {field: self.get_field(field) for field in self.fields},
+            "_object": {"coordinates": self.coordinates, "size": self.size},
+        }
+        return state
+
+    def __setstate__(self, state: dict[str, dict[str, Any]]) -> None:
+        coordinates = state["_object"]["coordinates"]
+        size = state["_object"]["size"]
+        Box.__init__(self, coordinates, size)
+        for key, value in state["_fields"].items():
+            self.set_field(key, value)
+
 
 def _box_factory(box: _dg.Box) -> Box:
     return Box(box)
@@ -428,6 +461,7 @@ class GeometryCollection(_dg.GeometryCollection):
         state = {
             "_polygons": [polygon.__getstate__() for polygon in self.polygons],
             "_points": [point.__getstate__() for point in self.points],
+            "_boxes": [box.__getstate__() for box in self.boxes],
         }
         return state
 
@@ -440,6 +474,10 @@ class GeometryCollection(_dg.GeometryCollection):
         for point, point_state in zip(points, state["_points"]):
             point.__setstate__(point_state)
 
+        boxes = [Box.__new__(Box) for _ in state["_boxes"]]
+        for box, box_state in zip(boxes, state["_boxes"]):
+            box.__setstate__(box_state)
+
         GeometryCollection.__init__(self)
         for polygon in polygons:
             self.add_polygon(polygon)
@@ -447,12 +485,17 @@ class GeometryCollection(_dg.GeometryCollection):
         for point in points:
             self.add_point(point)
 
+        for box in boxes:
+            self.add_box(box)
+
     def __copy__(self) -> "GeometryCollection":
         collection = GeometryCollection()
         for polygon in self.polygons:
             collection.add_polygon(polygon.__copy__())
         for point in self.points:
             collection.add_point(point.__copy__())
+        for box in self.boxes:
+            collection.add_box(box.__copy__())
         collection.rebuild_rtree()
         return collection
 
