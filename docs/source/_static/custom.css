@@ -1,0 +1,336 @@
+/* Custom CSS for DLUP Documentation */
+
+:root {
+  --dlup-primary-color: #2980b9;
+  --dlup-secondary-color: #3498db;
+  --dlup-accent-color: #e74c3c;
+  --dlup-success-color: #27ae60;
+  --dlup-warning-color: #f39c12;
+  --dlup-info-color: #17a2b8;
+
+  /* Custom card styles */
+  --card-quick-start-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --card-api-bg: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --card-guide-bg: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --card-examples-bg: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Custom card styling for homepage */
+.card-quick-start {
+  background: var(--card-quick-start-bg);
+  border: none;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.card-api {
+  background: var(--card-api-bg);
+  border: none;
+  box-shadow: 0 10px 30px rgba(240, 147, 251, 0.3);
+}
+
+.card-guide {
+  background: var(--card-guide-bg);
+  border: none;
+  box-shadow: 0 10px 30px rgba(79, 172, 254, 0.3);
+}
+
+.card-examples {
+  background: var(--card-examples-bg);
+  border: none;
+  box-shadow: 0 10px 30px rgba(67, 233, 123, 0.3);
+}
+
+/* Overview cards */
+.overview-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.overview-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+}
+
+/* Custom button styling */
+.btn-primary {
+  background: var(--dlup-primary-color);
+  border-color: var(--dlup-primary-color);
+  border-radius: 25px;
+  padding: 10px 30px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: var(--dlup-secondary-color);
+  border-color: var(--dlup-secondary-color);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(41, 128, 185, 0.3);
+}
+
+/* Custom code blocks */
+.highlight {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* API documentation styling */
+.py.class,
+.cpp.class {
+  border-left: 4px solid var(--dlup-primary-color);
+  background: linear-gradient(
+    90deg,
+    rgba(41, 128, 185, 0.05) 0%,
+    transparent 100%
+  );
+  padding: 20px;
+  margin: 20px 0;
+  border-radius: 0 8px 8px 0;
+}
+
+/* Navigation improvements */
+.wy-menu-vertical a:hover {
+  background-color: var(--dlup-primary-color);
+  color: white;
+}
+
+/* Footer customization */
+footer {
+  background: var(--dlup-primary-color);
+  color: white;
+  padding: 20px 0;
+  margin-top: 40px;
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+  .card-quick-start,
+  .card-api,
+  .card-guide,
+  .card-examples {
+    margin-bottom: 20px;
+  }
+
+  .overview-card {
+    margin-bottom: 15px;
+  }
+}
+
+/* Custom admonition styling */
+.admonition {
+  border-radius: 8px;
+  border-left: 4px solid;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.admonition.note {
+  border-left-color: var(--dlup-info-color);
+  background: linear-gradient(
+    90deg,
+    rgba(23, 162, 184, 0.05) 0%,
+    transparent 100%
+  );
+}
+
+.admonition.warning {
+  border-left-color: var(--dlup-warning-color);
+  background: linear-gradient(
+    90deg,
+    rgba(243, 156, 18, 0.05) 0%,
+    transparent 100%
+  );
+}
+
+.admonition.danger {
+  border-left-color: var(--dlup-accent-color);
+  background: linear-gradient(
+    90deg,
+    rgba(231, 76, 60, 0.05) 0%,
+    transparent 100%
+  );
+}
+
+.admonition.tip {
+  border-left-color: var(--dlup-success-color);
+  background: linear-gradient(
+    90deg,
+    rgba(39, 174, 96, 0.05) 0%,
+    transparent 100%
+  );
+}
+
+/* Table styling */
+table.docutils {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+table.docutils thead th {
+  background: var(--dlup-primary-color);
+  color: white;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.9em;
+  letter-spacing: 0.5px;
+}
+
+/* Custom blockquote styling */
+blockquote {
+  border-left: 5px solid var(--dlup-primary-color);
+  background: rgba(41, 128, 185, 0.05);
+  font-style: italic;
+  padding: 20px;
+  margin: 20px 0;
+  border-radius: 0 8px 8px 0;
+}
+
+/* Logo styling */
+.logo {
+  max-width: 150px;
+  height: auto;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Hero section styling */
+.hero-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 60px 0;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.hero-title {
+  font-size: 3.5em;
+  font-weight: 700;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.hero-subtitle {
+  font-size: 1.3em;
+  opacity: 0.9;
+  margin-bottom: 30px;
+}
+
+/* Feature grid styling */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+  margin: 40px 0;
+}
+
+.feature-card {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-top: 4px solid var(--dlup-primary-color);
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.feature-icon {
+  font-size: 2.5em;
+  color: var(--dlup-primary-color);
+  margin-bottom: 20px;
+}
+
+.feature-title {
+  font-size: 1.4em;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 15px;
+}
+
+.feature-description {
+  color: #7f8c8d;
+  line-height: 1.6;
+}
+
+/* Code example styling */
+.code-example {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  border-left: 4px solid var(--dlup-success-color);
+}
+
+.code-example pre {
+  margin: 0;
+  background: transparent;
+}
+
+/* API method styling */
+.api-method {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0;
+  border-left: 4px solid var(--dlup-info-color);
+}
+
+.method-signature {
+  font-family: "Courier New", monospace;
+  background: white;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+/* Cross-reference styling */
+.cross-ref {
+  background: rgba(52, 152, 219, 0.1);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: 500;
+}
+
+/* Version badge */
+.version-badge {
+  background: var(--dlup-accent-color);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+/* Dark mode support (if needed) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dlup-primary-color: #3498db;
+    --dlup-secondary-color: #5dade2;
+  }
+
+  .feature-card {
+    background: #2c3e50;
+    color: #ecf0f1;
+  }
+
+  .feature-title {
+    color: #ecf0f1;
+  }
+
+  .feature-description {
+    color: #bdc3c7;
+  }
+}

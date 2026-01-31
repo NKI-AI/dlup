@@ -1,0 +1,57 @@
+[build-system]
+requires = [
+    "meson-python>=0.15.0",
+    "ninja",
+    "numpy>=1.20",
+    "pybind11>=2.11.1",
+]
+build-backend = "mesonpy"
+
+[project]
+name = "dlup"
+version = "0.8.0"
+description = "Deep Learning Utilities for Pathology"
+readme = "README.md"
+authors = [
+    {name = "dlup contributors", email = "j.teuwen@nki.nl"},
+]
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+    "fastslide",
+    "fimage-python",
+    "openslide-python",
+    "numpy",
+    "packaging",
+    "pillow",
+    "shapely",
+    "tifffile",
+    "xsdata",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+
+[project.urls]
+Homepage = "https://github.com/NKI-AI/dlup"
+Documentation = "https://docs.aiforoncology.nl/dlup"
+Repository = "https://github.com/NKI-AI/dlup"
+Issues = "https://github.com/NKI-AI/dlup/issues"
+
