@@ -201,5 +201,5 @@ class TestTiffWriter:
             )
             writer.from_tiles_iterator(iter([tile]))
 
-            vips_image = pyvips.Image.new_from_file(temp_tiff.name)
-            assert vips_image.get("n-pages") == 1
+            fim_image = fim.Image.from_libtiff(temp_tiff.name)
+            assert fim_image.properties.get("num_pages", 0) == 1

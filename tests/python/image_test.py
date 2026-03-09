@@ -19,6 +19,7 @@ from the right level and locations of the original image.
 """
 
 import math
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import fim
@@ -42,6 +43,18 @@ class TestSlideImage:
         assert isinstance(repr(dlup_wsi), str)
         assert dlup_wsi.identifier == "mock"
         assert isinstance(dlup_wsi.thumbnail, fim.Image)
+
+    def test_pathlike_is_resolved(self, tmp_path: Path) -> None:
+        """Ensure non-remote backends receive a resolved Path from from_file_path."""
+        tiff_path = tmp_path / "test.tiff"
+        tiff_path.write_bytes(b"dummy")  # Existence is enough; backend does not inspect contents
+
+        slide = SlideImage.from_file_path(str(tiff_path), backend=MockOpenSlideSlide)
+
+        backend = slide._wsi
+        assert isinstance(backend, MockOpenSlideSlide)
+        assert isinstance(backend._filename, Path)
+        assert backend._filename == tiff_path.resolve()
 
     @pytest.mark.parametrize("slide_config", SLIDE_CONFIGS)
     @pytest.mark.parametrize("mpp", [(0.57, 0.57), (1.2, 4.4)])

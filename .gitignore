@@ -1,0 +1,54 @@
+.venv/
+env/
+venv/
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+.pytest_cache/
+.mypy_cache/
+.tox/
+.ruff_cache/
+
+build/
+builddir/
+dist/
+*.egg-info/
+
+# C/C++ / Meson
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.lai
+*.la
+*.lo
+
+# Logs
+*.log
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Meson subprojects
+subprojects/packagecache/
+subprojects/*.tar.gz
+subprojects/*.zip
+subprojects/cereal-*/
+subprojects/fmt-*/
+subprojects/.wraplock

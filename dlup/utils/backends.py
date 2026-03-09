@@ -19,11 +19,20 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from dlup.utils.imports import OPENSLIDE_AVAILABLE, TIFFFILE_AVAILABLE
+from dlup.utils.imports import AIOHTTP_AVAILABLE, OPENSLIDE_AVAILABLE, TIFFFILE_AVAILABLE
 
 
 class ImageBackend(Enum):
     """Available image experimental_backends."""
+
+    from dlup.backends.deepzoom_backend import DeepZoomSlide
+
+    DEEPZOOM = DeepZoomSlide
+
+    if AIOHTTP_AVAILABLE:
+        from dlup.backends.slidescore_backend import SlideScoreSlide
+
+        SLIDESCORE = SlideScoreSlide
 
     if OPENSLIDE_AVAILABLE:
         from dlup.backends.openslide_backend import OpenSlideSlide

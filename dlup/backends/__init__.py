@@ -14,7 +14,7 @@
 # limitations under the License.
 import warnings
 
-from dlup.utils.imports import OPENSLIDE_AVAILABLE, TIFFFILE_AVAILABLE
+from dlup.utils.imports import AIOHTTP_AVAILABLE, OPENSLIDE_AVAILABLE, TIFFFILE_AVAILABLE
 
 if not OPENSLIDE_AVAILABLE:
     warnings.warn(
@@ -30,4 +30,12 @@ if not TIFFFILE_AVAILABLE:
 else:
     from .tifffile_backend import TifffileSlide as TifffileSlide  # noqa: F401
 
+from .deepzoom_backend import DeepZoomSlide as DeepZoomSlide  # noqa: F401
 from .fastslide_backend import FastSlideSlide as FastSlideSlide  # noqa: F401
+
+if not AIOHTTP_AVAILABLE:
+    warnings.warn(
+        "Aiohttp is not available. SlideScore/remote backends will not be available. To install it, run `pip install aiohttp`."
+    )
+else:
+    from .slidescore_backend import SlideScoreSlide as SlideScoreSlide  # noqa: F401
