@@ -48,6 +48,9 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
+remote-backends = [
+    "aiohttp",
+]
 
 [project.urls]
 Homepage = "https://github.com/NKI-AI/dlup"
