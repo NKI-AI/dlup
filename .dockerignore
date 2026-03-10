@@ -1,0 +1,60 @@
+### Python environments
+.venv/
+env/
+venv/
+
+### Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+.pytest_cache/
+.mypy_cache/
+.tox/
+.ruff_cache/
+
+### Git metadata
+.git/
+.gitignore
+
+### Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+*~
+
+### Build artifacts
+build/
+builddir/
+dist/
+*.egg-info/
+*.log
+*.whl
+
+### Coverage outputs
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+### C/C++ / Meson outputs
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.lai
+*.la
+*.lo
+
+### Meson subproject artifacts
+subprojects/packagecache/
+subprojects/*.tar.gz
+subprojects/*.zip
+subprojects/cereal-*/
+subprojects/fmt-*/
+subprojects/.wraplock
