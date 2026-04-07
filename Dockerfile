@@ -9,7 +9,7 @@
 #   docker build --target builder -t dlup:builder .
 #   docker build -t dlup:latest .
 
-FROM python:3.13-slim AS builder
+FROM python:3.13.3-slim AS builder
 
 # Build toolchain for dlup C++ extensions (geometry backend uses boost + pybind11).
 # Boost is header-only at runtime — only needed here for compilation.
@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 # -------------------------------------------------------------------
-FROM python:3.13-slim AS runtime
+FROM python:3.13.3-slim AS runtime
 
 # Runtime shared libraries required by dlup C extensions (libtiff for
 # _libtiff_tiff_writer, libgomp for OpenMP in numpy/numcodecs).
