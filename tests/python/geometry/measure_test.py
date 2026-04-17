@@ -111,6 +111,63 @@ class TestFindContours:
         assert len(contours) == 1
         assert isinstance(contours[0], Polygon)
 
+    def test_bool_array(self):
+        """Test with bool array"""
+        mask = np.zeros((5, 5), dtype=bool)
+        mask[1:4, 1:4] = True
+
+        contours = find_contours(mask, level=0.5)
+        assert len(contours) == 1
+        assert isinstance(contours[0], Polygon)
+
+        # Result should match the equivalent uint8 mask.
+        uint8_contours = find_contours(mask.astype(np.uint8), level=0.5)
+        assert contours[0].to_shapely().equals(uint8_contours[0].to_shapely())
+
+    def test_polygon_with_hole(self):
+        """A ring-shaped region returns a single Polygon with one hole."""
+        from shapely.geometry import Polygon as ShapelyPolygon
+
+        mask = np.zeros((10, 10), dtype=np.uint8)
+        mask[2:8, 2:8] = 1  # outer 6x6 block
+        mask[4:6, 4:6] = 0  # 2x2 hole in the middle
+
+        contours = find_contours(mask, level=0.5)
+
+        assert len(contours) == 1
+        polygon = contours[0]
+        assert isinstance(polygon, Polygon)
+
+        interiors = polygon.get_interiors()
+        assert len(interiors) == 1
+
+        # The outer and inner rings are disjoint and oriented consistently.
+        shapely_poly = polygon.to_shapely()
+        assert shapely_poly.is_valid
+        assert len(shapely_poly.interiors) == 1
+        # The filled area is the exterior area minus the hole area.
+        exterior_only = ShapelyPolygon(shapely_poly.exterior)
+        hole_only = ShapelyPolygon(shapely_poly.interiors[0])
+        assert shapely_poly.area > 0
+        assert shapely_poly.area == pytest.approx(exterior_only.area - hole_only.area)
+        assert hole_only.area > 0
+
+    def test_island_inside_hole(self):
+        """A filled island inside a hole is emitted as its own polygon."""
+        mask = np.zeros((14, 14), dtype=np.uint8)
+        mask[1:13, 1:13] = 1  # outer ring
+        mask[3:11, 3:11] = 0  # hole
+        mask[5:9, 5:9] = 1  # island inside the hole
+
+        contours = find_contours(mask, level=0.5)
+
+        # Two top-level polygons: the outer (with a hole), and the island.
+        assert len(contours) == 2
+
+        outer, island = sorted(contours, key=lambda p: p.area, reverse=True)
+        assert len(outer.get_interiors()) == 1
+        assert len(island.get_interiors()) == 0
+
     def test_invalid_dimensions(self):
         """Test that 1D or 3D arrays raise error"""
         with pytest.raises(ValueError, match="2-dimensional"):
@@ -127,7 +184,7 @@ class TestFindContours:
     def test_unsupported_dtype(self):
         """Test that unsupported dtypes raise error"""
         mask = np.zeros((5, 5), dtype=np.complex64)
-        with pytest.raises(ValueError, match="uint8, int32, float32, or float64"):
+        with pytest.raises(ValueError, match="bool, uint8, int32, float32, or float64"):
             find_contours(mask, level=0.5)
 
     def test_polygon_has_fields(self):

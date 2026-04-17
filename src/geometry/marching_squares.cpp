@@ -45,9 +45,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <deque>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -320,21 +322,94 @@ std::vector<std::shared_ptr<Polygon>> FindContours(
     throw std::invalid_argument("Input array must be at least 2x2.");
   }
 
-  // Extract segments using marching squares (with logical padding)
+  // Extract segments using marching squares (with logical padding) and
+  // assemble them into closed contours.
   std::vector<Segment> segments = GetContourSegments(image, level);
-
-  // Assemble segments into contours
-  // Contours are automatically closed due to logical padding
   std::vector<Contour> contours = AssembleContours(segments);
+  contours.erase(std::remove_if(contours.begin(), contours.end(),
+                                [](const Contour& c) { return c.empty(); }),
+                 contours.end());
 
-  // Convert contours to Polygon objects
+  const std::size_t n = contours.size();
+  if (n == 0) {
+    return {};
+  }
+
+  // Build one BoostPolygon per contour (exterior ring only) for containment
+  // and area queries. bg::correct ensures the ring is closed and oriented,
+  // which is required by bg::within and yields a positive area for sorting.
+  std::vector<BoostPolygon> boost_polys(n);
+  std::vector<double> areas(n);
+  for (std::size_t i = 0; i < n; ++i) {
+    auto& ring = bg::exterior_ring(boost_polys[i]);
+    ring.reserve(contours[i].size() + 1);
+    for (const auto& pt : contours[i]) {
+      ring.emplace_back(pt.first, pt.second);
+    }
+    if (contours[i].front() != contours[i].back()) {
+      ring.emplace_back(contours[i].front().first, contours[i].front().second);
+    }
+    bg::correct(boost_polys[i]);
+    areas[i] = bg::area(boost_polys[i]);
+  }
+
+  // Sort contour indices by area descending. A polygon can only contain
+  // polygons with strictly smaller area, so iterating larger-to-smaller
+  // guarantees potential parents are inspected before their children.
+  std::vector<std::size_t> order(n);
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(),
+            [&](std::size_t a, std::size_t b) { return areas[a] > areas[b]; });
+
+  // For each contour, find its immediate parent (smallest enclosing contour)
+  // and its depth in the containment tree. Marching-squares contours never
+  // cross, so a single representative point on the child is sufficient to
+  // test containment. Iterating candidates from smallest to largest among
+  // larger-area predecessors yields the immediate parent on the first hit.
+  std::vector<int> parent(n, -1);
+  std::vector<int> depth(n, 0);
+  for (std::size_t pos = 0; pos < n; ++pos) {
+    const std::size_t idx = order[pos];
+    const auto& rep = bg::exterior_ring(boost_polys[idx]).front();
+    for (std::size_t k = pos; k-- > 0;) {
+      const std::size_t cand = order[k];
+      if (bg::within(rep, boost_polys[cand])) {
+        parent[idx] = static_cast<int>(cand);
+        depth[idx] = depth[cand] + 1;
+        break;
+      }
+    }
+  }
+
+  // Group children by parent so interior rings can be attached in a single
+  // pass over the contours.
+  std::vector<std::vector<std::size_t>> children(n);
+  for (std::size_t i = 0; i < n; ++i) {
+    if (parent[i] != -1) {
+      children[static_cast<std::size_t>(parent[i])].push_back(i);
+    }
+  }
+
+  // Emit one Polygon per even-depth contour. Odd-depth contours are holes
+  // of their (even-depth) parent; even-depth grandchildren become their own
+  // top-level polygons on later iterations (island-in-hole topology).
   std::vector<std::shared_ptr<Polygon>> result;
-  for (auto& contour : contours) {
-    if (contour.empty()) {
+  result.reserve(n);
+  for (std::size_t i = 0; i < n; ++i) {
+    if (depth[i] % 2 != 0) {
       continue;
     }
-    result.push_back(std::make_shared<Polygon>(
-        contour, std::vector<std::vector<std::pair<double, double>>>()));
+
+    std::vector<std::vector<std::pair<double, double>>> interiors;
+    interiors.reserve(children[i].size());
+    for (const std::size_t child : children[i]) {
+      interiors.emplace_back(contours[child].begin(), contours[child].end());
+    }
+
+    std::vector<std::pair<double, double>> exterior(contours[i].begin(),
+                                                    contours[i].end());
+    result.push_back(
+        std::make_shared<Polygon>(std::move(exterior), std::move(interiors)));
   }
 
   return result;

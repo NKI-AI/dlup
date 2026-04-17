@@ -89,8 +89,8 @@ def _collect_plans(*, new_version: str) -> list[PlannedEdit]:
         _plan_regex_sub(
             path=REPO_ROOT / "aifo" / "dlup" / "meson.build",
             description="Update project version in aifo/dlup/meson.build",
-            pattern=r"^(\\s*version\\s*:\\s*)'[^']*'\\s*,\\s*$",
-            replacement=rf"\\g<1>'{new_version}',",
+            pattern=r"^(\s*version\s*:\s*)'[^']*'\s*,\s*$",
+            replacement=rf"\g<1>'{new_version}',",
             flags=re.MULTILINE,
         )
     )
@@ -98,7 +98,7 @@ def _collect_plans(*, new_version: str) -> list[PlannedEdit]:
         _plan_regex_sub(
             path=REPO_ROOT / "aifo" / "dlup" / "pyproject.toml",
             description="Update version in aifo/dlup/pyproject.toml",
-            pattern=r'^(version\\s*=\\s*)"[^"]*"\\s*$',
+            pattern=r'^(version\s*=\s*)"[^"]*"\s*$',
             replacement=f'\\g<1>"{new_version}"',
             flags=re.MULTILINE,
         )
@@ -198,11 +198,10 @@ def _collect_plans(*, new_version: str) -> list[PlannedEdit]:
         )
     )
 
-    for p in plans:
-        if p.old == p.new:
-            raise ValueError(f"{p.path}: planned edit made no changes ({p.description})")
-
-    return plans
+    # Drop no-op plans: the regex already matched the expected number of times,
+    # so the pattern is still valid; the substitution just happens to produce
+    # identical content (e.g. patch bumps don't change the X.Y short version).
+    return [p for p in plans if p.old != p.new]
 
 
 def _print_plan(plans: list[PlannedEdit]) -> None:

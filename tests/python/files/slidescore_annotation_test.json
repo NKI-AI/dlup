@@ -1,0 +1,101 @@
+{
+  "image_id": 1234,
+  "study_id": 1,
+  "image_name": "Test Image",
+  "annotations": [
+    {
+      "user": "j.doe@example.com",
+      "question": "Stain quality",
+      "data": "good"
+    },
+    {
+      "user": "j.doe@example.com",
+      "question": "Point Annotations",
+      "data": [
+        {
+          "x": 10.0,
+          "y": 20.0
+        },
+        {
+          "x": 30.0,
+          "y": 40.0
+        }
+      ]
+    },
+    {
+      "user": "j.doe@example.com",
+      "question": "Rect Annotations",
+      "data": [
+        {
+          "type": "rect",
+          "corner": {
+            "x": 100.0,
+            "y": 200.0
+          },
+          "size": {
+            "x": 10.0,
+            "y": 20.0
+          },
+          "modifiedOn": "2024-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "user": "j.doe@example.com",
+      "question": "Brush Annotations",
+      "data": [
+        {
+          "type": "brush",
+          "positivePolygons": [
+            [
+              {
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "x": 10.0,
+                "y": 0.0
+              },
+              {
+                "x": 10.0,
+                "y": 10.0
+              },
+              {
+                "x": 0.0,
+                "y": 10.0
+              },
+              {
+                "x": 0.0,
+                "y": 0.0
+              }
+            ]
+          ],
+          "negativePolygons": [
+            [
+              {
+                "x": 2.0,
+                "y": 2.0
+              },
+              {
+                "x": 8.0,
+                "y": 2.0
+              },
+              {
+                "x": 8.0,
+                "y": 8.0
+              },
+              {
+                "x": 2.0,
+                "y": 8.0
+              },
+              {
+                "x": 2.0,
+                "y": 2.0
+              }
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

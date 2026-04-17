@@ -65,7 +65,7 @@ DLUP_XML_EXAMPLE = b"""<DlupAnnotations version="1.0">
             <Author>John Smith</Author>
         </Authors>
         <DateCreated>2024-08-19</DateCreated>
-        <Software>dlup v0.8.0</Software>
+        <Software>dlup v0.9.0</Software>
     </Metadata>
 
     <Tags>
@@ -294,6 +294,26 @@ class TestAnnotations:
         assert reimported.points == annotations.points
         assert reimported.boxes == annotations.boxes
 
+    def test_slidescore_json_annotations(self):
+        file_path = TEST_FILES_PATH / "slidescore_annotation_test.json"
+        assert file_path.exists()
+
+        annotations = SlideAnnotations.from_file_path(file_path, reader="slidescore_json", box_as_polygon=True)
+
+        assert annotations.num_points == 2
+        # 1 rect (as polygon) + 1 brush (as polygon with a hole)
+        assert annotations.num_polygons == 2
+        assert "Point Annotations" in annotations.available_classes
+        assert "Rect Annotations" in annotations.available_classes
+        assert "Brush Annotations" in annotations.available_classes
+
+        assert annotations.metadata["slidescore_image_id"] == 1234
+        assert annotations.metadata["slidescore_study_id"] == 1
+        assert annotations.metadata["slidescore_image_name"] == "Test Image"
+
+        assert annotations.tags is not None
+        assert any(tag.label == "Stain quality" for tag in annotations.tags)
+
     def test_conversion_slidescore_geojson(self):
         file_path = TEST_FILES_PATH / "slidescore_annotation_test.txt"
         assert file_path.exists()
@@ -358,7 +378,15 @@ class TestAnnotations:
         assert len(annotations.available_classes) == 2
 
     @pytest.mark.parametrize(
-        "class_method", ["from_geojson", "from_halo_xml", "from_dlup_xml", "from_asap_xml", "from_slidescore_tsv"]
+        "class_method",
+        [
+            "from_geojson",
+            "from_halo_xml",
+            "from_dlup_xml",
+            "from_asap_xml",
+            "from_slidescore_tsv",
+            "from_slidescore_json",
+        ],
     )
     def test_missing_file_constructor(self, class_method):
         constructor = getattr(SlideAnnotations, class_method)

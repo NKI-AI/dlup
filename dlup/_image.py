@@ -27,15 +27,17 @@ import os
 import pathlib
 from enum import Enum
 from types import TracebackType
-from typing import Any, Literal, Optional, Type, TypeVar, cast
+from typing import Any, Literal, Optional, Type, TypeVar
 
 import fim
 import numpy as np
 import numpy.typing as npt
+
 from dlup._exceptions import UnsupportedSlideError
 from dlup._region import BoundaryMode, RegionView
 from dlup._types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.backends.common import AbstractSlideBackend
+from dlup.backends.remote_backend import RemoteSlideBackend
 from dlup.utils.backends import ImageBackend
 from dlup.utils.image import check_if_mpp_is_valid
 
@@ -314,12 +316,15 @@ class SlideImage:
         backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
         **kwargs: Any,
     ) -> _TSlideImage:
-        wsi_file_path = pathlib.Path(wsi_file_path).resolve()
-        if not wsi_file_path.exists():
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
-
         if isinstance(backend, str):
             backend = ImageBackend[backend]
+
+        # We don't convert to Path for RemoteSlideBackend
+        if not issubclass(backend.value if isinstance(backend, ImageBackend) else backend, RemoteSlideBackend):
+            wsi_file_path = pathlib.Path(wsi_file_path)
+            wsi_file_path = wsi_file_path.resolve()
+            if not wsi_file_path.exists():
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(wsi_file_path))
 
         # Adjust how the backend is used depending on its type
         if isinstance(backend, ImageBackend):
