@@ -14,4 +14,4 @@ myst-parser>=2.0.0
 matplotlib>=3.7.0
 
 # For Python API documentation
-dlup
+dlup>=0.8.0

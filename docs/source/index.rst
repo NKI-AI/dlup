@@ -177,7 +177,7 @@ If you use DLUP in your research, please cite:
      month = {8},
      title = {{DLUP: Deep Learning Utilities for Pathology}},
      url = {https://github.com/NKI-AI/dlup},
-     \g<1>0.8.0\g<2>,
+     version = {0.9.1},
      year = {2024}
    }
 

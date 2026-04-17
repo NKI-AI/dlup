@@ -1,7 +1,7 @@
 project(
   'dlup',
   'cpp',
-  version: '0.8.0',
+  version: '0.9.1',
   default_options: [
     'cpp_std=c++20',
     'warning_level=3',
@@ -83,26 +83,6 @@ python3.extension_module(
   link_args: geometry_link_args,
   install: true,
   subdir: 'dlup',
-)
-
-marching_squares_link_args = []
-if host_machine.system() == 'darwin'
-  marching_squares_link_args = ['-Wl,-exported_symbol,_PyInit_marching_squares']
-endif
-
-python3.extension_module(
-  'marching_squares',
-  'src/geometry/marching_squares_module.cpp',
-  include_directories: [incdir, numpy_inc],
-  dependencies: [
-    pybind11_dep,
-    aifocore_dep,
-    boost_dep,
-  ],
-  link_with: geometry_lib,
-  link_args: marching_squares_link_args,
-  install: true,
-  subdir: 'dlup/geometry',
 )
 
 libtiff_link_args = []

@@ -22,6 +22,7 @@ from __future__ import annotations
 import copy
 import importlib
 import warnings
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Iterable, Optional, cast
 
@@ -31,6 +32,24 @@ from dlup._geometry import AnnotationRegion  # pylint: disable=no-name-in-module
 from dlup._types import GenericNumber
 from dlup.annotations.tags import SlideTag
 from dlup.geometry import GeometryCollection, Point, Polygon
+
+
+class AnnotationKind(str, Enum):
+    """Coarse geometry kind used for describing which labels exist in a SlideAnnotations."""
+
+    POLYGON = "POLYGON"
+    ROI = "ROI"
+    POINT = "POINT"
+    BOX = "BOX"
+    TAG = "TAG"
+
+
+@dataclass(frozen=True, slots=True)
+class AnnotationType:
+    """A (label, kind) pair describing an annotation layer/type present in a SlideAnnotations."""
+
+    label: str
+    kind: AnnotationKind
 
 
 class SlideAnnotationsView:
@@ -421,6 +440,37 @@ class SlideAnnotations(GeometryCollection):
 
         return available_classes
 
+    @property
+    def available_annotation_types(self) -> list[AnnotationType]:
+        """Return the available labels *including* their geometry kind.
+
+        Unlike `available_classes`, this distinguishes e.g. a label used for points vs polygons.
+        """
+        out: set[AnnotationType] = set()
+
+        for polygon in self.polygons:
+            if polygon.label is not None:
+                out.add(AnnotationType(label=polygon.label, kind=AnnotationKind.POLYGON))
+
+        for roi in self.rois:
+            if roi.label is not None:
+                out.add(AnnotationType(label=roi.label, kind=AnnotationKind.ROI))
+
+        for point in self.points:
+            if point.label is not None:
+                out.add(AnnotationType(label=point.label, kind=AnnotationKind.POINT))
+
+        for box in self.boxes:
+            if box.label is not None:
+                out.add(AnnotationType(label=box.label, kind=AnnotationKind.BOX))
+
+        if self.tags:
+            for tag in self.tags:
+                if tag.label is not None:
+                    out.add(AnnotationType(label=tag.label, kind=AnnotationKind.TAG))
+
+        return sorted(out, key=lambda x: (x.label, x.kind.value))
+
     def __iter__(self) -> Iterable[Polygon | Point]:
         # First returns all the polygons then all points
         for polygon in self.polygons:
@@ -545,7 +595,7 @@ class SlideAnnotations(GeometryCollection):
         if not isinstance(other, (SlideAnnotations, Point, Polygon, list)):
             raise TypeError(f"Unsupported type {type(other)}")
         if isinstance(other, list):
-            if not all(isinstance(item, (Polygon, Point)) for item in other):
+            if not all(isinstance(item, (Polygon, Point)) for item in cast(list[Any], other)):
                 raise TypeError(
                     f"can only add list purely containing Point and Polygon objects to {self.__class__.__name__}"
                 )
@@ -1024,6 +1074,7 @@ SlideAnnotations.register_importer(".importers.asap_xml", "asap_xml")
 SlideAnnotations.register_importer(".importers.dlup_xml", "dlup_xml")
 SlideAnnotations.register_importer(".importers.darwin_json", "darwin_json")
 SlideAnnotations.register_importer(".importers.slidescore_tsv", "slidescore_tsv")
+SlideAnnotations.register_importer(".importers.slidescore_json", "slidescore_json")
 
 SlideAnnotations.register_exporter(".exporters.geojson", "geojson")
 SlideAnnotations.register_exporter(".exporters.dlup_xml", "dlup_xml")

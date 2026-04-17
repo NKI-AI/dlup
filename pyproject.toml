@@ -9,7 +9,7 @@ build-backend = "mesonpy"
 
 [project]
 name = "dlup"
-version = "0.8.0"
+version = "0.9.1"
 description = "Deep Learning Utilities for Pathology"
 readme = "README.md"
 authors = [
@@ -28,12 +28,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
 dependencies = [
-    "fastslide",
-    "fimage-python",
+    "fastslide>=0.2.2",
+    "fimage-python>=0.1.1",
     "openslide-python",
     "numpy",
     "packaging",

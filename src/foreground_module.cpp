@@ -16,10 +16,8 @@
 #include <aifocore/tiling/python/grid_wrapper.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include "dlup/backends/abstract.h"
 #include "dlup/foreground.h"
 #include "dlup/geometry/collection.h"
-#include "dlup/slide_image.h"
 
 namespace py = pybind11;
 
@@ -44,24 +42,6 @@ PYBIND11_MODULE(_foreground, m) {
       .def_static(
           "filter_grid",
           [](const tiling::python::GridWrapper& grid_wrapper,
-             const SlideImage& slide_image,
-             const aifocore::Size<int, 2>& tile_size, double mpp,
-             std::optional<double> threshold) {
-            // Extract Grid<int> from GridWrapper
-            const auto* grid = std::get_if<Grid<int>>(&grid_wrapper.GetGrid());
-            if (!grid) {
-              throw std::invalid_argument(
-                  "Expected Grid<int>, but got Grid<double>.");
-            }
-            return Foreground<int>::FilterGrid(*grid, slide_image, tile_size,
-                                               mpp, threshold);
-          },
-          py::arg("grid"), py::arg("slide_image"), py::arg("tile_size"),
-          py::arg("mpp"), py::arg("threshold") = std::nullopt,
-          "Filter a grid of tiles based on the SlideImage coverage threshold.")
-      .def_static(
-          "filter_grid",
-          [](const tiling::python::GridWrapper& grid_wrapper,
              const geometry::GeometryCollection& collection,
              const aifocore::Size<int, 2>& tile_size, double scaling,
              std::optional<double> threshold) {
@@ -77,25 +57,6 @@ PYBIND11_MODULE(_foreground, m) {
           py::arg("grid"), py::arg("collection"), py::arg("tile_size"),
           py::arg("scaling"), py::arg("threshold") = std::nullopt,
           "Filter a grid of tiles based on the GeometryCollection coverage "
-          "threshold.")
-      .def_static(
-          "filter_grid",
-          [](const tiling::python::GridWrapper& grid_wrapper,
-             const backends::AbstractSlideBackend& backend,
-             const aifocore::Size<int, 2>& tile_size, double mpp,
-             std::optional<double> threshold) {
-            // Extract Grid<int> from GridWrapper
-            const auto* grid = std::get_if<Grid<int>>(&grid_wrapper.GetGrid());
-            if (!grid) {
-              throw std::invalid_argument(
-                  "Expected Grid<int>, but got Grid<double>.");
-            }
-            return Foreground<int>::FilterGrid(*grid, backend, tile_size, mpp,
-                                               threshold);
-          },
-          py::arg("grid"), py::arg("backend"), py::arg("tile_size"),
-          py::arg("mpp"), py::arg("threshold") = std::nullopt,
-          "Filter a grid of tiles based on the AbstractSlideBackend coverage "
           "threshold.");
 }
 

@@ -13,15 +13,15 @@
 # limitations under the License.
 import tempfile
 
+import fim
 import numpy as np
 import pytest
-import fim
-from dlup import SlideImage
+from PIL import Image, ImageColor
+
+from dlup import Resampling, SlideImage
 from dlup.backends import OpenSlideSlide
 from dlup.utils.backends import ImageBackend
-from dlup import Resampling
 from dlup.writers import LibtiffImageWriter, TiffCompression, TifffileImageWriter, _color_dict_to_color_lut
-from PIL import Image, ImageColor
 
 COLORMAP = {
     1: "green",
@@ -201,5 +201,5 @@ class TestTiffWriter:
             )
             writer.from_tiles_iterator(iter([tile]))
 
-            vips_image = pyvips.Image.new_from_file(temp_tiff.name)
-            assert vips_image.get("n-pages") == 1
+            fim_image = fim.Image.from_libtiff(temp_tiff.name)
+            assert fim_image.properties.get("num_pages", 0) == 1

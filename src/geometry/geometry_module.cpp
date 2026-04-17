@@ -551,7 +551,9 @@ std::vector<std::shared_ptr<dlup::geometry::Polygon>> ProcessArrayForContours(
 py::list FindContoursPython(const py::array& image, double level) {
   std::vector<std::shared_ptr<dlup::geometry::Polygon>> contours;
 
-  if (py::isinstance<py::array_t<uint8_t>>(image)) {
+  if (py::isinstance<py::array_t<bool>>(image)) {
+    contours = ProcessArrayForContours(image.cast<py::array_t<bool>>(), level);
+  } else if (py::isinstance<py::array_t<uint8_t>>(image)) {
     contours =
         ProcessArrayForContours(image.cast<py::array_t<uint8_t>>(), level);
   } else if (py::isinstance<py::array_t<int32_t>>(image)) {
@@ -564,7 +566,7 @@ py::list FindContoursPython(const py::array& image, double level) {
         ProcessArrayForContours(image.cast<py::array_t<double>>(), level);
   } else {
     throw std::invalid_argument(
-        "Input array must be of type uint8, int32, float32, or float64");
+        "Input array must be of type bool, uint8, int32, float32, or float64");
   }
 
   // Apply factory pattern to convert to Python Polygon objects
@@ -614,13 +616,20 @@ PYBIND11_MODULE(_geometry, m) {
         masks (0/1), uint8 is the most efficient dtype. NaN values in float
         arrays are skipped. Uses low-value connectivity for ambiguous cases.
 
+        Nested contours are combined into polygons with holes: a contour enclosed
+        by another becomes an interior ring on its parent, while a contour that
+        sits inside a hole is emitted as a new top-level polygon (which may
+        itself contain holes). The returned list therefore contains one Polygon
+        per connected high-valued region, each with its own set of holes.
+
         This implementation is based on scikit-image's marching squares algorithm
         (BSD-3-Clause license).
 
         Args:
             image (ndarray): Input binary image of shape (M, N) in which to find
-                contours. Must be a 2D numpy array. Accepts uint8, int32, float32,
-                or float64 types. For binary masks, uint8 is recommended.
+                contours. Must be a 2D numpy array. Accepts bool, uint8, int32,
+                float32, or float64 types. For binary masks, bool or uint8 is
+                recommended.
             level (float, optional): The iso-value level at which to extract contours.
                 Default is 0.5. For binary masks, use 0.5 for centered contours, or
                 values like 0.1 or 0.9 for pixel-aligned boundaries that avoid

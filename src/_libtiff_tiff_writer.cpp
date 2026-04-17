@@ -29,7 +29,7 @@
 #include <zstd.h>
 #endif
 
-#define DLUP_VERSION "0.8.0"
+#define DLUP_VERSION "0.9.1"
 namespace fs = std::filesystem;
 namespace py = pybind11;
 

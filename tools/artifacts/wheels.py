@@ -7,13 +7,33 @@ import platform as host_platform
 import subprocess
 
 from . import common
-from .specs import PLATFORMS, PY_TAG_TO_VERSION
+from .specs import PLATFORMS, PY_TAG_TO_VERSION, PlatformSpec
 
 ARTIFACT_DIR = common.REPO_ROOT / "aifo" / "dlup" / "artifacts" / "wheels"
 
 
 def _is_macos_host() -> bool:
     return host_platform.system().lower() == "darwin"
+
+
+def _platform_bazel_flags(
+    spec: PlatformSpec,
+    platform_key: str,
+    *,
+    is_macos: bool,
+    extra_bazel_args: list[str],
+) -> list[str]:
+    """Build the Bazel flags shared by every Python version on a given platform."""
+    # The Python version is set by a Starlark transition inside each
+    # versioned_py_wheel target (see tools/versioned_py_wheel.bzl), so
+    # we only pass platform / hermetic flags here.
+    flags = [f"--platforms={spec.bazel_platform}"]
+
+    should_use_hermetic = spec.use_hermetic and not (is_macos and platform_key.startswith("darwin_"))
+    if should_use_hermetic:
+        flags.append("--config=hermetic")
+    flags.extend(extra_bazel_args)
+    return flags
 
 
 def build_wheels(
@@ -34,30 +54,40 @@ def build_wheels(
             raise ValueError(f"Unsupported platform '{platform_key}'. Supported: {', '.join(sorted(PLATFORMS))}")
         spec = PLATFORMS[platform_key]
 
+        bazel_flags = _platform_bazel_flags(
+            spec,
+            platform_key,
+            is_macos=is_macos,
+            extra_bazel_args=extra_bazel_args,
+        )
+
+        # Validate tags up-front.
         for py_tag in python_tags:
             if py_tag not in PY_TAG_TO_VERSION:
                 raise ValueError(
                     f"Unsupported python tag '{py_tag}'. Supported: {', '.join(sorted(PY_TAG_TO_VERSION))}"
                 )
-            py_version = PY_TAG_TO_VERSION[py_tag]
+
+        # Build all Python versions for this platform in a single Bazel
+        # invocation so Bazel can parallelise the four transitioned configs.
+        targets = [f"//aifo/dlup:dlup_wheel_{t}" for t in python_tags]
+        tags_label = ", ".join(python_tags)
+        print(f"\n▶︎ Building {tags_label} wheels for {platform_key} with {bazel_cmd}")
+
+        try:
+            common.run([bazel_cmd, "build", *bazel_flags, *targets], env=env)
+        except subprocess.CalledProcessError:
+            for t in python_tags:
+                failures.append(f"{platform_key}:{t}")
+            print(f"❌ Build failed for {platform_key}")
+            if not keep_going:
+                return 1
+            continue
+
+        # Collect built wheels — cquery each target individually (cheap after build).
+        for py_tag in python_tags:
             target = f"//aifo/dlup:dlup_wheel_{py_tag}"
-
-            bazel_flags = [
-                f"--@rules_python//python/config_settings:python_version={py_version}",
-                f"--platforms={spec.bazel_platform}",
-            ]
-
-            # Only disable hermetic for Darwin wheels *when running on macOS*.
-            # On macOS, Zig's hermetic toolchain can fail when linking Python extension modules.
-            should_use_hermetic = spec.use_hermetic and not (is_macos and platform_key.startswith("darwin_"))
-            if should_use_hermetic:
-                bazel_flags.append("--config=hermetic")
-            bazel_flags.extend(extra_bazel_args)
-
-            print(f"\n▶︎ Building {target} for {platform_key} ({py_tag}, Python {py_version}) with {bazel_cmd}")
-
             try:
-                common.run([bazel_cmd, "build", *bazel_flags, target], env=env)
                 files = common.cquery_target_files(
                     bazel_cmd=bazel_cmd,
                     target=target,
@@ -69,22 +99,15 @@ def build_wheels(
                     if f.suffix != ".whl":
                         continue
                     dst = common.copy_to_dir(f, ARTIFACT_DIR, mode=0o644)
-                    print(f"✔ Copied wheel -> {dst}")
+                    print(f"  ✔ {py_tag} -> {dst}")
                     copied_any = True
                 if not copied_any:
                     raise FileNotFoundError(f"No .whl outputs found for {target} (got {len(files)} files)")
-            except subprocess.CalledProcessError:
-                failures.append(f"{platform_key}:{py_tag}")
-                print(f"❌ Failed: {platform_key} + {py_tag}")
-                if not keep_going:
-                    return 1
             except Exception as e:
                 failures.append(f"{platform_key}:{py_tag}")
-                print(f"❌ Error while collecting wheels for {platform_key} + {py_tag}: {e}")
+                print(f"  ❌ Error collecting {py_tag} wheel for {platform_key}: {e}")
                 if not keep_going:
                     return 1
-            else:
-                print(f"✔ Success: {platform_key} + {py_tag}")
 
     if failures:
         print("\nCompleted with failures:")
