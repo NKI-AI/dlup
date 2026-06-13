@@ -54,3 +54,13 @@ class ImageBackend(Enum):
 
     def __call__(self, *args: "ImageBackend" | str) -> Any:
         return self.value(*args)
+
+
+# Default backend used when opening a WSI without an explicit `backend`. OpenSlide
+# is preferred when installed (the most broadly tested reader), but it is an
+# optional dependency: when it is absent `ImageBackend.OPENSLIDE` does not exist,
+# so we fall back to FastSlide, which is a hard dependency of dlup and therefore
+# always available. Referencing this constant (instead of a literal
+# `ImageBackend.OPENSLIDE`) avoids an AttributeError at import time in
+# OpenSlide-less environments.
+DEFAULT_IMAGE_BACKEND = ImageBackend.OPENSLIDE if OPENSLIDE_AVAILABLE else ImageBackend.FASTSLIDE

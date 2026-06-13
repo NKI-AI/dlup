@@ -14,66 +14,66 @@
 #ifndef AIFO_DLUP_INCLUDE_DLUP_GEOMETRY_PYTHON_FACTORY_H_
 #define AIFO_DLUP_INCLUDE_DLUP_GEOMETRY_PYTHON_FACTORY_H_
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/shared_ptr.h>
+
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-// FactoryGuard class definition
 class FactoryGuard {
  public:
-  FactoryGuard(py::function& factory_ref, py::function new_factory)
+  FactoryGuard(nb::callable& factory_ref, nb::callable new_factory)
       : factory_ref_(factory_ref), original_factory_(factory_ref) {
-    factory_ref_ = new_factory;
+    factory_ref_ = std::move(new_factory);
   }
 
   ~FactoryGuard() { factory_ref_ = original_factory_; }
 
  private:
-  py::function& factory_ref_;
-  py::function original_factory_;
+  nb::callable& factory_ref_;
+  nb::callable original_factory_;
 };
 
-// Template class to manage factory functions
 template <typename T>
 class FactoryManager {
  public:
-  static void SetFactory(py::function factory) {
+  static void SetFactory(nb::callable factory) {
     factoryFunction() = std::move(factory);
   }
 
-  static py::object CallFactoryFunction(const std::shared_ptr<T>& object) {
+  static nb::object CallFactoryFunction(const std::shared_ptr<T>& object) {
     return InvokeFactoryFunction(factoryFunction(), object);
   }
 
-  static FactoryGuard CreateFactoryGuard(py::function factory) {
-    return FactoryGuard(factoryFunction(), factory);
+  static FactoryGuard CreateFactoryGuard(nb::callable factory) {
+    return FactoryGuard(factoryFunction(), std::move(factory));
   }
 
-  // New method to streamline setting factories and creating guards
   template <typename U>
-  static void SetAndCreateFactoryGuard(py::function factory) {
+  static void SetAndCreateFactoryGuard(nb::callable factory) {
     SetFactory(factory);
-    CreateFactoryGuard(factory);
+    CreateFactoryGuard(std::move(factory));
   }
 
  private:
-  static py::function& factoryFunction() {
-    static py::function instance;
+  static nb::callable& factoryFunction() {
+    static nb::callable instance;
     return instance;
   }
 
-  static py::object InvokeFactoryFunction(py::function factoryFunction,
+  static nb::object InvokeFactoryFunction(nb::callable factoryFunction,
                                           const std::shared_ptr<T>& object) {
-    if (!factoryFunction || !PyCallable_Check(factoryFunction.ptr())) {
-      return py::cast(object);
+    if (!factoryFunction.is_valid() ||
+        !PyCallable_Check(factoryFunction.ptr())) {  // NOLINT(*)
+      return nb::cast(object);
     }
 
     try {
-      py::object result = factoryFunction(object);
+      nb::object result = factoryFunction(object);
       if (!result.is_none()) {
         return result;
       } else {

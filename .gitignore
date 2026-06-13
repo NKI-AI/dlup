@@ -1,0 +1,19 @@
+builddir/
+node_modules/
+artifacts/
+.venv/
+
+# Meson subprojects: commit only the wrap files and the vendored packagefiles
+# (meson.build overlays + header shims). Everything else under subprojects/ is
+# either downloaded/extracted dependency sources, the package cache, or local
+# dev symlinks, none of which should be tracked.
+subprojects/*
+!subprojects/*.wrap
+!subprojects/packagefiles/
+# Meson auto-generates a [wrap-redirect] `check.wrap` into a nested subproject's
+# subprojects/ dir whenever a dependency that bundles it (e.g. libdicom) is
+# extracted. It points at a path that does not exist on a fresh checkout, so
+# committing it makes `meson setup` abort with "wrap-redirect ... filename does
+# not exist" (validated eagerly). `check` is only ever a test dependency we
+# never build, so keep this redirect untracked.
+subprojects/check.wrap

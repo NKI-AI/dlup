@@ -21,7 +21,7 @@ from .data.dataset import SlideDataset, TilingConfig, MaskConfig, ImageConfig, A
 
 __author__ = """dlup contributors"""
 __email__ = "j.teuwen@nki.nl"
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 __all__ = (
     "SlideImage",
     "SlideImageView",

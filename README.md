@@ -1,60 +1,117 @@
-# Deep Learning Utilities for Pathology
+# dlup - Deep Learning Utilities for Pathology
 
-[![pypi](https://img.shields.io/pypi/v/dlup.svg)](https://pypi.python.org/pypi/dlup)
-[![Tox](https://github.com/NKI-AI/dlup/actions/workflows/tox.yml/badge.svg)](https://github.com/NKI-AI/dlup/actions/workflows/tox.yml)
-[![mypy](https://github.com/NKI-AI/dlup/actions/workflows/mypy.yml/badge.svg)](https://github.com/NKI-AI/dlup/actions/workflows/mypy.yml)
-[![Pylint](https://github.com/NKI-AI/dlup/actions/workflows/pylint.yml/badge.svg)](https://github.com/NKI-AI/dlup/actions/workflows/pylint.yml)
-[![Black](https://github.com/NKI-AI/dlup/actions/workflows/black.yml/badge.svg)](https://github.com/NKI-AI/dlup/actions/workflows/black.yml)
-[![codecov](https://codecov.io/gh/NKI-AI/dlup/branch/main/graph/badge.svg?token=OIJ7F9G7OO)](https://codecov.io/gh/NKI-AI/dlup)
+`dlup` provides tools to work with large whole-slide images (WSIs) for
+computational pathology: tiled reading across multiple backends, tiling
+datasets, geometry/annotation handling, and pyramidal TIFF writing. Performance
+critical pieces are implemented in C++20 and exposed to Python via
+[nanobind](https://github.com/wjakob/nanobind).
 
-Dlup offers a set of utilities to ease the process of running Deep Learning algorithms on
-Whole Slide Images.
+This repository is automatically synced from the AI for Oncology monorepo. It
+builds both with [Bazel](https://bazel.build/) (via bzlmod) and with
+[Meson](https://mesonbuild.com/) (used to produce the Python wheels).
 
 ## Features
 
-- Read whole-slide images at any arbitrary resolution by seamlessly interpolating between the pyramidal levels
-- Supports multiple backends, including [OpenSlide](https://openslide.org/), [fastslide](https://github.com/NKI-AI/fastslide.git), and remote images in [SlideScore](https://slidescore.com), with the possibility to add custom backends
-- Dataset classes to handle whole-slide images in a tile-by-tile manner compatible with pytorch
-- Annotation classes which can load GeoJSON, [V7 Darwin](https://www.v7labs.com/), [HALO](https://indicalab.com/halo/) and [ASAP](https://computationalpathologygroup.github.io/ASAP/) formats and read parts of it (e.g. a tile)
-- Transforms to handle annotations per tile, resulting, together with the dataset classes a dataset consisting of tiles of whole-slide images with corresponding masks as targets, readily useable with a pytorch dataloader
-- Command-line utilities to report on the metadata of WSIs, and convert masks to polygons
+- **Multiple slide backends**: FastSlide, OpenSlide, tifffile, DeepZoom and remote/SlideScore
+- **Tiling datasets**: grid-based tile extraction with masks, annotations and metadata
+- **Geometry**: fast C++ polygons/points/boxes, marching squares, and Shapely interop
+- **Annotations**: import/export GeoJSON, HALO, SlideScore and dlup XML
+- **Writers**: pyramidal (libtiff-backed) and tifffile TIFF writers
+- **Background estimation**: native foreground/background masking
 
-Check the [full documentation](https://docs.aiforoncology.nl/dlup) for more details on how to use dlup.
+## Installation (Python)
 
-## Quickstart
+```bash
+pip install dlup
 
-The package can be installed using `python -m pip install dlup`. Preferably use `uv` and `uv pip install dlup`.
-
-If you wish to install from source, you can run `uv pip install .` You will need the boost package to build from source.
-
-## Used by
-
-- [ahcore](https://github.com/NKI-AI/ahcore.git): a pytorch lightning based-library for computational pathology
-
-## Citing DLUP
-
-If you use DLUP in your research, please use the following BiBTeX entry:
-
-```
-@software{dlup,
-  author = {Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus, E.},
-  month = {8},
-  title = {{DLUP: Deep Learning Utilities for Pathology}},
-  url = {https://github.com/NKI-AI/dlup},
-  version = {0.9.1},
-  year = {2024}
-}
+# To enable the OpenSlide backend (bundled prebuilt libopenslide):
+pip install "dlup[openslide]"
 ```
 
-or the following plain bibliography:
+```python
+import dlup
+from dlup import SlideImage
 
+slide = SlideImage.from_file_path("slide.svs")
+region = slide.read_region((0, 0), 0, (512, 512))
 ```
-Teuwen, J., Romor, L., Pai, A., Schirris, Y., Marcus E. (2024). DLUP: Deep Learning Utilities for Pathology (Version 0.9.1) [Computer software]. https://github.com/NKI-AI/dlup
+
+## Building from source
+
+### Bazel
+
+```bash
+# Build the C++ libraries and Python package (native extensions)
+bazelisk build //:dlup
+
+# Run the Python test suite
+bazelisk test //tests/python:tests
 ```
 
-## Contributors
+### Meson (wheels)
 
-In alphabetic order:
+```bash
+# Build a wheel + sdist for the current interpreter
+uv build
+```
 
-| [<img src="https://github.com/AjeyPaiK.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Ajey Pai Karkala</b></sub>](https://github.com/AjeyPaiK) | [<img src="https://github.com/EricMarcus-ai.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Eric Marcus</b></sub>](https://github.com/EricMarcus-ai) | [<img src="https://github.com/jonasteuwen.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Jonas Teuwen</b></sub>](https://github.com/jonasteuwen) | [<img src="https://github.com/lromor.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Leonardo Romor</b></sub>](https://github.com/lromor) | [<img src="https://github.com/rharkes.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Rolf Harkes</b></sub>](https://github.com/rharkes) | [<img src="https://github.com/YoniSchirris.png" width="50px;" style="border-radius:50%;"/><br /><sub><b>Yoni Schirris</b></sub>](https://github.com/YoniSchirris) |
-| :----------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+The Meson build fetches every native dependency through `subprojects/*.wrap`
+(aifocore, Boost.Geometry, libtiff, nanobind, ...) and links them statically,
+producing self-contained extensions. The pure-Python runtime dependencies
+(FastSlide, fim, NumPy, Shapely, ...) are installed by pip from PyPI.
+
+## Development install
+
+For day-to-day development you can work either through the Python (uv/Meson)
+toolchain or through Bazel.
+
+### uv (editable, Meson backend)
+
+`dlup` is a compiled (nanobind) package, so the editable install uses
+meson-python's rebuild-on-import hook. That hook re-invokes `meson`/`ninja` at
+import time, which means it must NOT be installed with build isolation — with
+isolation the build tools live in a throwaway environment that is deleted right
+after install, and the first `import dlup` fails with
+`FileNotFoundError: .../bin/ninja`.
+
+Install the build tools into your environment **first**, then pass
+`--no-build-isolation` (with build isolation, the backend is not visible to the
+editable build and you get `ModuleNotFoundError: No module named 'mesonpy'`):
+
+```bash
+# Install the build backend + tools into the active venv FIRST.
+# NB: the PyPI package is `meson-python`; it provides the `mesonpy` module that
+# uv's error hint refers to (there is no separate `mesonpy` distribution).
+uv pip install meson-python meson ninja nanobind
+
+# Editable install without build isolation (so the backend + rebuild hook's
+# `ninja` are found in the venv, not a deleted temp build env).
+uv pip install -e . --no-build-isolation
+```
+
+With this setup, pure-Python edits are picked up live and C++ changes trigger a
+ninja rebuild on the next `import dlup`.
+
+If you do not need an editable install, building and installing a regular wheel
+avoids the rebuild hook entirely:
+
+```bash
+uv build --wheel && uv pip install --find-links dist --force-reinstall dlup
+```
+
+### Bazel
+
+Bazel needs no separate install step — it builds the native extensions and
+resolves the Python dependencies hermetically:
+
+```bash
+# Build everything (C++ libraries + native extensions + Python package)
+bazelisk build //...
+
+# Run the Python test suite
+bazelisk test //tests/python:tests
+```
+
+## License
+
+Apache 2.0 - see [LICENSE](LICENSE) for details.

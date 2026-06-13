@@ -1,0 +1,47 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@dlup_pip//:requirements.bzl", "requirement")
+
+py_binary(
+    name = "create_circular_roi",
+    srcs = ["create_circular_roi.py"],
+    deps = ["//:dlup"],
+)
+
+py_binary(
+    name = "darwin_to_dlup_xml_simple",
+    srcs = ["darwin_to_dlup_xml_simple.py"],
+    deps = ["//:dlup"],
+)
+
+py_binary(
+    name = "annotations_to_mask",
+    srcs = ["annotations_to_mask.py"],
+    data = [
+        "files/dlup_annotation_test.xml",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("pillow"),
+        "//:dlup",
+    ],
+)
+
+py_binary(
+    name = "resample_image_to_tiff",
+    srcs = ["resample_image_to_tiff.py"],
+    visibility = ["//visibility:public"],
+    deps = ["//:dlup"],
+)
+
+py_binary(
+    name = "slidescore_to_dlup_xml",
+    srcs = ["slidescore_to_dlup_xml.py"],
+    data = [
+        "files/slidescore_annotation_test.txt",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("matplotlib"),
+        "//:dlup",
+    ],
+)

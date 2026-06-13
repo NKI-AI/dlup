@@ -1,0 +1,15 @@
+# Bazel convenience symlinks. Normally these are filtered by Bazel's
+# root-workspace heuristic, but only when dlup IS the root module. When the
+# monorepo loads dlup via `local_path_override`, the heuristic does not apply
+# and `@dlup//...` would otherwise descend into the execroot mirror. Explicit
+# ignores fix that for both contexts.
+bazel-bin
+bazel-out
+bazel-testlogs
+bazel-dlup
+# Meson subprojects (downloaded/extracted dependency sources for the wheel
+# build). NOTE: .bazelignore entries are literal directory paths -- wildcards
+# are not supported and Bazel 9.1+ errors on them (e.g. "Illegal char <*>").
+subprojects
+# Local dev virtualenv occasionally created under the module dir.
+.venv

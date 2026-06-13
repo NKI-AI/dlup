@@ -1,0 +1,146 @@
+"""bzlmod wrapper around dlup (Deep Learning Utilities for Pathology).
+
+Consumers reference targets as `@dlup//:dlup`, `@dlup//:headers`, etc. Wired
+into the aiforoncology monorepo via local_path_override; builds standalone in
+the NKI-AI/dlup checkout via the git_override / http_archive deps below.
+"""
+
+module(
+    name = "dlup",
+    version = "0.9.1",
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "rules_license", version = "1.0.0")
+bazel_dep(name = "rules_multirun", version = "0.13.0")
+
+# Header-only Boost.Geometry (used by the geometry library) from the BCR.
+bazel_dep(name = "boost.geometry", version = "1.90.0.bcr.1")
+
+# Codecs linked by the vendored libtiff (used by the _libtiff_tiff_writer
+# extension). libtiff's BUILD wires jpeg/webp/lzma/zlib/zstd.
+bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
+bazel_dep(name = "zstd", version = "1.5.7")
+bazel_dep(name = "libjpeg_turbo", version = "2.1.91")
+bazel_dep(name = "libwebp", version = "1.5.0")
+bazel_dep(name = "xz", version = "5.4.5.bcr.5")
+
+# aifocore-cpp is not on the Bazel Central Registry. In the monorepo this
+# bazel_dep is satisfied by the root module's local_path_override; the
+# git_override below is silently ignored in that context (Bazel only honors
+# *_override directives in the root module). When this MODULE.bazel is the root
+# (i.e. the standalone NKI-AI/dlup checkout), the git_override resolves the dep
+# from GitHub instead.
+bazel_dep(name = "aifocore-cpp", version = "0.0.1")
+git_override(
+    module_name = "aifocore-cpp",
+    commit = "e09db7a3b6ee6decb84b08e22080158012b15a46",
+    remote = "https://github.com/NKI-AI/aifocore.git",
+)
+
+# fastslide / fimage are not on the BCR. Same override mechanics as aifocore-cpp:
+# the monorepo satisfies these via local_path_override, the standalone checkout
+# via the git_overrides below. Required by the dlup C++ headers/backends
+# libraries (the Python wheel itself does not link them).
+bazel_dep(name = "fastslide", version = "0.0.1")
+git_override(
+    module_name = "fastslide",
+    commit = "4849d487b7e8f7dfab740bc1ead5078648246c06",
+    remote = "https://github.com/NKI-AI/fastslide.git",
+)
+
+# fastslide pulls in these off-registry modules. Their `git_override`s live in
+# fastslide's MODULE.bazel, but Bazel only honors *_override directives from the
+# root module, so a standalone dlup build (where dlup is root) must repeat them
+# verbatim to resolve fastslide's module graph. Commits are kept in sync with
+# fastslide/MODULE.bazel. In the monorepo these are satisfied by the root's
+# local_path_overrides and the git_overrides here are ignored.
+bazel_dep(name = "simpletiff", version = "0.0.1")
+git_override(
+    module_name = "simpletiff",
+    commit = "38865229481f9a5c00f5a70fc6a2444f3cd3ccfd",
+    remote = "https://github.com/NKI-AI/simpletiff.git",
+)
+
+bazel_dep(name = "jpeg-compressor", version = "0.0.1")
+git_override(
+    module_name = "jpeg-compressor",
+    commit = "927f759d349b7ce2588d50465d719c42011ccb4b",
+    remote = "https://github.com/NKI-AI/jpeg-compressor.git",
+)
+
+bazel_dep(name = "jxrlib", version = "1.1.0")
+git_override(
+    module_name = "jxrlib",
+    commit = "7632349d973656c773f7ecb45325390f463bc92a",
+    remote = "https://github.com/NKI-AI/jxrlib.git",
+)
+
+bazel_dep(name = "fimage", version = "0.1.2")
+git_override(
+    module_name = "fimage",
+    commit = "136bfbe5ca6ce8cdd2557a5b2b068bc71a5bd866",
+    remote = "https://github.com/NKI-AI/fimage.git",
+)
+
+bazel_dep(name = "nanobind_bazel", version = "2.12.0")
+bazel_dep(name = "rules_python", version = "2.0.0")
+bazel_dep(name = "aspect_rules_py", version = "1.11.5")
+bazel_dep(name = "rules_uv", version = "0.89.2")
+bazel_dep(name = "rules_doxygen", version = "2.5.0")
+bazel_dep(name = "sphinxdocs", version = "2.0.1")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.11",
+)
+python.toolchain(python_version = "3.10")
+python.toolchain(python_version = "3.12")
+python.toolchain(python_version = "3.13")
+python.toolchain(python_version = "3.14")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    enable_implicit_namespace_pkgs = True,
+    hub_name = "dlup_pip",
+    python_version = "3.11",
+    requirements_darwin = "//:requirements_darwin.txt",
+    requirements_lock = "//:requirements_linux.txt",
+)
+pip.parse(
+    enable_implicit_namespace_pkgs = True,
+    hub_name = "dlup_docs_pip",
+    python_version = "3.11",
+    requirements_darwin = "//docs:requirements_darwin.txt",
+    requirements_lock = "//docs:requirements_linux.txt",
+)
+use_repo(pip, "dlup_docs_pip", "dlup_pip")
+
+doxygen_extension = use_extension("@rules_doxygen//:extensions.bzl", "doxygen_extension")
+doxygen_extension.repository(name = "dlup_doxygen")
+doxygen_extension.configuration(
+    platform = "mac",
+    version = "0.0.0",
+)
+use_repo(doxygen_extension, "dlup_doxygen")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "libtiff",
+    build_file = "//third_party:libtiff.BUILD",
+    sha256 = "273a0a73b1f0bed640afee4a5df0337357ced5b53d3d5d1c405b936501f71017",
+    strip_prefix = "tiff-4.7.0",
+    urls = ["https://download.osgeo.org/libtiff/tiff-4.7.0.tar.xz"],
+)
+
+# Hermetic C++ toolchain for cross-compilation (opt-in via --config=hermetic).
+# Uses Zig's compiler for hermetic cross-compilation without replacing the
+# default host toolchain.
+bazel_dep(name = "hermetic_cc_toolchain", version = "4.1.0")
+
+toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
+use_repo(toolchains, "zig_sdk")

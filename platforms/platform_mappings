@@ -1,0 +1,8 @@
+# Maps execution/platform constraints to default flags/configs.
+# See https://bazel.build/docs/platforms#platform-mappings
+# Not referenced by .bazelrc today; kept for parity with the fastslide module.
+
+platforms:
+  - constraints: ["@platforms//os:macos", "@platforms//cpu:aarch64"]
+    flags:
+      - "--config=release"

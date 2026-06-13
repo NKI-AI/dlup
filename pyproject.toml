@@ -1,15 +1,10 @@
 [build-system]
-requires = [
-    "meson-python>=0.15.0",
-    "ninja",
-    "numpy>=1.20",
-    "pybind11>=2.11.1",
-]
+requires = ["meson-python>=0.15.0", "ninja", "nanobind>=2.0.0"]
 build-backend = "mesonpy"
 
 [project]
 name = "dlup"
-version = "0.9.1"
+version = "0.9.2"
 description = "Deep Learning Utilities for Pathology"
 readme = "README.md"
 authors = [
@@ -33,9 +28,8 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
 dependencies = [
-    "fastslide>=0.2.2",
+    "fastslide>=0.6.0",
     "fimage-python>=0.1.1",
-    "openslide-python",
     "numpy",
     "packaging",
     "pillow",
@@ -45,9 +39,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# OpenSlide backend. openslide-bin ships a prebuilt libopenslide; users who
+# prefer a system OpenSlide can install just openslide-python.
+openslide = [
+    "openslide-python>=1.4",
+    "openslide-bin",
+]
 dev = [
     "pytest>=7.0",
-    "pytest-cov",
+    "pytest-mock",
 ]
 
 [project.urls]
@@ -56,3 +56,25 @@ Documentation = "https://docs.aiforoncology.nl/dlup"
 Repository = "https://github.com/NKI-AI/dlup"
 Issues = "https://github.com/NKI-AI/dlup/issues"
 
+[tool.meson-python.args]
+setup = [
+    "--wrap-mode=forcefallback",
+    # NOTE: do not add --prefer-static. It makes Meson hunt for a static
+    # libpython (libpythonXY.a), which CPython does not ship, breaking the
+    # nanobind Python dependency. Codecs are already static via the
+    # default_library=static wraps; the extensions link libpython's import
+    # library (shared), as required.
+    "-Ddefault_library=static",
+    "-Dbuild_python=true",
+]
+# Only install the top-level dlup targets (the extensions + the Python package).
+# Subproject wraps declare `install: true` for their static libs / headers,
+# which land in locations with no wheel equivalent, so meson-python aborts
+# ("Could not map installation path ..."). Everything is statically linked into
+# the extensions at build time, so skipping subproject installs is correct.
+install = [
+    "--skip-subprojects",
+]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py", "*_test.py"]
