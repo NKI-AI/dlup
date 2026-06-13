@@ -25,7 +25,6 @@ from dlup.geometry import (
     GeometryCollection,
     Point,
     Polygon,
-    _BaseGeometry,
     _box_factory,
     _point_factory,
     _polygon_factory,
@@ -45,17 +44,6 @@ rois = polygons
 
 
 class TestGeometry:
-    def test_base_geometry(self):
-        _BaseGeometry()
-        with pytest.raises(NotImplementedError):
-            _BaseGeometry().from_shapely(None)
-
-        with pytest.raises(NotImplementedError):
-            _BaseGeometry().set_field("name", "test")
-
-        with pytest.raises(NotImplementedError):
-            _BaseGeometry().get_field("name")
-
     def test_try_to_set_incorrect_field_type(self):
         base = Polygon()
         with pytest.raises(ValueError):

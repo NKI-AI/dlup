@@ -1,0 +1,27 @@
+# Runtime + test/example Python dependencies resolved into the @dlup_pip hub.
+
+# Runtime
+numpy
+packaging
+pillow
+shapely
+tifffile
+xsdata
+
+# OpenSlide backend. openslide-bin ships the prebuilt OpenSlide C library as a
+# wheel (Linux/macOS/Windows), so `import openslide` works in Bazel's sandbox
+# and in CI without vendoring the OpenSlide C graph or relying on a system
+# install. openslide-python (>=1.4) auto-loads the library from openslide-bin.
+openslide-python
+openslide-bin
+
+# Tests
+pytest
+pytest-mock
+psutil
+pydantic
+pyhaloxml
+aiohttp
+
+# Examples
+matplotlib

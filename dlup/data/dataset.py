@@ -32,7 +32,7 @@ from dlup._types import PathLike
 from dlup.annotations import SlideAnnotations
 from dlup.background import compute_masked_indices
 from dlup.tiling import Grid, GridOrder, TilingMode
-from dlup.utils.backends import ImageBackend
+from dlup.utils.backends import DEFAULT_IMAGE_BACKEND, ImageBackend
 
 # Type aliases
 MaskTypes = Union[SlideImage, npt.NDArray[np.int_], SlideAnnotations]
@@ -111,12 +111,13 @@ class ImageConfig:
     Parameters
     ----------
     backend : ImageBackend
-        Image backend to use. Default is ImageBackend.OPENSLIDE.
+        Image backend to use. Defaults to OpenSlide when it is installed,
+        otherwise FastSlide (see ``DEFAULT_IMAGE_BACKEND``).
     apply_color_profile : bool
         Whether to apply color profile to images. Default is False.
     """
 
-    backend: ImageBackend = ImageBackend.OPENSLIDE
+    backend: ImageBackend = DEFAULT_IMAGE_BACKEND
     apply_color_profile: bool = False
 
 

@@ -11,10 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/array.h>
+#include <nanobind/stl/filesystem.h>
+#include <nanobind/stl/string.h>
 #include <tiffio.h>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -29,9 +32,9 @@
 #include <zstd.h>
 #endif
 
-#define DLUP_VERSION "0.9.1"
+#define DLUP_VERSION "0.9.2"
 namespace fs = std::filesystem;
-namespace py = pybind11;
+namespace nb = nanobind;
 
 enum class CompressionType { NONE, JPEG, LZW, DEFLATE, ZSTD };
 
@@ -130,6 +133,11 @@ struct TIFFDeleter {
 
 using TIFFPtr = std::unique_ptr<TIFF, TIFFDeleter>;
 
+// Tile arrays are accepted as zero-copy uint8 views (`nb::c_contig`); we
+// reinterpret the bytes inside `writeTile` so the public API stays compatible
+// with NumPy uint8 arrays without forcing a dtype change.
+using TileArray = nb::ndarray<const uint8_t, nb::c_contig, nb::device::cpu>;
+
 class LibtiffTiffWriter {
  public:
   LibtiffTiffWriter(fs::path filename, std::array<int, 3> imageSize,
@@ -142,6 +150,7 @@ class LibtiffTiffWriter {
         tileSize(tileSize),
         compression(compression),
         quality(quality),
+        tileCounter(0),
         tif(nullptr) {
     validateInputs();
 
@@ -155,9 +164,7 @@ class LibtiffTiffWriter {
   }
 
   ~LibtiffTiffWriter();
-  void writeTile(
-      py::array_t<std::byte, py::array::c_style | py::array::forcecast> tile,
-      int row, int col);
+  void writeTile(TileArray tile, int row, int col);
   void flush();
   void finalize();
   void writePyramid();
@@ -192,28 +199,27 @@ LibtiffTiffWriter::~LibtiffTiffWriter() {
   finalize();
 }
 
-void LibtiffTiffWriter::writeTile(
-    py::array_t<std::byte, py::array::c_style | py::array::forcecast> tile,
-    int row, int col) {
+void LibtiffTiffWriter::writeTile(TileArray tile, int row, int col) {
   auto num_tiles = CalculateNumTiles(0);
   if (tileCounter >= num_tiles) {
     throw TiffWriteException("all tiles have already been written");
   }
-  auto buf = tile.request();
-  if (buf.ndim < 2 || buf.ndim > 3) {
+  const std::size_t ndim = tile.ndim();
+  if (ndim < 2 || ndim > 3) {
     throw TiffWriteException(
         "invalid number of dimensions in tile data. Expected 2 or 3, got " +
-        std::to_string(buf.ndim));
+        std::to_string(ndim));
   }
-  auto [height, width, channels] =
-      std::tuple{buf.shape[0], buf.shape[1], buf.ndim > 2 ? buf.shape[2] : 1};
+  const std::size_t height = tile.shape(0);
+  const std::size_t width = tile.shape(1);
+  const std::size_t channels = ndim > 2 ? tile.shape(2) : 1;
 
   // Verify dimensions and buffer Size
-  size_t expected_size = static_cast<size_t>(width) * height * channels;
-  if (static_cast<size_t>(buf.size) != expected_size) {
+  const std::size_t expected_size = width * height * channels;
+  if (tile.size() != expected_size) {
     throw TiffWriteException(
         "buffer Size does not match expected Size. Expected " +
-        std::to_string(expected_size) + ", got " + std::to_string(buf.size));
+        std::to_string(expected_size) + ", got " + std::to_string(tile.size()));
   }
 
   // Check if tile coordinates are within bounds
@@ -225,8 +231,9 @@ void LibtiffTiffWriter::writeTile(
         std::to_string(imageWidth) + "x" + std::to_string(imageHeight));
   }
 
-  // Write the tile
-  if (TIFFWriteTile(tif.get(), buf.ptr, col, row, 0, 0) < 0) {
+  // Write the tile (cast away const for libtiff's C API)
+  if (TIFFWriteTile(tif.get(), const_cast<uint8_t*>(tile.data()), col, row, 0,
+                    0) < 0) {
     throw TiffWriteException("TIFFWriteTile failed for row " +
                              std::to_string(row) + ", col " +
                              std::to_string(col));
@@ -551,49 +558,44 @@ void LibtiffTiffWriter::writePyramid() {
   }
 }
 
-PYBIND11_MODULE(_libtiff_tiff_writer, m) {
-  py::class_<LibtiffTiffWriter>(m, "LibtiffTiffWriter")
-      .def(py::init([](py::object path, std::array<int, 3> Size,
-                       std::array<float, 2> mpp, std::array<int, 2> tileSize,
-                       py::object compression, int quality) {
-        fs::path cpp_path;
-        if (py::isinstance<py::str>(path)) {
-          cpp_path = fs::path(path.cast<std::string>());
-        } else if (py::hasattr(path, "__fspath__")) {
-          cpp_path = fs::path(path.attr("__fspath__")().cast<std::string>());
-        } else {
-          throw py::type_error("Expected str or os.PathLike object");
-        }
+NB_MODULE(_libtiff_tiff_writer, m) {
+  nb::class_<LibtiffTiffWriter>(m, "LibtiffTiffWriter")
+      .def(
+          "__init__",
+          [](LibtiffTiffWriter* self, fs::path path, std::array<int, 3> Size,
+             std::array<float, 2> mpp, std::array<int, 2> tileSize,
+             nb::object compression, int quality) {
+            CompressionType comp_type;
+            if (nb::isinstance<nb::str>(compression)) {
+              comp_type = string_to_compression_type(
+                  nb::cast<std::string>(compression));
+            } else if (nb::isinstance<CompressionType>(compression)) {
+              comp_type = nb::cast<CompressionType>(compression);
+            } else {
+              throw nb::type_error(
+                  "Expected str or CompressionType for compression");
+            }
 
-        CompressionType comp_type;
-        if (py::isinstance<py::str>(compression)) {
-          comp_type =
-              string_to_compression_type(compression.cast<std::string>());
-        } else if (py::isinstance<CompressionType>(compression)) {
-          comp_type = compression.cast<CompressionType>();
-        } else {
-          throw py::type_error(
-              "Expected str or CompressionType for compression");
-        }
-
-        return new LibtiffTiffWriter(std::move(cpp_path), Size, mpp, tileSize,
-                                     comp_type, quality);
-      }))
+            new (self) LibtiffTiffWriter(std::move(path), Size, mpp, tileSize,
+                                         comp_type, quality);
+          },
+          nb::arg("path"), nb::arg("size"), nb::arg("mpp"),
+          nb::arg("tile_size"), nb::arg("compression"), nb::arg("quality"))
       .def("write_tile", &LibtiffTiffWriter::writeTile)
       .def("write_pyramid", &LibtiffTiffWriter::writePyramid)
       .def("finalize", &LibtiffTiffWriter::finalize);
 
-  py::enum_<CompressionType>(m, "CompressionType")
+  nb::enum_<CompressionType>(m, "CompressionType")
       .value("NONE", CompressionType::NONE)
       .value("JPEG", CompressionType::JPEG)
       .value("LZW", CompressionType::LZW)
       .value("DEFLATE", CompressionType::DEFLATE);
 
-  py::register_exception<TiffException>(m, "TiffException");
-  py::register_exception<TiffOpenException>(m, "TiffOpenException");
-  py::register_exception<TiffReadException>(m, "TiffReadException");
-  py::register_exception<TiffWriteException>(m, "TiffWriteException");
-  py::register_exception<TiffSetupException>(m, "TiffSetupException");
-  py::register_exception<TiffCompressionNotSupportedError>(
+  nb::exception<TiffException>(m, "TiffException");
+  nb::exception<TiffOpenException>(m, "TiffOpenException");
+  nb::exception<TiffReadException>(m, "TiffReadException");
+  nb::exception<TiffWriteException>(m, "TiffWriteException");
+  nb::exception<TiffSetupException>(m, "TiffSetupException");
+  nb::exception<TiffCompressionNotSupportedError>(
       m, "TiffCompressionNotSupportedError");
 }

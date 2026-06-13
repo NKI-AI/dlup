@@ -1,0 +1,13 @@
+[wrap-file]
+# Boost.Geometry (used by the dlup geometry library) is header-only, but it
+# pulls in a large set of transitive header-only Boost libraries, so we vendor
+# the full Boost release and expose it as a header-only dependency via the
+# packagefile overlay below. Not available on WrapDB.
+directory = boost_1_86_0
+source_url = https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.bz2
+source_filename = boost_1_86_0.tar.bz2
+source_hash = 1bed88e40401b2cb7a1f76d4bab499e352fa4d0c5f31c0dbae64e24d34d7513b
+patch_directory = boost
+
+[provide]
+boost = boost_dep

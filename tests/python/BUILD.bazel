@@ -1,0 +1,35 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@dlup_pip//:requirements.bzl", "requirement")
+
+# Single consolidated pytest target driven by the custom `_pytest_main.py`
+# entrypoint. aspect_rules_py's built-in `pytest_main = True` drops external-repo
+# test sources (`short_path` starts with `../`), which yields zero collected
+# tests when dlup is consumed as an external bzlmod dep. `_pytest_main.py`
+# collects its own directory instead, so every `*_test.py` here runs in one
+# invocation. See `_pytest_main.py` for the full diagnosis.
+#
+# OpenSlide is exercised via the `openslide-bin` wheel (prebuilt libopenslide),
+# so the OpenSlide-backed tests run without a system OpenSlide install.
+py_test(
+    name = "tests",
+    srcs = glob(["**/*.py"]),
+    data = glob(
+        ["files/**"],
+        allow_empty = True,
+    ),
+    imports = ["."],
+    main = "_pytest_main.py",
+    deps = [
+        requirement("pytest"),
+        requirement("pytest-mock"),
+        requirement("psutil"),
+        requirement("pydantic"),
+        requirement("pyhaloxml"),
+        requirement("shapely"),
+        requirement("aiohttp"),
+        requirement("openslide-python"),
+        requirement("openslide-bin"),
+        "//:dlup",
+        "@fastslide//python:fastslide",
+    ],
+)

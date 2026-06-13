@@ -1,0 +1,305 @@
+# Build, test, and publish the dlup Python wheels + sdist to PyPI.
+#
+# Design:
+#   - build-wheels: produce each platform's wheels where they CAN be built:
+#       * linux/darwin: built with Bazel on a matching runner (darwin_x86_64 is
+#         cross-built on the arm64 Mac via the Apple toolchain).
+#       * windows_x86_64 / windows_arm64: built NATIVELY on a matching Windows
+#         runner (windows-2022 / windows-11-arm) with MSVC via Meson + nanobind +
+#         cibuildwheel. All deps compile from source through subprojects/*.wrap
+#         and link statically, sidestepping the missing Windows Bazel rules.
+#   - build-sdist: platform-independent source distribution (pip falls back to a
+#     meson-python source build where no wheel matches).
+#   - smoke-wheels: install the freshly built wheel on the real target and run
+#     tools/smoke_test_python.py (import + geometry op) for every Python.
+#   - publish-pypi / publish-testpypi: upload via Trusted Publishing (OIDC).
+#
+# Like fimage and unlike fastslide, NO artifacts are attached to a GitHub
+# Release: PyPI is the sole distribution channel for dlup.
+#
+# NOTE: dlup depends on fastslide and fimage-python at runtime, so a full PyPI
+# release (and its smoke tests) requires both of those to already be published
+# to PyPI.
+#
+# Trigger: manual only (`workflow_dispatch`). It does NOT run on a version bump.
+name: Release dlup
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a full release to PyPI (false = TestPyPI snapshot)"
+        type: boolean
+        default: false
+      platforms:
+        description: "Comma-separated platform keys to build"
+        type: string
+        default: "linux_x86_64,linux_arm64,darwin_x86_64,darwin_aarch64,windows_x86_64,windows_arm64"
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+# Force UTF-8 for Python stdio so the build scripts' status glyphs do not crash
+# on Windows runners (default code page is cp1252). Run all JavaScript actions
+# on Node.js 24 (Node.js 20 is deprecated on the runners).
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+jobs:
+  build-wheels:
+    name: Build wheels ${{ matrix.platform }}
+    runs-on: ${{ matrix.builder }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux/macOS wheels are built with Bazel (method: bazel). Windows wheels
+        # (both amd64 and arm64) are built NATIVELY on a matching Windows runner
+        # via Meson + nanobind + cibuildwheel (method: meson). cibw_arch selects
+        # the cibuildwheel target arch.
+        include:
+          - platform: linux_x86_64
+            builder: ubuntu-24.04
+            method: bazel
+          - platform: linux_arm64
+            builder: ubuntu-24.04-arm
+            method: bazel
+          - platform: darwin_x86_64
+            builder: macos-14
+            method: bazel
+          - platform: darwin_aarch64
+            builder: macos-14
+            method: bazel
+          - platform: windows_x86_64
+            builder: windows-2022
+            method: meson
+            cibw_arch: AMD64
+          - platform: windows_arm64
+            builder: windows-11-arm
+            method: meson
+            cibw_arch: ARM64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Decide whether to build this platform
+        id: gate
+        shell: bash
+        run: |
+          selected=",${{ inputs.platforms }},"
+          selected="${selected// /}"
+          if [[ "${selected}" == *",${{ matrix.platform }},"* ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false (not in inputs.platforms)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Free disk space (Linux)
+        if: steps.gate.outputs.run == 'true' && runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+      # --- Bazel path (linux/darwin) ---
+      - name: Pin Bazel version
+        if: steps.gate.outputs.run == 'true' && matrix.method == 'bazel'
+        shell: bash
+        run: echo "USE_BAZEL_VERSION=$(tr -d '[:space:]' < .bazelversion)" >> "$GITHUB_ENV"
+      - name: Set up Bazel
+        if: steps.gate.outputs.run == 'true' && matrix.method == 'bazel'
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+          disk-cache: wheels-${{ matrix.platform }}
+      - name: Build wheels (${{ matrix.platform }})
+        if: steps.gate.outputs.run == 'true' && matrix.method == 'bazel'
+        shell: bash
+        run: python3 tools/build_wheels.py --platform ${{ matrix.platform }} --bazel bazel
+      # --- Native Meson path (windows) ---
+      # Windows wheels are compiled on a real Windows host with MSVC. cibuildwheel
+      # drives meson-python once per CPython; meson-python reads the forcefallback
+      # setup args from pyproject.toml, so every dependency is built from source
+      # and linked statically into the self-contained extensions.
+      - name: Build wheels (${{ matrix.platform }})
+        if: steps.gate.outputs.run == 'true' && matrix.method == 'meson'
+        uses: pypa/cibuildwheel@v3.2.0
+        with:
+          package-dir: .
+          output-dir: artifacts/wheels
+        env:
+          # cp310 has no official Windows ARM64 CPython; cibuildwheel skips it
+          # there automatically, so the same build set is safe for both arches.
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
+          CIBW_ARCHS_WINDOWS: ${{ matrix.cibw_arch }}
+          CIBW_BUILD_VERBOSITY: "1"
+          # Force MSVC. The windows runner images ship MinGW GCC on PATH, and
+          # Meson's auto-detection would otherwise pick that `cc` over MSVC.
+          # `--vsenv` makes Meson activate the Visual Studio environment.
+          CIBW_CONFIG_SETTINGS_WINDOWS: "setup-args=--vsenv"
+      - name: Upload wheels
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: wheels-${{ matrix.platform }}
+          path: artifacts/wheels/*.whl
+          if-no-files-found: error
+          retention-days: 7
+  build-sdist:
+    # The source distribution is platform-independent and is what
+    # `pip install dlup` falls back to on any platform/Python without a prebuilt
+    # wheel: pip builds it from source via meson-python, where
+    # --wrap-mode=forcefallback (from pyproject.toml) fetches every dependency
+    # through subprojects/*.wrap and links it statically.
+    name: Build sdist
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+      - name: Build sdist
+        shell: bash
+        run: uv build --sdist --out-dir artifacts/sdist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v6
+        with:
+          name: sdist
+          path: artifacts/sdist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+  smoke-wheels:
+    name: Smoke wheel ${{ matrix.target.platform }} py${{ matrix.python }}
+    needs: build-wheels
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        target:
+          - platform: linux_x86_64
+            runner: ubuntu-24.04
+          - platform: linux_arm64
+            runner: ubuntu-24.04-arm
+          # x86_64 wheel runs under Rosetta on the arm64 mac with an x86_64
+          # CPython (uv downloads the matching build).
+          - platform: darwin_x86_64
+            runner: macos-14
+            rosetta: true
+          - platform: darwin_aarch64
+            runner: macos-14
+          - platform: windows_x86_64
+            runner: windows-2022
+          - platform: windows_arm64
+            runner: windows-11-arm
+        # No official CPython 3.10 for Windows ARM64, so no cp310 win_arm64 wheel
+        # is built; drop that smoke combination.
+        exclude:
+          - python: "3.10"
+            target:
+              platform: windows_arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Decide whether to smoke this platform
+        id: gate
+        shell: bash
+        run: |
+          selected=",${{ inputs.platforms }},"
+          selected="${selected// /}"
+          if [[ "${selected}" == *",${{ matrix.target.platform }},"* ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Rosetta
+        if: steps.gate.outputs.run == 'true' && matrix.target.rosetta
+        run: softwareupdate --install-rosetta --agree-to-license
+      - name: Set up uv
+        if: steps.gate.outputs.run == 'true'
+        uses: astral-sh/setup-uv@v6
+      - name: Download wheels
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/download-artifact@v6
+        with:
+          path: dist
+          pattern: "wheels-*"
+          merge-multiple: true
+      # Build a venv on the right interpreter (x86_64 CPython for the Rosetta
+      # leg), install the local wheel under test (uv picks the dist wheel whose
+      # tags match the venv's Python/arch), and run the import + geometry smoke.
+      # --find-links dist makes the local wheel the source for dlup, while the
+      # index supplies its runtime deps (fastslide, fimage-python, numpy, ...).
+      # The [openslide] extra pulls the prebuilt openslide-bin so the OpenSlide
+      # backend imports cleanly too.
+      - name: Import + geometry smoke (${{ matrix.target.platform }} py${{ matrix.python }})
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pyreq="${{ matrix.python }}"
+          if [ "${{ matrix.target.rosetta }}" = "true" ]; then
+            pyreq="cpython-${{ matrix.python }}-macos-x86_64"
+          fi
+          uv python install "$pyreq"
+          uv venv --python "$pyreq" .venv
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            py=".venv/Scripts/python.exe"
+          else
+            py=".venv/bin/python"
+          fi
+          uv pip install --python "$py" --find-links dist "dlup[openslide]"
+          "$py" tools/smoke_test_python.py
+  publish-pypi:
+    name: Publish wheels + sdist to PyPI
+    # Full release -> real PyPI. Only after the wheels pass their smoke tests.
+    # The sdist is uploaded alongside the wheels so pip can fall back to a source
+    # build on any platform without a prebuilt wheel.
+    if: inputs.release == true
+    needs: [smoke-wheels, build-sdist]
+    runs-on: ubuntu-24.04
+    environment: pypi
+    permissions:
+      id-token: write # OIDC for PyPI Trusted Publishing (no API token)
+    steps:
+      - name: Download wheels + sdist
+        uses: actions/download-artifact@v6
+        with:
+          path: dist
+          pattern: "{wheels-*,sdist}"
+          merge-multiple: true
+      - name: List distributions
+        shell: bash
+        run: ls -l dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          skip-existing: true
+  publish-testpypi:
+    name: Publish wheels + sdist to TestPyPI
+    # Snapshot -> TestPyPI, so the publish path is exercised without touching the
+    # real index (re-runs of the same version are no-ops thanks to skip-existing).
+    if: inputs.release == false
+    needs: [smoke-wheels, build-sdist]
+    runs-on: ubuntu-24.04
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Download wheels + sdist
+        uses: actions/download-artifact@v6
+        with:
+          path: dist
+          pattern: "{wheels-*,sdist}"
+          merge-multiple: true
+      - name: List distributions
+        shell: bash
+        run: ls -l dist
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true

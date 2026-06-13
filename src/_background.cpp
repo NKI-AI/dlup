@@ -11,13 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 inline int c_floor(float x) noexcept {
   return static_cast<int>(x) - (x < 0 && x != static_cast<int>(x));
@@ -36,7 +37,7 @@ inline int min_c(int a, int b) noexcept {
 }
 
 uint64_t sum_pixels_2d(const uint8_t* data, int width, int height,
-                       int stride) noexcept {
+                       int64_t stride) noexcept {
   uint64_t sum = 0;
   for (int y = 0; y < height; ++y) {
     const uint8_t* row_ptr = data + y * stride;
@@ -47,32 +48,26 @@ uint64_t sum_pixels_2d(const uint8_t* data, int width, int height,
   return sum;
 }
 
-int get_foreground_indices_numpy(int image_width, int image_height,
-                                 float image_slide_average_mpp,
-                                 py::array_t<uint8_t> background_mask,
-                                 py::array_t<double> regions_array,
-                                 float threshold,
-                                 py::array_t<int64_t> foreground_indices) {
-  auto background_mask_info = background_mask.request();
-  auto regions_array_info = regions_array.request();
-  auto foreground_indices_info = foreground_indices.request();
+// All ndarray arguments are zero-copy views (no `nb::numpy` tag, no copy):
+// they reference the caller's buffer directly.
+int get_foreground_indices_numpy(
+    int image_width, int image_height, float image_slide_average_mpp,
+    nb::ndarray<const uint8_t, nb::ndim<2>, nb::c_contig, nb::device::cpu>
+        background_mask,
+    nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>
+        regions_array,
+    float threshold,
+    nb::ndarray<int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>
+        foreground_indices) {
+  const uint8_t* background_mask_ptr = background_mask.data();
+  const double* regions_ptr = regions_array.data();
+  int64_t* foreground_indices_ptr = foreground_indices.data();
 
-  const uint8_t* background_mask_ptr =
-      static_cast<const uint8_t*>(background_mask_info.ptr);
-  auto background_mask_shape = background_mask_info.shape;
-  auto background_mask_strides = background_mask_info.strides;
-
-  const double* regions_ptr =
-      static_cast<const double*>(regions_array_info.ptr);
-  auto regions_shape = regions_array_info.shape;
-
-  int64_t* foreground_indices_ptr =
-      static_cast<int64_t*>(foreground_indices_info.ptr);
-
-  int num_regions = regions_shape[0];
-  int height = background_mask_shape[0];
-  int width = background_mask_shape[1];
-  int max_dimension = max_c(width, height);
+  const int num_regions = static_cast<int>(regions_array.shape(0));
+  const int height = static_cast<int>(background_mask.shape(0));
+  const int width = static_cast<int>(background_mask.shape(1));
+  const int max_dimension = max_c(width, height);
+  const int64_t row_stride = background_mask.stride(0);
 
   int foreground_count = 0;
   int error_flag = 0;
@@ -114,10 +109,9 @@ int get_foreground_indices_numpy(int image_width, int image_height,
       break;
     }
 
-    const uint8_t* mask_tile_ptr =
-        background_mask_ptr + y1 * background_mask_strides[0] + x1;
-    uint64_t sum_value = sum_pixels_2d(mask_tile_ptr, clipped_w, clipped_h,
-                                       background_mask_strides[0]);
+    const uint8_t* mask_tile_ptr = background_mask_ptr + y1 * row_stride + x1;
+    uint64_t sum_value =
+        sum_pixels_2d(mask_tile_ptr, clipped_w, clipped_h, row_stride);
 
     if (sum_value > threshold * clipped_w * clipped_h) {
       foreground_indices_ptr[foreground_count++] = idx;
@@ -135,13 +129,13 @@ int get_foreground_indices_numpy(int image_width, int image_height,
   return foreground_count;
 }
 
-PYBIND11_MODULE(_background, m) {
+NB_MODULE(_background, m) {
   m.doc() = "Foreground indices computation module";
 
   m.def("get_foreground_indices_numpy", &get_foreground_indices_numpy,
-        py::arg("image_width"), py::arg("image_height"),
-        py::arg("image_slide_average_mpp"), py::arg("background_mask"),
-        py::arg("regions_array"), py::arg("threshold"),
-        py::arg("foreground_indices"),
+        nb::arg("image_width"), nb::arg("image_height"),
+        nb::arg("image_slide_average_mpp"), nb::arg("background_mask"),
+        nb::arg("regions_array"), nb::arg("threshold"),
+        nb::arg("foreground_indices"),
         "Compute foreground indices given background mask and regions array.");
 }

@@ -1,0 +1,287 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@dlup_pip//:requirements.bzl", "requirement")
+load("@nanobind_bazel//:build_defs.bzl", "nanobind_extension")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_uv//uv:pip.bzl", "pip_compile")
+load("//tools:versioned_py_wheel.bzl", "multi_version_py_wheel")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "LICENSE",
+    "README.md",
+    "requirements.in",
+    "requirements_linux.txt",
+    "requirements_darwin.txt",
+])
+
+# Resolve dlup's runtime/test Python requirements into per-platform lockfiles.
+# rules_python's `pip.parse` does not perform transitive resolution itself, so
+# every dep any target imports must be present in the resolved lockfile. Tagged
+# `manual` because the lockfile bakes in a path to `requirements.in` that
+# differs between the standalone build and the monorepo local_path_override
+# context.
+pip_compile(
+    name = "generate_requirements_linux_txt",
+    python_platform = "x86_64-unknown-linux-gnu",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements_linux.txt",
+    tags = ["manual"],
+)
+
+pip_compile(
+    name = "generate_requirements_darwin_txt",
+    python_platform = "aarch64-apple-darwin",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements_darwin.txt",
+    tags = ["manual"],
+)
+
+DLUP_VERSION = "0.9.2"
+
+# Runtime dependencies to be recorded in the wheel metadata (PEP 508).
+# We intentionally avoid depending on Bazel `requirement(...)` targets here so
+# the wheel build can work across multiple Python versions without requiring a
+# per-Python locked wheel set in the repo.
+DLUP_WHEEL_REQUIRES = [
+    "fastslide",
+    "fimage-python",
+    "openslide-python",
+    "numpy",
+    "packaging",
+    "pillow",
+    "shapely",
+    "tifffile",
+    "xsdata",
+]
+
+# Platform-specific compatibility - supports Linux, macOS, and Windows.
+COMPATIBLE_TARGETS = select({
+    "@platforms//os:linux": [],
+    "@platforms//os:macos": [],
+    "@platforms//os:windows": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
+
+# Platform-specific wheel tags (PEP 425).
+WHEEL_PLATFORM = select({
+    "//platforms:is_linux_x86_64": "manylinux2014_x86_64",
+    "//platforms:is_linux_arm64": "manylinux2014_aarch64",
+    "//platforms:is_darwin_aarch64": "macosx_11_0_arm64",
+    "//platforms:is_darwin_x86_64": "macosx_10_9_x86_64",
+    "//platforms:is_windows_x86_64": "win_amd64",
+    "//platforms:is_windows_arm64": "win_arm64",
+    "//conditions:default": "any",
+})
+
+cc_library(
+    name = "headers",
+    hdrs = glob(["include/**/*.h"]),
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@aifocore-cpp//:concepts",
+        "@aifocore-cpp//:utilities",
+        "@boost.geometry",
+        "@fastslide//:fastslide_lib",
+        "@fimage",
+    ],
+)
+
+cc_library(
+    name = "foreground",
+    hdrs = ["include/dlup/foreground.h"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":geometry_lib",
+        "@aifocore-cpp//:concepts",
+    ],
+)
+
+cc_library(
+    name = "backends",
+    hdrs = [
+        "include/dlup/backends/abstract.h",
+        "include/dlup/backends/fastslide.h",
+        "include/dlup/backends/vips.h",
+    ],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@aifocore-cpp//:concepts",
+        "@aifocore-cpp//:status",
+        "@aifocore-cpp//:utilities",
+        "@fastslide//:fastslide_lib",
+        "@fimage",
+    ],
+)
+
+cc_library(
+    name = "utilities",
+    hdrs = ["include/dlup/utilities/filetype.h"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "geometry",
+    srcs = glob(
+        ["src/geometry/*.cpp"],
+        exclude = ["src/geometry/*_module.cpp"],
+    ),
+    hdrs = glob(["include/dlup/geometry/**/*.h"]),
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@aifocore-cpp//:concepts",
+        "@aifocore-cpp//:ndarray",
+        "@aifocore-cpp//:status",
+        "@aifocore-cpp//:utilities-fmt",
+        "@boost.geometry",
+    ],
+)
+
+cc_library(
+    name = "geometry_lib",
+    srcs = [
+        "src/geometry/box.cpp",
+        "src/geometry/collection.cpp",
+        "src/geometry/marching_squares.cpp",
+        "src/geometry/polygon.cpp",
+        "src/geometry/transforms.cpp",
+        "src/geometry/utilities.cpp",
+    ],
+    hdrs = glob(["include/dlup/geometry/**/*.h"]),
+    strip_include_prefix = "include",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@aifocore-cpp//:concepts",
+        "@aifocore-cpp//:ndarray",
+        "@aifocore-cpp//:status",
+        "@aifocore-cpp//:utilities-fmt",
+        "@boost.geometry",
+    ],
+)
+
+nanobind_extension(
+    name = "dlup/_geometry",
+    srcs = [
+        "src/geometry/geometry_module.cpp",
+    ],
+    deps = [
+        ":geometry_lib",
+        "@aifocore-cpp//:concepts",
+    ],
+)
+
+nanobind_extension(
+    name = "dlup/_libtiff_tiff_writer",
+    srcs = ["src/_libtiff_tiff_writer.cpp"],
+    deps = ["@libtiff"],
+)
+
+nanobind_extension(
+    name = "dlup/_background",
+    srcs = ["src/_background.cpp"],
+    deps = [],
+)
+
+py_library(
+    name = "dlup",
+    srcs = glob([
+        "dlup/**/*.py",
+        "dlup/**/*.pyi",
+        "dlup/**/py.typed",
+        "dlup/**/*.xsd",
+    ]) + [
+        # Native extension modules (nanobind_extension already outputs them under dlup/...)
+        ":dlup/_background",
+        ":dlup/_geometry",
+        ":dlup/_libtiff_tiff_writer",
+    ],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@fastslide//python:fastslide",
+        "@fimage//python:fim",
+        requirement("tifffile"),
+        requirement("xsdata"),
+        requirement("shapely"),
+        requirement("packaging"),
+        requirement("pillow"),
+        requirement("numpy"),
+        requirement("openslide-python"),
+        requirement("openslide-bin"),
+    ],
+)
+
+# Wheel-only library: dlup sources + native extensions without pip/sibling
+# dependencies. Third-party packages are declared as string `requires` in the
+# wheel metadata so they are installed by pip at install time, not bundled.
+py_library(
+    name = "dlup_wheel_lib",
+    srcs = glob([
+        "dlup/**/*.py",
+        "dlup/**/*.pyi",
+        "dlup/**/py.typed",
+        "dlup/**/*.xsd",
+    ]) + [
+        ":dlup/_background",
+        ":dlup/_geometry",
+        ":dlup/_libtiff_tiff_writer",
+    ],
+    imports = ["."],
+    visibility = ["//visibility:private"],
+)
+
+# ==============================================================================
+# Python Wheel Distribution
+# ==============================================================================
+# multi_version_py_wheel applies a Starlark configuration transition per
+# Python version, ensuring native extensions (nanobind_extension / cc_binary)
+# are compiled against the matching Python headers.
+
+PYTHON_VERSIONS = {
+    "3.10": "cp310",
+    "3.11": "cp311",
+    "3.12": "cp312",
+    "3.13": "cp313",
+    "3.14": "cp314",
+}
+
+multi_version_py_wheel(
+    author = "dlup contributors",
+    author_email = "j.teuwen@nki.nl",
+    default_version = "3.11",
+    distribution = "dlup",
+    homepage = "https://github.com/NKI-AI/dlup",
+    license = "Apache-2.0",
+    name_prefix = "dlup_wheel",
+    platform = WHEEL_PLATFORM,
+    python_requires = ">=3.10",
+    python_versions = PYTHON_VERSIONS,
+    requires = DLUP_WHEEL_REQUIRES,
+    strip_path_prefixes = [],
+    summary = "Deep Learning Utilities for Pathology",
+    target_compatible_with = COMPATIBLE_TARGETS,
+    version = DLUP_VERSION,
+    deps = [":dlup_wheel_lib"],
+)
+
+# Filegroups for documentation generation
+filegroup(
+    name = "dlup_headers",
+    srcs = glob([
+        "include/**/*.h",
+    ]),
+    visibility = ["//docs:__pkg__"],
+)
+
+filegroup(
+    name = "dlup_sources",
+    srcs = glob([
+        "src/**/*.cpp",
+    ]),
+    visibility = ["//docs:__pkg__"],
+)

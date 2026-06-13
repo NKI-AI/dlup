@@ -1,132 +1,108 @@
-project(
-  'dlup',
-  'cpp',
-  version: '0.9.1',
-  default_options: [
+project('dlup', 'cpp',
+  version : '0.9.2',
+  license : 'Apache-2.0',
+  meson_version : '>=1.3',
+  default_options : [
+    'warning_level=1',
     'cpp_std=c++20',
-    'warning_level=3',
-    'werror=false',
-  ],
-)
+    'default_library=static',
+    # Optimized by default (mirrors the Bazel `--config=release` -O3 -DNDEBUG).
+    # Override on the CLI with e.g. `meson setup builddir --buildtype=debug`.
+    'buildtype=release',
+    'b_ndebug=if-release',
+  ])
 
 cpp = meson.get_compiler('cpp')
 
-add_project_arguments([
-  '-Wno-deprecated-declarations',
+# ---------------------------------------------------------------------------
+# Dependencies
+# ---------------------------------------------------------------------------
+# aifocore (git wrap) exposes the `aifocore` dependency via
+# meson.override_dependency in its own meson.build; it provides the ndarray /
+# concepts / status / fmt-backed utilities the geometry code relies on.
+aifocore_dep = dependency('aifocore')
+
+# Boost.Geometry, header-only, vendored via subprojects/boost.wrap.
+boost_dep = dependency('boost')
+
+# libtiff (+ zstd) back the _libtiff_tiff_writer extension. Both have wrap
+# fallbacks; with --wrap-mode=forcefallback they build from source.
+tiff_dep = dependency('libtiff-4')
+zstd_dep = dependency('libzstd')
+
+# `-Wno-unused-parameter` / `-Wno-deprecated-declarations` are GCC/Clang-only;
+# drop unsupported flags on MSVC.
+dlup_cpp_args = cpp.get_supported_arguments([
   '-Wno-unused-parameter',
-], language: 'cpp')
-
-python3 = import('python').find_installation('python3', pure: false)
-
-incdir = include_directories('include')
-
-numpy_inc = include_directories(
-  run_command(
-    python3,
-    '-c',
-    'import numpy; print(numpy.get_include())',
-    check: true
-  ).stdout().strip()
-)
-
-pybind11_dep = dependency('pybind11', required: true)
-boost_dep = dependency('boost', modules: ['geometry'], required: true)
-
-libtiff_dep = dependency('libtiff-4', required: false)
-if not libtiff_dep.found()
-  libtiff_dep = dependency('libtiff', required: true)
-endif
-
-zstd_dep = dependency('libzstd', required: false)
-
-aifocore_proj = subproject('aifocore', default_options: [
-  'default_library=static',
-  'warning_level=0',
+  '-Wno-deprecated-declarations',
+  # Boost.Geometry pulls in Boost.QVM, whose `x.template member` usages trip the
+  # newer Clang diagnostic that became default-error. The Boost code is valid; we
+  # only consume the headers, so downgrade it (no-op on compilers without it).
+  '-Wno-missing-template-arg-list-after-template-kw',
 ])
-aifocore_dep = aifocore_proj.get_variable('aifocore_dep')
 
-geometry_sources = files(
-  'src/geometry/box.cpp',
-  'src/geometry/collection.cpp',
-  'src/geometry/marching_squares.cpp',
-  'src/geometry/polygon.cpp',
-  'src/geometry/transforms.cpp',
-  'src/geometry/utilities.cpp',
-)
+inc = include_directories('include')
 
-geometry_lib = static_library(
-  'dlup_geometry',
-  geometry_sources,
-  include_directories: [incdir],
-  dependencies: [
-    aifocore_dep,
-    boost_dep,
+# ---------------------------------------------------------------------------
+# Geometry library
+# ---------------------------------------------------------------------------
+geometry_lib = static_library('dlup_geometry',
+  [
+    'src/geometry/box.cpp',
+    'src/geometry/collection.cpp',
+    'src/geometry/marching_squares.cpp',
+    'src/geometry/polygon.cpp',
+    'src/geometry/transforms.cpp',
+    'src/geometry/utilities.cpp',
   ],
-  install: false,
-)
+  include_directories : inc,
+  dependencies : [aifocore_dep, boost_dep],
+  cpp_args : dlup_cpp_args,
+  install : false)
 
-geometry_link_args = []
-if host_machine.system() == 'darwin'
-  geometry_link_args = ['-Wl,-exported_symbol,_PyInit__geometry']
+geometry_dep = declare_dependency(
+  include_directories : inc,
+  link_with : geometry_lib,
+  dependencies : [aifocore_dep, boost_dep])
+
+# ---------------------------------------------------------------------------
+# Python extensions (nanobind)
+# ---------------------------------------------------------------------------
+# Built only for wheels (meson-python sets -Dbuild_python=true). nanobind and
+# robin-map resolve from subprojects/*.wrap; with --wrap-mode=forcefallback they
+# compile from source, so the extensions are self-contained.
+if get_option('build_python')
+  py = import('python').find_installation(pure : false)
+  nanobind_dep = dependency('nanobind')
+
+  py.extension_module('_geometry',
+    'src/geometry/geometry_module.cpp',
+    include_directories : inc,
+    dependencies : [nanobind_dep, geometry_dep],
+    cpp_args : dlup_cpp_args,
+    install : true,
+    subdir : 'dlup')
+
+  py.extension_module('_libtiff_tiff_writer',
+    'src/_libtiff_tiff_writer.cpp',
+    include_directories : inc,
+    dependencies : [nanobind_dep, tiff_dep, zstd_dep],
+    cpp_args : dlup_cpp_args + ['-DHAVE_ZSTD'],
+    install : true,
+    subdir : 'dlup')
+
+  py.extension_module('_background',
+    'src/_background.cpp',
+    include_directories : inc,
+    dependencies : [nanobind_dep],
+    cpp_args : dlup_cpp_args,
+    install : true,
+    subdir : 'dlup')
+
+  # Pure-Python package (all .py/.pyi/.xsd/py.typed under dlup/). The native
+  # extensions above install alongside these into the same `dlup` package dir.
+  install_subdir('dlup',
+    install_dir : py.get_install_dir(),
+    exclude_files : ['meson.build'],
+    exclude_directories : ['__pycache__'])
 endif
-
-python3.extension_module(
-  '_geometry',
-  'src/geometry/geometry_module.cpp',
-  include_directories: [incdir, numpy_inc],
-  dependencies: [
-    pybind11_dep,
-    aifocore_dep,
-    boost_dep,
-  ],
-  link_with: geometry_lib,
-  link_args: geometry_link_args,
-  install: true,
-  subdir: 'dlup',
-)
-
-libtiff_link_args = []
-if host_machine.system() == 'darwin'
-  libtiff_link_args = ['-Wl,-exported_symbol,_PyInit__libtiff_tiff_writer']
-endif
-
-libtiff_cpp_args = []
-libtiff_deps = [pybind11_dep, libtiff_dep]
-if zstd_dep.found()
-  libtiff_cpp_args = ['-DHAVE_ZSTD']
-  libtiff_deps += [zstd_dep]
-endif
-
-python3.extension_module(
-  '_libtiff_tiff_writer',
-  'src/_libtiff_tiff_writer.cpp',
-  include_directories: [incdir, numpy_inc],
-  dependencies: libtiff_deps,
-  link_args: libtiff_link_args,
-  cpp_args: libtiff_cpp_args,
-  install: true,
-  subdir: 'dlup',
-)
-
-background_link_args = []
-if host_machine.system() == 'darwin'
-  background_link_args = ['-Wl,-exported_symbol,_PyInit__background']
-endif
-
-python3.extension_module(
-  '_background',
-  'src/_background.cpp',
-  include_directories: [incdir, numpy_inc],
-  dependencies: [pybind11_dep],
-  link_args: background_link_args,
-  install: true,
-  subdir: 'dlup',
-)
-
-install_subdir(
-  'dlup',
-  install_dir: python3.get_install_dir(),
-  exclude_files: ['*.cpp', '*.h', 'meson.build'],
-  exclude_directories: ['__pycache__'],
-)
-

@@ -19,7 +19,6 @@ import pickle
 import tempfile
 import warnings
 
-import os
 import numpy as np
 import pytest
 from dlup.annotations import SlideAnnotations
@@ -28,7 +27,7 @@ from dlup.geometry import Box, Point, Polygon
 from dlup.utils.imports import DARWIN_SDK_AVAILABLE
 
 # Define test files path
-TEST_FILES_PATH = pathlib.Path(os.getenv("TEST_TARGET").lstrip("/").split(":")[0]) / "files"
+TEST_FILES_PATH = pathlib.Path(__file__).resolve().parent / "files"
 
 ASAP_XML_EXAMPLE = b"""<?xml version="1.0"?>
 <ASAP_Annotations>

@@ -1,0 +1,2 @@
+option('build_python', type : 'boolean', value : false,
+  description : 'Build the nanobind _geometry/_background/_libtiff_tiff_writer extensions (used for wheels).')

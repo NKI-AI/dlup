@@ -38,7 +38,7 @@ from dlup._region import BoundaryMode, RegionView
 from dlup._types import GenericFloatArray, GenericIntArray, GenericNumber, GenericNumberArray, PathLike
 from dlup.backends.common import AbstractSlideBackend
 from dlup.backends.remote_backend import RemoteSlideBackend
-from dlup.utils.backends import ImageBackend
+from dlup.utils.backends import DEFAULT_IMAGE_BACKEND, ImageBackend
 from dlup.utils.image import check_if_mpp_is_valid
 
 _Box = tuple[GenericNumber, GenericNumber, GenericNumber, GenericNumber]
@@ -313,7 +313,7 @@ class SlideImage:
         cls: Type[_TSlideImage],
         wsi_file_path: PathLike,
         identifier: str | None = None,
-        backend: ImageBackend | Type[AbstractSlideBackend] | str = ImageBackend.OPENSLIDE,
+        backend: ImageBackend | Type[AbstractSlideBackend] | str = DEFAULT_IMAGE_BACKEND,
         **kwargs: Any,
     ) -> _TSlideImage:
         if isinstance(backend, str):

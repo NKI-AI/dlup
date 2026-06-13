@@ -11,16 +11,30 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/make_iterator.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/array.h>
+#include <nanobind/stl/function.h>
+#include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/pair.h>
+#include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
+#include <nanobind/stl/unordered_map.h>
+#include <nanobind/stl/variant.h>
+#include <nanobind/stl/vector.h>
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <vector>
 
+#include "aifocore/math/ndarray.h"
 #include "dlup/geometry/base.h"
 #include "dlup/geometry/box.h"
 #include "dlup/geometry/collection.h"
@@ -32,217 +46,212 @@
 #include "dlup/geometry/python/factory.h"
 #include "dlup/geometry/region.h"
 
-#include "aifocore/math/ndarray.h"
-
-namespace py = pybind11;
+namespace nb = nanobind;
 
 template class FactoryManager<dlup::geometry::Polygon>;
 template class FactoryManager<dlup::geometry::Box>;
 template class FactoryManager<dlup::geometry::Point>;
 
-inline void DeclarePoint(py::module& m) {
-  py::class_<dlup::geometry::Point, dlup::geometry::BaseGeometry,
-             std::shared_ptr<dlup::geometry::Point>>(m, "Point")
-      .def(py::init<>())
-      .def(py::init<const dlup::geometry::BoostPoint&>())
-      .def(py::init<double, double>())
-      .def(py::init([](const std::shared_ptr<dlup::geometry::Point>& p) {
-        // Share the same C++ object, not creating a new one
-        return p;
-      }))
-      .def(py::init([](const dlup::geometry::Point& other) {
-        // Explicitly copy parameters when copying the polygon
-        auto newPoint = std::make_shared<dlup::geometry::Point>(*other.point_);
-        newPoint->parameters_ = other.parameters_;  // Copy the parameters
-        return newPoint;
-      }))
-      .def_property_readonly(
-          "coordinates", &dlup::geometry::Point::GetCoordinates,
-          "Get the coordinates of the point as an (x, y) tuple")
-      .def_property_readonly("x", &dlup::geometry::Point::GetX,
-                             "Get the X coordinate")
-      .def_property_readonly("y", &dlup::geometry::Point::GetY,
-                             "Get the Y coordinate")
-      .def("distance_to", &dlup::geometry::Point::DistanceTo, py::arg("other"),
+inline void DeclarePoint(nb::module_& m) {
+  nb::class_<dlup::geometry::Point, dlup::geometry::BaseGeometry>(m, "Point")
+      .def(nb::init<>())
+      .def(nb::init<const dlup::geometry::BoostPoint&>())
+      .def(nb::init<double, double>())
+      .def("__init__",
+           [](dlup::geometry::Point* self,
+              const std::shared_ptr<dlup::geometry::Point>& p) {
+             // Copy parameters from the existing object so the wrapping Python
+             // class observes the same fields.
+             new (self) dlup::geometry::Point(*p->point_);
+             self->parameters_ = p->parameters_;
+           })
+      .def("__init__",
+           [](dlup::geometry::Point* self, const dlup::geometry::Point& other) {
+             new (self) dlup::geometry::Point(*other.point_);
+             self->parameters_ = other.parameters_;
+           })
+      .def_prop_ro("coordinates", &dlup::geometry::Point::GetCoordinates,
+                   "Get the coordinates of the point as an (x, y) tuple")
+      .def_prop_ro("x", &dlup::geometry::Point::GetX, "Get the X coordinate")
+      .def_prop_ro("y", &dlup::geometry::Point::GetY, "Get the Y coordinate")
+      .def("distance_to", &dlup::geometry::Point::DistanceTo, nb::arg("other"),
            "Calculate the distance to another point")
-      .def("equals", &dlup::geometry::Point::Equals, py::arg("other"),
+      .def("equals", &dlup::geometry::Point::Equals, nb::arg("other"),
            "Check if the point is equal to another point")
-      .def("within", &dlup::geometry::Point::Within, py::arg("polygon"),
+      .def("within", &dlup::geometry::Point::Within, nb::arg("polygon"),
            "Check if the point is within a polygon")
-      .def("scale", &dlup::geometry::Point::Scale, py::arg("scaling"),
+      .def("scale", &dlup::geometry::Point::Scale, nb::arg("scaling"),
            "Scale the point in-place point by a factor")
-      .def_property_readonly("wkt", &dlup::geometry::Point::ToWkt,
-                             "Get the WKT representation of the point");
+      .def_prop_ro("wkt", &dlup::geometry::Point::ToWkt,
+                   "Get the WKT representation of the point");
 }
 
-inline void DeclarePolygon(py::module& m) {
-  py::class_<dlup::geometry::Polygon, dlup::geometry::BaseGeometry,
-             std::shared_ptr<dlup::geometry::Polygon>>(m, "Polygon")
-      .def(py::init<>())
-      .def(py::init<const dlup::geometry::BoostPolygon&>())
-      .def(py::init<
+inline void DeclarePolygon(nb::module_& m) {
+  nb::class_<dlup::geometry::Polygon, dlup::geometry::BaseGeometry>(m,
+                                                                    "Polygon")
+      .def(nb::init<>())
+      .def(nb::init<const dlup::geometry::BoostPolygon&>())
+      .def(nb::init<
            const std::vector<std::pair<double, double>>&,
            const std::vector<std::vector<std::pair<double, double>>>&>())
-      .def(py::init([](const std::shared_ptr<dlup::geometry::Polygon>& p) {
-        // Share the same C++ object, not creating a new one
-        return p;
-      }))
-      .def(py::init([](const dlup::geometry::Polygon& other) {
-        // Explicitly copy parameters when copying the polygon
-        auto new_polygon =
-            std::make_shared<dlup::geometry::Polygon>(*other.polygon_);
-        new_polygon->parameters_ = other.parameters_;  // Copy the parameters
-        return new_polygon;
-      }))
+      .def("__init__",
+           [](dlup::geometry::Polygon* self,
+              const std::shared_ptr<dlup::geometry::Polygon>& p) {
+             new (self) dlup::geometry::Polygon(*p->polygon_);
+             self->parameters_ = p->parameters_;
+           })
+      .def("__init__",
+           [](dlup::geometry::Polygon* self,
+              const dlup::geometry::Polygon& other) {
+             new (self) dlup::geometry::Polygon(*other.polygon_);
+             self->parameters_ = other.parameters_;
+           })
       .def("set_exterior", &dlup::geometry::Polygon::SetExterior)
       .def("set_interiors", &dlup::geometry::Polygon::SetInteriors)
       .def("get_exterior", &dlup::geometry::Polygon::GetExterior)
       .def("get_exterior_iterator",
            [](dlup::geometry::Polygon& self) {
-             return py::make_iterator(self.GetExteriorAsIterator().begin(),
+             return nb::make_iterator(nb::type<dlup::geometry::Polygon>(),
+                                      "exterior_iterator",
+                                      self.GetExteriorAsIterator().begin(),
                                       self.GetExteriorAsIterator().end());
            })
       .def("get_interiors_iterator",
            [](dlup::geometry::Polygon& self) {
-             return py::make_iterator(self.GetInteriorAsIterator().begin(),
+             return nb::make_iterator(nb::type<dlup::geometry::Polygon>(),
+                                      "interiors_iterator",
+                                      self.GetInteriorAsIterator().begin(),
                                       self.GetInteriorAsIterator().end());
            })
-      .def("scale", &dlup::geometry::Polygon::Scale, py::arg("scaling"))
+      .def("scale", &dlup::geometry::Polygon::Scale, nb::arg("scaling"))
       .def("get_interiors", &dlup::geometry::Polygon::GetInteriors)
       .def("correct_orientation", &dlup::geometry::Polygon::CorrectIfNeeded)
       .def("simplify", &dlup::geometry::Polygon::SimplifyPolygon)
-      .def("contains", &dlup::geometry::Polygon::Contains, py::arg("other"),
+      .def("contains", &dlup::geometry::Polygon::Contains, nb::arg("other"),
            "Check if the polygon fully contains another polygon. Does not "
            "check if the fields are equal")
       .def("make_valid", &dlup::geometry::Polygon::MakeValid,
            "Make the polygon valid by removing self-intersections and "
            "duplicate points")
-      .def("equals", &dlup::geometry::Polygon::Equals, py::arg("other"),
+      .def("equals", &dlup::geometry::Polygon::Equals, nb::arg("other"),
            "Check if the polygon is equal to another polygon. Checks if the "
            "fields are equal.")
-      .def_property_readonly("wkt", &dlup::geometry::Polygon::ToWkt)
-      .def_property_readonly("is_valid", &dlup::geometry::Polygon::IsValid)
-      .def_property_readonly("area", &dlup::geometry::Polygon::GetArea)
-      .def_property_readonly("bounding_box",
-                             &dlup::geometry::Polygon::GetBoundingBox);
+      .def_prop_ro("wkt", &dlup::geometry::Polygon::ToWkt)
+      .def_prop_ro("is_valid", &dlup::geometry::Polygon::IsValid)
+      .def_prop_ro("area", &dlup::geometry::Polygon::GetArea)
+      .def_prop_ro("bounding_box", &dlup::geometry::Polygon::GetBoundingBox);
 }
 
-void DeclareCollection(py::module& m) {
-  py::class_<dlup::geometry::GeometryCollection,
-             std::shared_ptr<dlup::geometry::GeometryCollection>>(
-      m, "GeometryCollection")
-      .def(py::init<>())
-      .def(py::pickle(
-          [](const dlup::geometry::GeometryCollection& collection) {
-            // Serialize into a dictionary-like Python object
-            py::dict state;
-            state["polygons"] = collection.GetPolygons();
-            state["points"] = collection.GetPoints();
-            state["boxes"] = collection.GetBoxes();
-            state["rois"] = collection.GetRois();
-            state["rtree_invalidated"] = collection.IsRTreeInvalidated();
-            return state;
-          },
-          [](py::dict state) {
-            bool was_rtree_invalidated =
-                state["rtree_invalidated"].cast<bool>();
-            auto collection =
-                std::make_shared<dlup::geometry::GeometryCollection>();
+void DeclareCollection(nb::module_& m) {
+  using GeometryCollection = dlup::geometry::GeometryCollection;
+  using PolygonPtr = std::shared_ptr<dlup::geometry::Polygon>;
+  using BoxPtr = std::shared_ptr<dlup::geometry::Box>;
+  using PointPtr = std::shared_ptr<dlup::geometry::Point>;
 
-            for (const auto& polygon :
-                 state["polygons"]
-                     .cast<std::vector<
-                         std::shared_ptr<dlup::geometry::Polygon>>>())
-              collection->AddPolygon(polygon);
-            for (const auto& point :
-                 state["points"]
-                     .cast<
-                         std::vector<std::shared_ptr<dlup::geometry::Point>>>())
-              collection->AddPoint(point);
-            for (const auto& box :
-                 state["boxes"]
-                     .cast<std::vector<std::shared_ptr<dlup::geometry::Box>>>())
-              collection->AddBox(box);
-            for (const auto& roi :
-                 state["rois"]
-                     .cast<std::vector<
-                         std::shared_ptr<dlup::geometry::Polygon>>>())
-              collection->AddRoi(roi);
+  nb::class_<GeometryCollection>(m, "GeometryCollection")
+      .def(nb::init<>())
+      .def("__getstate__",
+           [](const GeometryCollection& collection) {
+             nb::dict state;
+             state["polygons"] = collection.GetPolygons();
+             state["points"] = collection.GetPoints();
+             state["boxes"] = collection.GetBoxes();
+             state["rois"] = collection.GetRois();
+             state["rtree_invalidated"] = collection.IsRTreeInvalidated();
+             return state;
+           })
+      .def("__setstate__",
+           [](GeometryCollection& self, const nb::dict& state) {
+             new (&self) GeometryCollection();
 
-            if (!was_rtree_invalidated) {
-              collection->RebuildRTree();
-            }
+             const bool was_rtree_invalidated =
+                 nb::cast<bool>(state["rtree_invalidated"]);
 
-            return collection;
-          }))
+             for (const auto& polygon :
+                  nb::cast<std::vector<PolygonPtr>>(state["polygons"])) {
+               self.AddPolygon(polygon);
+             }
+             for (const auto& point :
+                  nb::cast<std::vector<PointPtr>>(state["points"])) {
+               self.AddPoint(point);
+             }
+             for (const auto& box :
+                  nb::cast<std::vector<BoxPtr>>(state["boxes"])) {
+               self.AddBox(box);
+             }
+             for (const auto& roi :
+                  nb::cast<std::vector<PolygonPtr>>(state["rois"])) {
+               self.AddRoi(roi);
+             }
 
-      .def("add_polygon", &dlup::geometry::GeometryCollection::AddPolygon)
-      .def("add_roi", &dlup::geometry::GeometryCollection::AddRoi)
-      .def("add_point", &dlup::geometry::GeometryCollection::AddPoint)
-      .def("add_box", &dlup::geometry::GeometryCollection::AddBox)
-      .def_property_readonly("num_polygons",
-                             &dlup::geometry::GeometryCollection::NumPolygons)
-      .def_property_readonly("num_rois",
-                             &dlup::geometry::GeometryCollection::NumRois)
-      .def_property_readonly("num_points",
-                             &dlup::geometry::GeometryCollection::NumPoints)
-      .def_property_readonly("num_boxes",
-                             &dlup::geometry::GeometryCollection::NumBoxes)
-      .def_property_readonly("has_rois",
-                             &dlup::geometry::GeometryCollection::HasRois)
+             if (!was_rtree_invalidated) {
+               self.RebuildRTree();
+             }
+           })
 
-      // Overload remove_polygon to handle both object and index
+      .def("add_polygon", &GeometryCollection::AddPolygon)
+      .def("add_roi", &GeometryCollection::AddRoi)
+      .def("add_point", &GeometryCollection::AddPoint)
+      .def("add_box", &GeometryCollection::AddBox)
+      .def_prop_ro("num_polygons", &GeometryCollection::NumPolygons)
+      .def_prop_ro("num_rois", &GeometryCollection::NumRois)
+      .def_prop_ro("num_points", &GeometryCollection::NumPoints)
+      .def_prop_ro("num_boxes", &GeometryCollection::NumBoxes)
+      .def_prop_ro("has_rois", &GeometryCollection::HasRois)
+
+      // Overloads dispatched explicitly via member function pointer casts since
+      // nanobind has no overload_cast helper.
       .def("remove_polygon",
-           py::overload_cast<const std::shared_ptr<dlup::geometry::Polygon>&>(
-               &dlup::geometry::GeometryCollection::RemovePolygon),
+           static_cast<void (GeometryCollection::*)(const PolygonPtr&)>(
+               &GeometryCollection::RemovePolygon),
            "Remove a polygon by passing the Polygon object")
       .def("remove_polygon",
-           py::overload_cast<size_t>(
-               &dlup::geometry::GeometryCollection::RemovePolygon),
+           static_cast<void (GeometryCollection::*)(size_t)>(
+               &GeometryCollection::RemovePolygon),
            "Remove a polygon by its index")
       .def("remove_box",
-           py::overload_cast<const std::shared_ptr<dlup::geometry::Box>&>(
-               &dlup::geometry::GeometryCollection::RemoveBox),
+           static_cast<void (GeometryCollection::*)(const BoxPtr&)>(
+               &GeometryCollection::RemoveBox),
            "Remove a box by passing the Box object")
       .def("remove_box",
-           py::overload_cast<size_t>(
-               &dlup::geometry::GeometryCollection::RemoveBox),
+           static_cast<void (GeometryCollection::*)(size_t)>(
+               &GeometryCollection::RemoveBox),
            "Remove a box by its index")
       .def("remove_roi",
-           py::overload_cast<const std::shared_ptr<dlup::geometry::Polygon>&>(
-               &dlup::geometry::GeometryCollection::RemoveRoi),
+           static_cast<void (GeometryCollection::*)(const PolygonPtr&)>(
+               &GeometryCollection::RemoveRoi),
            "Remove an ROI by passing the ROI object")
       .def("remove_roi",
-           py::overload_cast<size_t>(
-               &dlup::geometry::GeometryCollection::RemoveRoi),
+           static_cast<void (GeometryCollection::*)(size_t)>(
+               &GeometryCollection::RemoveRoi),
            "Remove an ROI by its index")
-      .def("reindex_polygons",
-           &dlup::geometry::GeometryCollection::ReindexPolygons)
+      .def("reindex_polygons", &GeometryCollection::ReindexPolygons)
       .def(
           "sort_polygons",
-          [](dlup::geometry::GeometryCollection& self,
-             const py::function& key_func, bool reverse) {
+          [](GeometryCollection& self, const nb::callable& key_func,
+             bool reverse) {
             self.SortPolygons([&key_func, reverse](const auto& a,
                                                    const auto& b) {
-              py::object key_a = key_func(a);
-              py::object key_b = key_func(b);
+              nb::object key_a = key_func(a);
+              nb::object key_b = key_func(b);
 
-              if (py::isinstance<py::str>(key_a) &&
-                  py::isinstance<py::str>(key_b)) {
-                return reverse ? (key_a.cast<std::string>() >
-                                  key_b.cast<std::string>())
-                               : (key_a.cast<std::string>() <
-                                  key_b.cast<std::string>());
-              } else if (py::isinstance<py::float_>(key_a) &&
-                         py::isinstance<py::float_>(key_b)) {
-                return reverse ? (key_a.cast<double>() > key_b.cast<double>())
-                               : (key_a.cast<double>() < key_b.cast<double>());
-              } else if (py::isinstance<py::int_>(key_a) &&
-                         py::isinstance<py::int_>(key_b)) {
-                return reverse ? (key_a.cast<int>() > key_b.cast<int>())
-                               : (key_a.cast<int>() < key_b.cast<int>());
-              } else if (py::isinstance<py::none>(key_a) &&
-                         py::isinstance<py::none>(key_b)) {
+              if (nb::isinstance<nb::str>(key_a) &&
+                  nb::isinstance<nb::str>(key_b)) {
+                return reverse ? (nb::cast<std::string>(key_a) >
+                                  nb::cast<std::string>(key_b))
+                               : (nb::cast<std::string>(key_a) <
+                                  nb::cast<std::string>(key_b));
+              } else if (nb::isinstance<nb::float_>(key_a) &&
+                         nb::isinstance<nb::float_>(key_b)) {
+                return reverse
+                           ? (nb::cast<double>(key_a) > nb::cast<double>(key_b))
+                           : (nb::cast<double>(key_a) <
+                              nb::cast<double>(key_b));
+              } else if (nb::isinstance<nb::int_>(key_a) &&
+                         nb::isinstance<nb::int_>(key_b)) {
+                return reverse ? (nb::cast<int>(key_a) > nb::cast<int>(key_b))
+                               : (nb::cast<int>(key_a) < nb::cast<int>(key_b));
+              } else if (key_a.is_none() && key_b.is_none()) {
                 return false;
               } else {
                 throw std::invalid_argument(
@@ -251,94 +260,84 @@ void DeclareCollection(py::module& m) {
             });
           },
           "Sort polygons by a custom key function")
-      .def("simplify_polygons",
-           &dlup::geometry::GeometryCollection::SimplifyPolygons)
-      .def("__len__", &dlup::geometry::GeometryCollection::Size)
+      .def("simplify_polygons", &GeometryCollection::SimplifyPolygons)
+      .def("__len__", &GeometryCollection::Size)
 
-      // Overload remove_point to handle both object and index
       .def("remove_point",
-           py::overload_cast<const std::shared_ptr<dlup::geometry::Point>&>(
-               &dlup::geometry::GeometryCollection::RemovePoint),
+           static_cast<void (GeometryCollection::*)(const PointPtr&)>(
+               &GeometryCollection::RemovePoint),
            "Remove a point by passing the Point object")
       .def("remove_point",
-           py::overload_cast<size_t>(
-               &dlup::geometry::GeometryCollection::RemovePoint),
+           static_cast<void (GeometryCollection::*)(size_t)>(
+               &GeometryCollection::RemovePoint),
            "Remove a point by its index")
-      .def("read_region", &dlup::geometry::GeometryCollection::ReadRegion)
-      .def("rebuild_rtree", &dlup::geometry::GeometryCollection::RebuildRTree,
+      .def("read_region", &GeometryCollection::ReadRegion)
+      .def("rebuild_rtree", &GeometryCollection::RebuildRTree,
            "Rebuild the R-tree index manually")
-      .def("scale", &dlup::geometry::GeometryCollection::Scale,
+      .def("scale", &GeometryCollection::Scale,
            "Scale all geometries by a factor")
-      .def("set_offset", &dlup::geometry::GeometryCollection::SetOffset,
+      .def("set_offset", &GeometryCollection::SetOffset,
            "Set an offset for all geometries")
-      .def_property_readonly(
-          "rtree_invalidated",
-          &dlup::geometry::GeometryCollection::IsRTreeInvalidated)
-      .def_property_readonly("pointer_id",
-                             &dlup::geometry::GeometryCollection::GetPointerId)
-      .def_property_readonly(
-          "bounding_box",
-          &dlup::geometry::GeometryCollection::ComputeBoundingBox)
-      .def_property_readonly(
+      .def_prop_ro("rtree_invalidated", &GeometryCollection::IsRTreeInvalidated)
+      .def_prop_ro("pointer_id", &GeometryCollection::GetPointerId)
+      .def_prop_ro("bounding_box", &GeometryCollection::ComputeBoundingBox)
+      .def_prop_ro(
           "polygons",
-          [](dlup::geometry::GeometryCollection& self) {
-            py::list py_polygons;
+          [](GeometryCollection& self) {
+            nb::list py_polygons;
             for (const auto& polygon : self.GetPolygons()) {
-              py::object processed_polygon =
+              nb::object processed_polygon =
                   FactoryManager<dlup::geometry::Polygon>::CallFactoryFunction(
                       polygon);
               py_polygons.append(processed_polygon);
             }
             return py_polygons;
           })
-      .def_property_readonly(
+      .def_prop_ro(
           "rois",
-          [](dlup::geometry::GeometryCollection& self) {
-            py::list py_rois;
+          [](GeometryCollection& self) {
+            nb::list py_rois;
             for (const auto& roi : self.GetRois()) {
-              py::object processed_roi =
+              nb::object processed_roi =
                   FactoryManager<dlup::geometry::Polygon>::CallFactoryFunction(
                       roi);
               py_rois.append(processed_roi);
             }
             return py_rois;
           })
-      .def_property_readonly(
+      .def_prop_ro(
           "points",
-          [](dlup::geometry::GeometryCollection& self) {
-            py::list py_points;
+          [](GeometryCollection& self) {
+            nb::list py_points;
             for (const auto& point : self.GetPoints()) {
-              py::object processed_point =
+              nb::object processed_point =
                   FactoryManager<dlup::geometry::Point>::CallFactoryFunction(
                       point);
               py_points.append(processed_point);
             }
             return py_points;
           })
-      .def_property_readonly(
+      .def_prop_ro(
           "boxes",
-          [](dlup::geometry::GeometryCollection& self) {
-            py::list py_boxes;
+          [](GeometryCollection& self) {
+            nb::list py_boxes;
             for (const auto& box : self.GetBoxes()) {
-              py::object processed_box =
+              nb::object processed_box =
                   FactoryManager<dlup::geometry::Box>::CallFactoryFunction(box);
               py_boxes.append(processed_box);
             }
             return py_boxes;
           })
-      .def_property_readonly("index_map",
-                             &dlup::geometry::GeometryCollection::GetIndexMap);
+      .def_prop_ro("index_map", &GeometryCollection::GetIndexMap);
 }
 
-void DeclarePolygonCollection(py::module& m) {
-  py::class_<dlup::geometry::PolygonCollection,
-             std::shared_ptr<dlup::geometry::PolygonCollection>>(
-      m, "PolygonCollection")
+void DeclarePolygonCollection(nb::module_& m) {
+  nb::class_<dlup::geometry::PolygonCollection>(m, "PolygonCollection")
       .def("get_geometries",
            [](dlup::geometry::PolygonCollection& self) {
-             py::list py_polygons;
+             nb::list py_polygons;
              for (const auto& polygon : self.GetGeometries()) {
-               py::object processed_polygon =
+               nb::object processed_polygon =
                    FactoryManager<dlup::geometry::Polygon>::CallFactoryFunction(
                        polygon);
                py_polygons.append(processed_polygon);
@@ -346,23 +345,38 @@ void DeclarePolygonCollection(py::module& m) {
              return py_polygons;
            })
       .def("to_mask", &dlup::geometry::PolygonCollection::ToMask,
-           py::arg("default_value") = 0);
+           nb::arg("default_value") = 0);
 }
 
-inline void DeclareBaseGeometry(py::module& m) {
-  py::class_<dlup::geometry::BaseGeometry,
-             std::shared_ptr<dlup::geometry::BaseGeometry>>(m, "BaseGeometry")
-      .def("set_field", &dlup::geometry::BaseGeometry::SetField)
+inline void DeclareBaseGeometry(nb::module_& m) {
+  nb::class_<dlup::geometry::BaseGeometry>(m, "BaseGeometry")
+      .def(
+          "set_field",
+          [](dlup::geometry::BaseGeometry& self, const std::string& name,
+             nb::object value) {
+            // ``None`` clears the slot via the ``std::monostate`` alternative.
+            if (value.is_none()) {
+              self.SetField(name, std::monostate{});
+              return;
+            }
+            FieldType field_value;
+            if (!nb::try_cast<FieldType>(value, field_value)) {
+              throw nb::type_error(
+                  "set_field: value type is not supported by FieldType");
+            }
+            self.SetField(name, std::move(field_value));
+          },
+          nb::arg("name"), nb::arg("value").none())
       .def(
           "get_field",
           [](dlup::geometry::BaseGeometry& self,
-             const std::string& name) -> py::object {
+             const std::string& name) -> nb::object {
             auto field = self.GetField(name);
             if (!field) {
-              return py::none();
+              return nb::none();
             }
             return std::visit(
-                [](const auto& value) -> py::object { return py::cast(value); },
+                [](const auto& value) -> nb::object { return nb::cast(value); },
                 *field);
           })
       .def(
@@ -390,73 +404,81 @@ inline void DeclareBaseGeometry(py::module& m) {
             }
           },
           "Create a deep copy of the geometry")
-      .def_property_readonly("fields", &dlup::geometry::BaseGeometry::GetFields)
-      .def_property_readonly("pointer_id",
-                             &dlup::geometry::BaseGeometry::GetPointerId);
+      .def_prop_ro("fields", &dlup::geometry::BaseGeometry::GetFields)
+      .def_prop_ro("pointer_id", &dlup::geometry::BaseGeometry::GetPointerId);
 }
 
-inline void DeclareBox(py::module& m) {
-  py::class_<dlup::geometry::Box, dlup::geometry::BaseGeometry,
-             std::shared_ptr<dlup::geometry::Box>>(m, "Box")
-      .def(py::init<>())
-      .def(py::init<const dlup::geometry::BoostBox&>())
-      .def(py::init<const std::array<double, 2>&,
+inline void DeclareBox(nb::module_& m) {
+  nb::class_<dlup::geometry::Box, dlup::geometry::BaseGeometry>(m, "Box")
+      .def(nb::init<>())
+      .def(nb::init<const dlup::geometry::BoostBox&>())
+      .def(nb::init<const std::array<double, 2>&,
                     const std::array<double, 2>&>())
-      .def(py::init(
-          [](const std::shared_ptr<dlup::geometry::Box>& p) { return p; }))
-      .def(py::init([](const dlup::geometry::Box& other) {
-        auto newBox = std::make_shared<dlup::geometry::Box>(*other.box_);
-        newBox->parameters_ = other.parameters_;
-        return newBox;
-      }))
+      .def("__init__",
+           [](dlup::geometry::Box* self,
+              const std::shared_ptr<dlup::geometry::Box>& p) {
+             new (self) dlup::geometry::Box(*p->box_);
+             self->parameters_ = p->parameters_;
+           })
+      .def("__init__",
+           [](dlup::geometry::Box* self, const dlup::geometry::Box& other) {
+             new (self) dlup::geometry::Box(*other.box_);
+             self->parameters_ = other.parameters_;
+           })
       .def(
           "as_polygon",
           [](const dlup::geometry::Box& box) {
-            auto polygon = box.AsPolygon();  // Call the AsPolygon method
+            auto polygon = box.AsPolygon();
             return FactoryManager<dlup::geometry::Polygon>::CallFactoryFunction(
-                polygon);  // Apply the FactoryManager logic
+                polygon);
           },
           "Convert the box to a polygon")
-      .def("scale", &dlup::geometry::Box::Scale, py::arg("scaling"),
+      .def("scale", &dlup::geometry::Box::Scale, nb::arg("scaling"),
            "Scale the box in-place by a factor")
-      .def_property_readonly(
+      .def_prop_ro(
           "coordinates",
           [](const dlup::geometry::Box& self) {
             auto coords = self.GetCoordinates();
-            return py::make_tuple(coords[0], coords[1]);
+            return nb::make_tuple(coords[0], coords[1]);
           },
           "Get the top-left coordinates of the box as an (x, y) tuple")
-      .def_property_readonly(
+      .def_prop_ro(
           "size",
           [](const dlup::geometry::Box& self) {
             auto size = self.GetSize();
-            return py::make_tuple(size[0], size[1]);
+            return nb::make_tuple(size[0], size[1]);
           },
           "Get the size of the box as an (h, w) tuple")
-      .def_property_readonly("area", &dlup::geometry::Box::GetArea)
-      .def_property_readonly("wkt", &dlup::geometry::Box::ToWkt,
-                             "Get the WKT representation of the box");
+      .def_prop_ro("area", &dlup::geometry::Box::GetArea)
+      .def_prop_ro("wkt", &dlup::geometry::Box::ToWkt,
+                   "Get the WKT representation of the box");
 }
 
 template <typename T>
-void DeclareLazyArray(py::module& m, const std::string& type_name) {
-  py::class_<LazyArray<T>>(m, type_name.c_str())
-      .def(py::init<typename LazyArray<T>::ComputeFunction,
+void DeclareLazyArray(nb::module_& m, const std::string& type_name) {
+  nb::class_<LazyArray<T>>(m, type_name.c_str())
+      .def(nb::init<typename LazyArray<T>::ComputeFunction,
                     std::vector<std::size_t>>())
       .def("numpy",
-           [](const LazyArray<T>& arr) -> py::array_t<T> {
+           [](const LazyArray<T>& arr) {
              const auto& data = arr.data();
              const auto& shape = arr.shape();
 
-             // Create a NumPy array that owns its data
-             auto result = py::array_t<T>(
-                 std::vector<py::ssize_t>(shape.begin(), shape.end()));
+             // Allocate a buffer that the returned numpy array will own via a
+             // capsule. We avoid sharing storage with the LazyArray's internal
+             // vector because the latter is `mutable` and may be invalidated
+             // by future calls; the capsule keeps the lifetime independent.
+             auto* buffer = new T[data.size()];
+             std::copy(data.begin(), data.end(), buffer);
 
-             // Copy the data from vector to the NumPy array
-             auto result_data = result.mutable_data();
-             std::copy(data.begin(), data.end(), result_data);
+             nb::capsule owner(buffer, [](void* ptr) noexcept {
+               delete[] static_cast<T*>(ptr);
+             });
 
-             return result;
+             // Cast shape (size_t) into the size type expected by ndarray
+             // (size_t already matches the constructor signature).
+             return nb::ndarray<nb::numpy, T>(buffer, shape.size(),
+                                              shape.data(), owner);
            })
       .def("shape", &LazyArray<T>::shape)
       .def("__repr__", [](const LazyArray<T>&) {
@@ -464,24 +486,21 @@ void DeclareLazyArray(py::module& m, const std::string& type_name) {
       });
 }
 
-void DeclareRegion(py::module& m) {
-  py::class_<dlup::geometry::AnnotationRegion,
-             std::shared_ptr<dlup::geometry::AnnotationRegion>>(
-      m, "AnnotationRegion")
-      .def(py::init<std::function<dlup::geometry::AnnotationRegion()>, bool>())
-      .def(py::init<std::vector<std::shared_ptr<dlup::geometry::Polygon>>,
+void DeclareRegion(nb::module_& m) {
+  nb::class_<dlup::geometry::AnnotationRegion>(m, "AnnotationRegion")
+      .def(nb::init<std::function<dlup::geometry::AnnotationRegion()>, bool>())
+      .def(nb::init<std::vector<std::shared_ptr<dlup::geometry::Polygon>>,
                     std::vector<std::shared_ptr<dlup::geometry::Polygon>>,
                     std::vector<std::shared_ptr<dlup::geometry::Box>>,
                     std::vector<std::shared_ptr<dlup::geometry::Point>>,
                     std::tuple<int, int>, bool>())
-      .def_property_readonly("polygons",
-                             &dlup::geometry::AnnotationRegion::GetPolygons)
-      .def_property_readonly("rois", &dlup::geometry::AnnotationRegion::GetRois)
-      .def_property_readonly(
+      .def_prop_ro("polygons", &dlup::geometry::AnnotationRegion::GetPolygons)
+      .def_prop_ro("rois", &dlup::geometry::AnnotationRegion::GetRois)
+      .def_prop_ro(
           "boxes",
           [](dlup::geometry::AnnotationRegion& self) {
             auto boxes = self.GetBoxes();
-            py::list py_boxes;
+            nb::list py_boxes;
             for (const auto& box : boxes) {
               py_boxes.append(
                   FactoryManager<dlup::geometry::Box>::CallFactoryFunction(
@@ -489,12 +508,11 @@ void DeclareRegion(py::module& m) {
             }
             return py_boxes;
           })
-
-      .def_property_readonly(
+      .def_prop_ro(
           "points",
           [](dlup::geometry::AnnotationRegion& self) {
             auto points = self.GetPoints();
-            py::list py_points;
+            nb::list py_points;
             for (const auto& point : points) {
               py_points.append(
                   FactoryManager<dlup::geometry::Point>::CallFactoryFunction(
@@ -502,42 +520,28 @@ void DeclareRegion(py::module& m) {
             }
             return py_points;
           })
-      .def_property_readonly("has_rois",
-                             &dlup::geometry::AnnotationRegion::HasRois);
+      .def_prop_ro("has_rois", &dlup::geometry::AnnotationRegion::HasRois);
 }
 
 namespace {
 
-template <typename T, int Flags>
+// Accepts a 2D contiguous CPU view of any supported dtype and dispatches to
+// FindContours via an aifocore NDArrayView. The view is non-owning; only the
+// non-double conversion path materialises a temporary buffer.
+template <typename T>
 std::vector<std::shared_ptr<dlup::geometry::Polygon>> ProcessArrayForContours(
-    const py::array_t<T, Flags>& image_in, double level) {
-  auto image =
-      py::array_t<T, py::array::c_style | py::array::forcecast>::ensure(
-          image_in);
-  if (!image) {
-    throw std::invalid_argument(
-        "Input array could not be converted to the required format (C-style "
-        "contiguous).");
-  }
-  py::buffer_info buf_info = image.request();
+    nb::ndarray<const T, nb::ndim<2>, nb::c_contig, nb::device::cpu> image,
+    double level) {
+  const std::size_t height = image.shape(0);
+  const std::size_t width = image.shape(1);
 
-  if (buf_info.ndim != 2) {
-    throw std::invalid_argument("Input array must be 2-dimensional");
-  }
-
-  const std::size_t height = static_cast<std::size_t>(buf_info.shape[0]);
-  const std::size_t width = static_cast<std::size_t>(buf_info.shape[1]);
-
-  // Array is guaranteed to be C-contiguous due to py::array::c_style
   if constexpr (std::is_same_v<T, double>) {
     aifocore::math::NDArrayView<double, 2> ndarray_view(
-        static_cast<double*>(buf_info.ptr), {height, width});
+        const_cast<double*>(image.data()), {height, width});
     return dlup::geometry::FindContours(ndarray_view, level);
   } else {
     std::vector<double> converted_data(height * width);
-    const T* src = static_cast<T*>(buf_info.ptr);
-
-    // Safe to iterate linearly since array is C-contiguous
+    const T* src = image.data();
     for (std::size_t i = 0; i < height * width; ++i) {
       converted_data[i] = static_cast<double>(src[i]);
     }
@@ -548,31 +552,54 @@ std::vector<std::shared_ptr<dlup::geometry::Polygon>> ProcessArrayForContours(
   }
 }
 
-py::list FindContoursPython(const py::array& image, double level) {
+nb::list FindContoursPython(const nb::object& image, double level) {
   std::vector<std::shared_ptr<dlup::geometry::Polygon>> contours;
 
-  if (py::isinstance<py::array_t<bool>>(image)) {
-    contours = ProcessArrayForContours(image.cast<py::array_t<bool>>(), level);
-  } else if (py::isinstance<py::array_t<uint8_t>>(image)) {
-    contours =
-        ProcessArrayForContours(image.cast<py::array_t<uint8_t>>(), level);
-  } else if (py::isinstance<py::array_t<int32_t>>(image)) {
-    contours =
-        ProcessArrayForContours(image.cast<py::array_t<int32_t>>(), level);
-  } else if (py::isinstance<py::array_t<float>>(image)) {
-    contours = ProcessArrayForContours(image.cast<py::array_t<float>>(), level);
-  } else if (py::isinstance<py::array_t<double>>(image)) {
-    contours =
-        ProcessArrayForContours(image.cast<py::array_t<double>>(), level);
+  // Use untyped ndarray to inspect the dtype, then forward to a typed view.
+  using AnyArray =
+      nb::ndarray<nb::ro, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
+  AnyArray any_array;
+  try {
+    any_array = nb::cast<AnyArray>(image);
+  } catch (const std::exception&) {
+    throw std::invalid_argument(
+        "Input array must be 2-dimensional and C-contiguous on the CPU");
+  }
+
+  const auto dtype = any_array.dtype();
+  if (dtype == nb::dtype<bool>()) {
+    contours = ProcessArrayForContours<bool>(
+        nb::cast<nb::ndarray<const bool, nb::ndim<2>, nb::c_contig,
+                             nb::device::cpu>>(image),
+        level);
+  } else if (dtype == nb::dtype<uint8_t>()) {
+    contours = ProcessArrayForContours<uint8_t>(
+        nb::cast<nb::ndarray<const uint8_t, nb::ndim<2>, nb::c_contig,
+                             nb::device::cpu>>(image),
+        level);
+  } else if (dtype == nb::dtype<int32_t>()) {
+    contours = ProcessArrayForContours<int32_t>(
+        nb::cast<nb::ndarray<const int32_t, nb::ndim<2>, nb::c_contig,
+                             nb::device::cpu>>(image),
+        level);
+  } else if (dtype == nb::dtype<float>()) {
+    contours = ProcessArrayForContours<float>(
+        nb::cast<nb::ndarray<const float, nb::ndim<2>, nb::c_contig,
+                             nb::device::cpu>>(image),
+        level);
+  } else if (dtype == nb::dtype<double>()) {
+    contours = ProcessArrayForContours<double>(
+        nb::cast<nb::ndarray<const double, nb::ndim<2>, nb::c_contig,
+                             nb::device::cpu>>(image),
+        level);
   } else {
     throw std::invalid_argument(
         "Input array must be of type bool, uint8, int32, float32, or float64");
   }
 
-  // Apply factory pattern to convert to Python Polygon objects
-  py::list result;
+  nb::list result;
   for (const auto& polygon : contours) {
-    py::object py_polygon =
+    nb::object py_polygon =
         FactoryManager<dlup::geometry::Polygon>::CallFactoryFunction(polygon);
     result.append(py_polygon);
   }
@@ -582,7 +609,7 @@ py::list FindContoursPython(const py::array& image, double level) {
 
 }  // namespace
 
-PYBIND11_MODULE(_geometry, m) {
+NB_MODULE(_geometry, m) {
   DeclareBaseGeometry(m);
   DeclarePolygon(m);
   DeclareBox(m);
@@ -601,9 +628,8 @@ PYBIND11_MODULE(_geometry, m) {
   DeclarePolygonCollection(m);
   DeclareRegion(m);
 
-  // Marching squares
-  m.def("find_contours", &FindContoursPython, py::arg("image"),
-        py::arg("level") = 0.5,
+  m.def("find_contours", &FindContoursPython, nb::arg("image"),
+        nb::arg("level") = 0.5,
         R"pbdoc(
         Find iso-valued contours in a binary 2D array using marching squares.
 
@@ -655,15 +681,15 @@ PYBIND11_MODULE(_geometry, m) {
             <class 'dlup.geometry.Polygon'>
         )pbdoc");
 
-  py::register_exception<dlup::geometry::GeometryError>(m, "GeometryError");
-  py::register_exception<dlup::geometry::GeometryIntersectionError>(
+  nb::exception<dlup::geometry::GeometryError>(m, "GeometryError");
+  nb::exception<dlup::geometry::GeometryIntersectionError>(
       m, "GeometryIntersectionError");
-  py::register_exception<dlup::geometry::GeometryTransformationError>(
+  nb::exception<dlup::geometry::GeometryTransformationError>(
       m, "GeometryTransformationError");
-  py::register_exception<dlup::geometry::GeometryFactoryFunctionError>(
+  nb::exception<dlup::geometry::GeometryFactoryFunctionError>(
       m, "GeometryFactoryFunctionError");
-  py::register_exception<dlup::geometry::GeometryNotFoundError>(
-      m, "GeometryNotFoundError");
-  py::register_exception<dlup::geometry::GeometryCoordinatesError>(
+  nb::exception<dlup::geometry::GeometryNotFoundError>(m,
+                                                       "GeometryNotFoundError");
+  nb::exception<dlup::geometry::GeometryCoordinatesError>(
       m, "GeometryCoordinatesError");
 }
