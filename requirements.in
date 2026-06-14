@@ -7,6 +7,8 @@ pillow
 shapely
 tifffile
 xsdata
+fastslide==0.7.4
+fimage-python==0.1.2
 
 # OpenSlide backend. openslide-bin ships the prebuilt OpenSlide C library as a
 # wheel (Linux/macOS/Windows), so `import openslide` works in Bazel's sandbox
