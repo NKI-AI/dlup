@@ -18,7 +18,10 @@ from dlup.utils.imports import AIOHTTP_AVAILABLE, OPENSLIDE_AVAILABLE, TIFFFILE_
 
 if not OPENSLIDE_AVAILABLE:
     warnings.warn(
-        "Openslide is not available. OpenSlide backend will not be available. To install it, run `pip install openslide-python`."
+        "OpenSlide is not available. The OpenSlide backend will be disabled. This means either the "
+        "`openslide-python` wrapper is not installed or the native `libopenslide` library could not be "
+        "loaded. To enable it, install both with `pip install dlup[openslide]` (which pulls in the "
+        "prebuilt `openslide-bin`)."
     )
 else:
     from .openslide_backend import OpenSlideSlide as OpenSlideSlide  # noqa: F401

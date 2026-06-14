@@ -159,7 +159,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
       - name: Build sdist
         shell: bash
         run: uv build --sdist --out-dir artifacts/sdist
@@ -219,7 +219,7 @@ jobs:
         run: softwareupdate --install-rosetta --agree-to-license
       - name: Set up uv
         if: steps.gate.outputs.run == 'true'
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
       - name: Download wheels
         if: steps.gate.outputs.run == 'true'
         uses: actions/download-artifact@v6

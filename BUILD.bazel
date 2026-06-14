@@ -43,10 +43,16 @@ DLUP_VERSION = "0.9.2"
 # We intentionally avoid depending on Bazel `requirement(...)` targets here so
 # the wheel build can work across multiple Python versions without requiring a
 # per-Python locked wheel set in the repo.
+#
+# Keep this in sync with pyproject.toml: openslide is an OPTIONAL backend, so
+# openslide-python is NOT a hard dependency. It lives in the `openslide` extra
+# below alongside the prebuilt `openslide-bin` (which ships libopenslide). The
+# wheel built here (Linux/macOS, via Bazel) must expose the same `openslide`
+# extra as the meson-python wheel (Windows), so `pip install dlup[openslide]`
+# behaves identically on every platform.
 DLUP_WHEEL_REQUIRES = [
     "fastslide",
     "fimage-python",
-    "openslide-python",
     "numpy",
     "packaging",
     "pillow",
@@ -54,6 +60,19 @@ DLUP_WHEEL_REQUIRES = [
     "tifffile",
     "xsdata",
 ]
+
+# Optional dependency groups (PEP 508 extras), mirroring
+# pyproject.toml [project.optional-dependencies].
+DLUP_WHEEL_EXTRA_REQUIRES = {
+    "openslide": [
+        "openslide-python>=1.4",
+        "openslide-bin",
+    ],
+    "dev": [
+        "pytest>=7.0",
+        "pytest-mock",
+    ],
+}
 
 # Platform-specific compatibility - supports Linux, macOS, and Windows.
 COMPATIBLE_TARGETS = select({
@@ -261,6 +280,7 @@ multi_version_py_wheel(
     platform = WHEEL_PLATFORM,
     python_requires = ">=3.10",
     python_versions = PYTHON_VERSIONS,
+    extra_requires = DLUP_WHEEL_EXTRA_REQUIRES,
     requires = DLUP_WHEEL_REQUIRES,
     strip_path_prefixes = [],
     summary = "Deep Learning Utilities for Pathology",

@@ -34,10 +34,33 @@ def _module_available(module_path: str) -> bool:
         return False
 
 
+def _openslide_available() -> bool:
+    r"""Check whether the OpenSlide backend can actually be used.
+
+    Unlike a plain ``find_spec`` probe, this performs a real import: the
+    ``openslide-python`` wrapper ``dlopen``s the native ``libopenslide`` at
+    import time, so the wrapper package being present does not guarantee a
+    working backend. When the native library is missing the wrapper raises
+    ``OSError``/``ModuleNotFoundError`` on import, in which case the backend is
+    treated as unavailable rather than crashing every ``import dlup``.
+
+    Returns:
+        ``True`` only if ``import openslide`` succeeds (wrapper *and* native
+        library present), ``False`` otherwise.
+    """
+    if not _module_available("openslide"):
+        return False
+    try:
+        import openslide  # noqa: F401  # pylint: disable=import-outside-toplevel,unused-import
+    except (ImportError, OSError):
+        return False
+    return True
+
+
 PYTORCH_AVAILABLE = _module_available("pytorch")
 PYHALOXML_AVAILABLE = _module_available("pyhaloxml")
 DARWIN_SDK_AVAILABLE = _module_available("darwin")
 SHAPELY_AVAILABLE = _module_available("shapely")
-OPENSLIDE_AVAILABLE = _module_available("openslide")
+OPENSLIDE_AVAILABLE = _openslide_available()
 TIFFFILE_AVAILABLE = _module_available("tifffile")
 AIOHTTP_AVAILABLE = _module_available("aiohttp")
