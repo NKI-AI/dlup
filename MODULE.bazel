@@ -81,7 +81,7 @@ git_override(
 bazel_dep(name = "fimage", version = "0.1.2")
 git_override(
     module_name = "fimage",
-    commit = "136bfbe5ca6ce8cdd2557a5b2b068bc71a5bd866",
+    commit = "327dead92b02ed6292131d915aa0a0f439dcdd56",
     remote = "https://github.com/NKI-AI/fimage.git",
 )
 

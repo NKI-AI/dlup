@@ -13,9 +13,10 @@
 #   - smoke-wheels: install the freshly built wheel on the real target and run
 #     tools/smoke_test_python.py (import + geometry op) for every Python.
 #   - publish-pypi / publish-testpypi: upload via Trusted Publishing (OIDC).
-#
-# Like fimage and unlike fastslide, NO artifacts are attached to a GitHub
-# Release: PyPI is the sole distribution channel for dlup.
+#   - github-release: needs every build/smoke/publish job, so a release is only
+#     cut when all selected platforms succeed. Attaches the wheels + sdist (with
+#     SLSA build-provenance attestation), mirroring fastslide. PyPI remains the
+#     primary install channel; the GitHub Release is a secondary, signed mirror.
 #
 # NOTE: dlup depends on fastslide and fimage-python at runtime, so a full PyPI
 # release (and its smoke tests) requires both of those to already be published
@@ -158,7 +159,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
       - name: Build sdist
         shell: bash
         run: uv build --sdist --out-dir artifacts/sdist
@@ -218,7 +219,7 @@ jobs:
         run: softwareupdate --install-rosetta --agree-to-license
       - name: Set up uv
         if: steps.gate.outputs.run == 'true'
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
       - name: Download wheels
         if: steps.gate.outputs.run == 'true'
         uses: actions/download-artifact@v6
@@ -303,3 +304,69 @@ jobs:
           packages-dir: dist
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
+  github-release:
+    name: Publish GitHub Release
+    needs: [smoke-wheels, build-sdist, publish-pypi, publish-testpypi]
+    # publish-pypi / publish-testpypi are mutually exclusive, so one is always
+    # skipped. A skipped need is not success(), which would skip this job too;
+    # gate on "nothing failed/cancelled" instead so the skipped sibling is OK.
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # create the release
+      id-token: write # SLSA provenance signing
+      attestations: write # record the attestation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Download wheels
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts/wheels
+          pattern: "wheels-*"
+          merge-multiple: true
+      - name: Download sdist
+        uses: actions/download-artifact@v6
+        with:
+          name: sdist
+          path: artifacts/sdist
+      - name: List collected artifacts
+        shell: bash
+        run: |
+          echo "Wheels:"; ls -l artifacts/wheels
+          echo "Sdist:"; ls -l artifacts/sdist
+      - name: Generate build provenance attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            artifacts/wheels/*.whl
+            artifacts/sdist/*.tar.gz
+      # Full release -> tag == version, marked latest. Snapshot -> a prerelease
+      # tagged <version>-dev.<shortsha>. --clobber lets a re-run replace the
+      # assets on an existing tag (mirrors the publish steps' skip-existing).
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version *= *"\(.*\)"/\1/p' pyproject.toml | head -n1)"
+          if [ -z "$version" ]; then
+            echo "Could not read version from pyproject.toml" >&2
+            exit 1
+          fi
+          notes="dlup artifacts for \`${version}\`. Python wheels published to PyPI (also attached here), with the sdist as the source fallback."
+          if [[ "${{ inputs.release }}" == "true" ]]; then
+            tag="$version"
+            flags=(--latest --title "dlup $tag")
+          else
+            tag="${version}-dev.${GITHUB_SHA::7}"
+            flags=(--prerelease --title "dlup $tag")
+          fi
+          assets=(artifacts/wheels/*.whl artifacts/sdist/*.tar.gz)
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" \
+              "${flags[@]}" --notes "$notes" --generate-notes
+          fi
