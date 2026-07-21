@@ -1,5 +1,5 @@
 project('dlup', 'cpp',
-  version : '0.9.2',
+  version : '0.9.3',
   license : 'Apache-2.0',
   meson_version : '>=1.3',
   default_options : [

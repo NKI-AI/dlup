@@ -1,12 +1,12 @@
 # Runtime + test/example Python dependencies resolved into the @dlup_pip hub.
 
 # Runtime
-numpy
-packaging
-pillow
-shapely
-tifffile
-xsdata
+numpy==2.4.6
+packaging==26.2
+pillow==12.2.0
+shapely==2.1.2
+tifffile==2026.3.3
+xsdata==26.2
 fastslide==0.7.4
 fimage-python==0.1.2
 
@@ -26,4 +26,4 @@ pyhaloxml
 aiohttp
 
 # Examples
-matplotlib
+matplotlib==3.10.9
