@@ -37,7 +37,7 @@ pip_compile(
     tags = ["manual"],
 )
 
-DLUP_VERSION = "0.9.2"
+DLUP_VERSION = "0.9.3"
 
 # Runtime dependencies to be recorded in the wheel metadata (PEP 508).
 # We intentionally avoid depending on Bazel `requirement(...)` targets here so
@@ -274,13 +274,13 @@ multi_version_py_wheel(
     author_email = "j.teuwen@nki.nl",
     default_version = "3.11",
     distribution = "dlup",
+    extra_requires = DLUP_WHEEL_EXTRA_REQUIRES,
     homepage = "https://github.com/NKI-AI/dlup",
     license = "Apache-2.0",
     name_prefix = "dlup_wheel",
     platform = WHEEL_PLATFORM,
     python_requires = ">=3.10",
     python_versions = PYTHON_VERSIONS,
-    extra_requires = DLUP_WHEEL_EXTRA_REQUIRES,
     requires = DLUP_WHEEL_REQUIRES,
     strip_path_prefixes = [],
     summary = "Deep Learning Utilities for Pathology",

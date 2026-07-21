@@ -11,7 +11,7 @@ project = "DLUP"
 html_title = "DLUP Documentation"
 copyright = "2025, AI for Oncology"
 author = "AI for Oncology"
-release = "0.9.2"
+release = "0.9.3"
 version = "0.9"
 # -- General configuration ---------------------------------------------------
 extensions = [

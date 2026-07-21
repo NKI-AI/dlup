@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import functools
+import math
 
 import numpy as np
 import pytest
 from dlup import SlideAnnotations, SlideImage
+from dlup._background import get_foreground_indices_numpy
 from dlup._exceptions import DlupError
 from dlup.background import compute_masked_indices
 from dlup.data.dataset import _coords_to_region
@@ -147,3 +149,117 @@ class TestComputeMaskedIndices:
         regions = [MapSequence(functools.partial(_coords_to_region, tile_size, dlup_wsi.mpp), grid)]
         _regions = ConcatSequences(regions)
         return _regions, grid
+
+
+def _reference_foreground_indices(
+    image_width: int,
+    image_height: int,
+    slide_mpp: float,
+    mask: np.ndarray,
+    regions: np.ndarray,
+    threshold: float,
+) -> np.ndarray:
+    """Pure-Python mirror of ``get_foreground_indices_numpy``'s per-axis projection.
+
+    Each region (slide pixels at the region mpp) is projected onto the mask grid using an
+    independent scale factor per axis, then a tile counts as foreground when its mask sum strictly
+    exceeds ``threshold`` times the clipped area.
+    """
+    mask_height, mask_width = mask.shape
+    selected: list[int] = []
+    for idx, (x, y, w, h, mpp) in enumerate(regions):
+        scaling = slide_mpp / mpp
+        region_width = int(scaling * image_width)
+        region_height = int(scaling * image_height)
+
+        scale_x = mask_width / region_width
+        scale_y = mask_height / region_height
+
+        x1 = min(mask_width, math.floor(x * scale_x))
+        y1 = min(mask_height, math.floor(y * scale_y))
+        x2 = min(mask_width, math.ceil((x + w) * scale_x))
+        y2 = min(mask_height, math.ceil((y + h) * scale_y))
+
+        clipped_w = x2 - x1
+        clipped_h = y2 - y1
+        assert clipped_w > 0 and clipped_h > 0, f"region {idx} collapsed: {(x1, y1, x2, y2)}"
+
+        if mask[y1:y2, x1:x2].sum() > threshold * clipped_w * clipped_h:
+            selected.append(idx)
+    return np.asarray(selected, dtype=np.int64)
+
+
+def _run_numpy_kernel(
+    image_width: int,
+    image_height: int,
+    slide_mpp: float,
+    mask: np.ndarray,
+    regions: np.ndarray,
+    threshold: float,
+) -> np.ndarray:
+    foreground_indices = np.zeros(len(regions), dtype=np.int64)
+    count = get_foreground_indices_numpy(
+        image_width,
+        image_height,
+        slide_mpp,
+        mask,
+        np.asarray(regions, dtype=np.float64),
+        threshold,
+        foreground_indices,
+    )
+    return foreground_indices[:count]
+
+
+class TestForegroundProjection:
+    """Directly exercises the C++ projection kernel ``get_foreground_indices_numpy``."""
+
+    def test_edge_tiles_do_not_collapse(self):
+        """Regression: bottom/right OVERFLOW tiles must not project past the mask edge.
+
+        Uses the geometry of TCGA-F4-6807 (slide 108394x84468 at mpp 0.252, mask 1773x2276).
+        With the old single scale factor the bottom row projected to y1 == y2 == mask_height and
+        the kernel raised ``RuntimeError: Invalid region dimensions``.
+        """
+        image_width, image_height, slide_mpp = 108394, 84468, 0.252
+        mask = np.ones((1773, 2276), dtype=np.uint8)
+
+        # Slide at region mpp=1.0 is 27315x21285; these are the last-row / last-column tiles.
+        regions = np.asarray(
+            [
+                [0.0, 0.0, 224.0, 224.0, 1.0],
+                [0.0, 21280.0, 224.0, 224.0, 1.0],  # bottom edge, previously collapsed
+                [27104.0, 0.0, 224.0, 224.0, 1.0],  # right edge
+                [27104.0, 21280.0, 224.0, 224.0, 1.0],  # bottom-right corner
+            ],
+            dtype=np.float64,
+        )
+
+        result = _run_numpy_kernel(image_width, image_height, slide_mpp, mask, regions, threshold=0.0)
+        np.testing.assert_array_equal(result, np.array([0, 1, 2, 3], dtype=np.int64))
+
+    @pytest.mark.parametrize("threshold", [0.0, 0.25, 0.5, 1.0])
+    def test_per_axis_projection_matches_reference(self, threshold):
+        """Anisotropic mask (scale_x != scale_y) must match the per-axis reference.
+
+        A single (max-dimension) scale factor would use scale_x for the y axis here and select the
+        wrong tiles, so matching the per-axis reference pins the corrected behaviour.
+        """
+        # scaling=1.0 -> region grid is 4000x1000; mask 500x1000 gives scale_x=0.25, scale_y=0.5.
+        image_width, image_height, slide_mpp = 4000, 1000, 1.0
+        rng = np.random.default_rng(0)
+        mask = (rng.random((500, 1000)) > 0.5).astype(np.uint8)
+
+        regions = np.asarray(
+            [[float(x), float(y), 400.0, 400.0, 1.0] for x in range(0, 4000, 400) for y in range(0, 1000, 400)],
+            dtype=np.float64,
+        )
+
+        result = _run_numpy_kernel(image_width, image_height, slide_mpp, mask, regions, threshold)
+        reference = _reference_foreground_indices(image_width, image_height, slide_mpp, mask, regions, threshold)
+        np.testing.assert_array_equal(result, reference)
+
+    def test_zero_region_mpp_raises(self):
+        mask = np.ones((10, 10), dtype=np.uint8)
+        regions = np.asarray([[0.0, 0.0, 5.0, 5.0, 0.0]], dtype=np.float64)
+        with pytest.raises(Exception, match="Region mpp cannot be zero"):
+            _run_numpy_kernel(100, 100, 0.5, mask, regions, threshold=0.5)

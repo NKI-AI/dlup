@@ -32,7 +32,7 @@
 #include <zstd.h>
 #endif
 
-#define DLUP_VERSION "0.9.2"
+#define DLUP_VERSION "0.9.3"
 namespace fs = std::filesystem;
 namespace nb = nanobind;
 
