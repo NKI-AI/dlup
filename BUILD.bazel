@@ -37,7 +37,7 @@ pip_compile(
     tags = ["manual"],
 )
 
-DLUP_VERSION = "0.9.3"
+DLUP_VERSION = "0.9.4"
 
 # Runtime dependencies to be recorded in the wheel metadata (PEP 508).
 # We intentionally avoid depending on Bazel `requirement(...)` targets here so

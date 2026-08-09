@@ -2,7 +2,7 @@
 
 # Project configuration
 PROJECT_NAME           = "DLUP"
-PROJECT_NUMBER         = "0.9.3"
+PROJECT_NUMBER         = "0.9.4"
 PROJECT_BRIEF          = "Deep Learning Utilities for Pathology - C++ API"
 PROJECT_LOGO           =
 
