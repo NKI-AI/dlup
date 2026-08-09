@@ -375,13 +375,19 @@ class SlideDataset(Dataset[TileSample], MaskMixin, AnnotationMixin, LabelMixin):
         self._apply_color_profile = image_config.apply_color_profile
         self.kwargs = kwargs
 
+        # Open the slide once and own it for the dataset's lifetime, released by close(). The read
+        # view, the annotation mpp and the mask computation all read through this single handle.
+        # The slide_image property opens a fresh handle on every access, so reusing it here leaks a
+        # file descriptor per dataset — and an event-loop thread for a remote (network) backend.
+        self._wsi: Optional[SlideImage] = self.slide_image
+
         # Set the base MPP on annotations if not already set
         if self._annotations and self._annotations.mpp is None:
-            self._annotations.mpp = self.slide_image.mpp
+            self._annotations.mpp = self._wsi.mpp
 
         # Create views once at the dataset's target MPP for efficiency
         dataset_mpp = self._grid[2]  # All tiles have the same MPP
-        self._image_view = self.slide_image.get_view_at_mpp(dataset_mpp)
+        self._image_view = self._wsi.get_view_at_mpp(dataset_mpp)
         self._image_view.boundary_mode = BoundaryMode.crop if mask_config.crop else BoundaryMode.zero
 
         self._annotation_view = None
@@ -391,7 +397,7 @@ class SlideDataset(Dataset[TileSample], MaskMixin, AnnotationMixin, LabelMixin):
         self._masked_indices: Optional[npt.NDArray[np.int64]] = None
         if mask_config.mask is not None:
             self._masked_indices = self._apply_mask(
-                self._regions, mask_config.mask, mask_config.mask_threshold, self.slide_image
+                self._regions, mask_config.mask, mask_config.mask_threshold, self._wsi
             )
 
     @property
@@ -418,6 +424,24 @@ class SlideDataset(Dataset[TileSample], MaskMixin, AnnotationMixin, LabelMixin):
             apply_color_profile=self._apply_color_profile,
             **self.kwargs,
         )
+
+    def close(self) -> None:
+        """Release the slide handle this dataset opened.
+
+        A remote (network) backend keeps an event-loop thread and its sockets alive behind the handle,
+        so iterating a cohort without closing leaks descriptors until it fails. Idempotent, and safe to
+        call even if construction did not complete.
+        """
+        wsi = getattr(self, "_wsi", None)
+        if wsi is not None:
+            wsi.close()
+            self._wsi = None
+
+    def __enter__(self) -> "SlideDataset":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
     def __len__(self) -> int:
         if self._masked_indices is not None:
